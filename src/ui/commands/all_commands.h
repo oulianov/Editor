@@ -35,6 +35,7 @@
 #include "shake_screen_widget.h"
 #include "show_choices_widget.h"
 #include "show_message_widget.h"
+#include "simple_command_widgets.h"
 #include "switch_operations_widget.h"
 #include "timer_operation_widget.h"
 #include "tint_screen_widget.h"

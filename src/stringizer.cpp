@@ -130,7 +130,8 @@ namespace
 
 	QString stringizeShowMessage(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Show Message") + ":\n	" + ToQString(com.string);
+		// the next lines are aligned under the text by the command list
+		return Stringizer::tr("Message") + ": " + ToQString(com.string);
 	}
 
 	QString stringizeMessageOptions(const lcf::rpg::EventCommand& com)
@@ -1020,7 +1021,7 @@ namespace
 		case 0: // Switch
 			condition = QString("S[%1:%2]").arg(com.parameters[1], 4, 10, QChar('0'))
 										   .arg(Stringizer::switchName(com.parameters[1])) + " "
-				+ (com.parameters[2] ? Stringizer::tr("ON") : Stringizer::tr("OFF"));
+				+ (com.parameters[2] == 0 ? Stringizer::tr("ON") : Stringizer::tr("OFF"));
 			break;
 		case 1: // Variable
 			condition = variable(com.parameters[1], true) + " ";

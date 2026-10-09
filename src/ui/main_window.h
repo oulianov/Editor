@@ -45,6 +45,7 @@ public:
 
 	MapScene *currentScene();
 	void openScene(int mapID);
+	bool hasMap(int mapID) const;
 	void selectTile(int x, int y);
 
 private slots:
@@ -136,7 +137,20 @@ private slots:
 
 	void on_actionDebugEnableCaching_toggled(bool checked);
 
+	void on_actionReloadExternalChanges_toggled(bool checked);
+
+	void onDatabaseFileChanged();
+
+	void onTreeMapFileChanged();
+
+	void onMapFileChanged(int id);
+
+	void onMapReloaded();
+
 private:
+	bool canReload(int kind) const;
+	void updateWatcher();
+	void populateMapTree(bool open_active_map);
 	void refreshIcons();
 	void closeEvent(QCloseEvent *event);
 	bool saveAll();

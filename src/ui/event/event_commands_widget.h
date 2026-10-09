@@ -45,7 +45,29 @@ private:
 	void deleteEvent(QTreeWidgetItem* item);
 	void refreshList();
 
+	/** Pick a command and insert it before line index (-1: at the end) */
+	void insertCommand(int index);
+	/** Opens the editor of the command; false when cancelled */
+	bool editCommand(int index, bool is_new);
+	void copyCommands(QTreeWidgetItem* item, bool cut);
+	void pasteCommands(QTreeWidgetItem* item);
+	int indexOf(QTreeWidgetItem* item) const;
+	/** The first line of the command at index (a message starts before its next lines) */
+	int commandStart(int index) const;
+	/** The lines of the command of item, with its block */
+	std::pair<int, int> commandRange(QTreeWidgetItem* item) const;
+	void highlightCommand(QTreeWidgetItem* current);
+	void selectIndex(int index);
+
 	ProjectData* m_project = nullptr;
+	bool m_battle = false;
+	static std::vector<lcf::rpg::EventCommand> s_clipboard;
+	/** Lines drawn selected: the command of the current line */
+	std::pair<int, int> m_highlight = {-1, -1};
+
+protected:
+	void keyPressEvent(QKeyEvent* event) override;
+	void drawRow(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
 
 private slots:
 	void editEvent(QTreeWidgetItem* item, int column);

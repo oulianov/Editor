@@ -17,24 +17,42 @@
 
 #include "event_commands_widget.h"
 #include "stringizer.h"
+#include "model/event_command_defaults.h"
 #include "model/event_command_list.h"
+#include "ui/event/event_command_palette.h"
 #include "ui/commands/all_commands.h"
 #include "ui/event/event_raw_widget.h"
 #include "ui/common/widget_as_dialog_wrapper.h"
 #include <iostream>
 #include <QMenu>
+#include <QKeyEvent>
+#include <QTreeWidgetItemIterator>
+#include "common/dbstring.h"
+#include <QHeaderView>
 #include <QAction>
 #include <memory>
 
+
+std::vector<lcf::rpg::EventCommand> EventCommandsWidget::s_clipboard;
 
 EventCommandsWidget::EventCommandsWidget(QWidget* parent) :
 	QTreeWidget(parent)
 {
 	setHeaderHidden(true);
+	// Show whole lines and scroll sideways, like RPG Maker
+	setTextElideMode(Qt::ElideNone);
+	setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+	header()->setStretchLastSection(false);
 
 	setContextMenuPolicy(Qt::CustomContextMenu);
 
 	connect(this, &QTreeWidget::itemDoubleClicked, this, &EventCommandsWidget::editEvent);
+	// One line is selected, as usual; the other lines of its command (the
+	// lines of a message, a whole branch...) are drawn selected with it
+	connect(this, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current) {
+		highlightCommand(current);
+	});
 	connect(this, &QTreeWidget::customContextMenuRequested, this, &EventCommandsWidget::showContextMenu);
 }
 
@@ -43,6 +61,7 @@ void EventCommandsWidget::setData(ProjectData& project, lcf::rpg::CommonEvent* e
 }
 
 void EventCommandsWidget::setData(ProjectData& project, lcf::rpg::TroopPage* event) {
+	m_battle = true;
 	setDataInternal(project, event);
 }
 
@@ -69,11 +88,35 @@ WidgetAsDialogWrapper<T, EventCommandList>* make_complex_evt_dialog(ProjectData*
 }
 
 void EventCommandsWidget::editEvent(QTreeWidgetItem* item, int column) {
-	assert(column == 0);
+	Q_UNUSED(column)
+	if (!item) {
+		return;
+	}
+	int index = indexOf(item);
+	using Cmd = lcf::rpg::EventCommand::Code;
+	// The empty line closing a block: insert a command there, like RPG Maker
+	if (index >= static_cast<int>(m_commands->size()) || static_cast<Cmd>((*m_commands)[index].code) == Cmd::END) {
+		insertCommand(index);
+		return;
+	}
+	if (editCommand(index, false)) {
+		refreshList();
+		selectIndex(index);
+	}
+}
 
+bool EventCommandsWidget::editCommand(int index, bool is_new) {
 	using Cmd = lcf::rpg::EventCommand::Code;
 
-	auto& cmd = *static_cast<lcf::rpg::EventCommand*>(item->data(column, Qt::UserRole).value<void*>());
+	// The next lines of a message or comment edit its first line
+	while (index > 0) {
+		auto code = static_cast<Cmd>((*m_commands)[index].code);
+		if (code != Cmd::ShowMessage_2 && code != Cmd::Comment_2) {
+			break;
+		}
+		--index;
+	}
+	auto& cmd = (*m_commands)[index];
 
 	// Commands with no configuration
 	switch (static_cast<Cmd>(cmd.code))	{
@@ -114,36 +157,12 @@ void EventCommandsWidget::editEvent(QTreeWidgetItem* item, int column) {
 		case Cmd::EndInn:
 		case Cmd::ElseBranch_B:
 		case Cmd::EndBranch_B:
-			return;
+			return true;
 		default:
 			break;
 	}
 
 	std::unique_ptr<QDialog> evt_dialog;
-
-	int index = item->text(1).toInt();
-
-	// Event commands that need special handling
-	// FIXME: Causes a visual glitch because the wrong item is updated in the Tree
-	switch (static_cast<Cmd>(cmd.code)) {
-		case Cmd::ShowMessage_2: {
-			// Search for a ShowMessage command above and invoke it instead
-			for (int i = index - 1; i >= 0; --i) {
-				auto& cur_cmd = (*m_commands)[i];
-				auto code = static_cast<Cmd>(cur_cmd.code);
-				if (code == Cmd::ShowMessage_2) {
-					continue;
-				} else if (static_cast<Cmd>(cur_cmd.code) == Cmd::ShowMessage) {
-					index = i;
-					cmd = cur_cmd;
-					break;
-				} else {
-					Q_ASSERT(false && "Event list corrupted: ShowMessage_2 without ShowMessage");
-				}
-			}
-		}
-		default: break;
-	}
 
 	EventCommandList evt_lst(*m_commands, index);
 
@@ -210,7 +229,7 @@ void EventCommandsWidget::editEvent(QTreeWidgetItem* item, int column) {
 		//case Cmd::SpriteTransparency: evt_dialog.reset(make_evt_dialog<SpriteTransparencyWidget>(m_project, cmd, this)); break;
 		//case Cmd::FlashSprite: evt_dialog.reset(make_evt_dialog<FlashSpriteWidget>(m_project, cmd, this)); break;
 		//case Cmd::MoveEvent: evt_dialog.reset(make_evt_dialog<MoveEventWidget>(m_project, cmd, this)); break;
-		//case Cmd::Wait: evt_dialog.reset(make_evt_dialog<WaitWidget>(m_project, cmd, this)); break;
+		case Cmd::Wait: evt_dialog.reset(make_evt_dialog<WaitWidget>(m_project, cmd, this)); break;
 		//case Cmd::PlayBGM: evt_dialog.reset(make_evt_dialog<PlayBgmWidget>(m_project, cmd, this)); break;
 		//case Cmd::FadeOutBGM: evt_dialog.reset(make_evt_dialog<FadeOutBgmWidget>(m_project, cmd, this)); break;
 		//case Cmd::PlaySound: evt_dialog.reset(make_evt_dialog<PlaySoundWidget>(m_project, cmd, this)); break;
@@ -229,8 +248,8 @@ void EventCommandsWidget::editEvent(QTreeWidgetItem* item, int column) {
 		//case Cmd::ConditionalBranch: evt_dialog.reset(make_evt_dialog<ConditionalBranchWidget>(m_project, cmd, this)); break;
 		//case Cmd::Label: evt_dialog.reset(make_evt_dialog<LabelWidget>(m_project, cmd, this)); break;
 		//case Cmd::JumpToLabel: evt_dialog.reset(make_evt_dialog<JumpToLabelWidget>(m_project, cmd, this)); break;
-		//case Cmd::CallEvent: evt_dialog.reset(make_evt_dialog<CallEventWidget>(m_project, cmd, this)); break;
-		//case Cmd::Comment: evt_dialog.reset(make_evt_dialog<CommentWidget>(m_project, cmd, this)); break;
+		case Cmd::CallEvent: evt_dialog.reset(make_evt_dialog<CallEventWidget>(m_project, cmd, this)); break;
+		case Cmd::Comment: evt_dialog.reset(make_complex_evt_dialog<CommentWidget>(m_project, evt_lst, this)); break;
 		//case Cmd::ChangeMonsterHP: evt_dialog.reset(make_evt_dialog<ChangeMonsterHPWidget>(m_project, cmd, this)); break;
 		//case Cmd::ChangeMonsterMP: evt_dialog.reset(make_evt_dialog<ChangeMonsterMPWidget>(m_project, cmd, this)); break;
 		//case Cmd::ChangeMonsterCondition: evt_dialog.reset(make_evt_dialog<ChangeMonsterConditionWidget>(m_project, cmd, this)); break;
@@ -258,12 +277,16 @@ void EventCommandsWidget::editEvent(QTreeWidgetItem* item, int column) {
 		//case Cmd::Maniac_ChangePictureId: evt_dialog.reset(make_evt_dialog<Maniac_ChangePictureIdWidget>(m_project, cmd, this)); break;
 		//case Cmd::Maniac_SetGameOption: evt_dialog.reset(make_evt_dialog<Maniac_SetGameOptionWidget>(m_project, cmd, this)); break;
 		//case Cmd::Maniac_CallCommand: evt_dialog.reset(make_evt_dialog<Maniac_CallCommandWidget>(m_project, cmd, this)); break;
-		default: editRawEvent(item, column, true); return;
+		default: {
+			// No dedicated editor yet: edit the parameters
+			auto* wrapper = new WidgetAsDialogWrapper<EventRawWidget, lcf::rpg::EventCommand>(*m_project, cmd, this);
+			wrapper->widget()->setShowWarning(!is_new);
+			evt_dialog.reset(wrapper);
+			break;
+		}
 	}
 
-	evt_dialog->exec();
-
-	currentItem()->setData(column, Qt::DisplayRole, Stringizer::stringize(cmd));
+	return evt_dialog->exec() == QDialog::Accepted;
 }
 
 void EventCommandsWidget::addRawEvent(QTreeWidgetItem *item) {
@@ -288,9 +311,8 @@ void EventCommandsWidget::addRawEvent(QTreeWidgetItem *item) {
 void EventCommandsWidget::editRawEvent(QTreeWidgetItem *item, int column, bool show_warning) {
 	assert(column == 0);
 
-	auto& cmd = *static_cast<lcf::rpg::EventCommand*>(item->data(column, Qt::UserRole).value<void*>());
-
-	auto* wrapper = new WidgetAsDialogWrapper<EventRawWidget, lcf::rpg::EventCommand>(*m_project, cmd, this);
+	int index = indexOf(item);
+	auto* wrapper = new WidgetAsDialogWrapper<EventRawWidget, lcf::rpg::EventCommand>(*m_project, (*m_commands)[index], this);
 	wrapper->widget()->setShowWarning(show_warning);
 
 	std::unique_ptr<QDialog> dialog;
@@ -298,34 +320,169 @@ void EventCommandsWidget::editRawEvent(QTreeWidgetItem *item, int column, bool s
 
 	dialog->exec();
 	refreshList();
+	selectIndex(index);
 }
 
 void EventCommandsWidget::deleteEvent(QTreeWidgetItem *item) {
-	m_commands->erase(m_commands->begin() + item->text(1).toInt());
+	auto range = commandRange(item);
+	if (range.first == range.second) {
+		// a line of the structure of a block: remove the block instead
+		return;
+	}
+	m_commands->erase(m_commands->begin() + range.first, m_commands->begin() + range.second);
 	refreshList();
+	selectIndex(range.first);
+}
+
+void EventCommandsWidget::insertCommand(int index) {
+	using Cmd = lcf::rpg::EventCommand::Code;
+	if (!m_commands) {
+		return;
+	}
+	// Insert before the selected line, as RPG Maker does
+	if (index < 0 || index > static_cast<int>(m_commands->size())) {
+		index = static_cast<int>(m_commands->size());
+	}
+
+	const bool rpg2k3 = m_project->database().system.ldb_id == 2003;
+	EventCommandPalette palette(rpg2k3, m_battle, this);
+	if (palette.exec() != QDialog::Accepted) {
+		return;
+	}
+	Cmd code = palette.selectedCode();
+
+	int indent = index < static_cast<int>(m_commands->size()) ? (*m_commands)[index].indent : 0;
+	auto lines = EventCommandDefaults::make(code, indent);
+	m_commands->insert(m_commands->begin() + index, lines.begin(), lines.end());
+	refreshList();
+
+	// Configure it now; cancelling removes it
+	if (!editCommand(index, true)) {
+		auto range = EventCommandDefaults::range(*m_commands, index);
+		m_commands->erase(m_commands->begin() + range.first, m_commands->begin() + std::max(range.second, range.first + 1));
+	}
+	refreshList();
+	selectIndex(index);
+}
+
+void EventCommandsWidget::copyCommands(QTreeWidgetItem* item, bool cut) {
+	auto range = commandRange(item);
+	if (range.first == range.second) {
+		return;
+	}
+	s_clipboard.assign(m_commands->begin() + range.first, m_commands->begin() + range.second);
+	if (cut) {
+		m_commands->erase(m_commands->begin() + range.first, m_commands->begin() + range.second);
+		refreshList();
+		selectIndex(range.first);
+	}
+}
+
+void EventCommandsWidget::pasteCommands(QTreeWidgetItem* item) {
+	if (s_clipboard.empty()) {
+		return;
+	}
+	int index = item ? indexOf(item) : static_cast<int>(m_commands->size());
+	m_commands->insert(m_commands->begin() + index, s_clipboard.begin(), s_clipboard.end());
+	refreshList();
+	selectIndex(index);
+}
+
+int EventCommandsWidget::commandStart(int index) const {
+	using Cmd = lcf::rpg::EventCommand::Code;
+	while (index > 0 && index < static_cast<int>(m_commands->size())) {
+		auto code = static_cast<Cmd>((*m_commands)[index].code);
+		if (code != Cmd::ShowMessage_2 && code != Cmd::Comment_2) {
+			break;
+		}
+		--index;
+	}
+	return index;
+}
+
+std::pair<int, int> EventCommandsWidget::commandRange(QTreeWidgetItem* item) const {
+	return EventCommandDefaults::range(*m_commands, commandStart(indexOf(item)));
+}
+
+void EventCommandsWidget::highlightCommand(QTreeWidgetItem* current) {
+	m_highlight = {-1, -1};
+	if (current) {
+		m_highlight = commandRange(current);
+		if (m_highlight.first == m_highlight.second) {
+			m_highlight = {indexOf(current), indexOf(current) + 1};
+		}
+	}
+	viewport()->update();
+}
+
+void EventCommandsWidget::drawRow(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const {
+	QStyleOptionViewItem row = option;
+	const int line = indexOf(itemFromIndex(index));
+	if (line >= m_highlight.first && line < m_highlight.second) {
+		row.state |= QStyle::State_Selected;
+	}
+	QTreeWidget::drawRow(painter, row, index);
+}
+
+int EventCommandsWidget::indexOf(QTreeWidgetItem* item) const {
+	return item ? item->text(1).toInt() : -1;
+}
+
+void EventCommandsWidget::selectIndex(int index) {
+	for (QTreeWidgetItemIterator it(this); *it; ++it) {
+		if (indexOf(*it) == index) {
+			setCurrentItem(*it);
+			scrollToItem(*it);
+			return;
+		}
+	}
+}
+
+void EventCommandsWidget::keyPressEvent(QKeyEvent* event) {
+	QTreeWidgetItem* item = currentItem();
+	if (event->matches(QKeySequence::Copy) && item) {
+		copyCommands(item, false);
+	} else if (event->matches(QKeySequence::Cut) && item) {
+		copyCommands(item, true);
+	} else if (event->matches(QKeySequence::Paste)) {
+		pasteCommands(item);
+	} else if ((event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) && item) {
+		deleteEvent(item);
+	} else if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && item) {
+		editEvent(item, 0);
+	} else if (event->key() == Qt::Key_Insert || event->key() == Qt::Key_Space) {
+		insertCommand(item ? indexOf(item) : -1);
+	} else {
+		QTreeWidget::keyPressEvent(event);
+	}
 }
 
 void EventCommandsWidget::showContextMenu(const QPoint& pos) {
 	auto* item = this->itemAt(pos);
-
-	auto* editAct = new QAction(tr("Edit") + "...", this);
-	auto* addRawAct = new QAction(tr("Add raw") + "...", this);
-	auto* editRawAct = new QAction(tr("Edit raw") + "...", this);
-	auto* deleteAct = new QAction(tr("Delete"), this);
-
-	connect(editAct, &QAction::triggered, this, [&]{ editEvent(item, 0); });
-	connect(addRawAct, &QAction::triggered, this, [&]{ addRawEvent(item); });
-	connect(editRawAct, &QAction::triggered, this, [&]{ editRawEvent(item, 0, false); });
-	connect(deleteAct, &QAction::triggered, this, [&]{ deleteEvent(item); });
+	using Cmd = lcf::rpg::EventCommand::Code;
+	bool removable = item && commandRange(item).first != commandRange(item).second;
+	bool editable = item && indexOf(item) < static_cast<int>(m_commands->size())
+		&& static_cast<Cmd>((*m_commands)[indexOf(item)].code) != Cmd::END;
 
 	QMenu menu(this);
-	if (item) {
-		menu.addAction(editAct);
+	menu.addAction(tr("Insert") + "...", QKeySequence(Qt::Key_Space), this, [=, this] { insertCommand(item ? indexOf(item) : -1); });
+	if (editable) {
+		menu.addAction(tr("Edit") + "...", QKeySequence(Qt::Key_Return), this, [=, this] { editEvent(item, 0); });
 	}
-	menu.addAction(addRawAct);
+	menu.addSeparator();
+	if (removable) {
+		menu.addAction(tr("Cut"), QKeySequence::Cut, this, [=, this] { copyCommands(item, true); });
+		menu.addAction(tr("Copy"), QKeySequence::Copy, this, [=, this] { copyCommands(item, false); });
+	}
+	auto* paste = menu.addAction(tr("Paste"), QKeySequence::Paste, this, [=, this] { pasteCommands(item); });
+	paste->setEnabled(!s_clipboard.empty());
+	if (removable) {
+		menu.addAction(tr("Delete"), QKeySequence::Delete, this, [=, this] { deleteEvent(item); });
+	}
+	menu.addSeparator();
+	menu.addAction(tr("Add raw") + "...", this, [=, this] { addRawEvent(item); });
 	if (item) {
-		menu.addAction(editRawAct);
-		menu.addAction(deleteAct);
+		menu.addAction(tr("Edit raw") + "...", this, [=, this] { editRawEvent(item, 0, false); });
 	}
 
 	menu.exec(mapToGlobal(pos));
@@ -373,6 +530,20 @@ void EventCommandsWidget::refreshList() {
 		cmd.indent = indent;
 
 		auto* item = new QTreeWidgetItem({Stringizer::stringize(cmd), QString::number(i)});
+		if (static_cast<Cmd>(cmd.code) == Cmd::ShowMessage_2 || static_cast<Cmd>(cmd.code) == Cmd::Comment_2) {
+			// under the text of the first line, after its "Message: "
+			QString first = static_cast<Cmd>(cmd.code) == Cmd::ShowMessage_2
+				? Stringizer::tr("Message") : Stringizer::tr("Comment");
+			const QFontMetrics metrics(font());
+			const int spaces = (metrics.horizontalAdvance(first + ": ") - metrics.horizontalAdvance(QStringLiteral(": ")))
+				/ std::max(1, metrics.horizontalAdvance(QChar(' ')));
+			item->setText(0, QString(spaces, ' ') + ": " + ToQString(cmd.string));
+		}
+		if (static_cast<Cmd>(cmd.code) == Cmd::END) {
+			// where commands are inserted
+			item->setText(0, QStringLiteral("<>"));
+			item->setForeground(0, palette().brush(QPalette::Disabled, QPalette::Text));
+		}
 		item->setToolTip(0, tr("Line") + ": " + QString::number(i + 1));
 		item->setData(0, Qt::UserRole, QVariant::fromValue(reinterpret_cast<void*>(&cmd)));
 
@@ -400,6 +571,11 @@ void EventCommandsWidget::refreshList() {
 
 		prev_indent = indent;
 	}
+
+	// RPG Maker does not store the empty line ending the page, it only shows it
+	auto* last = new QTreeWidgetItem({QStringLiteral("<>"), QString::number(m_commands->size())});
+	last->setForeground(0, palette().brush(QPalette::Disabled, QPalette::Text));
+	addTopLevelItem(last);
 
 	expandAll();
 }

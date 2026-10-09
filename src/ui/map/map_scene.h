@@ -24,6 +24,7 @@
 #include <QGraphicsView>
 #include <QMap>
 #include <QMenu>
+#include <QPointer>
 #include <QUndoStack>
 #include <QTreeWidgetItem>
 #include <memory>
@@ -32,6 +33,7 @@
 #include "core.h"
 
 class ProjectData;
+class EventDialog;
 
 class MapScene : public QGraphicsScene
 {
@@ -53,6 +55,13 @@ public:
 	void setEventData(int id, const lcf::rpg::Event &data);
 	QMap<int, lcf::rpg::Event *> *mapEvents();
 	void editMapProperties(QTreeWidgetItem *item);
+	/** Take the map info (name...) from the map tree again, unless edited */
+	void refreshMapInfo();
+	/** The map file was changed by another program: read it again */
+	void reloadFromDisk();
+	/** Open the event dialog of an event (modal) */
+	void editEvent(int id);
+	lcf::rpg::Event* findEvent(int id);
 
 signals:
 
@@ -61,6 +70,9 @@ signals:
 	void mapSaved();
 
 	void mapReverted();
+
+	/** The map was read again from disk (its events are new objects) */
+	void mapReloaded();
 
 public slots:
 	void redrawMap();
@@ -154,5 +166,7 @@ private:
 	lcf::rpg::Event event_clipboard;
 	bool event_clipboard_set = false;
 	QList<QGraphicsItem*> grid_lines;
+	QPointer<EventDialog> m_eventDialog;
+	int m_eventDialogId = 0;
 };
 

@@ -33,6 +33,7 @@
 #include <lcf/rpg/chipset.h>
 #include "ui/other/run_game_dialog.h"
 #include "model/project.h"
+#include "model/project_watcher.h"
 
 class Core : public QObject
 {
@@ -109,6 +110,8 @@ public:
 	void setSelection(std::vector<short> n_sel, int n_w, int n_h);
 
 	lcf::rpg::Event *currentMapEvent(int eventID);
+	/** The events of the map being edited, by id (nullptr without a map) */
+	const QMap<int, lcf::rpg::Event *>* currentMapEvents() const;
 	void setCurrentMapEvents(QMap<int, lcf::rpg::Event *> *events);
 
 	void runGame();
@@ -119,6 +122,9 @@ public:
 	const std::shared_ptr<Project>& project() const;
 
 	QQmlApplicationEngine* qmlEngine();
+
+	/** Reports project files changed by other programs */
+	ProjectWatcher& watcher();
 
 signals:
 	void toolChanged();
@@ -155,6 +161,7 @@ private:
 	RunGameDialog *m_runGameDialog;
 	std::shared_ptr<Project> m_project;
 	QQmlApplicationEngine* m_qml_engine = nullptr;
+	ProjectWatcher m_watcher;
 };
 
 Core& core();

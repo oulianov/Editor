@@ -41,7 +41,17 @@ public:
 							const lcf::rpg::Event &e2);
 
 	lcf::rpg::Event getEvent() const;
-	void setEvent(lcf::rpg::Event& event);
+	void setEvent(const lcf::rpg::Event& event);
+
+	/** Cancel, Apply or Ok: how the dialog was closed */
+	int editResult() const;
+
+	/** Whether the user changed the event since it was shown */
+	bool isModified() const;
+
+	/** The event was changed by another program (nullptr: it was removed).
+	 *  Shows the new version, asking first when the user changed it. */
+	void reloadEvent(const lcf::rpg::Event* event);
 
 private slots:
 	void apply();
@@ -55,6 +65,8 @@ private slots:
 	void on_pushPastePage_clicked();
 
 	void on_pushDeletePage_clicked();
+
+	void on_pushClearPage_clicked();
 
 private:
 	Ui::EventDialog *ui;

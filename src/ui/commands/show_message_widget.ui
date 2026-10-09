@@ -31,26 +31,5 @@
   </layout>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>message</sender>
-   <signal>textChanged()</signal>
-   <receiver>ShowMessageWidget</receiver>
-   <slot>textChanged()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>298</x>
-     <y>96</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>298</x>
-     <y>113</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
- <slots>
-  <slot>helpRequest()</slot>
-  <slot>textChanged()</slot>
- </slots>
+ <connections/>
 </ui>

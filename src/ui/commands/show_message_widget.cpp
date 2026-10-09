@@ -51,6 +51,6 @@ void ShowMessageWidget::setData(EventCommandList* commands) {
 }
 
 void ShowMessageWidget::apply() {
-	//m_commands->command().string = ToDBString(ui->message->toPlainText());
-	// FIXME: Todo
+	QStringList lines = ui->message->toPlainText().split('\n');
+	m_commands->setLines(lcf::rpg::EventCommand::Code::ShowMessage_2, lines);
 }

@@ -22,7 +22,7 @@
 #include <QAbstractItemModel>
 #include <QSortFilterProxyModel>
 #include <QCompleter>
-#include <QPushButton>
+#include <QToolButton>
 #include <functional>
 #include <QHBoxLayout>
 #include <QMessageBox>
@@ -104,7 +104,7 @@ public:
 	};
 
 private:
-	QPushButton* m_editButton;
+	QToolButton* m_editButton;
 	ProjectData* m_project = nullptr;
 	RpgModel<LCF>* m_model = nullptr;
 	QSortFilterProxyModel* m_filter = nullptr;
@@ -115,21 +115,31 @@ RpgComboBox<LCF>::RpgComboBox(QWidget *parent, QAbstractItemModel *model) :
 	RpgComboBoxBase(parent)
 {
 	m_comboBox = new QComboBox(this);
-	m_editButton = new QPushButton("...", this);
+	// a tool button: as tall as the combo box in every style (a push button
+	// has a large bezel on macOS)
+	m_editButton = new QToolButton(this);
+	m_editButton->setText(QStringLiteral("..."));
+	m_editButton->setToolTip(QObject::tr("Edit in the database"));
 
+	// No margins: it sits in other layouts like a plain combo box
 	auto* layout = new QHBoxLayout(this);
-	layout->addWidget(m_comboBox);
+	layout->setContentsMargins(0, 0, 0, 0);
+	layout->setSpacing(2);
+	layout->addWidget(m_comboBox, 1);
 	layout->addWidget(m_editButton);
 
-	QSizePolicy policy;
-	policy.setHorizontalPolicy(QSizePolicy::Maximum);
-	m_editButton->setSizePolicy(policy);
+	// Long database names are elided instead of widening the whole dialog
+	m_comboBox->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+	m_comboBox->setMinimumContentsLength(14);
+	m_comboBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	m_editButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
 	if (model) {
 		m_comboBox->setModel(model);
 	}
 
-	QObject::connect(m_editButton, &QPushButton::pressed, [&] {
+	QObject::connect(m_editButton, &QToolButton::pressed, [&] {
 		int id = m_comboBox->currentData().toInt();
 		if (id == 0) {
 			return;

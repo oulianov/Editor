@@ -41,6 +41,10 @@ public:
 	static std::shared_ptr<Project> load(const QDir& path);
 
 	bool loadDatabaseAndMapTree();
+	/** Read the database again, after another program changed it */
+	bool reloadDatabase();
+	/** Read the map tree again, after another program changed it */
+	bool reloadTreeMap();
 	std::unique_ptr<lcf::rpg::Map> loadMap(int index) const;
 	bool saveMap(lcf::rpg::Map& map, int index, bool incSavecount = true);
 

@@ -1,0 +1,100 @@
+= Automation, screenshots and logs
+
+The Editor can run a list of commands without anyone at the keyboard: to test
+a change, to check that dialogs fit small screens, or to take screenshots.
+
+== Running a script
+
+----
+easyrpg-editor --script check.txt /path/to/MyGame
+----
+
+The script runs once the project is loaded, then the Editor quits. The exit
+code is the number of failed commands and checks (0 when all pass).
+
+Scripts keep their settings apart from yours (last project, window sizes),
+and nothing is saved unless the script does it.
+
+To run without a display (continuous integration, remote machines), use Qt's
+offscreen platform. Screenshots then use the Fusion style instead of the
+system one:
+
+----
+QT_QPA_PLATFORM=offscreen easyrpg-editor --script check.txt /path/to/MyGame
+----
+
+== Example
+
+----
+# The first event of map 1, on a laptop screen and on a small one
+open-event 1 1
+resize 1280 800
+screenshot shots/event-1280.png
+check-layout
+resize 900 560
+check-layout
+
+# Insert a Wait command at the end of the page
+focus commands
+key End
+key Space
+type Wait
+key Return
+click OK
+expect commands "Wait"
+
+close
+quit
+----
+
+== Commands
+
+One command per line. Empty lines and lines starting with `#` are skipped.
+Arguments with spaces are written between quotes.
+
+Commands that open a dialog (`open-event`, `action`, `click`, `key`) return
+at once: the next commands act on the dialog, until `close`.
+
+[cols="1,3"]
+|===
+| Command | Effect
+
+| `open-project FOLDER` | Opens a project.
+| `open-map ID` | Opens a map in a tab.
+| `open-event MAP EVENT` | Opens the event dialog of an event.
+| `action NAME` | Triggers a menu action, by its object name (`actionDatabase`...).
+| `action NAME on\|off` | Checks or unchecks a menu option (`actionReloadExternalChanges`...).
+| `tab NAME INDEX` | Shows a page of a tab widget, by its object name.
+| `focus NAME` | Gives the focus to a widget, by its object name (`commands` is the command list of the event page shown).
+| `key SEQUENCE` | Presses a key (`Return`, `Space`, `Del`, `Ctrl+C`...) in the focused widget.
+| `type TEXT` | Types text in the focused widget.
+| `click TEXT` | Clicks the button with this text or object name.
+| `click-item NAME TEXT` | Clicks the first line of a list (by object name) that shows the text.
+| `expect NAME TEXT` | Fails unless the widget shows the text (for a list: one of its lines; the current line starts with `>`).
+| `resize WIDTH HEIGHT` | Resizes the dialog or window.
+| `screenshot [FILE]` | Saves the dialog or window as a PNG (default: Pictures/EasyRPG Editor).
+| `check-layout` | Fails for every control smaller than it needs to be (clipped text...).
+| `wait MILLISECONDS` | Waits, for example for a file change.
+| `log TEXT` | Writes the text in the log.
+| `close` | Closes the dialog (like Cancel).
+| `quit` | Quits, ignoring the rest of the script.
+|===
+
+== Screenshots while editing
+
+kbd:[Ctrl+Alt+S] (kbd:[Cmd+Option+S] on macOS) saves the dialog or window
+you are working in to Pictures/EasyRPG Editor. The Editor draws the picture
+itself: no screen recording permission is needed.
+
+== Logs
+
+The Editor logs what it loads, saves and reloads, and what scripts do:
+
+----
+editor.project: project loaded: /path/to/MyGame maps: 24
+editor.reload: map 13 reloaded
+editor.automation: check.txt:3: resize 1280 800
+----
+
+`--verbose` adds the details (files written, keys sent...). Logs can also be
+chosen with Qt's rules, for example `QT_LOGGING_RULES="editor.reload.debug=true"`.

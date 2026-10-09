@@ -19,11 +19,19 @@
 #include "ui_event_page_widget.h"
 #include <QDialogButtonBox>
 #include <QMessageBox>
+#include <QScrollBar>
+#include <QSettings>
+#include <QSplitter>
 #include "core.h"
+#include "defines.h"
+#include "ui/picker/picker_charset_widget.h"
+#include "ui/picker/picker_dialog.h"
 #include "stringizer.h"
 #include "ui/commands/all_commands.h"
 #include "common/dbstring.h"
 #include "common/lcf_widget_binding.h"
+
+static const char SPLITTER_KEY[] = "event_page_settings_width";
 
 EventPageWidget::EventPageWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
@@ -31,6 +39,12 @@ EventPageWidget::EventPageWidget(ProjectData& project, QWidget *parent) :
 	m_project(project)
 {
 	ui->setupUi(this);
+
+	// The settings keep their width and scroll when the window is short,
+	// the command list takes the rest of the window
+	ui->splitter->setStretchFactor(0, 0);
+	ui->splitter->setStretchFactor(1, 1);
+
 
 	ui->comboVarOperation->addItem(tr("Equal to") + " (==)", lcf::rpg::EventPageCondition::Comparison_equal);
 	ui->comboVarOperation->addItem(tr("Greater or equal to") + " (>=)", lcf::rpg::EventPageCondition::Comparison_greater_equal);
@@ -242,20 +256,16 @@ void EventPageWidget::on_spinTimerBSec_valueChanged(int arg1)
 
 void EventPageWidget::on_pushSetSprite_clicked()
 {
-	/* FIXME CharSetPickerDialog dlg(this, true);
-	dlg.setName(ToQString(m_eventPage->character_name));
-	dlg.setFrame(m_eventPage->character_pattern);
-	dlg.setFacing(m_eventPage->character_direction);
-	dlg.setIndex(m_eventPage->character_index);
-	dlg.exec();
-	if (dlg.result() == QDialogButtonBox::Ok)
-	{
-		m_eventPage->character_name = ToDBString(dlg.name());
-		m_eventPage->character_pattern = dlg.frame();
-		m_eventPage->character_direction = dlg.facing();
-		m_eventPage->character_index = dlg.index();
+	// A character of a charset; the facing and frame are kept
+	auto* widget = new PickerCharsetWidget(m_eventPage->character_index, this);
+	PickerDialog dialog(m_project, FileFinder::FileType::Image, widget, this);
+	QObject::connect(&dialog, &PickerDialog::fileSelected, this, [&](const QString& baseName) {
+		m_eventPage->character_name = ToDBString(baseName);
+		m_eventPage->character_index = widget->index();
 		updateGraphic();
-	}*/
+	});
+	dialog.setDirectoryAndFile(CHARSET, ToQString(m_eventPage->character_name));
+	dialog.exec();
 }
 
 void EventPageWidget::updateGraphic()
@@ -281,4 +291,30 @@ void EventPageWidget::updateGraphic()
 		m_charaItem->setVisible(true);
 		m_scene->setSceneRect(0,0,48,64);
 	}
+}
+
+void EventPageWidget::showEvent(QShowEvent* event)
+{
+	QWidget::showEvent(event);
+	if (m_sized) {
+		return;
+	}
+	m_sized = true;
+
+	// Now that the combo boxes are filled, size the settings from their content:
+	// never squeezed, at most a bit wider than needed, at most half the page
+	// to start with. The splitter handle resizes them, and is remembered.
+	const int scrollbar = ui->scrollSettings->verticalScrollBar()->sizeHint().width();
+	const int minimum = ui->settingsContents->minimumSizeHint().width() + scrollbar;
+	const int natural = std::max(minimum, ui->settingsContents->sizeHint().width() + scrollbar);
+	ui->scrollSettings->setMinimumWidth(minimum);
+	ui->scrollSettings->setMaximumWidth(natural + natural / 2);
+
+	int width = QSettings().value(SPLITTER_KEY, natural).toInt();
+	width = std::clamp(width, minimum, std::max(minimum, std::min(natural + natural / 2, ui->splitter->width() / 2)));
+	ui->splitter->setSizes({width, std::max(0, ui->splitter->width() - width)});
+
+	connect(ui->splitter, &QSplitter::splitterMoved, this, [this] {
+		QSettings().setValue(SPLITTER_KEY, ui->splitter->sizes().value(0));
+	});
 }

@@ -48,6 +48,7 @@
 #include <lcf/rpg/map.h>
 #include <lcf/rpg/mapinfo.h>
 #include "model/project.h"
+#include "common/logging.h"
 #include "qmlbinding/project_data_gadget.h"
 
 Q_DECLARE_METATYPE(QList<int>)
@@ -142,6 +143,13 @@ MainWindow::MainWindow(QWidget *parent) :
 			SIGNAL(chipsetChanged()),
 			m_paletteScene,
 			SLOT(onChipsetChange()));
+	// Show what other programs (like a script sync tool) write into the project
+	auto& watcher = core().watcher();
+	watcher.setCanDeliver([this](int kind) { return canReload(kind); });
+	connect(&watcher, &ProjectWatcher::databaseChanged, this, &MainWindow::onDatabaseFileChanged);
+	connect(&watcher, &ProjectWatcher::treeMapChanged, this, &MainWindow::onTreeMapFileChanged);
+	connect(&watcher, &ProjectWatcher::mapChanged, this, &MainWindow::onMapFileChanged);
+	ui->actionReloadExternalChanges->setChecked(m_settings.value(RELOAD_EXTERNAL_KEY, false).toBool());
 	update_actions();
 	core().setRtpDir(m_settings.value(RTP_KEY, QString()).toString());
 	if (core().rtpPath("").isEmpty())
@@ -198,6 +206,28 @@ void MainWindow::LoadProject(QString foldername)
 	//QList<QVariant> m_mapList = m_projSett->value(MAPS, QList<QVariant>()).toList();
 	//QList<QVariant> m_scaleList = m_projSett->value(SCALES, QList<QVariant>()).toList();
 	m_settings.setValue(CURRENT_PROJECT_KEY, core().project()->projectDir().absolutePath());
+	populateMapTree(true);
+	updateWatcher();
+	qCInfo(lcProject).noquote() << "project loaded:" << foldername
+		<< "maps:" << (core().project()->treeMap().maps.size() - 1)
+		<< "reload changed files:" << ui->actionReloadExternalChanges->isChecked();
+
+	/*for(int i = 0; i < m_mapList.count(); i++)
+	{
+		int mapId = m_mapList[i].toInt();
+		if (mapId == 0)
+			continue;
+
+		QGraphicsView *view = getView(mapId);
+		MapScene *scene = getScene(mapId);
+		scene->setScale(i < m_scaleList.size() ? m_scaleList[i].toFloat() : 1.0);
+		ui->tabMap->setCurrentWidget(view);
+	}*/
+	update_actions();
+}
+
+void MainWindow::populateMapTree(bool open_active_map)
+{
 	ui->treeMap->clear();
 	QTreeWidgetItem *root = new QTreeWidgetItem();
 	root->setData(1, Qt::DisplayRole, 0);
@@ -228,7 +258,7 @@ void MainWindow::LoadProject(QString foldername)
 				break;
 			}
 		m_treeItems[info.parent_map]->addChild(m_treeItems[info.ID]);
-		if (info.ID == maps.active_node)
+		if (info.ID == maps.active_node && open_active_map)
 		{
 			ui->treeMap->setCurrentItem(m_treeItems[info.ID]);
 			this->on_treeMap_itemDoubleClicked(m_treeItems[info.ID], 0);
@@ -237,21 +267,10 @@ void MainWindow::LoadProject(QString foldername)
 	//Expand Items
 	for (unsigned int i = 0; i < maps.maps.size(); i++)
 	{
-		m_treeItems[maps.maps[i].ID]->setExpanded(maps.maps[i].expanded_node);
+		if (m_treeItems[maps.maps[i].ID])
+			m_treeItems[maps.maps[i].ID]->setExpanded(maps.maps[i].expanded_node);
 	}
 
-	/*for(int i = 0; i < m_mapList.count(); i++)
-	{
-		int mapId = m_mapList[i].toInt();
-		if (mapId == 0)
-			continue;
-
-		QGraphicsView *view = getView(mapId);
-		MapScene *scene = getScene(mapId);
-		scene->setScale(i < m_scaleList.size() ? m_scaleList[i].toFloat() : 1.0);
-		ui->tabMap->setCurrentWidget(view);
-	}*/
-	update_actions();
 }
 
 void MainWindow::ImportProject(const QDir& src_dir, QDir& target_dir, bool convert_xyz)
@@ -725,6 +744,7 @@ QGraphicsView *MainWindow::getView(int id)
 				SIGNAL(mapSaved()),
 				this,
 				SLOT(on_mapUnchanged()));
+		connect(getScene(id), &MapScene::mapReloaded, this, &MainWindow::onMapReloaded);
 		core().setCurrentMapEvents(getScene(id)->mapEvents());
 		getScene(id)->setScale(2.0);
 		getScene(id)->Init();
@@ -799,6 +819,7 @@ void MainWindow::on_actionProjectClose_triggered()
 			removeView(currentScene()->id());
 
 		core().project().reset();
+		updateWatcher();
 
 		m_copiedMap.clear();
 
@@ -1037,10 +1058,9 @@ bool MainWindow::saveAll()
 		}
 	}
 
-	if (core().project()) {
-		core().project()->saveTreeMap();
-	}
-
+	// The map tree is written whenever the Editor changes it (maps saved,
+	// added, removed...): writing it again here could only overwrite the
+	// changes of another program
 	return true;
 }
 
@@ -1331,6 +1351,11 @@ void MainWindow::openScene(int mapID)
 	this->on_treeMap_itemDoubleClicked(m_treeItems[mapID], 0);
 }
 
+bool MainWindow::hasMap(int mapID) const
+{
+	return mapID > 0 && m_treeItems.value(mapID) != nullptr;
+}
+
 void MainWindow::selectTile(int x, int y)
 {
 	if (currentScene())
@@ -1403,4 +1428,115 @@ void MainWindow::refreshIcons() {
 
 	// Help
 	set(ui->actionContents, "help-about");
+}
+
+void MainWindow::updateWatcher()
+{
+	const auto& project = core().project();
+	if (project && ui->actionReloadExternalChanges->isChecked()) {
+		core().watcher().setProject(project->projectDir().absolutePath(),
+			project->projectType() == FileFinder::ProjectType::EasyRpg);
+	} else {
+		core().watcher().setProject(QString(), false);
+	}
+}
+
+void MainWindow::on_actionReloadExternalChanges_toggled(bool checked)
+{
+	m_settings.setValue(RELOAD_EXTERNAL_KEY, checked);
+	updateWatcher();
+}
+
+bool MainWindow::canReload(int kind) const
+{
+	QWidget* modal = QApplication::activeModalWidget();
+	if (!modal) {
+		return true;
+	}
+	// An event dialog follows the changes of its map. Other dialogs keep
+	// pointers into the data: wait until they are closed.
+	return kind > 0 && qobject_cast<EventDialog*>(modal) != nullptr;
+}
+
+void MainWindow::onDatabaseFileChanged()
+{
+	if (!core().project()) {
+		return;
+	}
+	if (!core().project()->reloadDatabase()) {
+		statusBar()->showMessage(tr("The database changed on disk but could not be read"), 5000);
+		return;
+	}
+	// Chipsets can have changed
+	if (currentScene()) {
+		core().LoadChipset(currentScene()->chipsetId());
+		m_paletteScene->onChipsetChange();
+	}
+	for (int i = 0; i < ui->tabMap->count(); i++) {
+		getTabScene(i)->redrawMap();
+	}
+	statusBar()->showMessage(tr("Database reloaded"), 3000);
+	qCInfo(lcReload) << "database reloaded";
+}
+
+void MainWindow::onTreeMapFileChanged()
+{
+	if (!core().project()) {
+		return;
+	}
+	QTreeWidgetItem* current = ui->treeMap->currentItem();
+	int current_id = current ? current->data(1, Qt::DisplayRole).toInt() : -1;
+
+	if (!core().project()->reloadTreeMap()) {
+		statusBar()->showMessage(tr("The map tree changed on disk but could not be read"), 5000);
+		return;
+	}
+	populateMapTree(false);
+	if (m_treeItems.contains(current_id) && m_treeItems[current_id]) {
+		ui->treeMap->setCurrentItem(m_treeItems[current_id]);
+	}
+
+	// Close the maps that were removed, update the names of the others
+	for (int i = ui->tabMap->count() - 1; i >= 0; i--) {
+		MapScene* scene = getTabScene(i);
+		if (!m_treeItems.contains(scene->id())) {
+			if (!scene->isModified()) {
+				removeView(scene->id());
+			}
+			continue;
+		}
+		scene->refreshMapInfo();
+		ui->tabMap->setTabText(i, scene->mapName() + (scene->isModified() ? " *" : ""));
+	}
+	statusBar()->showMessage(tr("Map tree reloaded"), 3000);
+	qCInfo(lcReload) << "map tree reloaded";
+}
+
+void MainWindow::onMapFileChanged(int id)
+{
+	if (MapScene* scene = getScene(id)) {
+		scene->reloadFromDisk();
+		statusBar()->showMessage(tr("%1 reloaded").arg(scene->mapName()), 3000);
+		qCInfo(lcReload) << "map" << id << "reloaded";
+	} else {
+		qCDebug(lcReload) << "map" << id << "changed on disk, not open";
+	}
+}
+
+void MainWindow::onMapReloaded()
+{
+	auto* scene = qobject_cast<MapScene*>(sender());
+	if (scene && scene == currentScene()) {
+		// The event list points into the map, which was replaced
+		core().setCurrentMapEvents(scene->mapEvents());
+		core().LoadChipset(scene->chipsetId());
+		m_paletteScene->onChipsetChange();
+	}
+	if (!scene) {
+		return;
+	}
+	int index = ui->tabMap->indexOf(m_views.value(scene->id()));
+	if (index >= 0) {
+		ui->tabMap->setTabText(index, scene->mapName());
+	}
 }

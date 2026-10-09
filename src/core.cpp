@@ -697,6 +697,10 @@ QQmlApplicationEngine* Core::qmlEngine() {
 	return m_qml_engine;
 }
 
+ProjectWatcher& Core::watcher() {
+	return m_watcher;
+}
+
 void Core::beginPainting(QPixmap &dest)
 {
 	m_painter.begin(&dest);
@@ -850,6 +854,11 @@ void Core::setSelection(std::vector<short> n_sel, int n_w, int n_h)
 		m_eventSel = n_sel[0];
 		break;
 	}
+}
+
+const QMap<int, lcf::rpg::Event *>* Core::currentMapEvents() const
+{
+	return m_currentMapEvents;
 }
 
 lcf::rpg::Event *Core::currentMapEvent(int eventID)

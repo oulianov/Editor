@@ -20,6 +20,7 @@
 #include <QDialogButtonBox>
 #include <QGraphicsBlurEffect>
 #include <QGraphicsOpacityEffect>
+#include <QMessageBox>
 #include <QPainter>
 #include <QScrollBar>
 #include <QStatusBar>
@@ -436,18 +437,73 @@ void MapScene::on_actionNewEvent()
 }
 
 void MapScene::on_actionEditEvent() {
-	std::vector<lcf::rpg::Event>::iterator ev;
-	for (ev = m_map->events.begin(); ev != m_map->events.end(); ++ev) {
-		if (_index(cur_x, cur_y) == _index(ev->x, ev->y)) {
-			lcf::rpg::Event backup = *ev;
-			int result = EventDialog::edit(m_view, *ev, m_project);
-			if (result != QDialogButtonBox::Cancel) {
-				m_undoStack->push(new UndoEvent(backup, this));
-				emit mapChanged();
-			}
-			redrawMap();
+	if (auto* ev = getEventAt(cur_x, cur_y)) {
+		editEvent(ev->ID);
+	}
+}
+
+void MapScene::editEvent(int id) {
+	auto* ev = findEvent(id);
+	if (!ev) {
+		return;
+	}
+
+	EventDialog dlg(m_project, m_view);
+	dlg.setEvent(*ev);
+	m_eventDialog = &dlg;
+	m_eventDialogId = id;
+	dlg.exec();
+	m_eventDialog = nullptr;
+
+	// The map can have been reloaded while the dialog was open: look the event up again
+	ev = findEvent(id);
+	if (ev && dlg.editResult() != QDialogButtonBox::Cancel) {
+		lcf::rpg::Event backup = *ev;
+		*ev = dlg.getEvent();
+		m_undoStack->push(new UndoEvent(backup, this));
+		emit mapChanged();
+	}
+	redrawMap();
+}
+
+void MapScene::refreshMapInfo() {
+	if (isModified()) {
+		return;
+	}
+	for (const auto& info : m_project.treeMap().maps) {
+		if (info.ID == n_mapInfo.ID) {
+			n_mapInfo = info;
+			break;
+		}
+	}
+}
+
+void MapScene::reloadFromDisk() {
+	if (isModified()) {
+		auto answer = QMessageBox::question(m_view,
+			tr("Map changed on disk"),
+			tr("%1 was changed by another program.\n"
+			   "Reload it and discard your unsaved changes?").arg(mapName()),
+			QMessageBox::Yes | QMessageBox::No);
+		if (answer != QMessageBox::Yes) {
 			return;
 		}
+	}
+
+	auto map = m_project.project().loadMap(n_mapInfo.ID);
+	if (!map) {
+		return;
+	}
+	const bool resized = map->width != m_map->width || map->height != m_map->height;
+	Load(true);
+	if (resized) {
+		redrawGrid();
+		setScale(m_scale);
+	}
+	emit mapReloaded();
+
+	if (m_eventDialog) {
+		m_eventDialog->reloadEvent(findEvent(m_eventDialogId));
 	}
 }
 
@@ -1011,6 +1067,15 @@ void MapScene::selectTile(int x, int y)
 void MapScene::centerOnTile(int x, int y)
 {
 	m_view->centerOn(x * s_tileSize, y * s_tileSize);
+}
+
+lcf::rpg::Event* MapScene::findEvent(int id) {
+	for (auto& ev : m_map->events) {
+		if (ev.ID == id) {
+			return &ev;
+		}
+	}
+	return nullptr;
 }
 
 lcf::rpg::Event* MapScene::getEventAt(int x, int y) {

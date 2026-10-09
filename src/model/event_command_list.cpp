@@ -17,6 +17,7 @@
 
 #include "event_command_list.h"
 #include <cassert>
+#include "common/dbstring.h"
 
 EventCommandList::EventCommandList(std::vector<lcf::rpg::EventCommand>& commands, int current_index) :
 	m_commands(&commands), m_current_index(current_index)
@@ -51,4 +52,28 @@ size_t EventCommandList::size() const {
 
 int EventCommandList::index() const {
 	return m_current_index;
+}
+
+void EventCommandList::setLines(lcf::rpg::EventCommand::Code next_code, const QStringList& lines) {
+	assert(m_commands);
+	auto& cmds = *m_commands;
+	auto& first = cmds[m_current_index];
+	first.string = lcf::DBString(ToDBString(lines.value(0)));
+
+	// remove the old continuation lines, then add the new ones
+	size_t end = m_current_index + 1;
+	while (end < cmds.size() && cmds[end].code == static_cast<int32_t>(next_code)) {
+		++end;
+	}
+	cmds.erase(cmds.begin() + m_current_index + 1, cmds.begin() + end);
+
+	std::vector<lcf::rpg::EventCommand> next;
+	for (int i = 1; i < lines.size(); ++i) {
+		lcf::rpg::EventCommand cmd;
+		cmd.code = static_cast<int32_t>(next_code);
+		cmd.indent = first.indent;
+		cmd.string = lcf::DBString(ToDBString(lines[i]));
+		next.push_back(cmd);
+	}
+	cmds.insert(cmds.begin() + m_current_index + 1, next.begin(), next.end());
 }

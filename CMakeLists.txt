@@ -25,6 +25,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(EDITOR_SOURCES
 	src/common/dbstring.h
 	src/common/filefinder.cpp
+	src/common/logging.cpp
+	src/common/logging.h
 	src/common/filefinder.h
 	src/common/image_loader.cpp
 	src/common/image_loader.h
@@ -54,6 +56,8 @@ set(EDITOR_SOURCES
 	src/model/commonevent.h
 	src/model/enemy.cpp
 	src/model/enemy.h
+	src/model/event_command_defaults.cpp
+	src/model/event_command_defaults.h
 	src/model/event_command_list.cpp
 	src/model/event_command_list.h
 	src/model/item.cpp
@@ -62,6 +66,8 @@ set(EDITOR_SOURCES
 	src/model/project.h
 	src/model/project_data.cpp
 	src/model/project_data.h
+	src/model/project_watcher.cpp
+	src/model/project_watcher.h
 	src/model/rpg_base.cpp
 	src/model/rpg_base.h
 	src/model/rpg_reflect.h
@@ -135,6 +141,8 @@ set(EDITOR_SOURCES
 	src/ui/commands/show_choices_widget.h
 	src/ui/commands/show_choices_widget.ui
 	src/ui/commands/show_message_widget.cpp
+	src/ui/commands/simple_command_widgets.cpp
+	src/ui/commands/simple_command_widgets.h
 	src/ui/commands/show_message_widget.h
 	src/ui/commands/show_message_widget.ui
 	src/ui/commands/switch_operations_widget.cpp
@@ -153,6 +161,8 @@ set(EDITOR_SOURCES
 	src/ui/commands/weather_effects_widget.h
 	src/ui/commands/weather_effects_widget.ui
 	src/ui/common/edit_dialog.cpp
+	src/ui/common/editor_style.cpp
+	src/ui/common/editor_style.h
 	src/ui/common/edit_dialog.h
 	src/ui/common/edit_dialog.ui
 	src/ui/common/encounter_delegate.cpp
@@ -250,6 +260,8 @@ set(EDITOR_SOURCES
 	src/ui/event/battle_page_widget.ui
 	src/ui/event/event_command_base_widget.cpp
 	src/ui/event/event_command_base_widget.h
+	src/ui/event/event_command_palette.cpp
+	src/ui/event/event_command_palette.h
 	src/ui/event/event_commands_widget.cpp
 	src/ui/event/event_commands_widget.h
 	src/ui/event/event_dialog.cpp
@@ -262,6 +274,10 @@ set(EDITOR_SOURCES
 	src/ui/event/event_raw_widget.h
 	src/ui/event/event_raw_widget.ui
 	src/ui/main_window.cpp
+	src/ui/tools/automation.cpp
+	src/ui/tools/automation.h
+	src/ui/tools/screenshot.cpp
+	src/ui/tools/screenshot.h
 	src/ui/main_window.h
 	src/ui/main_window.ui
 	src/ui/map/map_scene.cpp

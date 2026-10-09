@@ -39,6 +39,7 @@
 #define CURRENT_PROJECT_KEY "current_project"
 #define DEFAULT_DIR_KEY "default_dir"
 #define RTP_KEY "rtp_path"
+#define RELOAD_EXTERNAL_KEY "reload_external_changes"
 
 /****************************
  *	   PROJECT SETTINGS		*

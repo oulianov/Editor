@@ -18,11 +18,15 @@
 #include "event_dialog.h"
 #include "ui_event_dialog.h"
 #include <QFileDialog>
+#include <QMessageBox>
+#include <QScreen>
 #include <QSettings>
 #include "event_page_widget.h"
 #include "core.h"
 #include "common/dbstring.h"
 
+
+static const char GEOMETRY_KEY[] = "event_dialog_geometry";
 
 EventDialog::EventDialog(ProjectData& project, QWidget *parent) :
 	QDialog(parent),
@@ -31,6 +35,19 @@ EventDialog::EventDialog(ProjectData& project, QWidget *parent) :
 {
 	ui->setupUi(this);
 	lst_result = QDialogButtonBox::Cancel;
+
+	// Open with the size of last time, within the screen
+	QSettings settings;
+	if (!restoreGeometry(settings.value(GEOMETRY_KEY).toByteArray())) {
+		resize(980, 640);
+	}
+	if (const QScreen* screen = parent ? parent->screen() : this->screen()) {
+		const QSize available = screen->availableGeometry().size() * 0.95;
+		resize(size().boundedTo(available));
+	}
+	connect(this, &QDialog::finished, this, [this] {
+		QSettings().setValue(GEOMETRY_KEY, saveGeometry());
+	});
 	connect(ui->buttonBox->button(QDialogButtonBox::Ok),
 			SIGNAL(clicked()),
 			this,
@@ -133,13 +150,54 @@ lcf::rpg::Event EventDialog::getEvent() const
 	return r_event;
 }
 
-void EventDialog::setEvent(lcf::rpg::Event& event)
+void EventDialog::setEvent(const lcf::rpg::Event& event)
 {
 	m_event = event;
-	r_event = event;
 	ui->lineName->setText(ToQString(m_event.name));
 	this->setWindowTitle(QString("EV: %1").arg(m_event.ID));
 	refreshEventPageTabs();
+	// after the pages, which normalize the command indentation
+	r_event = m_event;
+}
+
+int EventDialog::editResult() const
+{
+	return lst_result;
+}
+
+bool EventDialog::isModified() const
+{
+	lcf::rpg::Event current = m_event;
+	current.name = ToDBString(ui->lineName->text());
+	return lst_result != QDialogButtonBox::Cancel || !equalEvents(current, r_event);
+}
+
+void EventDialog::reloadEvent(const lcf::rpg::Event* event)
+{
+	if (!event) {
+		QMessageBox::information(this,
+			tr("Event removed"),
+			tr("This event was removed from the map by another program."));
+		lst_result = QDialogButtonBox::Cancel;
+		reject();
+		return;
+	}
+
+	if (isModified()) {
+		auto answer = QMessageBox::question(this,
+			tr("Event changed on disk"),
+			tr("This event was changed by another program.\n"
+			   "Show the new version and discard your changes?"),
+			QMessageBox::Yes | QMessageBox::No);
+		if (answer != QMessageBox::Yes) {
+			return;
+		}
+	}
+
+	int page = ui->tabEventPages->currentIndex();
+	lst_result = QDialogButtonBox::Cancel;
+	setEvent(*event);
+	ui->tabEventPages->setCurrentIndex(std::min(page, ui->tabEventPages->count() - 1));
 }
 
 void EventDialog::apply()
@@ -187,13 +245,26 @@ void EventDialog::on_pushDeletePage_clicked() {
 	ui->tabEventPages->setCurrentIndex(std::max(0, cur_index - 1));
 }
 
+void EventDialog::on_pushClearPage_clicked() {
+	int cur_index = ui->tabEventPages->currentIndex();
+	lcf::rpg::EventPage empty;
+	empty.ID = m_event.pages[cur_index].ID;
+	m_event.pages[cur_index] = empty;
+	refreshEventPageTabs();
+	ui->tabEventPages->setCurrentIndex(cur_index);
+}
+
 void EventDialog::refreshEventPageTabs() {
-	ui->tabEventPages->clear();
+	while (ui->tabEventPages->count() > 0) {
+		QWidget* page = ui->tabEventPages->widget(0);
+		ui->tabEventPages->removeTab(0);
+		page->deleteLater();
+	}
 	for (unsigned int i = 0; i < m_event.pages.size(); i++)
 	{
 		EventPageWidget *tab = new EventPageWidget(m_project, this);
 		tab->setEventPage(&(m_event.pages[i]));
-		ui->tabEventPages->addTab(tab,QString::number(i+1));
+		ui->tabEventPages->addTab(tab, QString::number(i+1));
 	}
 	ui->pushDeletePage->setEnabled(m_event.pages.size() >= 2);
 }

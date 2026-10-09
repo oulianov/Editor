@@ -81,6 +81,8 @@
     <addaction name="actionJukebox"/>
     <addaction name="actionSearch"/>
     <addaction name="actionScriptEditor"/>
+    <addaction name="separator"/>
+    <addaction name="actionReloadExternalChanges"/>
    </widget>
    <widget class="QMenu" name="menuGame2">
     <property name="title">
@@ -834,6 +836,20 @@
    </property>
    <property name="toolTip">
     <string>Enable caching in the searchdialog</string>
+   </property>
+  </action>
+  <action name="actionReloadExternalChanges">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Reload Files Changed on Disk</string>
+   </property>
+   <property name="toolTip">
+    <string>Show the changes other programs make to the database, the map tree and the open maps</string>
    </property>
   </action>
   <action name="actionDatabaseNew">

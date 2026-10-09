@@ -19,6 +19,7 @@
 #include "defines.h"
 #include "common/filefinder.h"
 #include "common/scope_guard.h"
+#include "core.h"
 #include <lcf/inireader.h>
 #include <lcf/reader_util.h>
 #include <lcf/ldb/reader.h>
@@ -118,6 +119,34 @@ bool Project::loadDatabaseAndMapTree() {
 	return true;
 }
 
+bool Project::reloadDatabase() {
+	std::unique_ptr<lcf::rpg::Database> db;
+	if (projectType() == FileFinder::ProjectType::Legacy) {
+		db = lcf::LDB_Reader::Load(findFile(RM_DB).toStdString(), encoding().toStdString());
+	} else {
+		db = lcf::LDB_Reader::LoadXml(findFile(EASY_DB).toStdString());
+	}
+	if (db == nullptr) {
+		return false;
+	}
+	m_data.database() = std::move(*db);
+	return true;
+}
+
+bool Project::reloadTreeMap() {
+	std::unique_ptr<lcf::rpg::TreeMap> treemap;
+	if (projectType() == FileFinder::ProjectType::Legacy) {
+		treemap = lcf::LMT_Reader::Load(findFile(RM_MT).toStdString(), encoding().toStdString());
+	} else {
+		treemap = lcf::LMT_Reader::LoadXml(findFile(EASY_MT).toStdString());
+	}
+	if (treemap == nullptr) {
+		return false;
+	}
+	m_data.treeMap() = std::move(*treemap);
+	return true;
+}
+
 std::unique_ptr<lcf::rpg::Map> Project::loadMap(int index) const {
 	QString ext = projectType() == FileFinder::ProjectType::EasyRpg ? "emu" : "lmu";
 
@@ -148,11 +177,14 @@ bool Project::saveMap(lcf::rpg::Map& map, int index, bool incSavecount) {
 		lcf::LMU_Reader::PrepareSave(map);
 	}
 
+	bool saved;
 	if (projectType() == FileFinder::ProjectType::EasyRpg) {
-		return lcf::LMU_Reader::SaveXml(mapFile.toStdString(), map, lcf_engine);
+		saved = lcf::LMU_Reader::SaveXml(mapFile.toStdString(), map, lcf_engine);
 	} else {
-		return lcf::LMU_Reader::Save(mapFile.toStdString(), map, lcf_engine, encoding().toStdString());
+		saved = lcf::LMU_Reader::Save(mapFile.toStdString(), map, lcf_engine, encoding().toStdString());
 	}
+	core().watcher().acknowledge(mapFile);
+	return saved;
 }
 
 void Project::relocate(const QDir& newDir, FileFinder::ProjectType newProjectType) {
@@ -277,30 +309,30 @@ bool Project::saveDatabase(bool inc_savecount) {
 		lcf::LDB_Reader::PrepareSave(m_data.database());
 	}
 
+	bool saved;
+	QString file;
 	if (projectType() == FileFinder::ProjectType::Legacy) {
-		if (!lcf::LDB_Reader::Save(findFileOrDefault(RM_DB).toStdString(), m_data.database(), encoding().toStdString())) {
-			return false;
-		}
+		file = findFileOrDefault(RM_DB);
+		saved = lcf::LDB_Reader::Save(file.toStdString(), m_data.database(), encoding().toStdString());
 	} else {
-		if (!lcf::LDB_Reader::SaveXml(findFileOrDefault(EASY_DB).toStdString(), m_data.database())) {
-			return false;
-		}
+		file = findFileOrDefault(EASY_DB);
+		saved = lcf::LDB_Reader::SaveXml(file.toStdString(), m_data.database());
 	}
-
-	return true;
+	core().watcher().acknowledge(file);
+	return saved;
 }
 
 bool Project::saveTreeMap() {
 	auto lcf_engine = lcf::GetEngineVersion(m_data.database());
+	bool saved;
+	QString file;
 	if (projectType() == FileFinder::ProjectType::Legacy) {
-		if (!lcf::LMT_Reader::Save(findFileOrDefault(RM_MT).toStdString(), m_data.treeMap(), lcf_engine, encoding().toStdString())) {
-			return false;
-		}
+		file = findFileOrDefault(RM_MT);
+		saved = lcf::LMT_Reader::Save(file.toStdString(), m_data.treeMap(), lcf_engine, encoding().toStdString());
 	} else {
-		if (!lcf::LMT_Reader::SaveXml(findFileOrDefault(EASY_MT).toStdString(), m_data.treeMap(), lcf_engine)) {
-			return false;
-		}
+		file = findFileOrDefault(EASY_MT);
+		saved = lcf::LMT_Reader::SaveXml(file.toStdString(), m_data.treeMap(), lcf_engine);
 	}
-
-	return true;
+	core().watcher().acknowledge(file);
+	return saved;
 }

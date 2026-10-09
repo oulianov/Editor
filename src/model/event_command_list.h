@@ -19,6 +19,7 @@
 
 #include <lcf/rpg/eventcommand.h>
 #include <vector>
+#include <QStringList>
 
 class EventCommandList {
 public:
@@ -34,6 +35,10 @@ public:
 	size_t size() const;
 
 	int index() const;
+
+	/** Replaces the current command and its continuation lines (next_code)
+	 *  with one command per line of text. */
+	void setLines(lcf::rpg::EventCommand::Code next_code, const QStringList& lines);
 
 private:
 	std::vector<lcf::rpg::EventCommand>* m_commands = nullptr;

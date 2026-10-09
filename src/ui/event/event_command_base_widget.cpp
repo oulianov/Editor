@@ -145,9 +145,9 @@ void EventCommandBaseWidget::setData(EventCommandList* commands) {
 void EventCommandBaseWidget::connectParameterHandler(QButtonGroup* group, int index, bool set_value) {
 	resizeCommandList(index);
 
+	// A value without a button (a newer engine, a patch, a damaged file):
+	// no button is checked, the value is kept until one is chosen
 	auto* button = group->button(m_cmd->parameters[index]);
-	// FIXME: Better fallback
-	Q_ASSERT_X(button, "connectParameterHandler", "No AbstractButton with this parameter value");
 
 	connect(group, QOverload<QAbstractButton*, bool>::of(&QButtonGroup::buttonToggled), this,
 		[=, this](QAbstractButton*, bool checked) {
@@ -160,7 +160,7 @@ void EventCommandBaseWidget::connectParameterHandler(QButtonGroup* group, int in
 		}
 	});
 
-	if (set_value) {
+	if (set_value && button) {
 		button->setChecked(true);
 	}
 }

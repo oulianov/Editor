@@ -86,12 +86,13 @@ ActorWidget::ActorWidget(ProjectData& project, QWidget *parent) :
 
 	UpdateModels();
 
-	/*FIXME if (database.system.ldb_id != 2003) {
-		for (int i = 0; i < ui->gridBattleSet->count(); ++i) {
-			ui->gridBattleSet->itemAt(i)->widget()->hide();
+	// Classes and battle sets only exist in RPG Maker 2003
+	if (database.system.ldb_id != 2003) {
+		for (QWidget* widget : {static_cast<QWidget*>(ui->label_48), static_cast<QWidget*>(ui->graphicsBattleset),
+				static_cast<QWidget*>(ui->comboBattleset), static_cast<QWidget*>(ui->groupBoxClass)}) {
+			widget->hide();
 		}
-		ui->groupBoxClass->hide();
-	}*/
+	}
 
 	for (auto& uis : { ui->lineName, ui->lineTitle }) {
 		LcfWidgetBinding::connect(this, uis);
