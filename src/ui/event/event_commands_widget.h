@@ -17,9 +17,12 @@
 
 #pragma once
 
+#include <QPalette>
 #include <QTreeWidget>
+#include <array>
 #include <optional>
 #include <vector>
+#include "ui/event/command_colors.h"
 #include <lcf/rpg/commonevent.h>
 #include <lcf/rpg/trooppage.h>
 #include <lcf/rpg/eventpage.h>
@@ -52,6 +55,7 @@ private:
 	void insertCommand(int index);
 	/** Opens the editor of the command; false when cancelled */
 	bool editCommand(int index, bool is_new);
+	static bool hasEditor(lcf::rpg::EventCommand::Code code);
 	void copyCommands(QTreeWidgetItem* item, bool cut);
 	void pasteCommands(QTreeWidgetItem* item);
 	int indexOf(QTreeWidgetItem* item) const;
@@ -76,9 +80,23 @@ private:
 	/** Shows the list as it was (undo / redo) */
 	void showCommands(const std::vector<lcf::rpg::EventCommand>& commands);
 
+	/** Reads the color and stripe options and prepares what lines are drawn with */
+	void updateLook();
+	bool m_colors = true;
+	bool m_stripes = true;
+	QColor m_stripe;
+	/** The palette of a line by the kind of its command (its text color),
+	 *  made once: drawing a line only copies one */
+	std::array<QPalette, static_cast<size_t>(CommandColors::Kind::Count)> m_linePalettes;
+
 protected:
 	void keyPressEvent(QKeyEvent* event) override;
+	void mousePressEvent(QMouseEvent* event) override;
+	QModelIndex moveCursor(CursorAction action, Qt::KeyboardModifiers modifiers) override;
 	void drawRow(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
+	void drawBranches(QPainter* painter, const QRect& rect, const QModelIndex& index) const override;
+	void changeEvent(QEvent* event) override;
+	void resizeEvent(QResizeEvent* event) override;
 
 private slots:
 	void editEvent(QTreeWidgetItem* item, int column);

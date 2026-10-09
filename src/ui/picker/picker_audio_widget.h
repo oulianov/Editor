@@ -21,6 +21,8 @@
 
 #include "picker_child_widget.h"
 
+class AudioPlayer;
+
 namespace Ui {
 class PickerAudioWidget;
 }
@@ -51,12 +53,18 @@ public:
 	int balance() const;
 
 private:
+	void init();
+
 	Ui::PickerAudioWidget *ui;
 
 	Type m_type;
 	QString m_filename;
+	// the preview: stops with the picker
+	AudioPlayer* m_player = nullptr;
 
 private slots:
+	void on_buttonPlay_clicked();
+	void on_buttonStop_clicked();
 	void on_sliderFadeIn_valueChanged(int value);
 	void on_sliderVolume_valueChanged(int value);
 	void on_sliderTempo_valueChanged(int value);

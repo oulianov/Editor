@@ -156,18 +156,7 @@ MoveRouteDialog::MoveRouteDialog(ProjectData& project, const lcf::rpg::MoveRoute
 }
 
 QString MoveRouteDialog::describe(const lcf::rpg::MoveCommand& move) {
-	QString text = Stringizer::moveCommand(move.command_id);
-	switch (static_cast<Code>(move.command_id)) {
-		case Code::switch_on:
-		case Code::switch_off:
-			return text + QString(": [%1: %2]").arg(move.parameter_a, 4, 10, QChar('0')).arg(Stringizer::switchName(move.parameter_a));
-		case Code::change_graphic:
-			return text + QString(": %1, %2").arg(ToQString(move.parameter_string)).arg(move.parameter_a + 1);
-		case Code::play_sound_effect:
-			return text + ": " + ToQString(move.parameter_string);
-		default:
-			return text;
-	}
+	return Stringizer::moveCommand(move);
 }
 
 void MoveRouteDialog::refresh(int select) {

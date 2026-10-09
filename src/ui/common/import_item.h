@@ -19,20 +19,26 @@
 
 #include <QGraphicsPixmapItem>
 #include <QGraphicsSceneMouseEvent>
+#include <functional>
 
+/**
+ * The image shown by ImportImageDialog: reports the pixel clicked, which
+ * becomes the transparent color.
+ */
 class ImportItem : public QGraphicsPixmapItem
 {
 public:
-	explicit ImportItem(const QPixmap pix);
-	
+	explicit ImportItem(const QPixmap& pix = QPixmap());
+
+	/** Called with the pixel (in image coordinates) clicked or dragged over */
+	void setPickHandler(std::function<void(QPoint)> handler);
+
+protected:
+	void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+	void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
+
 private:
-	void mousePressEvent(QGraphicsSceneMouseEvent *event);
+	void pick(const QPointF& pos);
 
-	void updateKeyColor(QPointF pos);
-
-	QPixmap m_original_pix;
-	
-public slots:
-	
+	std::function<void(QPoint)> m_handler;
 };
-

@@ -128,6 +128,8 @@ void Core::LoadChipset(int n_chipsetid)
 	{
 		// unknown chipset: do not keep the tiles of the previous one
 		m_tileCache.clear();
+		for (auto& frames : m_frameCache)
+			frames.clear();
 		emit chipsetChanged();
 		return;
 	}
@@ -156,6 +158,8 @@ void Core::LoadChipset(int n_chipsetid)
 
 	/* BindWaterTiles */
 	m_tileCache.clear();
+	for (auto& frames : m_frameCache)
+		frames.clear();
 
 	/*
 	 * TileIDs:
@@ -229,103 +233,116 @@ void Core::LoadChipset(int n_chipsetid)
 		// Water B uses second block of 3x4 tiles for borders
 		// Water A and Deep Water uses first block
 		int border_xoffset = (terrain_id == 1) ? 3*r_tileSize : 0;
-		/*
-		 * Get base
-		 */
-		QPixmap p_tile(tileSize(), tileSize());
-		QPainter p(&p_tile);
-		if (isABWater (terrain_id))
-			p.drawPixmap(0,0,tileSize(),tileSize(),o_chipset.copy(0, 4*r_tileSize,r_tileSize,r_tileSize));
-		else
-			p.drawPixmap(0,0,tileSize(),tileSize(),o_chipset.copy(0, 7*r_tileSize,r_tileSize,r_tileSize));
-		// Draw UpperLeft corner
-		int dest_x = 0, dest_y = 0;
-#define blit(x,y) p.drawPixmap(dest_x,dest_y,tileSize()/2,tileSize()/2,o_chipset.copy(x, y,r_tileHalf,r_tileHalf))
-		if (u+l == 5)
-			blit(border_xoffset, 0);
-		else if (u)
-			blit(border_xoffset, 2*r_tileSize);
-		else if (l)
-			blit(border_xoffset, r_tileSize);
-		else if (ul)
-			blit(border_xoffset, 3*r_tileSize);
-		else if (sul)
-		{
+		// The frames of the water are the columns of its blocks (the Player's animID)
+		auto water_tile = [&](int frame) {
+			const int frame_x = frame*r_tileSize;
+			/*
+			 * Get base
+			 */
+			QPixmap p_tile(tileSize(), tileSize());
+			p_tile.fill(Qt::transparent);
+			QPainter p(&p_tile);
 			if (isABWater (terrain_id))
-				blit(0, 5*r_tileSize);
+				p.drawPixmap(0,0,tileSize(),tileSize(),o_chipset.copy(frame_x, 4*r_tileSize,r_tileSize,r_tileSize));
 			else
-				blit(0, 6*r_tileSize);
-		}
-		//Draw UpperRight corner
-		dest_x = tileSize()/2;
-		if (u+r == 9)
-			blit(border_xoffset+r_tileHalf, 0);
-		else if (u)
-			blit(border_xoffset+r_tileHalf, 2*r_tileSize);
-		else if (r)
-			blit(border_xoffset+r_tileHalf, r_tileSize);
-		else if (ur)
-			blit(border_xoffset+r_tileHalf, 3*r_tileSize);
-		else if (sur)
-		{
-			if (isABWater (terrain_id))
-				blit(r_tileHalf, 5*r_tileSize);
-			else
-				blit(r_tileHalf, 6*r_tileSize);
-		}
-		//Draw LowerRight corner
-		dest_y = tileSize()/2;
-		if (d+r == 10)
-			blit(border_xoffset+r_tileHalf, r_tileSize/2);
-		else if (d)
-			blit(border_xoffset+r_tileHalf, r_tileSize*5/2);
-		else if (r)
-			blit(border_xoffset+r_tileHalf, r_tileSize*3/2);
-		else if (dr)
-			blit(border_xoffset+r_tileHalf, r_tileSize*7/2);
-		else if (sdr)
-		{
-			if (isABWater (terrain_id))
-				blit(tileSize()/2, r_tileSize*11/2);
-			else
-				blit(tileSize()/2, r_tileSize*13/2);
-		}
-		//Draw LowerLeft corner
-		dest_x = 0;
-		if (d+l == 6)
-			blit(border_xoffset, r_tileSize/2);
-		else if (d)
-			blit(border_xoffset, r_tileSize*5/2);
-		else if (l)
-			blit(border_xoffset, r_tileSize*3/2);
-		else if (dl)
-			blit(border_xoffset, r_tileSize*7/2);
-		else if (sdl)
-		{
-			if (isABWater (terrain_id))
-				blit(0, r_tileSize*11/2);
-			else
-				blit(0, r_tileSize*13/2);
-		}
+				p.drawPixmap(0,0,tileSize(),tileSize(),o_chipset.copy(frame_x, 7*r_tileSize,r_tileSize,r_tileSize));
+			// Draw UpperLeft corner
+			int dest_x = 0, dest_y = 0;
+#define blit(x,y) p.drawPixmap(dest_x,dest_y,tileSize()/2,tileSize()/2,o_chipset.copy(frame_x+(x), y,r_tileHalf,r_tileHalf))
+			if (u+l == 5)
+				blit(border_xoffset, 0);
+			else if (u)
+				blit(border_xoffset, 2*r_tileSize);
+			else if (l)
+				blit(border_xoffset, r_tileSize);
+			else if (ul)
+				blit(border_xoffset, 3*r_tileSize);
+			else if (sul)
+			{
+				if (isABWater (terrain_id))
+					blit(0, 5*r_tileSize);
+				else
+					blit(0, 6*r_tileSize);
+			}
+			//Draw UpperRight corner
+			dest_x = tileSize()/2;
+			if (u+r == 9)
+				blit(border_xoffset+r_tileHalf, 0);
+			else if (u)
+				blit(border_xoffset+r_tileHalf, 2*r_tileSize);
+			else if (r)
+				blit(border_xoffset+r_tileHalf, r_tileSize);
+			else if (ur)
+				blit(border_xoffset+r_tileHalf, 3*r_tileSize);
+			else if (sur)
+			{
+				if (isABWater (terrain_id))
+					blit(r_tileHalf, 5*r_tileSize);
+				else
+					blit(r_tileHalf, 6*r_tileSize);
+			}
+			//Draw LowerRight corner
+			dest_y = tileSize()/2;
+			if (d+r == 10)
+				blit(border_xoffset+r_tileHalf, r_tileSize/2);
+			else if (d)
+				blit(border_xoffset+r_tileHalf, r_tileSize*5/2);
+			else if (r)
+				blit(border_xoffset+r_tileHalf, r_tileSize*3/2);
+			else if (dr)
+				blit(border_xoffset+r_tileHalf, r_tileSize*7/2);
+			else if (sdr)
+			{
+				if (isABWater (terrain_id))
+					blit(r_tileHalf, r_tileSize*11/2);
+				else
+					blit(r_tileHalf, r_tileSize*13/2);
+			}
+			//Draw LowerLeft corner
+			dest_x = 0;
+			if (d+l == 6)
+				blit(border_xoffset, r_tileSize/2);
+			else if (d)
+				blit(border_xoffset, r_tileSize*5/2);
+			else if (l)
+				blit(border_xoffset, r_tileSize*3/2);
+			else if (dl)
+				blit(border_xoffset, r_tileSize*7/2);
+			else if (sdl)
+			{
+				if (isABWater (terrain_id))
+					blit(0, r_tileSize*11/2);
+				else
+					blit(0, r_tileSize*13/2);
+			}
 #undef blit
-		m_tileCache[id] = p_tile;
+			p.end();
+			return p_tile;
+		};
+		m_tileCache[id] = water_tile(0);
+		for (int frame = 1; frame < 3; frame++)
+			m_frameCache[frame - 1][id] = water_tile(frame);
 	}
 
 	/* Register AnimationTiles */
-	QPixmap a_tile(tileSize(), tileSize());
-	QPainter a(&a_tile);
-	a.drawPixmap(0,0,tileSize(),tileSize(),o_chipset.copy(3*r_tileSize,4*r_tileSize,r_tileSize,r_tileSize));
-	for (int i = 0; i < 50; i++) {
-		m_tileCache[translate(3) + i] = a_tile;
-	}
-	a.drawPixmap(0,0,tileSize(),tileSize(),o_chipset.copy(4*r_tileSize,4*r_tileSize,r_tileSize,r_tileSize));
-	for (int i = 0; i < 50; i++) {
-		m_tileCache[translate(4) + i] = a_tile;
-	}
-	a.drawPixmap(0,0,tileSize(),tileSize(),o_chipset.copy(5*r_tileSize,4*r_tileSize,r_tileSize,r_tileSize));
-	for (int i = 0; i < 50; i++) {
-		m_tileCache[translate(5) + i] = a_tile;
-	}
+	// 3 columns of 4 frames, under the borders of the water B
+	for (int column = 0; column < 3; column++)
+		for (int frame = 0; frame < 4; frame++)
+		{
+			QPixmap a_tile(tileSize(), tileSize());
+			a_tile.fill(Qt::transparent);
+			QPainter a(&a_tile);
+			a.drawPixmap(0,0,tileSize(),tileSize(),o_chipset.copy((3+column)*r_tileSize,(4+frame)*r_tileSize,r_tileSize,r_tileSize));
+			a.end();
+			// animated tiles have no borders: RPG Maker writes 3000, 3050, 3100
+			for (int i = 0; i < 50; i++) {
+				const short id = static_cast<short>(translate(3 + column) + i);
+				if (frame == 0)
+					m_tileCache[id] = a_tile;
+				else
+					m_frameCache[frame - 1][id] = a_tile;
+			}
+		}
 
 	/* BindGroundTiles */
 	// Each tileset contains 5 columns with a size of 6x16 tiles
@@ -576,6 +593,11 @@ void Core::LoadChipset(int n_chipsetid)
 	emit chipsetChanged();
 }
 
+int Core::chipsetId() const
+{
+	return m_chipset.ID;
+}
+
 void Core::LoadBackground(QString name)
 {
 	if (name.isEmpty()) {
@@ -747,7 +769,74 @@ void Core::renderTile(const short &tile_id, const QRect &dest_rect)
 	if (tile_id < 10000)
 		m_painter.fillRect(dest_rect, QBrush(m_background));
 	// value(): operator[] would add an empty tile for every unknown id
-	m_painter.drawPixmap(dest_rect, m_tileCache.value(tile_id));
+	const int frame = !isAnimatedTile(tile_id) ? 0 : tile_id < 3000 ? m_waterFrame : m_animatedTileFrame;
+	if (frame > 0)
+		m_painter.drawPixmap(dest_rect, m_frameCache[frame - 1].value(tile_id));
+	else
+		m_painter.drawPixmap(dest_rect, m_tileCache.value(tile_id));
+}
+
+bool Core::isAnimatedTile(short tile_id)
+{
+	return tile_id >= 0 && tile_id < 3150;
+}
+
+void Core::setAnimationEnabled(bool enabled)
+{
+	if (enabled == animationEnabled())
+		return;
+	if (!enabled) {
+		m_animationTimer->stop();
+		// the first frame, as the tiles were drawn before
+		m_waterFrame = 0;
+		m_animatedTileFrame = 0;
+		emit animationFrameChanged();
+		return;
+	}
+	if (!m_animationTimer) {
+		m_animationTimer = new QTimer(this);
+		connect(m_animationTimer, &QTimer::timeout, this, &Core::nextAnimationFrame);
+	}
+	// the Player changes the animated tiles every 6 frames (60 per second)
+	m_animationTimer->start(100);
+}
+
+bool Core::animationEnabled() const
+{
+	return m_animationTimer && m_animationTimer->isActive();
+}
+
+int Core::waterFrame() const
+{
+	return m_waterFrame;
+}
+
+int Core::animatedTileFrame() const
+{
+	return m_animatedTileFrame;
+}
+
+void Core::nextAnimationFrame()
+{
+	if (chipsetIsNull())
+		return;
+	m_animationTick++;
+	// As the Player (TilemapLayer::Draw): the animated tiles have 4 frames;
+	// the water changes every 12 (fast) or 24 (slow) frames, 1-2-3-2 or 1-2-3
+	const int tile_frame = static_cast<int>(m_animationTick % 4);
+	int water_frame = static_cast<int>(m_animationTick / (m_chipset.animation_speed ? 2 : 4));
+	if (m_chipset.animation_type == lcf::rpg::Chipset::AnimType_cyclic) {
+		water_frame %= 3;
+	} else {
+		water_frame %= 4;
+		if (water_frame == 3)
+			water_frame = 1;
+	}
+	if (tile_frame == m_animatedTileFrame && water_frame == m_waterFrame)
+		return;
+	m_animatedTileFrame = tile_frame;
+	m_waterFrame = water_frame;
+	emit animationFrameChanged();
 }
 
 void Core::renderEvent(const lcf::rpg::Event& event, const QRect &dest_rect)
@@ -1007,11 +1096,39 @@ QPixmap Core::charsetImage(const QString& name)
 	return charset;
 }
 
+QBrush Core::transparencyBrush()
+{
+	static const QBrush brush = [] {
+		QPixmap squares(16, 16);
+		squares.fill(QColor(0x80, 0x80, 0x80));
+		QPainter p(&squares);
+		p.fillRect(0, 0, 8, 8, QColor(0x66, 0x66, 0x66));
+		p.fillRect(8, 8, 8, 8, QColor(0x66, 0x66, 0x66));
+		return QBrush(squares);
+	}();
+	return brush;
+}
+
+QPixmap Core::eraserRow()
+{
+	// transparent cells crossed out in red: the tile is removed
+	QPixmap row(192, 32);
+	QPainter p(&row);
+	p.fillRect(row.rect(), transparencyBrush());
+	p.setRenderHint(QPainter::Antialiasing);
+	p.setPen(QPen(QColor(0xd0, 0x30, 0x30), 2));
+	for (int x = 0; x < 192; x += 32) {
+		p.drawLine(x + 6, 26, x + 26, 6);
+		p.drawRect(QRectF(x + 0.5, 0.5, 31, 31));
+	}
+	return row;
+}
+
 QPixmap Core::createDummyPixmap(int width, int height)
 {
 	QPixmap dummy(width, height);
 	QPainter p(&dummy);
-	p.drawTiledPixmap(0, 0, width, height, QPixmap(":/embedded/share/old_grid.png"));
+	p.fillRect(0, 0, width, height, transparencyBrush());
 	p.end();
 	return dummy;
 }

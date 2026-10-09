@@ -71,6 +71,9 @@ private slots:
 private:
 	void UpdateModels();
 	static QString findPlayer();
+#ifdef Q_OS_MACOS
+	static void activatePlayer(qint64 pid);
+#endif
 
 	Ui::RunGameDialog *ui;
 	ProjectData& m_project;

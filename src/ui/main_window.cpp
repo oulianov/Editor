@@ -18,31 +18,42 @@
 #include "ui/other/new_project_dialog.h"
 #include "ui/other/open_project_dialog.h"
 #include "ui/other/import_project_dialog.h"
-#include "ui/other/rtp_path_dialog.h"
+#include "ui/other/settings_dialog.h"
+#include "ui/other/jukebox_dialog.h"
+#include "common/editor_settings.h"
+#include "common/translations.h"
 #include "ui/event/event_dialog.h"
 #include "ui/maptree/map_properties_dialog.h"
 #include "ui/maptree/area_properties_dialog.h"
 #include "ui/maptree/shift_map_dialog.h"
+#include "ui/maptree/generate_dungeon_dialog.h"
 #include "ui/other/run_game_dialog.h"
 #include "model/map_tools.h"
 #include "main_window.h"
+#include "ui/common/theme_icon.h"
+#include "ui/common/toolbar_overflow.h"
 #include "ui_main_window.h"
 #include "common/dbstring.h"
 #include <QImage>
 #include <QToolBar>
+#include <QToolButton>
 #include <QCloseEvent>
+#include <QCryptographicHash>
 #include <QActionGroup>
 #include <QApplication>
 #include <QFileInfo>
 #include <QFileDialog>
+#include <QLabel>
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QScrollBar>
+#include <QSignalBlocker>
 #include <QStringList>
 #include <QDir>
 #include <QMenu>
 #include <QTimer>
 #include <QTreeWidgetItemIterator>
+#include <algorithm>
 #include <set>
 #include <QQmlContext>
 #include <QQmlApplicationEngine>
@@ -58,10 +69,11 @@
 #include <lcf/rpg/mapinfo.h>
 #include "model/project.h"
 #include "common/logging.h"
-#include "qmlbinding/project_data_gadget.h"
 
 Q_DECLARE_METATYPE(QList<int>)
 Q_DECLARE_METATYPE(QList<float>)
+
+// View > Animate Tiles
 
 const std::vector<QString> resource_dirs =
 	{BACKDROP, BATTLE, BATTLE2, BATTLECHARSET, BATTLEWEAPON, CHARSET, CHIPSET, FACESET,
@@ -90,12 +102,11 @@ static void recurseAddDir(QDir d, QStringList & list) {
 	}
 }
 
-static QIcon themeIcon(const QWidget* widget, const QString& name) {
-	QString theme = widget->palette().color(widget->backgroundRole()).lightness() >= 128 ? ":/bright" : ":/dark";
-	return QIcon(theme + "/" + name);
-}
-
 /** The file of a map, as Project::loadMap names it */
+/** The scale maps open at, the 1/2 ratio: tiles twice their size, readable on
+ *  today's screens; 1/1 zooms in further */
+static constexpr double default_map_scale = 2.0;
+
 static QString mapFileName(int id) {
 	const bool easyrpg = core().project()->projectType() == FileFinder::ProjectType::EasyRpg;
 	return QString("Map%1.%2").arg(id, 4, 10, QChar('0')).arg(easyrpg ? "emu" : "lmu");
@@ -133,13 +144,29 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui(new Ui::MainWindow)
 {
 	ui->setupUi(this);
+	// Panels have their View menu actions; the fixed toolbars are always shown.
+	setContextMenuPolicy(Qt::PreventContextMenu);
+#ifdef Q_OS_MACOS
+	for (auto* button : ui->mainToolBar->findChildren<QToolButton*>())
+		button->setAttribute(Qt::WA_MacSmallSize);
+#endif
 	refreshIcons();
+	connect(ui->actionAbout, &QAction::triggered, this, [this] {
+		QMessageBox::about(this, tr("About EasyRPG Editor"),
+			tr("<h3>EasyRPG Editor</h3>"
+				"<p>A game editor for EasyRPG and RPG Maker 2000/2003 projects.</p>"
+				"<p>Free software, licensed under the GNU General Public License "
+				"(version 3 or later).</p>"
+				"<p><a href=\"https://easyrpg.org/\">EasyRPG website</a></p>"));
+	});
 
 	// Hide map ids
 	ui->treeMap->hideColumn(1);
 	// Created hardcoded toolbar for palette window.
 	ui->widgetBar->layout()->addWidget(ui->toolBar);
-	ui->widgetBar2->layout()->addWidget(ui->toolBar2);
+	// "»": a menu of the buttons that do not fit
+	for (QToolBar* toolbar : findChildren<QToolBar*>())
+		ToolBarOverflowMenu::install(toolbar);
 	//Create dialogs
 	dlg_resource = new ResourceManagerDialog(this);
 	dlg_resource->setModal(true);
@@ -163,13 +190,45 @@ MainWindow::MainWindow(QWidget *parent) :
 			SIGNAL(chipsetChanged()),
 			m_paletteScene,
 			SLOT(onChipsetChange()));
+	connect(&core(), &Core::toolChanged, this, &MainWindow::updateStatusBar);
+	connect(&core(), &Core::layerChanged, this, &MainWindow::updateStatusBar);
+
+
+	// Map Zoom: RPG Maker's ratios, maps open at 1/2; none checked at the
+	// other scales
+	m_zoomGroup = new QActionGroup(this);
+	m_zoomGroup->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
+	const std::pair<QAction*, double> ratios[] = {{ui->actionZoom1_1, default_map_scale * 2},
+		{ui->actionZoom1_2, default_map_scale}, {ui->actionZoom1_4, default_map_scale / 2},
+		{ui->actionZoom1_8, default_map_scale / 4}};
+	for (const auto& [action, ratio] : ratios) {
+		action->setData(ratio);
+		m_zoomGroup->addAction(action);
+		connect(action, &QAction::triggered, this, [this, ratio] {
+			if (MapScene* scene = currentScene())
+				scene->setScale(static_cast<float>(ratio));
+			// a click on the checked ratio unchecks it: check it again
+			updateZoomActions();
+		});
+	}
+
+	// Status bar: RPG Maker's edit mode and map information, after the hint
+	// of the hovered action (the status tips, shown by Qt)
+	m_editModeLabel = new QLabel(this);
+	m_editModeLabel->setObjectName("labelEditMode");
+	m_mapLabel = new QLabel(this);
+	m_mapLabel->setObjectName("labelMapName");
+	m_cellLabel = new QLabel(this);
+	m_cellLabel->setObjectName("labelCell");
+	statusBar()->addPermanentWidget(m_editModeLabel);
+	statusBar()->addPermanentWidget(m_mapLabel);
+	statusBar()->addPermanentWidget(m_cellLabel);
 	// Show what other programs (like a script sync tool) write into the project
 	auto& watcher = core().watcher();
 	watcher.setCanDeliver([this](int kind) { return canReload(kind); });
 	connect(&watcher, &ProjectWatcher::databaseChanged, this, &MainWindow::onDatabaseFileChanged);
 	connect(&watcher, &ProjectWatcher::treeMapChanged, this, &MainWindow::onTreeMapFileChanged);
 	connect(&watcher, &ProjectWatcher::mapChanged, this, &MainWindow::onMapFileChanged);
-	ui->actionReloadExternalChanges->setChecked(m_settings.value(RELOAD_EXTERNAL_KEY, false).toBool());
 
 	// Map tree: menus like RPG Maker's, drag and drop to make a map the
 	// child of another, and the tree shortcuts (Ctrl+C, Ctrl+V, Del, Ctrl+H)
@@ -180,13 +239,10 @@ MainWindow::MainWindow(QWidget *parent) :
 	// only the project item is at the top level
 	ui->treeMap->invisibleRootItem()->setFlags(ui->treeMap->invisibleRootItem()->flags() & ~Qt::ItemIsDropEnabled);
 	ui->treeMap->viewport()->installEventFilter(this);
+	// a click on the selected map shows it again (its tab can be closed)
+	connect(ui->treeMap, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem* item) { openTreeItem(item); });
 	ui->treeMap->addActions({ui->actionMapCopy, ui->actionMapPaste, ui->actionMapDelete,
 		ui->actionMapShift, ui->actionAreaDelete});
-#ifdef Q_OS_MACOS
-	// the Delete key of Mac keyboards is Backspace
-	for (QAction* action : {ui->actionMapDelete, ui->actionAreaDelete})
-		action->setShortcuts({QKeySequence(Qt::Key_Delete), QKeySequence(Qt::Key_Backspace)});
-#endif
 	auto rememberExpanded = [this](QTreeWidgetItem* item) {
 		if (auto* info = mapInfo(item->data(1, Qt::DisplayRole).toInt())) {
 			info->expanded_node = item->isExpanded();
@@ -199,35 +255,20 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui->actionFullScreenToggle->setChecked(m_settings.value(TESTPLAY_FULLSCREEN_KEY, false).toBool());
 	ui->actionTitleBackgroundToggle->setChecked(m_settings.value(TESTPLAY_SHOW_TITLE_KEY, true).toBool());
 	RunGameDialog::setBeforeLaunch([this] { return saveBeforeTestPlay(); });
-	ui->actionQuit->setShortcuts(QKeySequence::Quit);
+	setPlatformShortcuts();
 
-	// Language, applied when the Editor starts again
-	auto* languages = ui->menuTools->addMenu(tr("Language"));
-	auto* language_group = new QActionGroup(this);
-	const QString current = m_settings.value(LANGUAGE_KEY).toString();
-	for (const auto& [code, name] : std::vector<std::pair<QString, QString>>{
-			{QString(), tr("System Language")}, {"en", QStringLiteral("English")},
-			{"fr", QStringLiteral("French Boddom Rabi")}, {"de", QStringLiteral("Deutsch")}}) {
-		auto* action = languages->addAction(name);
-		action->setCheckable(true);
-		action->setChecked(code == current);
-		language_group->addAction(action);
-		connect(action, &QAction::triggered, this, [this, code] {
-			if (m_settings.value(LANGUAGE_KEY).toString() == code) {
-				return;
-			}
-			m_settings.setValue(LANGUAGE_KEY, code);
-			QMessageBox::information(this, tr("Language"), tr("The new language is used the next time the Editor starts."));
-		});
-	}
 	update_actions();
-	core().setRtpDir(m_settings.value(RTP_KEY, QString()).toString());
+	// the options of the Settings window, now and when they change
+	applySettings();
+	connect(&EditorSettings::instance(), &EditorSettings::changed, this, &MainWindow::applySettings);
 	if (core().rtpPath("").isEmpty())
-		on_actionDebugRtpPath_triggered();
+		on_actionSettings_triggered();
 	core().setDefDir(m_settings.value(DEFAULT_DIR_KEY,
 										qApp->applicationDirPath()).toString());
 	updateLayerActions();
 	updateToolActions();
+	restoreGeometry(m_settings.value(QStringLiteral("main_window_geometry")).toByteArray());
+	connect(qApp, &QCoreApplication::aboutToQuit, this, &MainWindow::saveWorkspace);
 }
 
 MainWindow::~MainWindow()
@@ -267,32 +308,16 @@ void MainWindow::LoadProject(QString foldername)
 	core().project() = prj;
 
 	searchdialog = new SearchDialog(core().project()->projectData(), this);
+	searchdialog->enableCache(EditorSettings::instance().searchCache());
 
-	//m_projSett = new QSettings(core().project()->findFile(ROOT, EASY_CFG), QSettings::IniFormat, this);
-	//QString title = m_projSett->value(GAMETITLE, tr("Untitled")).toString();
 	setWindowTitle(tr("EasyRPG Editor") + " - " +  core().project()->gameTitle());
-	//core().setLayer(static_cast<Core::Layer>(m_projSett->value(LAYER, Core::LOWER).toInt()));
-	//core().setTileSize(m_projSett->value(TILESIZE, 16).toInt());
-	//QList<QVariant> m_mapList = m_projSett->value(MAPS, QList<QVariant>()).toList();
-	//QList<QVariant> m_scaleList = m_projSett->value(SCALES, QList<QVariant>()).toList();
 	m_settings.setValue(CURRENT_PROJECT_KEY, core().project()->projectDir().absolutePath());
-	populateMapTree(true);
+	restoreWorkspace();
 	updateWatcher();
 	qCInfo(lcProject).noquote() << "project loaded:" << foldername
 		<< "maps:" << (core().project()->treeMap().maps.size() - 1)
-		<< "reload changed files:" << ui->actionReloadExternalChanges->isChecked();
+		<< "reload changed files:" << EditorSettings::instance().reloadExternalChanges();
 
-	/*for(int i = 0; i < m_mapList.count(); i++)
-	{
-		int mapId = m_mapList[i].toInt();
-		if (mapId == 0)
-			continue;
-
-		QGraphicsView *view = getView(mapId);
-		MapScene *scene = getScene(mapId);
-		scene->setScale(i < m_scaleList.size() ? m_scaleList[i].toFloat() : 1.0);
-		ui->tabMap->setCurrentWidget(view);
-	}*/
 	update_actions();
 }
 
@@ -303,7 +328,7 @@ void MainWindow::populateMapTree(bool open_active_map)
 	QTreeWidgetItem *root = new QTreeWidgetItem();
 	root->setData(1, Qt::DisplayRole, 0);
 	root->setData(0,Qt::DisplayRole,  core().project()->gameTitle());
-	root->setIcon(0,QIcon(":/icons/share/old_folder.png"));
+	root->setIcon(0, themeIcon(this, "folder"));
 	// the project item stays where it is
 	root->setFlags(root->flags() & ~Qt::ItemIsDragEnabled);
 	ui->treeMap->addTopLevelItem(root);
@@ -538,23 +563,6 @@ void MainWindow::on_actionDatabase_triggered()
 	dlg_db->exec();
 }
 
-void MainWindow::on_actionDatabaseNew_triggered() {
-	auto engine = core().qmlEngine();
-
-	// Inject ProjectData into the QML
-	auto* projectGadget = engine->singletonInstance<ProjectDataGadget*>(
-		"org.easyrpg.editor", "ProjectData"
-	);
-
-	projectGadget->setProjectData(&core().project()->projectData());
-
-	engine->loadFromModule("org.easyrpg.editor", "DatabaseWindow");
-
-	if (engine->rootObjects().isEmpty()) {
-		 return;
-	}
-}
-
 void MainWindow::update_actions()
 {
 	bool has_project = core().project() != nullptr;
@@ -569,7 +577,6 @@ void MainWindow::update_actions()
 	ui->actionDrawSelect->setEnabled(has_project);
 	ui->actionGameDiskCreate->setEnabled(has_project);
 	ui->actionDatabase->setEnabled(has_project);
-	ui->actionDatabaseNew->setEnabled(has_project);
 	ui->actionDrawPen->setEnabled(has_project);
 	ui->actionDrawFill->setEnabled(has_project);
 	ui->actionProjectImport->setEnabled(!has_project);
@@ -579,8 +586,12 @@ void MainWindow::update_actions()
 	ui->actionZoom100->setEnabled(scene);
 	ui->actionZoomIn->setEnabled(scene);
 	ui->actionZoomOut->setEnabled(scene);
+	m_zoomGroup->setEnabled(scene);
+	updateZoomActions();
+	updateStatusBar();
 	ui->actionMapRevert->setEnabled(scene && scene->isModified());
 	ui->actionSearch->setEnabled(has_project);
+	ui->actionJukebox->setEnabled(has_project);
 	ui->actionUndo->setEnabled(scene && scene->canUndo());
 	ui->actionRedo->setEnabled(scene && scene->canRedo());
 	ui->actionZoom->setEnabled(has_project);
@@ -605,6 +616,7 @@ void MainWindow::update_actions()
 	ui->actionMapDelete->setEnabled(on_map);
 	ui->actionMapShift->setEnabled(on_map);
 	ui->actionAreaNew->setEnabled(on_map);
+	ui->actionMapGenerateDungeon->setEnabled(on_map);
 	ui->actionAreaProperties->setEnabled(on_area);
 	ui->actionAreaDelete->setEnabled(on_area);
 }
@@ -692,7 +704,7 @@ QGraphicsView *MainWindow::getView(int id)
 				break;
 			}
 		}
-		ui->tabMap->addTab(view, QIcon(":/icons/share/old_map.png"), mapName);
+		ui->tabMap->addTab(view, mapName);
 		view->setScene(new MapScene(core().project()->projectData(), id, view, this));
 		connect(getScene(id),
 				SIGNAL(mapChanged()),
@@ -707,8 +719,13 @@ QGraphicsView *MainWindow::getView(int id)
 				this,
 				SLOT(on_mapUnchanged()));
 		connect(getScene(id), &MapScene::mapReloaded, this, &MainWindow::onMapReloaded);
+		connect(getScene(id), &MapScene::scaleChanged, this, &MainWindow::updateZoomActions);
+		connect(getScene(id), &MapScene::cellHovered, this, [this](const QString& text) {
+			if (sender() == currentScene())
+				m_cellLabel->setText(text);
+		});
 		core().setCurrentMapEvents(getScene(id)->mapEvents());
-		getScene(id)->setScale(2.0);
+		getScene(id)->setScale(static_cast<float>(default_map_scale));
 		getScene(id)->Init();
 	}
 	return view;
@@ -716,7 +733,7 @@ QGraphicsView *MainWindow::getView(int id)
 
 MapScene *MainWindow::getScene(int id)
 {
-	QGraphicsView* view = m_views[id];
+	QGraphicsView* view = m_views.value(id);
 	if (!view)
 		return nullptr;
 	return (static_cast<MapScene*>(view->scene()));
@@ -773,17 +790,80 @@ void MainWindow::updateToolActions()
 	ui->actionDrawFill->setChecked(core().tool() == Core::FILL);
 }
 
+void MainWindow::updateZoomActions()
+{
+	MapScene* scene = currentScene();
+	for (QAction* action : m_zoomGroup->actions())
+		action->setChecked(scene && qFuzzyCompare(scene->scale(), scene->snapScale(action->data().toFloat())));
+}
+
+void MainWindow::updateStatusBar()
+{
+	MapScene* scene = currentScene();
+	if (!scene) {
+		m_editModeLabel->clear();
+		m_mapLabel->clear();
+		m_cellLabel->clear();
+		return;
+	}
+	QString mode;
+	switch (core().layer()) {
+	case Core::LOWER:
+		mode = tr("Lower Layer Editing Mode");
+		break;
+	case Core::UPPER:
+		mode = tr("Upper Layer Editing Mode");
+		break;
+	case Core::EVENT:
+		mode = tr("Event Editing Mode");
+		break;
+	}
+	// the tools draw on the tile layers only
+	if (core().layer() != Core::EVENT) {
+		QString tool;
+		switch (core().tool()) {
+		case Core::ZOOM:
+			tool = tr("Zoom Tool");
+			break;
+		case Core::PENCIL:
+			tool = tr("Pen Tool");
+			break;
+		case Core::RECTANGLE:
+			tool = tr("Rectangle Tool");
+			break;
+		case Core::CIRCLE:
+			tool = tr("Ellipse Tool");
+			break;
+		case Core::FILL:
+			tool = tr("Flood Fill");
+			break;
+		case Core::SELECT:
+			tool = tr("Selection Tool");
+			break;
+		}
+		//: Status bar: the edit mode and the tool
+		mode = tr("%1 - %2").arg(mode, tool);
+	}
+	m_editModeLabel->setText(mode);
+	//: Status bar: the id and the name of the map shown
+	m_mapLabel->setText(tr("%1: %2").arg(scene->id(), 4, 10, QChar('0')).arg(scene->mapName()));
+}
+
 void MainWindow::on_actionProjectClose_triggered()
 {
-	m_settings.setValue(CURRENT_PROJECT_KEY, QString());
 	int result = saveAll();
 
 	if (result == true) {
+		saveWorkspace();
+		m_settings.setValue(CURRENT_PROJECT_KEY, QString());
 		ui->treeMap->clear();
 		m_treeItems.clear();
 		while (ui->tabMap->currentIndex() != -1)
 			removeView(currentScene()->id());
 
+		// its files are the project's
+		if (auto* jukebox = findChild<JukeboxDialog*>(QString(), Qt::FindDirectChildrenOnly))
+			jukebox->close();
 		core().project().reset();
 		updateWatcher();
 
@@ -806,7 +886,16 @@ void MainWindow::on_actionProjectOpen_triggered()
 
 void MainWindow::on_actionJukebox_triggered(bool)
 {
-
+	// one window, kept between openings (size, tab, selection); it lists the files again when shown
+	auto* jukebox = findChild<JukeboxDialog*>(QString(), Qt::FindDirectChildrenOnly);
+	if (!jukebox) {
+		jukebox = new JukeboxDialog(this);
+	} else if (jukebox->isVisible()) {
+		jukebox->refresh();
+	}
+	jukebox->show();
+	jukebox->raise();
+	jukebox->activateWindow();
 }
 
 void MainWindow::on_actionLayerLower_triggered()
@@ -843,8 +932,9 @@ void MainWindow::on_actionZoomOut_triggered()
 
 void MainWindow::on_actionZoom100_triggered()
 {
+	// the normal view, as maps open (1/2)
 	if (currentScene())
-		currentScene()->setScale(1.0);
+		currentScene()->setScale(static_cast<float>(default_map_scale));
 }
 
 void MainWindow::on_treeMap_itemDoubleClicked(QTreeWidgetItem *item, int column)
@@ -918,6 +1008,7 @@ void MainWindow::on_tabMap_currentChanged(int index)
 		update_actions();
 		return;
 	}
+	m_cellLabel->clear();
 	if (currentScene())
 	{
 		core().LoadChipset(currentScene()->chipsetId());
@@ -925,6 +1016,17 @@ void MainWindow::on_tabMap_currentChanged(int index)
 		// the tree shows the map of the tab, Map Properties edits it
 		if (QTreeWidgetItem* item = m_treeItems.value(currentScene()->id()))
 			ui->treeMap->setCurrentItem(item);
+	}
+	if (QGraphicsView* view = getTabView(index); view && view->property("workspace_scroll").isValid()) {
+		// Hidden tabs receive their final viewport size only when selected.
+		QTimer::singleShot(0, view, [view] {
+			if (!view->isVisible() || !view->property("workspace_scroll").isValid())
+				return;
+			const QVariantMap scroll = view->property("workspace_scroll").toMap();
+			view->horizontalScrollBar()->setValue(scroll.value("x").toInt());
+			view->verticalScrollBar()->setValue(scroll.value("y").toInt());
+			view->setProperty("workspace_scroll", QVariant());
+		});
 	}
 	update_actions();
 }
@@ -962,9 +1064,55 @@ void MainWindow::on_actionProjectImport_triggered()
 	update_actions();
 }
 
-void MainWindow::on_actionDebugRtpPath_triggered()
+void MainWindow::on_actionSettings_triggered()
 {
-	RtpPathDialog dlg(this);
+	SettingsDialog dialog(this);
+	dialog.exec();
+}
+
+void MainWindow::setPlatformShortcuts()
+{
+	// the keys of the platform, which the .ui cannot say (set again after
+	// retranslateUi, which resets the shortcuts of the .ui)
+	ui->actionQuit->setShortcuts(QKeySequence::Quit);
+	ui->actionSettings->setShortcut(QKeySequence::Preferences);
+#ifdef Q_OS_MACOS
+	// the Delete key of Mac keyboards is Backspace
+	for (QAction* action : {ui->actionMapDelete, ui->actionAreaDelete})
+		action->setShortcuts({QKeySequence(Qt::Key_Delete), QKeySequence(Qt::Key_Backspace)});
+#endif
+}
+
+void MainWindow::changeEvent(QEvent* event)
+{
+	QMainWindow::changeEvent(event);
+	if (event->type() == QEvent::PaletteChange)
+		refreshIcons();
+	if (event->type() != QEvent::LanguageChange)
+		return;
+	// the texts again, in the language just chosen
+	ui->retranslateUi(this);
+	setPlatformShortcuts();
+	setWindowTitle(core().project() ? tr("EasyRPG Editor") + " - " + core().project()->gameTitle() : tr("EasyRPG Editor"));
+	updateStatusBar();
+	for (int id : m_views.keys())
+		if (MapScene* scene = getScene(id))
+			scene->retranslate();
+}
+
+void MainWindow::applySettings()
+{
+	const EditorSettings& settings = EditorSettings::instance();
+	core().setRtpDir(settings.rtpPath());
+	core().setAnimationEnabled(settings.animateTiles());
+	if (searchdialog)
+		searchdialog->enableCache(settings.searchCache());
+	updateWatcher();
+	// a new language at once: every window shows its texts again (the one
+	// the Editor started in can come from --language, not from the settings)
+	if (m_languageSetting && *m_languageSetting != settings.language())
+		Translations::apply(settings.language());
+	m_languageSetting = settings.language();
 }
 
 void MainWindow::on_actionZoom_triggered()
@@ -1006,11 +1154,6 @@ void MainWindow::on_actionPlayTestOptions_triggered()
 {
 	RunGameDialog dlg(core().project()->projectData(), this);
 	dlg.exec();
-}
-
-void MainWindow::on_actionPlayerLocation_triggered()
-{
-	RunGameDialog::choosePlayer(this);
 }
 
 void MainWindow::on_actionFullScreenToggle_toggled(bool checked)
@@ -1089,8 +1232,106 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
 	if (!saveAll())
 		event->ignore();
-	else
+	else {
+		saveWorkspace();
 		QMainWindow::closeEvent(event);
+	}
+}
+
+void MainWindow::saveWorkspace()
+{
+	m_settings.setValue(QStringLiteral("main_window_geometry"), saveGeometry());
+	if (!core().project()) {
+		m_settings.sync();
+		return;
+	}
+	QVariantList maps;
+	for (int i = 0; i < ui->tabMap->count(); ++i) {
+		QGraphicsView* view = getTabView(i);
+		MapScene* scene = getTabScene(i);
+		QVariantMap scroll = view->property("workspace_scroll").toMap();
+		if (scroll.isEmpty())
+			scroll = {{"x", view->horizontalScrollBar()->value()}, {"y", view->verticalScrollBar()->value()}};
+		maps.append(QVariantMap{{"id", scene->id()}, {"zoom", scene->scale()}, {"scroll", scroll}});
+	}
+	QVariantList expanded;
+	for (auto it = m_treeItems.cbegin(); it != m_treeItems.cend(); ++it)
+		if (it.value()->isExpanded())
+			expanded.append(it.key());
+	QVariantList tiles;
+	for (int y = 0; y < core().selHeight(); ++y)
+		for (int x = 0; x < core().selWidth(); ++x)
+			tiles.append(core().selection(x, y));
+	const QVariantMap workspace = {
+		{"maps", maps}, {"active_map", currentScene() ? currentScene()->id() : -1},
+		{"selected_map", currentMapId()}, {"expanded", expanded},
+		{"tree_scroll", ui->treeMap->verticalScrollBar()->value()},
+		{"layer", core().layer()}, {"tool", core().tool()},
+		{"tiles", tiles}, {"tile_width", core().selWidth()}, {"tile_height", core().selHeight()},
+		{"palette_x", ui->graphicsPalette->horizontalScrollBar()->value()},
+		{"palette_y", ui->graphicsPalette->verticalScrollBar()->value()},
+		{"panels", saveState()}
+	};
+	const QString key = "project_workspace/" + QString::fromLatin1(QCryptographicHash::hash(
+		core().project()->projectDir().absolutePath().toUtf8(), QCryptographicHash::Sha256).toHex());
+	m_settings.setValue(key, workspace);
+	m_settings.sync();
+}
+
+void MainWindow::restoreWorkspace()
+{
+	const QString key = "project_workspace/" + QString::fromLatin1(QCryptographicHash::hash(
+		core().project()->projectDir().absolutePath().toUtf8(), QCryptographicHash::Sha256).toHex());
+	const QVariantMap workspace = m_settings.value(key).toMap();
+	populateMapTree(!workspace.contains("maps"));
+	core().setLayer(static_cast<Core::Layer>(std::clamp(workspace.value("layer", Core::LOWER).toInt(),
+		static_cast<int>(Core::LOWER), static_cast<int>(Core::EVENT))));
+	core().setTool(static_cast<Core::Tool>(std::clamp(workspace.value("tool", Core::PENCIL).toInt(),
+		static_cast<int>(Core::ZOOM), static_cast<int>(Core::SELECT))));
+	if (workspace.isEmpty())
+		return;
+	restoreState(workspace.value("panels").toByteArray());
+	// Older workspaces may have hidden it through Qt's toolbar context menu.
+	ui->mainToolBar->show();
+	ui->actionPaletteToggle->setChecked(!ui->dockPalette->isHidden());
+	ui->actionMapTreeToggle->setChecked(!ui->dockMapTree->isHidden());
+	for (const QVariant& entry : workspace.value("maps").toList()) {
+		const QVariantMap map = entry.toMap();
+		const int id = map.value("id", -1).toInt();
+		// Removed maps, areas and unreadable files cannot be restored as tabs.
+		if (mapType(id) != lcf::rpg::TreeMap::MapType_map || getScene(id) || !core().project()->loadMap(id))
+			continue;
+		QGraphicsView* view = getView(id);
+		getScene(id)->setScale(map.value("zoom", default_map_scale).toFloat());
+		view->setProperty("workspace_scroll", map.value("scroll"));
+	}
+	if (QGraphicsView* view = m_views.value(workspace.value("active_map", -1).toInt()))
+		ui->tabMap->setCurrentWidget(view);
+	on_tabMap_currentChanged(ui->tabMap->currentIndex());
+	{
+		QSignalBlocker blocker(ui->treeMap);
+		const QVariantList expanded = workspace.value("expanded").toList();
+		for (auto it = m_treeItems.cbegin(); it != m_treeItems.cend(); ++it)
+			it.value()->setExpanded(expanded.contains(QVariant(it.key())));
+		if (QTreeWidgetItem* item = m_treeItems.value(workspace.value("selected_map", -1).toInt()))
+			ui->treeMap->setCurrentItem(item);
+	}
+	const int width = workspace.value("tile_width").toInt();
+	const int height = workspace.value("tile_height").toInt();
+	const QVariantList tiles = workspace.value("tiles").toList();
+	if (width > 0 && width <= 6 && height > 0 && height <= 30 && tiles.size() == width * height) {
+		std::vector<short> selection;
+		for (const QVariant& tile : tiles)
+			selection.push_back(static_cast<short>(tile.toInt()));
+		core().setSelection(std::move(selection), width, height);
+	}
+	QTimer::singleShot(0, this, [this, workspace, project = core().project()] {
+		if (core().project() != project)
+			return;
+		ui->treeMap->verticalScrollBar()->setValue(workspace.value("tree_scroll").toInt());
+		ui->graphicsPalette->horizontalScrollBar()->setValue(workspace.value("palette_x").toInt());
+		ui->graphicsPalette->verticalScrollBar()->setValue(workspace.value("palette_y").toInt());
+	});
 }
 
 bool MainWindow::saveAll()
@@ -1146,10 +1387,23 @@ void MainWindow::on_actionMapRevert_triggered()
 
 void MainWindow::on_treeMap_currentItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous)
 {
-	Q_UNUSED(current)
 	Q_UNUSED(previous)
 	// what can be done depends on the node: project, map or area
 	update_actions();
+	// As RPG Maker: the map selected in the tree (a click, the arrow keys) is
+	// the map edited. The Editor's own selections (a tab shown) open nothing
+	if (current && ui->treeMap->hasFocus())
+		openTreeItem(current);
+}
+
+void MainWindow::openTreeItem(QTreeWidgetItem* item)
+{
+	// opening an area selects its map then the area again: once
+	if (m_openingTreeItem)
+		return;
+	m_openingTreeItem = true;
+	on_treeMap_itemDoubleClicked(item, 0);
+	m_openingTreeItem = false;
 }
 
 int MainWindow::currentMapId() const
@@ -1203,8 +1457,6 @@ QTreeWidgetItem* MainWindow::addTreeItem(const lcf::rpg::MapInfo& info)
 		// an area belongs to its map: it is not moved and holds nothing
 		item->setFlags(item->flags() & ~(Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
 	}
-	else
-		item->setIcon(0, QIcon(":/icons/share/old_map.png"));
 	m_treeItems[info.ID] = item;
 	return item;
 }
@@ -1279,6 +1531,7 @@ void MainWindow::onMapTreeContextMenu(const QPoint& pos)
 		menu.addSeparator();
 		menu.addAction(ui->actionMapNew);
 		menu.addAction(ui->actionAreaNew);
+		menu.addAction(ui->actionMapGenerateDungeon);
 		menu.addSeparator();
 		menu.addAction(ui->actionMapCopy);
 		menu.addAction(ui->actionMapPaste);
@@ -1524,6 +1777,49 @@ void MainWindow::on_actionMapProperties_triggered()
 		item->setText(0, ToQString(info.name));
 }
 
+void MainWindow::on_actionMapGenerateDungeon_triggered()
+{
+	const int id = currentMapId();
+	if (mapType(id) != lcf::rpg::TreeMap::MapType_map)
+		return;
+	const MapScene* scene = getScene(id);
+	auto source = scene ? std::make_unique<lcf::rpg::Map>(scene->mapData()) : core().project()->loadMap(id);
+	const lcf::rpg::MapInfo* source_info = scene ? &scene->mapInfo() : mapInfo(id);
+	if (!source || !source_info)
+	{
+		QMessageBox::critical(this, tr("Generate Dungeon"), tr("The file %1 cannot be read.").arg(mapFileName(id)));
+		return;
+	}
+	if (!source->generator_flag)
+	{
+		QMessageBox::information(this, tr("Generate Dungeon"),
+			tr("%1 does not use the Random Dungeon Generator.\n"
+				"Check \"Use Random Dungeon Generator\" in its Map Properties first.").arg(ToQString(source_info->name)));
+		return;
+	}
+
+	// help: "a new map, retaining the same settings"; a child of the source
+	lcf::rpg::MapInfo info = *source_info;
+	info.ID = freeMapId();
+	info.parent_map = id;
+	info.scrollbar_x = 0;
+	info.scrollbar_y = 0;
+	info.expanded_node = false;
+	GenerateDungeonDialog dlg(core().project()->projectData(), *source,
+		tr("MAP%1").arg(info.ID, 4, 10, QChar('0')), this);
+	if (dlg.exec() != QDialog::Accepted)
+		return;
+	info.name = ToDBString(dlg.name());
+	lcf::rpg::Map map = dlg.map();
+	if (!core().project()->saveMap(map, info.ID))
+	{
+		QMessageBox::critical(this, tr("Generate Dungeon"), tr("The file %1 cannot be written.").arg(mapFileName(info.ID)));
+		return;
+	}
+	QTreeWidgetItem* item = insertMapInfo(info);
+	on_treeMap_itemDoubleClicked(item, 0);
+}
+
 void MainWindow::on_actionMapShift_triggered()
 {
 	const int id = currentMapId();
@@ -1643,6 +1939,7 @@ void MainWindow::on_actionAreaDelete_triggered()
 
 void MainWindow::on_actionSearch_triggered()
 {
+	searchdialog->updateUI();
 	searchdialog->setVisible(true);
 }
 
@@ -1672,15 +1969,9 @@ void MainWindow::selectTile(int x, int y)
 	}
 }
 
-void MainWindow::on_actionDebugEnableCaching_toggled(bool checked)
-{
-	searchdialog->enableCache(checked);
-}
-
 void MainWindow::refreshIcons() {
-	auto set = [this](auto& action, const auto& icon) {
-		QString theme = palette().color(QWidget::backgroundRole()).lightness() >= 128 ? ":/bright" : ":/dark";
-		return action->setIcon(QIcon(theme + "/" + icon));
+	auto set = [this](QAction* action, const QString& icon) {
+		action->setIcon(themeIcon(this, icon));
 	};
 
 	// File
@@ -1733,25 +2024,30 @@ void MainWindow::refreshIcons() {
 	set(ui->actionFullScreenToggle, "fullscreen");
 	set(ui->actionTitleBackgroundToggle, "show-title");
 
+	// Map Tree
+	set(ui->actionAreaProperties, "properties");
+	set(ui->actionAreaDelete, "edit-delete");
+
 	// Help
-	set(ui->actionContents, "help-about");
+	set(ui->actionContents, "help-contents");
+	set(ui->actionZoom1_1, "zoom-ratio-1");
+	set(ui->actionZoom1_2, "zoom-ratio-2");
+	set(ui->actionZoom1_4, "zoom-ratio-4");
+	set(ui->actionZoom1_8, "zoom-ratio-8");
+	set(ui->actionAreaNew, "area-new");
+	set(ui->actionMapShift, "map-shift");
+	set(ui->actionAbout, "help-about");
 }
 
 void MainWindow::updateWatcher()
 {
 	const auto& project = core().project();
-	if (project && ui->actionReloadExternalChanges->isChecked()) {
+	if (project && EditorSettings::instance().reloadExternalChanges()) {
 		core().watcher().setProject(project->projectDir().absolutePath(),
 			project->projectType() == FileFinder::ProjectType::EasyRpg);
 	} else {
 		core().watcher().setProject(QString(), false);
 	}
-}
-
-void MainWindow::on_actionReloadExternalChanges_toggled(bool checked)
-{
-	m_settings.setValue(RELOAD_EXTERNAL_KEY, checked);
-	updateWatcher();
 }
 
 bool MainWindow::canReload(int kind) const
@@ -1850,4 +2146,5 @@ void MainWindow::onMapReloaded()
 	if (index >= 0) {
 		ui->tabMap->setTabText(index, scene->mapName() + (scene->isModified() ? " *" : ""));
 	}
+	updateStatusBar();
 }

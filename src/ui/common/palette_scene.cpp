@@ -16,7 +16,6 @@
  */
 
 #include "palette_scene.h"
-#include <QGraphicsDropShadowEffect>
 #include <QPainter>
 
 PaletteScene::PaletteScene(QObject *parent) :
@@ -35,13 +34,11 @@ PaletteScene::PaletteScene(QObject *parent) :
 	selPen.setWidth(3);
 	m_selectionItem->setPen(selPen);
 	m_selectionItem->setVisible(false);
-	QGraphicsDropShadowEffect *effect = new QGraphicsDropShadowEffect(this);
-	effect->setOffset(4);
-	m_tiles->setGraphicsEffect(effect);
 	m_tiles->stackBefore(m_selectionItem);
-	setBackgroundBrush(QBrush(QPixmap(":/embedded/share/old_grid.png")));
+	setBackgroundBrush(Core::transparencyBrush());
 	// the eyedropper of the map picks tiles too
 	connect(&core(), &Core::selectionChanged, this, &PaletteScene::onSelectionChanged);
+	connect(&core(), &Core::animationFrameChanged, this, &PaletteScene::onAnimationFrame);
 }
 
 void PaletteScene::onLayerChange()
@@ -56,7 +53,6 @@ void PaletteScene::onLayerChange()
 		m_tiles->setPixmap(m_upperTiles);
 		this->setSceneRect(QRect(0,0,192,800));
 	}
-	m_tiles->graphicsEffect()->setEnabled(core().layer() != Core::LOWER);
 	// each layer keeps its own selection
 	onSelectionChanged();
 }
@@ -93,18 +89,37 @@ void PaletteScene::onChipsetChange()
 	m_upperTiles.fill(QColor(0,0,0,0));
 	// the eraser, then the tiles
 	QPainter p(&m_lowerTiles);
-	p.drawPixmap(0,0,192,32,QPixmap(":/embedded/share/eraser.png"));
+	p.drawPixmap(0,0,Core::eraserRow());
 	p.drawPixmap(0,32,core().paletteTiles(Core::LOWER));
 	p.end();
 	p.begin(&m_upperTiles);
-	p.drawPixmap(0,0,192,32,QPixmap(":/embedded/share/eraser.png"));
+	p.drawPixmap(0,0,Core::eraserRow());
 	p.drawPixmap(0,32,core().paletteTiles(Core::UPPER));
 	p.end();
-	// deep water is shown surrounded by water
-	core().beginPainting(m_lowerTiles);
-	core().renderTile(core().translate(2,0,240), QRect(64,32,32,32));
-	core().endPainting();
+	drawAnimatedRow();
 	onLayerChange();
+}
+
+void PaletteScene::drawAnimatedRow()
+{
+	// the first row: water A, water B, deep water and the 3 animated tiles
+	core().beginPainting(m_lowerTiles);
+	for (int i = 0; i < 6; i++)
+	{
+		// deep water is shown surrounded by water
+		const short tile = i == 2 ? core().translate(2,0,240) : core().translate(i,15);
+		core().renderTile(tile, QRect(i*32,32,32,32));
+	}
+	core().endPainting();
+}
+
+void PaletteScene::onAnimationFrame()
+{
+	if (core().chipsetIsNull() || m_lowerTiles.isNull())
+		return;
+	drawAnimatedRow();
+	if (core().layer() == Core::LOWER)
+		m_tiles->setPixmap(m_lowerTiles);
 }
 
 void PaletteScene::updateSelectionRect()

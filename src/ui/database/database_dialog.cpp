@@ -17,10 +17,14 @@
 
 #include "core.h"
 #include "ui/common/help.h"
+#include "ui/common/view_state.h"
 #include "database_dialog.h"
 #include "ui_database_dialog.h"
+#include "ui/common/theme_icon.h"
 #include <QPushButton>
 #include <QInputDialog>
+#include <QSettings>
+#include <QCryptographicHash>
 #include <QDialogButtonBox>
 #include <lcf/ldb/reader.h>
 #include "database_split_widget.h"
@@ -71,7 +75,26 @@ DatabaseDialog::DatabaseDialog(ProjectData& project, QWidget *parent) :
 	ui->tabOld_Pages->insertTab(15, pageSystem2, tr("System 2"));
 	ui->tabOld_Pages->insertTab(16, pageCommonevents, tr("Common events"));
 
-	ui->tabOld_Pages->setCurrentWidget(pageActors);
+	// the "new style" page is an unfinished experiment: one database window
+	ui->toolSwitchStyle->hide();
+	ui->toolNew_CharacterAddProperty->setIcon(themeIcon(this, QStringLiteral("new")));
+	ui->toolNew_CharacterDeleteProperty->setIcon(themeIcon(this, QStringLiteral("edit-delete")));
+	ui->toolNew_CharacterEditProperty->setIcon(themeIcon(this, QStringLiteral("properties")));
+
+	m_viewStateKey = QStringLiteral("database_views/%1").arg(QString::fromLatin1(QCryptographicHash::hash(
+		project.project().projectDir().absolutePath().toUtf8(), QCryptographicHash::Sha256).toHex()));
+	m_viewStates = QSettings().value(m_viewStateKey).toMap();
+	int lastPage = m_viewStates.value(QStringLiteral("active_page"),
+		QSettings().value(QStringLiteral("database_page"), 0)).toInt();
+	if (lastPage < 0 || lastPage >= ui->tabOld_Pages->count()) lastPage = 0;
+	if (ui->tabOld_Pages->currentIndex() == lastPage) on_tabOld_Pages_currentChanged(lastPage);
+	else ui->tabOld_Pages->setCurrentIndex(lastPage);
+	connect(this, &QDialog::finished, this, [this] {
+		m_viewStates.insert(QString::number(m_activePage), ViewState::capture(ui->tabOld_Pages->currentWidget()));
+		m_viewStates.insert(QStringLiteral("active_page"), ui->tabOld_Pages->currentIndex());
+		QSettings().setValue(m_viewStateKey, m_viewStates);
+		QSettings().setValue(QStringLiteral("database_page"), ui->tabOld_Pages->currentIndex());
+	});
 	ui->stackedStyle->setCurrentWidget(ui->pageOld);
 }
 
@@ -147,6 +170,11 @@ void DatabaseDialog::on_currentActorChanged(lcf::rpg::Actor */* actor */)
 
 void DatabaseDialog::on_tabOld_Pages_currentChanged(int index)
 {
+	if (!m_viewStateKey.isEmpty()) {
+		if (m_activePage >= 0) m_viewStates.insert(QString::number(m_activePage), ViewState::capture(ui->tabOld_Pages->widget(m_activePage)));
+		m_activePage = index;
+		ViewState::restore(ui->tabOld_Pages->widget(index), m_viewStates.value(QString::number(index)).toMap());
+	}
 	ui->listNew_Pages->setCurrentRow(index);
 	emit ui->listNew_Pages->currentRowChanged(index);
 }

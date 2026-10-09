@@ -21,19 +21,21 @@
 #include <QMessageBox>
 #include <QScreen>
 #include <QSettings>
+#include <QCryptographicHash>
 #include "event_page_widget.h"
 #include "core.h"
 #include "ui/common/help.h"
+#include "ui/common/view_state.h"
 #include <QPushButton>
 #include "common/dbstring.h"
 
 
 static const char GEOMETRY_KEY[] = "event_dialog_geometry";
 
-EventDialog::EventDialog(ProjectData& project, QWidget *parent) :
+EventDialog::EventDialog(ProjectData& project, QWidget *parent, int mapID) :
 	QDialog(parent),
 	ui(new Ui::EventDialog),
-	m_project(project)
+	m_project(project), m_mapID(mapID)
 {
 	ui->setupUi(this);
 	lst_result = QDialogButtonBox::Cancel;
@@ -49,6 +51,13 @@ EventDialog::EventDialog(ProjectData& project, QWidget *parent) :
 	}
 	connect(this, &QDialog::finished, this, [this] {
 		QSettings().setValue(GEOMETRY_KEY, saveGeometry());
+		if (!m_viewStateKey.isEmpty()) {
+			if (m_activePage >= 0 && m_activePage < static_cast<int>(m_pageViewStates.size()))
+				m_pageViewStates[m_activePage] = ViewState::capture(ui->tabEventPages->currentWidget());
+			QVariantList pages;
+			for (const auto& state : m_pageViewStates) pages.append(state);
+			QSettings().setValue(m_viewStateKey, QVariantMap{{QStringLiteral("page"), m_activePage}, {QStringLiteral("views"), pages}});
+		}
 	});
 	connect(ui->buttonBox->button(QDialogButtonBox::Ok),
 			SIGNAL(clicked()),
@@ -146,10 +155,23 @@ lcf::rpg::Event EventDialog::getEvent() const
 
 void EventDialog::setEvent(const lcf::rpg::Event& event)
 {
+	int lastPage = ui->tabEventPages->currentIndex();
+	if (m_viewStateKey.isEmpty() || m_event.ID != event.ID) {
+		m_viewStateKey = QStringLiteral("event_views/%1/%2/%3").arg(QString::fromLatin1(QCryptographicHash::hash(
+			m_project.project().projectDir().absolutePath().toUtf8(), QCryptographicHash::Sha256).toHex())).arg(m_mapID).arg(event.ID);
+		const auto state = QSettings().value(m_viewStateKey).toMap();
+		lastPage = state.value(QStringLiteral("page"), 0).toInt();
+		m_pageViewStates.clear();
+		for (const auto& page : state.value(QStringLiteral("views")).toList()) m_pageViewStates.push_back(page.toMap());
+	} else if (m_activePage >= 0 && m_activePage < static_cast<int>(m_pageViewStates.size())) {
+		m_pageViewStates[m_activePage] = ViewState::capture(ui->tabEventPages->currentWidget());
+	}
+	m_pageViewStates.resize(event.pages.size());
 	m_event = event;
 	ui->lineName->setText(ToQString(m_event.name));
 	this->setWindowTitle(QString("EV: %1").arg(m_event.ID));
 	refreshEventPageTabs();
+	ui->tabEventPages->setCurrentIndex(std::clamp(lastPage, 0, std::max(0, ui->tabEventPages->count() - 1)));
 	// after the pages, which normalize the command indentation
 	r_event = m_event;
 }
@@ -218,6 +240,9 @@ void EventDialog::ok()
 
 void EventDialog::on_pushNewPage_clicked() {
 	int cur_index = ui->tabEventPages->currentIndex();
+	if (cur_index >= 0 && cur_index < static_cast<int>(m_pageViewStates.size()))
+		m_pageViewStates[cur_index] = ViewState::capture(ui->tabEventPages->currentWidget());
+	m_pageViewStates.insert(m_pageViewStates.begin() + cur_index + 1, QVariantMap{});
 	m_event.pages.insert(m_event.pages.begin() + cur_index + 1, lcf::rpg::EventPage());
 	refreshEventPageTabs();
 	ui->tabEventPages->setCurrentIndex(cur_index + 1);
@@ -230,6 +255,8 @@ void EventDialog::on_pushCopyPage_clicked() {
 
 void EventDialog::on_pushPastePage_clicked() {
 	int cur_index = ui->tabEventPages->currentIndex();
+	m_pageViewStates[cur_index] = ViewState::capture(ui->tabEventPages->currentWidget());
+	m_pageViewStates.insert(m_pageViewStates.begin() + cur_index + 1, QVariantMap{});
 	m_event.pages.insert(m_event.pages.begin() + cur_index + 1, event_page_clipboard);
 	refreshEventPageTabs();
 	ui->tabEventPages->setCurrentIndex(cur_index + 1);
@@ -237,6 +264,7 @@ void EventDialog::on_pushPastePage_clicked() {
 
 void EventDialog::on_pushDeletePage_clicked() {
 	int cur_index = ui->tabEventPages->currentIndex();
+	m_pageViewStates.erase(m_pageViewStates.begin() + cur_index);
 	m_event.pages.erase(m_event.pages.begin() + cur_index);
 	refreshEventPageTabs();
 	ui->tabEventPages->setCurrentIndex(std::max(0, cur_index - 1));
@@ -244,6 +272,7 @@ void EventDialog::on_pushDeletePage_clicked() {
 
 void EventDialog::on_pushClearPage_clicked() {
 	int cur_index = ui->tabEventPages->currentIndex();
+	m_pageViewStates[cur_index].clear();
 	lcf::rpg::EventPage empty;
 	empty.ID = m_event.pages[cur_index].ID;
 	m_event.pages[cur_index] = empty;
@@ -252,6 +281,7 @@ void EventDialog::on_pushClearPage_clicked() {
 }
 
 void EventDialog::refreshEventPageTabs() {
+	m_refreshingPages = true;
 	while (ui->tabEventPages->count() > 0) {
 		QWidget* page = ui->tabEventPages->widget(0);
 		ui->tabEventPages->removeTab(0);
@@ -264,4 +294,16 @@ void EventDialog::refreshEventPageTabs() {
 		ui->tabEventPages->addTab(tab, QString::number(i+1));
 	}
 	ui->pushDeletePage->setEnabled(m_event.pages.size() >= 2);
+	m_refreshingPages = false;
+	m_activePage = -1;
+	on_tabEventPages_currentChanged(ui->tabEventPages->currentIndex());
+}
+
+void EventDialog::on_tabEventPages_currentChanged(int index) {
+	if (m_refreshingPages) return;
+	if (m_activePage >= 0 && m_activePage < static_cast<int>(m_pageViewStates.size()))
+		m_pageViewStates[m_activePage] = ViewState::capture(ui->tabEventPages->widget(m_activePage));
+	m_activePage = index;
+	if (index >= 0 && index < static_cast<int>(m_pageViewStates.size()))
+		ViewState::restore(ui->tabEventPages->widget(index), m_pageViewStates[index]);
 }

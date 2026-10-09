@@ -18,6 +18,7 @@
 #include "core.h"
 #include "common/dbstring.h"
 #include "run_game_dialog.h"
+#include "common/editor_settings.h"
 #include "ui_run_game_dialog.h"
 #include <QApplication>
 #include <QComboBox>
@@ -36,9 +37,9 @@ std::function<bool()> before_launch;
 
 /** The program inside a macOS application bundle, or the path itself */
 QString executableOf(const QString& path) {
-	QFileInfo info(path);
-	if (info.isDir() && path.endsWith(QStringLiteral(".app"))) {
-		QDir macos(path + QStringLiteral("/Contents/MacOS"));
+	QFileInfo info(QDir::cleanPath(path));
+	if (info.isDir() && info.suffix().compare(QStringLiteral("app"), Qt::CaseInsensitive) == 0) {
+		QDir macos(info.absoluteFilePath() + QStringLiteral("/Contents/MacOS"));
 		const QStringList files = macos.entryList(QDir::Files | QDir::Executable);
 		if (files.contains(info.completeBaseName())) {
 			return macos.filePath(info.completeBaseName());
@@ -133,7 +134,7 @@ QString RunGameDialog::choosePlayer(QWidget* parent)
 		QMessageBox::warning(parent, tr("Test Play"), tr("%1 is not a program.").arg(QDir::toNativeSeparators(path)));
 		return QString();
 	}
-	QSettings().setValue(PLAYER_PATH_KEY, program);
+	EditorSettings::instance().setPlayerPath(program);
 	return program;
 }
 
@@ -181,11 +182,15 @@ bool RunGameDialog::launch(QWidget* parent, const QStringList& options, bool use
 	}
 	args << options;
 
-	if (!QProcess::startDetached(player, args, project_dir)) {
+	qint64 pid = 0;
+	if (!QProcess::startDetached(player, args, project_dir, &pid)) {
 		QMessageBox::warning(parent, tr("Test Play"),
 			tr("The EasyRPG Player could not be started:\n%1").arg(QDir::toNativeSeparators(player)));
 		return false;
 	}
+#ifdef Q_OS_MACOS
+	activatePlayer(pid);
+#endif
 	return true;
 }
 

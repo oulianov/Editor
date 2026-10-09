@@ -112,7 +112,7 @@ EventPageWidget::EventPageWidget(ProjectData& project, QWidget *parent) :
 	m_tileItem->setScale(2.0);
 	m_scene->addItem(m_charaItem);
 	m_scene->addItem(m_tileItem);
-	m_scene->setBackgroundBrush(QBrush(QPixmap(":/embedded/share/old_grid.png")));
+	m_scene->setBackgroundBrush(Core::transparencyBrush());
 	ui->graphicsSprite->setScene(m_scene);
 
 	ui->comboSwitchA->makeModel(project);
@@ -311,7 +311,7 @@ int EventPageWidget::pickUpperTile(int current)
 	dialog.setWindowTitle(tr("Tile"));
 	auto* layout = new QVBoxLayout(&dialog);
 	auto* scene = new QGraphicsScene(&dialog);
-	scene->setBackgroundBrush(QBrush(QPixmap(":/embedded/share/old_grid.png")));
+	scene->setBackgroundBrush(Core::transparencyBrush());
 	scene->addPixmap(tiles);
 	auto* frame = scene->addRect(0, 0, size, size, QPen(Qt::yellow, 2));
 	frame->setVisible(current >= 0);

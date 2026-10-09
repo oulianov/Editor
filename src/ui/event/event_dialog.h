@@ -18,6 +18,7 @@
 #pragma once
 
 #include <QDialog>
+#include <QVariantMap>
 #include <lcf/rpg/event.h>
 #include <lcf/rpg/database.h>
 
@@ -32,7 +33,7 @@ class EventDialog : public QDialog
 	Q_OBJECT
 
 public:
-	explicit EventDialog(ProjectData& project, QWidget *parent = nullptr);
+	explicit EventDialog(ProjectData& project, QWidget *parent = nullptr, int mapID = 0);
 	~EventDialog();
 
 	static bool equalEvents(const lcf::rpg::Event &e1,
@@ -69,6 +70,7 @@ private slots:
 	void on_pushDeletePage_clicked();
 
 	void on_pushClearPage_clicked();
+	void on_tabEventPages_currentChanged(int index);
 
 private:
 	Ui::EventDialog *ui;
@@ -78,6 +80,11 @@ private:
 	int lst_result;
 	ProjectData& m_project;
 	lcf::rpg::EventPage event_page_clipboard;
+	int m_mapID;
+	QString m_viewStateKey;
+	std::vector<QVariantMap> m_pageViewStates;
+	int m_activePage = -1;
+	bool m_refreshingPages = false;
 
 	void refreshEventPageTabs();
 };

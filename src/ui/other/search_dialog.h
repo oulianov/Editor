@@ -18,9 +18,11 @@
 #pragma once
 
 #include <QDialog>
+#include <QHash>
 #include <memory>
 #include <lcf/rpg/map.h>
 #include <vector>
+#include <tuple>
 
 class ProjectData;
 
@@ -46,15 +48,12 @@ private slots:
 
 private:
 	std::shared_ptr<lcf::rpg::Map> loadMap(int mapID);
-	/** Events whose name contains the text of the event name field */
-	void searchEventNames();
+	void addResult(int mapID, int eventID, int pageID, int line, const QString& description);
 
 	Ui::SearchDialog *ui;
-	using command_info = std::tuple<int, int, int, int, const lcf::rpg::EventCommand&>; // map id, event id, page index, line, event command
+	using command_info = std::tuple<int, int, int, int>; // map id, event id, page id, line
 	std::vector<command_info> objectData;
-	std::vector<std::shared_ptr<lcf::rpg::Map>> map_cache;
+	QHash<int, std::shared_ptr<lcf::rpg::Map>> map_cache;
 	bool useCache;
-	void showResults(const std::vector<command_info>& results);
 	ProjectData& m_project;
 };
-

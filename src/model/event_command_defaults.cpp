@@ -157,6 +157,33 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 		{Code::Comment_2, {}},
 		{Code::ElseBranch_B, {}},
 		{Code::EndBranch_B, {}},
+		// Maniac Patch: the parameters EasyRPG Player reads, modes 0 (constants)
+		{Code::Maniac_GetSaveInfo, {0, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0}},
+		{Code::Maniac_Save, {0, 1, 0, 1}},
+		{Code::Maniac_Load, {0, 1, 0}},
+		{Code::Maniac_EndLoadProcess, {}},
+		{Code::Maniac_GetMousePosition, {1, 2}},
+		{Code::Maniac_SetMousePosition, {0, 160, 120}},
+		{Code::Maniac_ShowStringPicture, {0, 1, 160, 120, 100, 0, 100, 100, 100, 100, 0, 0, 0, 256, 0, 7, 7, 0, 0, 0, 12, 0, 0, 100}},
+		{Code::Maniac_GetPictureInfo, {0, 0, 0, 1, 1, 2, 3, 4, 1}},
+		{Code::Maniac_ControlBattle, {0, 0, 1, 1}},
+		{Code::Maniac_ControlAtbGauge, {0, 0, 1, 0, 0, 0, 0}},
+		{Code::Maniac_ChangeBattleCommandEx, {0, 0}},
+		{Code::Maniac_GetBattleInfo, {0, 0, 0, 1, 1}},
+		{Code::Maniac_ControlVarArray, {0, 0, 1, 1, 1}},
+		{Code::Maniac_KeyInputProcEx, {0, 1, 0, 0}},
+		{Code::Maniac_RewriteMap, {0, 0, 0, 0, 0, 0, 1, 1, 0}},
+		{Code::Maniac_ControlGlobalSave, {0, 0, 0, 1, 1, 1}},
+		{Code::Maniac_ChangePictureId, {0, 0, 1, 1, 1, 0}},
+		{Code::Maniac_SetGameOption, {0, 0, 0, 0}},
+		{Code::Maniac_CallCommand, {0, 0, 1, 0, 0}},
+		{Code::Maniac_ControlStrings, {0, 1, 0, 0, 0, 0, 0, 0}},
+		{Code::Maniac_GetGameInfo, {0, 0, 1, 0, 0, 0, 0, 1}},
+		{Code::Maniac_EditPicture, {0, 1, 0, 0, 0, 0, 1, 0}},
+		{Code::Maniac_WritePicture, {0, 0, 1, 0, 0}},
+		{Code::Maniac_EditTile, {0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0}},
+		{Code::Maniac_ControlTextProcessing, {0, 0, 0, 0, 0, 0, 0}},
+		{Code::Maniac_Zoom, {0, 160, 120, 100, 0, 0, 0}},
 	};
 	return defaults;
 }
@@ -195,6 +222,9 @@ std::vector<EventCommand> EventCommandDefaults::make(Code code, int indent) {
 				line(Code::ShowChoiceOption, indent, {0}, "Yes"), line(Code::END, indent + 1),
 				line(Code::ShowChoiceOption, indent, {1}, "No"), line(Code::END, indent + 1),
 				line(Code::ShowChoiceEnd, indent) };
+		case Code::Maniac_ShowStringPicture:
+			// text, system graphic and font, each after its mode + 1
+			return { line(code, indent, params, "\x01\x01\x01") };
 		case Code::Comment:
 		case Code::ShowMessage:
 		case Code::Label:

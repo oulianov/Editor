@@ -26,9 +26,11 @@
 #endif
 
 #include <QHash>
+#include <QBrush>
 #include <QPixmap>
 #include <QPainter>
 #include <QListWidget>
+#include <QTimer>
 #include <QQmlApplicationEngine>
 #include <lcf/rpg/map.h>
 #include <lcf/rpg/chipset.h>
@@ -73,6 +75,8 @@ public:
 	static Core* getCore();
 
 	void LoadChipset(int n_chipsetid);
+	/** The id of the chipset loaded, 0 for none */
+	int chipsetId() const;
 	void LoadBackground(QString name);
 	/** The panorama drawn behind the lower tiles; each map keeps its own */
 	const QPixmap& background() const;
@@ -104,11 +108,24 @@ public:
 	short translate(int terrain_id, int _code = 0, int _scode = 0);
 	int translate(short tile_id);
 
+	/** Animate water and the animated tiles, as the Player does (on by default) */
+	void setAnimationEnabled(bool enabled);
+	bool animationEnabled() const;
+	/** The frames renderTile draws: water (0-2) and the animated tiles (0-3) */
+	int waterFrame() const;
+	int animatedTileFrame() const;
+	/** Water and animated tiles (lower tiles below 3150) change with the frame */
+	static bool isAnimatedTile(short tile_id);
+
 	inline bool chipsetIsNull() {return m_tileCache.value(0).isNull();}
 	/** The tiles of a layer (LOWER or UPPER) of the chipset, 6 per row,
 	 *  size x size each, in the order of the palette */
 	QPixmap paletteTiles(Layer layer, int size = 32);
 	QPixmap createDummyPixmap(int width, int height);
+	/** Gray squares behind transparent pictures and tiles */
+	static QBrush transparencyBrush();
+	/** The eraser row of the palette (6 cells of 32 pixels) */
+	static QPixmap eraserRow();
 
 	bool isWater(int terrain_id);
 	bool isABWater(int terrain_id);
@@ -162,6 +179,9 @@ signals:
 	/** The tiles of the current layer were picked (palette or eyedropper) */
 	void selectionChanged();
 
+	/** The water or the animated tiles show another frame */
+	void animationFrameChanged();
+
 private:
 	lcf::rpg::Map *m_map;
 	lcf::rpg::Chipset m_chipset;
@@ -175,6 +195,13 @@ private:
 	Tool m_tool;
 	QPixmap m_background;
 	QMap<int, QPixmap> m_tileCache;
+	// frames 1 to 3 of the animated tiles; m_tileCache has the frame 0
+	QMap<int, QPixmap> m_frameCache[3];
+	QTimer* m_animationTimer = nullptr;
+	unsigned m_animationTick = 0;
+	int m_waterFrame = 0;
+	int m_animatedTileFrame = 0;
+	void nextAnimationFrame();
 	QMap<int, QPixmap> m_eventCache;
 	/** Charset images by name: events are redrawn on every scroll */
 	QHash<QString, QPixmap> m_charsetCache;

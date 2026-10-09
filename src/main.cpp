@@ -16,6 +16,7 @@
  */
 
 #include "core.h"
+#include "common/translations.h"
 #include "ui/main_window.h"
 #include "ui/common/editor_style.h"
 #ifdef EDITOR_SCRIPTS
@@ -76,10 +77,15 @@ int main(int argc, char *argv[]) {
 	const bool automation = false;
 #endif
 	if (automation) {
-		// Keep the settings of scripts apart from the user's (last project,
-		// window sizes...), but use the same RTP
+		// Each script starts from the default settings, in its own file: runs
+		// in parallel do not see each other's, nor the user's (last project,
+		// window sizes...); only the RTP is the user's
 		QVariant rtp = QSettings().value(RTP_KEY);
-		app.setApplicationName("EasyRPG Editor Automation");
+		const QString settings_dir = QDir::temp().filePath(
+			QStringLiteral("easyrpg-editor-script-%1").arg(QCoreApplication::applicationPid()));
+		QDir(settings_dir).removeRecursively();
+		QSettings::setDefaultFormat(QSettings::IniFormat);
+		QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settings_dir);
 		QSettings().setValue(RTP_KEY, rtp);
 	}
 
@@ -140,32 +146,19 @@ int main(int argc, char *argv[]) {
 		// scripts find widgets by their text: the same language everywhere
 		language = automation ? QStringLiteral("en") : QSettings().value(LANGUAGE_KEY).toString();
 	}
-	const QLocale locale = language.isEmpty() ? QLocale() : QLocale(language);
-	QLocale::setDefault(locale);
-	QTranslator t, qt_translator;
-	bool found = false;
-#ifndef NDEBUG
-	// allow overwriting in debug builds
-	QString e = getenv("EASYRPG_EDITOR_LANG_FILE");
-	if (!e.isEmpty())
-		found = t.load(e);
-#endif
-	if (!found)
-		found = t.load(locale, QLatin1String("easyrpg-editor"), QLatin1String("_"), QLatin1String(":/i18n"));
-	if (found) {
-		app.installTranslator(&t);
-		// the standard buttons and dialogs of Qt
-		if (qt_translator.load(locale, QLatin1String("qtbase"), QLatin1String("_"), QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
-			app.installTranslator(&qt_translator);
-		}
-	} else {
-		qDebug() << "No translation(s) available.";
-	}
+	Translations::apply(language);
 
 	// main window and project
 	s.showMessage("Loading main window...");
 	app.processEvents();
 	MainWindow w;
+	if (automation) {
+		// Clean up after the window has saved its workspace on aboutToQuit.
+		QObject::connect(&app, &QCoreApplication::aboutToQuit, [] {
+			QDir(QDir::temp().filePath(QStringLiteral("easyrpg-editor-script-%1")
+				.arg(QCoreApplication::applicationPid()))).removeRecursively();
+		});
+	}
 
 	const QStringList args = parser.positionalArguments();
 	if (!args.isEmpty()) {

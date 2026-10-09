@@ -92,6 +92,8 @@ def main():
         for message in context.iter("message"):
             source = message.findtext("source") or ""
             translation = message.find("translation")
+            if translation.get("type") in ("vanished", "obsolete"):
+                continue
             entry = links.get((name, source))
             if entry is None:
                 unmapped += 1

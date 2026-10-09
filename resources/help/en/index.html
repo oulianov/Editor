@@ -39,6 +39,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><a href="#event-editor">Event window</a></li>
 <li><a href="#command-palette">Event Commands window</a></li>
 <li><a href="#move-route">Move route</a></li>
+<li><a href="#resource-manager">Resource Manager</a></li>
 </ul>
 </td><td>
 <b>Database</b>
@@ -64,6 +65,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><a href="#commands-sound">Sound and movie</a></li>
 <li><a href="#commands-flow">Flow control</a></li>
 <li><a href="#commands-battle">Battle events</a></li>
+<li><a href="#commands-maniac">Maniac Patch commands</a></li>
 </ul>
 </td></tr>
 </table>
@@ -105,13 +107,16 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><b>Teleport / Escape / Save</b>: inherit, allow or forbid the Teleport and Escape skills and saving on this map.</li>
 <li><b>Encounters</b>: the monster groups that can attack the hero on this map and the average number of steps between battles.</li>
 </ul>
+<p><b>Random dungeon generation</b>: enable <b>Use Random Dungeon Generator</b>, choose a layout and the ceiling, wall and floor tiles, then click <b>OK</b> to apply the settings. Choose distinct ceiling and floor tiles; identical tiles make the generated layout look uniform. Right-click the map in the map tree and choose <b>Generate Dungeon</b> to create and open a new child map. This uses the current settings, including changes in an unsaved map tab. The source map is preserved.</p>
+<p>In the original RPG Maker 2003 player, the checkbox also makes the dungeon regenerate whenever the map is entered during play. EasyRPG Player currently does not implement that runtime generation; use the Editor's <b>Generate Dungeon</b> command to create the playable layout.</p>
 
 <a name="search"></a>
 <h3>Search</h3>
 <p>Finds where something is used in your events.</p>
 <ul>
-<li><b>Search parameters</b>: search by <b>Variable</b>, <b>Switch</b> or <b>Item</b> (pick one in the list), or by <b>Event Name</b> (type part of the name).</li>
-<li><b>Search scope</b>: <b>Current Map</b>, <b>Common Events</b> only, or <b>Current Project</b> (every map and common event).</li>
+<li><b>Search bar</b>: enter an exact ID, part of a variable, switch, item or event name, or event text. Suggestions show IDs and names. Press Enter or click <b>Search</b>.</li>
+<li><b>Type</b>: narrow results to variables, switches, items, event names or event text, or search all types. Variable searches include reads, writes, ranges and event page conditions.</li>
+<li><b>Scope</b>: <b>Whole project</b> searches every map and common event; <b>Current map</b> searches the open map, including unsaved edits; <b>Common events</b> searches only common events.</li>
 <li><b>Results</b>: every event page and command that matches. Double-click a result to open it.</li>
 </ul>
 
@@ -787,5 +792,127 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <p><a href="#top">Back to top</a></p>
 
+<a name="commands-maniac"></a>
+<h2>Maniac Patch commands</h2>
+<p>Commands added by the Maniac Patch. They are in the <b>Maniac Patch</b> page of the command list, enabled when the game uses the patch (as EasyRPG Player detects it: a <code>[Patch]</code> section with <code>Maniac=1</code> in EasyRPG.ini, a Maniac RPG_RT.exe, or accord.dll in the game folder). In other games they are shown and kept but cannot be added.</p>
+
+<a name="cmd-Maniac_GetSaveInfo"></a>
+<h3>Get Save Info (Maniac Patch)</h3>
+<p>Reads a save slot (number or variable) without loading it: its date and time, the level, HP and names of the heroes, into variables and strings, and shows their faces as pictures.</p>
+
+<a name="cmd-Maniac_Save"></a>
+<h3>Save Game (Maniac Patch)</h3>
+<p>Saves the game into a slot (number or variable) without the save screen; a switch can tell whether it worked.</p>
+
+<a name="cmd-Maniac_Load"></a>
+<h3>Load Game (Maniac Patch)</h3>
+<p>Loads a slot (number or variable) without the load screen; a switch can tell whether the slot exists.</p>
+
+<a name="cmd-Maniac_EndLoadProcess"></a>
+<h3>End Load Process (Maniac Patch)</h3>
+<p>Ends the processing that runs after a game loaded with Load Game, and gives control back to the player.</p>
+
+<a name="cmd-Maniac_ControlGlobalSave"></a>
+<h3>Control Global Save (Maniac Patch)</h3>
+<p>Reads and writes switches and variables kept in a file shared by all the saves (unlockables, settings...).</p>
+
+<a name="cmd-Maniac_GetMousePosition"></a>
+<h3>Get Mouse Position (Maniac Patch)</h3>
+<p>Stores the position of the mouse pointer on the game screen into two variables.</p>
+
+<a name="cmd-Maniac_SetMousePosition"></a>
+<h3>Set Mouse Position (Maniac Patch)</h3>
+<p>Moves the mouse pointer to a position of the game screen (numbers or variables).</p>
+
+<a name="cmd-Maniac_KeyInputProcEx"></a>
+<h3>Key Input Processing Ex (Maniac Patch)</h3>
+<p>Reads the state of any keyboard key or mouse button into variables, beyond the keys of Key Input Processing.</p>
+
+<a name="cmd-Maniac_ShowStringPicture"></a>
+<h3>Show String Picture (Maniac Patch)</h3>
+<p>Shows a text as a picture: the text (or a string variable), font, size, spacing, a window from the system graphic, and the effects of Show Picture.</p>
+
+<a name="cmd-Maniac_GetPictureInfo"></a>
+<h3>Get Picture Info (Maniac Patch)</h3>
+<p>Stores the position, size, or the color of a pixel of a picture into variables.</p>
+
+<a name="cmd-Maniac_ChangePictureId"></a>
+<h3>Change Picture ID (Maniac Patch)</h3>
+<p>Gives pictures other numbers, which changes the order they are drawn in.</p>
+
+<a name="cmd-Maniac_EditPicture"></a>
+<h3>Edit Picture (Maniac Patch)</h3>
+<p>Changes a shown picture: draws on it, copies parts of other pictures or of the screen.</p>
+
+<a name="cmd-Maniac_WritePicture"></a>
+<h3>Write Picture (Maniac Patch)</h3>
+<p>Saves a picture, or the screen, to an image file of the game folder.</p>
+
+<a name="cmd-Maniac_ControlBattle"></a>
+<h3>Control Battle (Maniac Patch)</h3>
+<p>Changes the running battle: pauses the gauges, forbids actions, sets the speed of the battle...</p>
+
+<a name="cmd-Maniac_ControlAtbGauge"></a>
+<h3>Control ATB Gauge (Maniac Patch)</h3>
+<p>Sets, adds to or reads the active time gauge of heroes or monsters (a value or a percentage).</p>
+
+<a name="cmd-Maniac_ChangeBattleCommandEx"></a>
+<h3>Change Battle Command Ex (Maniac Patch)</h3>
+<p>Shows or hides the extra battle commands, such as Row and Fight / Auto Battle / Escape.</p>
+
+<a name="cmd-Maniac_GetBattleInfo"></a>
+<h3>Get Battle Info (Maniac Patch)</h3>
+<p>Stores information about a hero or monster in battle (state, position, gauge...) into variables.</p>
+
+<a name="cmd-Maniac_ControlVarArray"></a>
+<h3>Control Variable Array (Maniac Patch)</h3>
+<p>Applies an operation to a range of variables at once: copy, swap, fill, sort, shuffle...</p>
+
+<a name="cmd-Maniac_ControlStrings"></a>
+<h3>Control Strings (Maniac Patch)</h3>
+<p>Operates on the string variables: set, join, insert, replace, search, split, convert to and from numbers, read and write files...</p>
+
+<a name="cmd-Maniac_RewriteMap"></a>
+<h3>Rewrite Map (Maniac Patch)</h3>
+<p>Replaces the tiles of a rectangle of the map with other tiles, until the map is left.</p>
+
+<a name="cmd-Maniac_EditTile"></a>
+<h3>Edit Tile (Maniac Patch)</h3>
+<p>Changes one tile of the map (numbers or variables).</p>
+
+<a name="cmd-Maniac_GetGameInfo"></a>
+<h3>Get Game Info (Maniac Patch)</h3>
+<p>Stores information about the game into variables: map size, tile ids, screen size, event positions, the number of the current map...</p>
+
+<a name="cmd-Maniac_SetGameOption"></a>
+<h3>Set Game Option (Maniac Patch)</h3>
+<p>Changes options of the game while it runs, such as the size of the face graphics or how messages are shown.</p>
+
+<a name="cmd-Maniac_CallCommand"></a>
+<h3>Call Command (Maniac Patch)</h3>
+<p>Runs any event command whose code and parameters come from variables.</p>
+
+<a name="cmd-Maniac_ControlTextProcessing"></a>
+<h3>Control Text Processing (Maniac Patch)</h3>
+<p>Changes how the control codes of messages and strings (\V, \T...) are processed.</p>
+
+<a name="cmd-Maniac_AddMoveRoute"></a>
+<h3>Add Move Route (Maniac Patch)</h3>
+<p>Adds moves to the route of an event. Its parameters are edited with Edit raw.</p>
+
+<a name="cmd-Maniac_Zoom"></a>
+<h3>Zoom (Maniac Patch)</h3>
+<p>Zooms the game screen in or out around a point, at a chosen speed.</p>
+
+<p><a href="#top">Back to top</a></p>
+
+
+
+<a name="resource-manager"></a>
+<h2>Resource Manager</h2>
+<p>Tools &gt; Resource Manager lists the files of the game, folder by folder (CharSet, ChipSet, Music...), with the files of the RTP marked <i>(RTP)</i>: a file of the game hides the RTP file of the same name, as in the games. A folder the game does not have is shown in italics. The filter field narrows the list; the preview shows a picture with its transparent color, or plays a music or sound.</p>
+<p><b>Import</b> copies files into the selected folder (created if needed). A picture is checked against RPG Maker's sizes and kept with 256 colors (reduced if it has more, or kept in true color, which only EasyRPG Player shows); for the folders whose pictures have a transparent color, click that color in the picture. Pictures are saved as PNG or as XYZ. <b>Export</b> copies a file, of the game or of the RTP, elsewhere. <b>Delete</b> moves a file of the game to the trash (RTP files cannot be deleted).</p>
+
+<p><a href="#top">Back to top</a></p>
 </body>
 </html>

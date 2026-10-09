@@ -47,3 +47,15 @@ edit-redo: edit-redo
 edit-delete: edit-delete
 edit-find: edit-find
 
+Drawn for the Editor (no Breeze equivalent):
+zoom-ratio-1
+zoom-ratio-2
+zoom-ratio-4
+zoom-ratio-8
+place-teleport
+place-start
+place-vehicle
+area-new
+map-shift
+select-all
+help-contents

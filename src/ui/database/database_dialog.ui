@@ -1696,10 +1696,6 @@
                <property name="text">
                 <string>...</string>
                </property>
-               <property name="icon">
-                <iconset resource="Resources.qrc">
-                 <normaloff>:/icons/share/old_add.png</normaloff>:/icons/share/old_add.png</iconset>
-               </property>
               </widget>
              </item>
              <item>
@@ -1707,20 +1703,12 @@
                <property name="text">
                 <string>...</string>
                </property>
-               <property name="icon">
-                <iconset resource="Resources.qrc">
-                 <normaloff>:/icons/share/old_delete.png</normaloff>:/icons/share/old_delete.png</iconset>
-               </property>
               </widget>
              </item>
              <item>
               <widget class="QToolButton" name="toolNew_CharacterEditProperty">
                <property name="text">
                 <string>...</string>
-               </property>
-               <property name="icon">
-                <iconset resource="Resources.qrc">
-                 <normaloff>:/icons/share/old_edit.png</normaloff>:/icons/share/old_edit.png</iconset>
                </property>
               </widget>
              </item>
@@ -1753,27 +1741,12 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
-      <widget class="QToolButton" name="toolPlayMusic">
-       <property name="text">
-        <string/>
-       </property>
-       <property name="icon">
-        <iconset resource="Resources.qrc">
-         <normaloff>:/icons/share/old_music.png</normaloff>:/icons/share/old_music.png</iconset>
-       </property>
-      </widget>
-     </item>
-     <item>
       <widget class="QToolButton" name="toolSwitchStyle">
        <property name="toolTip">
         <string>Switch Old/New Database Style</string>
        </property>
        <property name="text">
         <string>New Style</string>
-       </property>
-       <property name="icon">
-        <iconset resource="Resources.qrc">
-         <normaloff>:/icons/share/old_database.png</normaloff>:/icons/share/old_database.png</iconset>
        </property>
        <property name="checkable">
         <bool>true</bool>

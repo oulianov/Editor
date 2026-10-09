@@ -15,7 +15,7 @@
   </property>
   <property name="windowIcon">
    <iconset>
-    <normaloff>:/icons/share/old_easyrpg.png</normaloff>:/icons/share/old_easyrpg.png</iconset>
+    <normaloff>:/app/easyrpg.png</normaloff>:/app/easyrpg.png</iconset>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QHBoxLayout" name="layoutCentral">
@@ -67,6 +67,16 @@
     <addaction name="actionLayerUpper"/>
     <addaction name="actionLayerEvents"/>
     <addaction name="separator"/>
+    <widget class="QMenu" name="menuMapZoom">
+     <property name="title">
+      <string>Map &amp;Zoom</string>
+     </property>
+     <addaction name="actionZoom1_1"/>
+     <addaction name="actionZoom1_2"/>
+     <addaction name="actionZoom1_4"/>
+     <addaction name="actionZoom1_8"/>
+    </widget>
+    <addaction name="menuMapZoom"/>
     <addaction name="actionZoom100"/>
     <addaction name="actionZoomIn"/>
     <addaction name="actionZoomOut"/>
@@ -76,13 +86,12 @@
      <string>Tools</string>
     </property>
     <addaction name="actionDatabase"/>
-    <addaction name="actionDatabaseNew"/>
     <addaction name="actionResourceManager"/>
     <addaction name="actionJukebox"/>
     <addaction name="actionSearch"/>
     <addaction name="actionScriptEditor"/>
     <addaction name="separator"/>
-    <addaction name="actionReloadExternalChanges"/>
+    <addaction name="actionSettings"/>
    </widget>
    <widget class="QMenu" name="menuGame2">
     <property name="title">
@@ -93,8 +102,6 @@
     <addaction name="separator"/>
     <addaction name="actionFullScreenToggle"/>
     <addaction name="actionTitleBackgroundToggle"/>
-    <addaction name="separator"/>
-    <addaction name="actionPlayerLocation"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -103,7 +110,6 @@
     <addaction name="actionContents"/>
     <addaction name="separator"/>
     <addaction name="actionAbout"/>
-    <addaction name="actionAboutQt"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -112,22 +118,20 @@
     <addaction name="actionPaletteToggle"/>
     <addaction name="actionMapTreeToggle"/>
    </widget>
-   <widget class="QMenu" name="menuDebug">
-    <property name="title">
-     <string>Debug</string>
-    </property>
-    <addaction name="actionDebugRtpPath"/>
-    <addaction name="actionDebugEnableCaching"/>
-   </widget>
    <addaction name="menuGame"/>
    <addaction name="menuMaps"/>
    <addaction name="menuView"/>
    <addaction name="menuTools"/>
    <addaction name="menuGame2"/>
    <addaction name="menuHelp"/>
-   <addaction name="menuDebug"/>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
+   <property name="iconSize">
+    <size>
+     <width>16</width>
+     <height>16</height>
+    </size>
+   </property>
    <property name="movable">
     <bool>false</bool>
    </property>
@@ -158,6 +162,10 @@
    <addaction name="actionZoomIn"/>
    <addaction name="actionZoomOut"/>
    <addaction name="actionZoom100"/>
+   <addaction name="actionZoom1_1"/>
+   <addaction name="actionZoom1_2"/>
+   <addaction name="actionZoom1_4"/>
+   <addaction name="actionZoom1_8"/>
    <addaction name="separator"/>
    <addaction name="actionPaletteToggle"/>
    <addaction name="actionMapTreeToggle"/>
@@ -261,27 +269,6 @@
       <number>0</number>
      </property>
      <item>
-      <widget class="QWidget" name="widgetBar2" native="true">
-       <layout class="QVBoxLayout" name="layoutBar2">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="leftMargin">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="rightMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
-       </layout>
-      </widget>
-     </item>
-     <item>
       <widget class="QTreeWidget" name="treeMap">
        <property name="expandsOnDoubleClick">
         <bool>false</bool>
@@ -338,26 +325,6 @@
    <addaction name="actionDrawRectangle"/>
    <addaction name="actionDrawCircle"/>
    <addaction name="actionDrawFill"/>
-  </widget>
-  <widget class="QToolBar" name="toolBar2">
-   <property name="windowTitle">
-    <string>Toolbar 2</string>
-   </property>
-   <property name="movable">
-    <bool>false</bool>
-   </property>
-   <attribute name="toolBarArea">
-    <enum>TopToolBarArea</enum>
-   </attribute>
-   <attribute name="toolBarBreak">
-    <bool>false</bool>
-   </attribute>
-   <addaction name="actionMapNew"/>
-   <addaction name="separator"/>
-   <addaction name="actionMapCopy"/>
-   <addaction name="actionMapPaste"/>
-   <addaction name="separator"/>
-   <addaction name="actionMapDelete"/>
   </widget>
   <action name="actionProjectOpen">
    <property name="text">
@@ -592,18 +559,13 @@
   </action>
   <action name="actionAbout">
    <property name="text">
-    <string>&amp;About</string>
+    <string>&amp;About EasyRPG Editor</string>
    </property>
    <property name="statusTip">
-    <string>About EasyRPG</string>
+    <string>About EasyRPG Editor</string>
    </property>
-  </action>
-  <action name="actionAboutQt">
-   <property name="text">
-    <string>About &amp;Qt</string>
-   </property>
-   <property name="statusTip">
-    <string>About Qt</string>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::AboutRole</enum>
    </property>
   </action>
   <action name="actionScriptEditor">
@@ -646,12 +608,11 @@
    </property>
   </action>
   <action name="actionUndo">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_revert.png</normaloff>:/icons/share/old_revert.png</iconset>
-   </property>
    <property name="text">
     <string>Undo</string>
+   </property>
+   <property name="statusTip">
+    <string>Undo the last action</string>
    </property>
    <property name="toolTip">
     <string>Undo last action</string>
@@ -664,11 +625,25 @@
    <property name="text">
     <string>Redo</string>
    </property>
+   <property name="statusTip">
+    <string>Redo the last action undone</string>
+   </property>
    <property name="toolTip">
     <string>Redo the last action undone</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+Z</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings...</string>
+   </property>
+   <property name="statusTip">
+    <string>Language, paths, reloading of changed files and appearance of the Editor</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::PreferencesRole</enum>
    </property>
   </action>
   <action name="actionDrawSelect">
@@ -677,6 +652,9 @@
    </property>
    <property name="text">
     <string>Select</string>
+   </property>
+   <property name="statusTip">
+    <string>Select map elements</string>
    </property>
    <property name="toolTip">
     <string>Select map elements</string>
@@ -689,12 +667,11 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_zoom.png</normaloff>:/icons/share/old_zoom.png</iconset>
-   </property>
    <property name="text">
     <string>Zoom</string>
+   </property>
+   <property name="statusTip">
+    <string>Zoom using the mouse buttons</string>
    </property>
    <property name="toolTip">
     <string>Zoom in and out</string>
@@ -707,12 +684,11 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_pen.png</normaloff>:/icons/share/old_pen.png</iconset>
-   </property>
    <property name="text">
     <string>Draw</string>
+   </property>
+   <property name="statusTip">
+    <string>Place map elements freehand</string>
    </property>
    <property name="toolTip">
     <string>Draw in the map with a pen</string>
@@ -725,12 +701,11 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_rectangle.png</normaloff>:/icons/share/old_rectangle.png</iconset>
-   </property>
    <property name="text">
     <string>Rectangle</string>
+   </property>
+   <property name="statusTip">
+    <string>Place map elements in a rectangular pattern</string>
    </property>
    <property name="toolTip">
     <string>Draw in the map with a rectangle tool</string>
@@ -743,12 +718,11 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_circle.png</normaloff>:/icons/share/old_circle.png</iconset>
-   </property>
    <property name="text">
     <string>Circle</string>
+   </property>
+   <property name="statusTip">
+    <string>Place map elements in an elliptical pattern</string>
    </property>
    <property name="toolTip">
     <string>Draw in a map with a circle tool</string>
@@ -761,12 +735,11 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_fill.png</normaloff>:/icons/share/old_fill.png</iconset>
-   </property>
    <property name="text">
     <string>Fill</string>
+   </property>
+   <property name="statusTip">
+    <string>Flood fill map elements</string>
    </property>
    <property name="toolTip">
     <string>Draw in the map with a fill tool</string>
@@ -783,45 +756,34 @@
     <bool>false</bool>
    </property>
   </action>
-  <action name="actionDebugRtpPath">
-   <property name="text">
-    <string>Rtp Path</string>
-   </property>
-   <property name="toolTip">
-    <string>warning!: this feature will be disabled once OpenRTP is released</string>
-   </property>
-  </action>
   <action name="actionMapProperties">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_edit.png</normaloff>:/icons/share/old_edit.png</iconset>
-   </property>
    <property name="text">
     <string>Map Properties</string>
+   </property>
+   <property name="statusTip">
+    <string>Edit map properties</string>
    </property>
    <property name="toolTip">
     <string>Edit map properties</string>
    </property>
   </action>
   <action name="actionMapNew">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_new_map.png</normaloff>:/icons/share/old_new_map.png</iconset>
-   </property>
    <property name="text">
     <string>New Map</string>
+   </property>
+   <property name="statusTip">
+    <string>Create a new map and add it as child of the current map.</string>
    </property>
    <property name="toolTip">
     <string>Create a new map and add it as child of the current map.</string>
    </property>
   </action>
   <action name="actionMapCopy">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_copy_map.png</normaloff>:/icons/share/old_copy_map.png</iconset>
-   </property>
    <property name="text">
     <string>Copy Map</string>
+   </property>
+   <property name="statusTip">
+    <string>Copy selected map.</string>
    </property>
    <property name="toolTip">
     <string>Copy selected map.</string>
@@ -834,12 +796,11 @@
    </property>
   </action>
   <action name="actionMapPaste">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_paste_map.png</normaloff>:/icons/share/old_paste_map.png</iconset>
-   </property>
    <property name="text">
     <string>Paste Map</string>
+   </property>
+   <property name="statusTip">
+    <string>Paste current copied map as children of the selected map.</string>
    </property>
    <property name="toolTip">
     <string>Paste current copied map as children of the selected map.</string>
@@ -852,12 +813,11 @@
    </property>
   </action>
   <action name="actionMapDelete">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/icons/share/old_delete_map.png</normaloff>:/icons/share/old_delete_map.png</iconset>
-   </property>
    <property name="text">
     <string>Delete Map</string>
+   </property>
+   <property name="statusTip">
+    <string>Delete selected map.</string>
    </property>
    <property name="toolTip">
     <string>Delete selected map.</string>
@@ -867,39 +827,6 @@
    </property>
    <property name="shortcutContext">
     <enum>Qt::WidgetWithChildrenShortcut</enum>
-   </property>
-  </action>
-  <action name="actionDebugEnableCaching">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="checked">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Enable Caching</string>
-   </property>
-   <property name="toolTip">
-    <string>Enable caching in the searchdialog</string>
-   </property>
-  </action>
-  <action name="actionReloadExternalChanges">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="checked">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>Reload Files Changed on Disk</string>
-   </property>
-   <property name="toolTip">
-    <string>Show the changes other programs make to the database, the map tree and the open maps</string>
-   </property>
-  </action>
-  <action name="actionDatabaseNew">
-   <property name="text">
-    <string>Database (New)</string>
    </property>
   </action>
   <action name="actionAreaNew">
@@ -926,6 +853,14 @@
     <enum>Qt::WidgetWithChildrenShortcut</enum>
    </property>
   </action>
+  <action name="actionMapGenerateDungeon">
+   <property name="text">
+    <string>Generate Dungeon...</string>
+   </property>
+   <property name="toolTip">
+    <string>Create a new map with the dungeon generator settings of the selected map.</string>
+   </property>
+  </action>
   <action name="actionMapShift">
    <property name="text">
     <string>Shift Map</string>
@@ -948,12 +883,72 @@
     <string>Test the game with a play mode, start position or party</string>
    </property>
   </action>
-  <action name="actionPlayerLocation">
+  <action name="actionZoom1_1">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
-    <string>Player &amp;Location...</string>
+    <string>1/1 Ratio</string>
+   </property>
+   <property name="iconText">
+    <string>1/1</string>
    </property>
    <property name="toolTip">
-    <string>Choose the EasyRPG Player used for test play</string>
+    <string>1/1 Ratio</string>
+   </property>
+   <property name="statusTip">
+    <string>Edit at a 1/1 view ratio</string>
+   </property>
+  </action>
+  <action name="actionZoom1_2">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>1/2 Ratio</string>
+   </property>
+   <property name="iconText">
+    <string>1/2</string>
+   </property>
+   <property name="toolTip">
+    <string>1/2 Ratio</string>
+   </property>
+   <property name="statusTip">
+    <string>Edit at a 1/2 view ratio</string>
+   </property>
+  </action>
+  <action name="actionZoom1_4">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>1/4 Ratio</string>
+   </property>
+   <property name="iconText">
+    <string>1/4</string>
+   </property>
+   <property name="toolTip">
+    <string>1/4 Ratio</string>
+   </property>
+   <property name="statusTip">
+    <string>Edit at a 1/4 view ratio</string>
+   </property>
+  </action>
+  <action name="actionZoom1_8">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>1/8 Ratio</string>
+   </property>
+   <property name="iconText">
+    <string>1/8</string>
+   </property>
+   <property name="toolTip">
+    <string>1/8 Ratio</string>
+   </property>
+   <property name="statusTip">
+    <string>Edit at a 1/8 view ratio</string>
    </property>
   </action>
  </widget>

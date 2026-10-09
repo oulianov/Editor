@@ -50,6 +50,8 @@ public:
 		QPainter* painter, const QWidget* widget = nullptr) const override;
 	QRect subControlRect(ComplexControl control, const QStyleOptionComplex* option,
 		SubControl sub_control, const QWidget* widget = nullptr) const override;
+	int styleHint(StyleHint hint, const QStyleOption* option = nullptr,
+		const QWidget* widget = nullptr, QStyleHintReturn* data = nullptr) const override;
 	QSize sizeFromContents(ContentsType type, const QStyleOption* option,
 		const QSize& size, const QWidget* widget = nullptr) const override;
 

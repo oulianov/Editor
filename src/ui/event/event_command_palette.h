@@ -21,6 +21,7 @@
 #include <QList>
 #include <lcf/rpg/eventcommand.h>
 
+class Project;
 class QLineEdit;
 class QPushButton;
 class QTabWidget;
@@ -43,11 +44,18 @@ public:
 	/** Name of a command kind, as on its button */
 	static QString commandName(Code code);
 
+	/** Whether EasyRPG Player runs the game with the Maniac Patch: its
+	 *  commands are only offered then */
+	static bool usesManiacPatch(const Project& project);
+
 private:
 	void filter(const QString& text);
 
 	QLineEdit* m_search = nullptr;
 	QTabWidget* m_tabs = nullptr;
+	/** While searching: the matches of all the pages, best first */
+	QWidget* m_results = nullptr;
+	QList<QPushButton*> m_resultButtons;
 	QList<QPushButton*> m_buttons;
 	Code m_code = Code::END;
 };

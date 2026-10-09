@@ -68,6 +68,11 @@ The French file can be made this way from the Rabbi-Bodom translation
 
     uv run --with pefile python3 make_ts.py "RPG Maker 2003.exe" ../editor_fr.ts --corrections corrections_fr.json
 
+The French catalog also translates the Editor's own dialogs and Maniac Patch
+controls by hand. Existing translations are preserved by default, including
+wording adjusted for the Editor's controls. Obsolete and vanished messages are
+never filled or reactivated, even with `--overwrite`.
+
 ## Keeping the mapping up to date
 
 New strings of the Editor are not in the mapping: `make_ts.py` reports them as

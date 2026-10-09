@@ -38,7 +38,11 @@ public slots:
 	void onChipsetChange();
 	/** Show the selection of the current layer (picked here or on the map) */
 	void onSelectionChanged();
+	/** The water and animated tiles of the first row show the next frame */
+	void onAnimationFrame();
 protected:
+
+	void drawAnimatedRow();
 
 	void updateSelectionRect();
 

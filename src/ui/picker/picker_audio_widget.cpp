@@ -18,13 +18,19 @@
 #include "picker_audio_widget.h"
 #include "ui_picker_audio_widget.h"
 
+#include <QFileInfo>
+#include <QStyle>
 #include <lcf/rpg/music.h>
 #include <lcf/rpg/sound.h>
 
+#include "common/audio_player.h"
+
 PickerAudioWidget::PickerAudioWidget(const lcf::rpg::Music& music, QWidget *parent) :
 	PickerChildWidget(parent),
-	ui(new Ui::PickerAudioWidget) {
+	ui(new Ui::PickerAudioWidget),
+	m_type(Type::Music) {
 	ui->setupUi(this);
+	init();
 
 	ui->sliderFadeIn->setValue(music.fadein / 1000);
 	ui->sliderVolume->setValue(music.volume);
@@ -34,8 +40,10 @@ PickerAudioWidget::PickerAudioWidget(const lcf::rpg::Music& music, QWidget *pare
 
 PickerAudioWidget::PickerAudioWidget(const lcf::rpg::Sound& sound, QWidget *parent) :
 	PickerChildWidget(parent),
-	ui(new Ui::PickerAudioWidget) {
+	ui(new Ui::PickerAudioWidget),
+	m_type(Type::Sound) {
 	ui->setupUi(this);
+	init();
 
 	ui->sliderVolume->setValue(sound.volume);
 	ui->sliderTempo->setValue(sound.tempo);
@@ -48,8 +56,49 @@ PickerAudioWidget::~PickerAudioWidget() {
 	delete ui;
 }
 
+void PickerAudioWidget::init() {
+	m_player = new AudioPlayer(this);
+	ui->buttonPlay->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
+	ui->buttonStop->setIcon(style()->standardIcon(QStyle::SP_MediaStop));
+	ui->buttonStop->setEnabled(false);
+	// the settings are heard at once
+	connect(ui->sliderVolume, &QSlider::valueChanged, m_player, &AudioPlayer::setVolume);
+	connect(ui->sliderTempo, &QSlider::valueChanged, m_player, &AudioPlayer::setTempo);
+	connect(ui->sliderBalance, &QSlider::valueChanged, m_player, &AudioPlayer::setBalance);
+	connect(m_player, &AudioPlayer::stateChanged, this, [this](AudioPlayer::State state) {
+		ui->buttonStop->setEnabled(state != AudioPlayer::State::Stopped);
+		if (state == AudioPlayer::State::Stopped && m_player->errorString().isEmpty()) {
+			ui->labelStatus->clear();
+		}
+	});
+	connect(m_player, &AudioPlayer::errorOccurred, ui->labelStatus, &QLabel::setText);
+}
+
 void PickerAudioWidget::fileChanged(const QString& filename) {
 	m_filename = filename;
+	// like RPG Maker: while listening, another file chosen is played
+	if (m_player->state() == AudioPlayer::State::Playing) {
+		on_buttonPlay_clicked();
+	}
+}
+
+void PickerAudioWidget::on_buttonPlay_clicked() {
+	if (m_filename.isEmpty() || !QFileInfo(m_filename).isFile()) {
+		ui->labelStatus->setText(tr("Choose a file to play."));
+		return;
+	}
+	m_player->setVolume(volume());
+	m_player->setTempo(tempo());
+	m_player->setBalance(balance());
+	m_player->setFadeIn(m_type == Type::Music ? fadeInTime() : 0);
+	m_player->setLooping(m_type == Type::Music);
+	if (m_player->play(m_filename)) {
+		ui->labelStatus->setText(tr("Playing %1").arg(QFileInfo(m_filename).fileName()));
+	}
+}
+
+void PickerAudioWidget::on_buttonStop_clicked() {
+	m_player->stop();
 }
 
 int PickerAudioWidget::fadeInTime() const {

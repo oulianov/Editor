@@ -17,6 +17,7 @@
 
 #include "new_project_dialog.h"
 #include "ui_new_project_dialog.h"
+#include "ui/common/theme_icon.h"
 #include <QFileDialog>
 #include <QDir>
 #include <QMessageBox>
@@ -27,6 +28,7 @@ NewProjectDialog::NewProjectDialog(QWidget *parent) :
 	ui(new Ui::NewProjectDialog)
 {
 	ui->setupUi(this);
+	ui->toolProjectPath->setIcon(themeIcon(this, QStringLiteral("folder")));
 	setModal(true);
 	ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
 }

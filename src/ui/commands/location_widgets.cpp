@@ -22,6 +22,8 @@
 #include "model/project_data.h"
 #include "ui/common/rpg_combobox.h"
 #include "ui/common/rpg_spinbox.h"
+#include "ui/common/map_preview.h"
+#include "ui/maptree/map_location_dialog.h"
 #include "ui/picker/picker_backdrop_widget.h"
 #include "ui/picker/picker_dialog.h"
 #include <QCheckBox>
@@ -31,6 +33,7 @@
 #include <QGroupBox>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QPushButton>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <algorithm>
@@ -187,7 +190,7 @@ QComboBox* LocationCommandWidget::character(QFormLayout* form, const QString& la
 	return value;
 }
 
-void LocationCommandWidget::direction(QFormLayout* form, int index, QComboBox* mode) {
+QComboBox* LocationCommandWidget::direction(QFormLayout* form, int index, QComboBox* mode) {
 	auto* facing = choices(form, tr("Facing"), QStringLiteral("facing"), index,
 		{tr("Retain Facing"), tr("Up"), tr("Right"), tr("Down"), tr("Left")});
 	const bool supported = m_project.database().system.ldb_id == 2003;
@@ -197,6 +200,7 @@ void LocationCommandWidget::direction(QFormLayout* form, int index, QComboBox* m
 			facing->setEnabled(supported && mode->currentData().toInt() == 0);
 		});
 	}
+	return facing;
 }
 
 void LocationCommandWidget::location(int mode_index, int map_index, int x_index,
@@ -214,6 +218,10 @@ void LocationCommandWidget::location(int mode_index, int map_index, int x_index,
 	}
 	auto* x = spin(form, tr("X Coordinate"), QStringLiteral("locationX"), x_index, 0, 9999);
 	auto* y = spin(form, tr("Y Coordinate"), QStringLiteral("locationY"), y_index, 0, 9999);
+	// RPG Maker's map view to click the cell on
+	auto* picker = new QPushButton(tr("Select on Map..."), this);
+	picker->setObjectName(QStringLiteral("locationPicker"));
+	form->addRow(QString(), picker);
 	if (mode) {
 		QComboBox* map_variable = nullptr;
 		if (map_index >= 0) {
@@ -246,9 +254,45 @@ void LocationCommandWidget::location(int mode_index, int map_index, int x_index,
 		update(false);
 		connect(mode, &QComboBox::currentIndexChanged, this, [update] { update(true); });
 	}
-	if (direction_index >= 0) {
-		direction(form, direction_index, mode);
+	QComboBox* facing = direction_index >= 0 ? direction(form, direction_index, mode) : nullptr;
+
+	// without a map parameter the location is on the map of the event: the open map
+	const int fixed_map = map_index < 0 ? MapPreview::openMapId() : 0;
+	auto update_picker = [=] {
+		picker->setEnabled((!mode || mode->currentData().toInt() == 0) && (map_index >= 0 || fixed_map > 0));
+	};
+	update_picker();
+	if (mode) {
+		connect(mode, &QComboBox::currentIndexChanged, this, update_picker);
 	}
+	connect(picker, &QPushButton::clicked, this, [=, this] {
+		int cell_x = x->value();
+		int cell_y = y->value();
+		if (map_value) {
+			int map_id = map_value->currentData().toInt();
+			if (facing && facing->isEnabled()) {
+				int facing_value = facing->currentData().toInt();
+				if (!MapLocationDialog::pick(m_project, map_id, cell_x, cell_y, facing_value, this)) {
+					return;
+				}
+				if (const int row = facing->findData(facing_value); row >= 0) {
+					facing->setCurrentIndex(row);
+				}
+			} else if (!MapLocationDialog::pick(m_project, map_id, cell_x, cell_y, this)) {
+				return;
+			}
+			int row = map_value->findData(map_id);
+			if (row < 0) {
+				map_value->addItem(tr("Unknown Map (%1)").arg(map_id), map_id);
+				row = map_value->count() - 1;
+			}
+			map_value->setCurrentIndex(row);
+		} else if (!MapLocationDialog::pickOnMap(m_project, fixed_map, cell_x, cell_y, this)) {
+			return;
+		}
+		x->setValue(cell_x);
+		y->setValue(cell_y);
+	});
 }
 
 void LocationCommandWidget::tile(QFormLayout* form, const QString& label,
@@ -468,6 +512,7 @@ void LocationCommandWidget::setData(lcf::rpg::EventCommand* cmd) {
 			const bool adding = !operation || operation->currentData().toInt() == 0;
 			findChild<QSpinBox*>(QStringLiteral("locationX"))->setEnabled(adding);
 			findChild<QSpinBox*>(QStringLiteral("locationY"))->setEnabled(adding);
+			findChild<QPushButton*>(QStringLiteral("locationPicker"))->setEnabled(adding);
 			enabled->setEnabled(adding);
 			value->setEnabled(adding && enabled->isChecked());
 		};

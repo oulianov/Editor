@@ -50,7 +50,10 @@ public:
 	float scale() const;
 	void selectTile(int x, int y);
 	void centerOnTile(int x, int y);
+	/** Shown at this scale, rounded by snapScale */
 	void setScale(float scale);
+	/** The nearest scale showing each pixel of the game on a power of two of screen pixels */
+	float snapScale(float scale) const;
 	QString mapName() const;
 	bool isModified() const;
 	bool canUndo() const;
@@ -88,6 +91,8 @@ public:
 	/** Put an edited event on the map (replacing the one with its id), with undo */
 	void commitEvent(const lcf::rpg::Event& event);
 	lcf::rpg::Event* findEvent(int id);
+	/** The texts of the menus, in the current language */
+	void retranslate();
 
 signals:
 
@@ -99,6 +104,12 @@ signals:
 
 	/** The map was read again from disk (its events are new objects) */
 	void mapReloaded();
+
+	/** The zoom changed (zoom tool, Ctrl+wheel, menus) */
+	void scaleChanged();
+
+	/** The cell under the mouse, and its event on the event layer, for the status bar */
+	void cellHovered(const QString& text);
 
 public slots:
 	void redrawMap();
@@ -121,6 +132,8 @@ private slots:
 	void on_actionSetStartPosition();
 
 	void on_actionSetVehiclePosition();
+
+	void on_actionPlaceTeleport();
 
 	void on_actionNewEvent();
 
@@ -149,6 +162,9 @@ private slots:
 	void on_view_V_Scroll();
 
 	void on_view_H_Scroll();
+
+	/** Draw the next frame of the water and animated tiles shown */
+	void animateTiles();
 
 protected:
 	void mousePressEvent(QGraphicsSceneMouseEvent *event);
@@ -207,12 +223,14 @@ private:
 
 	QMenu *m_eventMenu;
 	QMenu *m_areaMenu;
+	QMenu *m_vehicleMenu = nullptr;
 	QAction *m_actionNew;
 	QAction *m_actionEdit;
 	QAction *m_actionCopy;
 	QAction *m_actionCut;
 	QAction *m_actionPaste;
 	QAction *m_actionDelete;
+	QAction *m_actionTeleport;
 	QAction *m_actionCutArea;
 	QAction *m_actionCopyArea;
 	QAction *m_actionPasteArea;
@@ -243,6 +261,13 @@ private:
 	ProjectData& m_project;
 	QMap<int, lcf::rpg::Event*> m_events;
 	QPixmap m_panorama;
+	// the animated cells of the lower pixmap (water, animated tiles), the
+	// first cell of the pixmap and the frames it shows
+	std::vector<QPoint> m_waterCells;
+	std::vector<QPoint> m_animatedCells;
+	QPoint m_lowerOrigin;
+	int m_drawnWaterFrame = 0;
+	int m_drawnTileFrame = 0;
 	// redraw when shown: drawing a hidden tab would load its chipset
 	bool m_needsRedraw = false;
 	// event layer: the selected cell and the event dragged from it

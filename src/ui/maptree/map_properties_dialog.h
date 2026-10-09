@@ -26,6 +26,7 @@
 
 class ProjectData;
 class EncounterList;
+class QToolButton;
 
 namespace Ui {
 class MapPropertiesDialog;
@@ -44,18 +45,6 @@ private slots:
 
 	void on_groupPanorama_toggled(bool arg1);
 
-	void on_groupUseGenerator_toggled(bool arg1);
-
-	void on_groupUpperWall_toggled(bool arg1);
-
-	void on_groupFloorB_toggled(bool arg1);
-
-	void on_groupFloorC_toggled(bool arg1);
-
-	void on_groupObstacleB_toggled(bool arg1);
-
-	void on_groupObstacleC_toggled(bool arg1);
-
 	void on_pushAddEncounter_clicked();
 
 	void on_pushRemoveEncounter_clicked();
@@ -69,16 +58,17 @@ private slots:
 private:
 	Ui::MapPropertiesDialog *ui;
 
+	/** The tile boxes of the dungeon generator, in the order of generator_x and generator_y */
+	enum GeneratorBox { Ceiling, LowerWall, UpperWall, FloorA, FloorB, FloorC, ObstacleA, ObstacleB, ObstacleC, GeneratorBoxes };
+	QToolButton* generatorButton(int box) const;
+	/** The tiles of a box in palette cells (6 per row): one lower tile, or up to 2 x 2 upper tiles */
+	QRect generatorCells(int box) const;
+	void setGeneratorCells(int box, const QRect& cells);
+	void pickGeneratorTiles(int box);
+	/** Draws the boxes with the tiles of the chipset chosen for this map */
+	void updateGeneratorTiles();
+
 	QGraphicsPixmapItem *m_panoramaItem;
-	QGraphicsPixmapItem *m_ceilingItem;
-	QGraphicsPixmapItem *m_lowerWallItem;
-	QGraphicsPixmapItem *m_upperWallItem;
-	QGraphicsPixmapItem *m_floorAItem;
-	QGraphicsPixmapItem *m_floorBItem;
-	QGraphicsPixmapItem *m_floorCItem;
-	QGraphicsPixmapItem *m_ObstacleAItem;
-	QGraphicsPixmapItem *m_ObstacleBItem;
-	QGraphicsPixmapItem *m_ObstacleCItem;
 
 	EncounterList *m_encounters;
 
@@ -87,8 +77,15 @@ private:
 	lcf::rpg::MapInfo m_info_copy;
 	lcf::rpg::Map m_map_copy;
 
-	std::vector<short> m_generatorLowerLayer;
-	std::vector<short> m_generatorUpperLayer;
+	std::vector<uint32_t> m_generatorX;
+	std::vector<uint32_t> m_generatorY;
+	std::vector<int16_t> m_generatorTiles;
+	/** Written back only when a tile was chosen: maps keep what they had */
+	bool m_generatorChanged = false;
+	/** The palette tiles of m_paletteChipset, for the boxes */
+	int m_paletteChipset = -1;
+	QPixmap m_lowerTiles;
+	QPixmap m_upperTiles;
 
 	ProjectData& m_project;
 

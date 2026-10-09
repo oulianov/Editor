@@ -16,8 +16,15 @@
  */
 
 #include "event_command_palette.h"
+#include <algorithm>
+#include "core.h"
 #include "ui/common/help.h"
+#include <QDateTime>
 #include <QDialogButtonBox>
+#include <QFile>
+#include <QFileInfo>
+#include <QHash>
+#include <QSettings>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -32,6 +39,7 @@ struct Entry {
 	Code code;
 	const char* name;
 	bool rpg2k3_only;
+	bool maniac_only = false;
 };
 
 struct Page {
@@ -163,6 +171,45 @@ const std::vector<Page>& mapPages() {
 	return pages;
 }
 
+// The Maniac Patch commands, by theme
+const Page& maniacPage() {
+	static const Page page = { QT_TRANSLATE_NOOP("EventCommandPalette", "Maniac Patch"), {
+		{Code::Maniac_GetSaveInfo, QT_TRANSLATE_NOOP("EventCommandPalette", "Get Save Info"), false, true},
+		{Code::Maniac_Save, QT_TRANSLATE_NOOP("EventCommandPalette", "Save Game"), false, true},
+		{Code::Maniac_Load, QT_TRANSLATE_NOOP("EventCommandPalette", "Load Game"), false, true},
+		{Code::Maniac_EndLoadProcess, QT_TRANSLATE_NOOP("EventCommandPalette", "End Load Process"), false, true},
+		{Code::Maniac_ControlGlobalSave, QT_TRANSLATE_NOOP("EventCommandPalette", "Control Global Save"), false, true},
+		{Code::END, nullptr, false},
+		{Code::Maniac_GetMousePosition, QT_TRANSLATE_NOOP("EventCommandPalette", "Get Mouse Position"), false, true},
+		{Code::Maniac_SetMousePosition, QT_TRANSLATE_NOOP("EventCommandPalette", "Set Mouse Position"), false, true},
+		{Code::Maniac_KeyInputProcEx, QT_TRANSLATE_NOOP("EventCommandPalette", "Key Input Processing Ex"), false, true},
+		{Code::END, nullptr, false},
+		{Code::Maniac_ShowStringPicture, QT_TRANSLATE_NOOP("EventCommandPalette", "Show String Picture"), false, true},
+		{Code::Maniac_GetPictureInfo, QT_TRANSLATE_NOOP("EventCommandPalette", "Get Picture Info"), false, true},
+		{Code::Maniac_ChangePictureId, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Picture ID"), false, true},
+		{Code::Maniac_EditPicture, QT_TRANSLATE_NOOP("EventCommandPalette", "Edit Picture"), false, true},
+		{Code::Maniac_WritePicture, QT_TRANSLATE_NOOP("EventCommandPalette", "Write Picture"), false, true},
+		{Code::END, nullptr, false},
+		{Code::Maniac_RewriteMap, QT_TRANSLATE_NOOP("EventCommandPalette", "Rewrite Map"), false, true},
+		{Code::Maniac_EditTile, QT_TRANSLATE_NOOP("EventCommandPalette", "Edit Tile"), false, true},
+		{Code::Maniac_Zoom, QT_TRANSLATE_NOOP("EventCommandPalette", "Zoom"), false, true},
+		{Code::Maniac_AddMoveRoute, QT_TRANSLATE_NOOP("EventCommandPalette", "Add Move Route"), false, true},
+		{Code::END, nullptr, false},
+		{Code::Maniac_ControlVarArray, QT_TRANSLATE_NOOP("EventCommandPalette", "Control Variable Array"), false, true},
+		{Code::Maniac_ControlStrings, QT_TRANSLATE_NOOP("EventCommandPalette", "Control Strings"), false, true},
+		{Code::Maniac_GetGameInfo, QT_TRANSLATE_NOOP("EventCommandPalette", "Get Game Info"), false, true},
+		{Code::Maniac_SetGameOption, QT_TRANSLATE_NOOP("EventCommandPalette", "Set Game Option"), false, true},
+		{Code::Maniac_CallCommand, QT_TRANSLATE_NOOP("EventCommandPalette", "Call Command"), false, true},
+		{Code::Maniac_ControlTextProcessing, QT_TRANSLATE_NOOP("EventCommandPalette", "Control Text Processing"), false, true},
+		{Code::END, nullptr, false},
+		{Code::Maniac_ControlBattle, QT_TRANSLATE_NOOP("EventCommandPalette", "Control Battle"), false, true},
+		{Code::Maniac_ControlAtbGauge, QT_TRANSLATE_NOOP("EventCommandPalette", "Control ATB Gauge"), false, true},
+		{Code::Maniac_ChangeBattleCommandEx, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Battle Commands Ex"), false, true},
+		{Code::Maniac_GetBattleInfo, QT_TRANSLATE_NOOP("EventCommandPalette", "Get Battle Info"), false, true},
+	}};
+	return page;
+}
+
 const Page& battlePage() {
 	static const Page page = { QT_TRANSLATE_NOOP("EventCommandPalette", "Battle"), {
 		{Code::ChangeMonsterHP, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Enemy HP"), false},
@@ -186,6 +233,8 @@ EventCommandPalette::EventCommandPalette(bool rpg2k3, bool battle, QWidget* pare
 	QDialog(parent)
 {
 	setWindowTitle(tr("Event Commands"));
+	const auto& project = core().project();
+	const bool maniac = project && usesManiacPatch(*project);
 	auto* layout = new QVBoxLayout(this);
 
 	m_search = new QLineEdit(this);
@@ -245,6 +294,10 @@ EventCommandPalette::EventCommandPalette(bool rpg2k3, bool battle, QWidget* pare
 					button->setEnabled(false);
 					button->setToolTip(tr("Only in RPG Maker 2003"));
 				}
+				if (entry->maniac_only && !maniac) {
+					button->setEnabled(false);
+					button->setToolTip(tr("Only with the Maniac Patch"));
+				}
 				connect(button, &QPushButton::clicked, this, [this, button] {
 					m_code = static_cast<Code>(button->property("code").toInt());
 					accept();
@@ -267,6 +320,18 @@ EventCommandPalette::EventCommandPalette(bool rpg2k3, bool battle, QWidget* pare
 	for (const auto& page : mapPages()) {
 		add_page(page, number++);
 	}
+	add_page(maniacPage(), number++);
+
+	// the results of a search replace the pages, which would hide the
+	// matches of the other pages
+	m_results = new QWidget(this);
+	m_results->setObjectName(QStringLiteral("searchResults"));
+	auto* results_layout = new QVBoxLayout(m_results);
+	results_layout->setContentsMargins(0, 0, 0, 0);
+	results_layout->setSpacing(2);
+	results_layout->addStretch(1);
+	m_results->hide();
+	layout->insertWidget(layout->indexOf(m_tabs) + 1, m_results, 1);
 
 	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Help, this);
 	connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -275,49 +340,62 @@ EventCommandPalette::EventCommandPalette(bool rpg2k3, bool battle, QWidget* pare
 
 	connect(m_search, &QLineEdit::textChanged, this, &EventCommandPalette::filter);
 	connect(m_search, &QLineEdit::returnPressed, this, [this] {
-		// the best match: the same name, else a name starting with the text, else the first
-		const QString text = m_search->text().trimmed();
-		QPushButton* best = nullptr;
-		int best_rank = 3;
-		for (auto* button : m_buttons) {
-			if (button->isHidden() || !button->isEnabled()) {
+		// the command of that name, else the first result that can be added
+		const QString search = m_search->text().trimmed();
+		QPushButton* first = nullptr;
+		for (auto* button : m_resultButtons) {
+			if (!button->isEnabled()) {
 				continue;
 			}
-			QString name = button->text().chopped(3);  // without "..."
-			int rank = name.compare(text, Qt::CaseInsensitive) == 0 ? 0 : (name.startsWith(text, Qt::CaseInsensitive) ? 1 : 2);
-			if (rank < best_rank) {
-				best = button;
-				best_rank = rank;
+			if (button->text().chopped(3).compare(search, Qt::CaseInsensitive) == 0) {
+				button->click();
+				return;
 			}
+			first = first ? first : button;
 		}
-		if (best) {
-			best->click();
+		if (first) {
+			first->click();
 		}
 	});
 	m_search->setFocus();
 }
 
 void EventCommandPalette::filter(const QString& text) {
-	for (auto* button : m_buttons) {
-		button->setHidden(!text.isEmpty() && !button->text().contains(text, Qt::CaseInsensitive));
-	}
-	// stay on the page while it has matches, else show the first page that has
-	auto has_match = [this](int page) {
-		for (auto* button : m_buttons) {
-			if (!button->isHidden() && m_tabs->indexOf(button->parentWidget()) == page) {
-				return true;
-			}
-		}
-		return false;
-	};
-	if (has_match(m_tabs->currentIndex())) {
+	qDeleteAll(m_resultButtons);
+	m_resultButtons.clear();
+	const QString search = text.trimmed();
+	m_tabs->setVisible(search.isEmpty());
+	m_results->setVisible(!search.isEmpty());
+	if (search.isEmpty()) {
 		return;
 	}
-	for (int page = 0; page < m_tabs->count(); ++page) {
-		if (has_match(page)) {
-			m_tabs->setCurrentIndex(page);
-			return;
+
+	// The commands containing the text, in the order of the pages and of
+	// their place in them (left column, then right): always the same list
+	std::vector<QPushButton*> matches;
+	for (QPushButton* button : m_buttons) {
+		if (button->text().chopped(3).contains(search, Qt::CaseInsensitive)) {  // without "..."
+			matches.push_back(button);
 		}
+	}
+
+	auto* layout = static_cast<QVBoxLayout*>(m_results->layout());
+	for (QPushButton* button : matches) {
+		// the page of the command, as its tooltip if it has none
+		const QString page = m_tabs->tabText(m_tabs->indexOf(button->parentWidget()));
+		auto* result = new QPushButton(button->text(), m_results);
+		result->setAutoDefault(false);
+		result->setEnabled(button->isEnabled());
+		result->setToolTip(button->toolTip().isEmpty() ? page : button->toolTip());
+		connect(result, &QPushButton::clicked, button, &QPushButton::click);
+		layout->insertWidget(layout->count() - 1, result);
+		m_resultButtons.append(result);
+	}
+	if (matches.empty()) {
+		auto* none = new QPushButton(tr("No command matches \"%1\"").arg(search), m_results);
+		none->setEnabled(false);
+		layout->insertWidget(layout->count() - 1, none);
+		m_resultButtons.append(none);
 	}
 }
 
@@ -333,10 +411,54 @@ QString EventCommandPalette::commandName(Code code) {
 			}
 		}
 	}
-	for (const auto& entry : battlePage().entries) {
-		if (entry.code == code && entry.name) {
-			return tr(entry.name);
+	for (const auto& page : {battlePage(), maniacPage()}) {
+		for (const auto& entry : page.entries) {
+			if (entry.code == code && entry.name) {
+				return tr(entry.name);
+			}
 		}
 	}
 	return QString();
+}
+
+bool EventCommandPalette::usesManiacPatch(const Project& project) {
+	// As EasyRPG Player decides (Game_ConfigGame, Player::CreateGameObjects):
+	// a [Patch] section of EasyRPG.ini overrides the detection, then the
+	// version information of RPG_RT.exe, then accord.dll in the game folder
+	const QString ini = project.findFile(QStringLiteral("EasyRPG.ini"));
+	if (!ini.isEmpty()) {
+		QSettings settings(ini, QSettings::IniFormat);
+		settings.beginGroup(QStringLiteral("Patch"));
+		const QStringList keys = settings.childKeys();
+		if (!keys.isEmpty()) {
+			for (const auto& key : keys) {
+				if (key.compare(QStringLiteral("Maniac"), Qt::CaseInsensitive) == 0) {
+					return settings.value(key).toInt() > 0;
+				}
+			}
+			return false;
+		}
+	}
+
+	const QString exe = project.findFile(QStringLiteral("RPG_RT.exe"));
+	if (!exe.isEmpty()) {
+		// "Maniacs, v" in UTF-16, in the version resource; read once per file version
+		static QHash<QString, bool> known;
+		const QString key = exe + QFileInfo(exe).lastModified().toString(Qt::ISODateWithMs);
+		auto it = known.find(key);
+		if (it == known.end()) {
+			QFile file(exe);
+			bool found = false;
+			if (file.open(QIODevice::ReadOnly)) {
+				const QByteArray marker = QByteArray::fromRawData(reinterpret_cast<const char*>(u"Maniacs, v"), 20);
+				found = file.readAll().contains(marker);
+			}
+			it = known.insert(key, found);
+		}
+		if (*it) {
+			return true;
+		}
+	}
+
+	return !project.findFile(QStringLiteral("accord.dll")).isEmpty();
 }

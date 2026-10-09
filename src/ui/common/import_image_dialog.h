@@ -18,38 +18,78 @@
 #pragma once
 
 #include <QDialog>
-#include <QGraphicsPixmapItem>
+#include <QImage>
 
 #include "import_item.h"
+
+class QGraphicsScene;
 
 namespace Ui {
 class ImportImageDialog;
 }
 
+/**
+ * Chooses the transparent color of an image imported into the game, as the
+ * Preview window of RPG Maker's Resource Manager: a click on the image picks
+ * the color.
+ *
+ * The games use palette images (256 colors at most) where palette index 0 is
+ * transparent: for those, image() moves the chosen color to index 0. A true
+ * color image (EasyRPG extensions) gets the chosen color as alpha 0 instead.
+ */
 class ImportImageDialog : public QDialog
 {
 	Q_OBJECT
-	
+
 public:
-	explicit ImportImageDialog(QString n_filepath, QWidget *parent = nullptr);
+	explicit ImportImageDialog(const QImage& image, QWidget *parent = nullptr);
+	explicit ImportImageDialog(const QString& filepath, QWidget *parent = nullptr);
 	~ImportImageDialog();
 
-	QImage image();
-	
+	/** The image with the chosen transparent color */
+	QImage image() const;
+
+	/** Palette index (palette images) of the transparent color */
+	int transparentIndex() const { return m_keyIndex; }
+
+	/** A PNG, BMP or XYZ file; palette images (and XYZ) as Format_Indexed8 */
+	static QImage loadImage(const QString& path);
+
+	/** Writes a palette image in RPG Maker's XYZ format (zlib compressed) */
+	static bool saveXyz(const QImage& image, const QString& path);
+
+	/** The same pixels as a palette image, or a null image above 256 colors.
+	 *  Fully transparent pixels become index 0, otherwise colors are numbered
+	 *  in the order they appear, so the top left pixel's color is index 0. */
+	static QImage toIndexed(const QImage& image);
+
+	/** Reduced to 256 colors (dithered); transparent pixels become index 0 */
+	static QImage reduceColors(const QImage& image);
+
+	/** As the game shows it: the pixels of palette index 0 transparent */
+	static QImage withTransparentIndex0(const QImage& image);
+
+	/** Palette images: the number of colors, else 0 */
+	static int paletteSize(const QImage& image);
+
 private slots:
 	void on_pushZoomIn_clicked();
-
 	void on_pushZoomOut_clicked();
 
-	void image_clicked(QPointF pos, bool pressed);
-
 private:
+	void init();
+	void pick(QPoint pixel);
+	void setScale(int scale);
+	void updateView();
+	QImage displayImage() const;
+
 	Ui::ImportImageDialog *ui;
 
-	qreal m_scale;
-	QString m_filepath;
-	QGraphicsScene *scene;
-	ImportItem * m_pixmap;
-
+	QImage m_source;
+	int m_scale = 1;
+	int m_keyIndex = 0;
+	bool m_hasKeyColor = false;
+	QRgb m_keyColor = 0;
+	QGraphicsScene *m_scene = nullptr;
+	ImportItem *m_pixmap = nullptr;
 };
-

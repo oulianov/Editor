@@ -20,9 +20,11 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QFileDialog>
+#include <QFutureWatcher>
 #include <QMessageBox>
 #include <QSettings>
 #include <QStyle>
+#include <QtConcurrentRun>
 #include "core.h"
 #include "model/project.h"
 
@@ -54,8 +56,9 @@ QString OpenProjectDialog::getDefaultDir()
 }
 
 std::shared_ptr<Project> OpenProjectDialog::getProject() {
-	if (ui->tableProjects->currentRow() >= 0) {
-		return prjList[static_cast<size_t>(ui->tableProjects->currentRow())];
+	const int row = ui->tableProjects->currentRow();
+	if (row >= 0 && static_cast<size_t>(row) < prjList.size()) {
+		return prjList[static_cast<size_t>(row)];
 	}
 
 	return nullptr;
@@ -63,35 +66,65 @@ std::shared_ptr<Project> OpenProjectDialog::getProject() {
 
 void OpenProjectDialog::refreshProjectList()
 {
+	prjList.clear();
 	ui->tableProjects->setRowCount(0);
+	ui->tableProjects->setEnabled(false);
+	ui->tableProjects->setCursor(Qt::BusyCursor);
+	ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
 
-	prjList = Project::enumerate(m_defaultDir);
+	auto* scan = new QFutureWatcher<Project::ProjectList>(this);
+	m_projectScan = scan;
+	connect(scan, &QFutureWatcher<Project::ProjectList>::finished, this, [this, scan] {
+		scan->deleteLater();
+		// A path change can start another scan before this one finishes.
+		if (m_projectScan != scan) {
+			return;
+		}
+		m_projectScan = nullptr;
+		prjList = scan->result();
+		ui->tableProjects->setEnabled(true);
+		ui->tableProjects->unsetCursor();
 
-	for (const auto& prj: prjList) {
-		ui->tableProjects->insertRow(ui->tableProjects->rowCount());
-		QTableWidgetItem* item = new QTableWidgetItem(prj->projectDir().dirName());
-		item->setIcon(style()->standardIcon(QStyle::SP_DirIcon));
-		item->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
-		ui->tableProjects->setItem(ui->tableProjects->rowCount() - 1, 0, item);
+		for (const auto& prj: prjList) {
+			ui->tableProjects->insertRow(ui->tableProjects->rowCount());
+			QTableWidgetItem* item = new QTableWidgetItem(prj->projectDir().dirName());
+			item->setIcon(style()->standardIcon(QStyle::SP_DirIcon));
+			item->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
+			ui->tableProjects->setItem(ui->tableProjects->rowCount() - 1, 0, item);
 
-		item = new QTableWidgetItem(prj->gameTitle());
-		item->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
-		ui->tableProjects->setItem(ui->tableProjects->rowCount() - 1, 1, item);
-	}
+			item = new QTableWidgetItem(prj->gameTitle());
+			item->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
+			ui->tableProjects->setItem(ui->tableProjects->rowCount() - 1, 1, item);
+		}
 
-	if (ui->tableProjects->rowCount() > 0) {
-		ui->tableProjects->setCurrentItem(ui->tableProjects->item(0, 1));
-	}
+		if (ui->tableProjects->rowCount() > 0) {
+			ui->tableProjects->setCurrentItem(ui->tableProjects->item(0, 1));
+		}
+	});
+	// Only filesystem work runs in the worker; widgets are updated above.
+	scan->setFuture(QtConcurrent::run(&Project::enumerate, QDir(m_defaultDir)));
 }
 
 void OpenProjectDialog::on_toolProjectPath_clicked()
 {
-	QString path = QFileDialog::getExistingDirectory(this, tr("Select destination folder"), m_defaultDir);
-	if (path == QString())
-		return;
-	ui->lineProjectPath->setText(path+"/");
-	m_defaultDir = ui->lineProjectPath->text();
-	refreshProjectList();
+	auto* dialog = new QFileDialog(this, tr("Select destination folder"), m_defaultDir);
+	dialog->setFileMode(QFileDialog::Directory);
+	dialog->setOption(QFileDialog::ShowDirsOnly);
+	dialog->setAttribute(Qt::WA_DeleteOnClose);
+	ui->toolProjectPath->setEnabled(false);
+	connect(dialog, &QDialog::finished, this, [this, dialog](int result) {
+		ui->toolProjectPath->setEnabled(true);
+		if (result != QDialog::Accepted) {
+			return;
+		}
+		const QString path = dialog->selectedFiles().value(0);
+		if (!path.isEmpty()) {
+			setDefaultDir(path + "/");
+		}
+	});
+	// A native picker inside this modal window must not start another
+	// blocking event loop (in particular on macOS).
+	dialog->open();
 }
 
 bool OpenProjectDialog::removeDir(const QString & dirName)
@@ -125,7 +158,9 @@ void OpenProjectDialog::on_tableProjects_cellDoubleClicked(int row, int column)
 {
 	Q_UNUSED(row)
 	Q_UNUSED(column)
-	emit ui->buttonBox->accepted();
+	if (getProject()) {
+		emit ui->buttonBox->accepted();
+	}
 }
 
 void OpenProjectDialog::on_tableProjects_itemSelectionChanged()

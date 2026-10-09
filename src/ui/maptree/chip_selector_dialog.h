@@ -18,24 +18,27 @@
 #pragma once
 
 #include <QDialog>
+#include "core.h"
 
-namespace Ui {
-class RtpPathDialog;
-}
+class MapPreview;
 
-class RtpPathDialog : public QDialog
+/**
+ * Picks tiles of a chipset (RPG Maker's TFORMSELREPLCHIP "Replace Chip" with
+ * its TFORMCHIPSELECTOR): the lower or upper tiles in the order of the
+ * palette, 6 per row. A click picks a tile, a drag a block up to the
+ * maximum size, a double-click accepts.
+ */
+class ChipSelectorDialog : public QDialog
 {
 	Q_OBJECT
 
 public:
-	explicit RtpPathDialog(QWidget *parent = nullptr);
-	~RtpPathDialog();
+	ChipSelectorDialog(int chipset_id, Core::Layer layer, const QSize& max_size, QWidget* parent = nullptr);
 
-private slots:
-	void on_toolRtpPath_clicked();
+	/** The tiles selected, in palette cells: x from 0 to 5, y the row */
+	QRect selection() const;
+	void setSelection(const QRect& cells);
 
-	void on_ok();
 private:
-	Ui::RtpPathDialog *ui;
+	MapPreview* m_tiles;
 };
-

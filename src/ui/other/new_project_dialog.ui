@@ -49,10 +49,6 @@
           <property name="text">
            <string/>
           </property>
-          <property name="icon">
-           <iconset resource="Resources.qrc">
-            <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-          </property>
          </widget>
         </item>
        </layout>

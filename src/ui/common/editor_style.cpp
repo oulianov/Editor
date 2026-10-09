@@ -27,6 +27,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPlainTextEdit>
+#include <QScrollArea>
 #include <QStyleOptionGroupBox>
 #include <QTextEdit>
 
@@ -103,6 +104,33 @@ bool EditorStyle::eventFilter(QObject* watched, QEvent* event) {
 	return QProxyStyle::eventFilter(watched, event);
 }
 
+namespace {
+// A scroll bar of a scroll area form (QScrollArea), not of a list or a view
+bool isFormScrollBar(const QWidget* widget) {
+	for (const QWidget* parent = widget; parent; parent = parent->parentWidget()) {
+		if (qobject_cast<const QAbstractScrollArea*>(parent)) {
+			return qobject_cast<const QScrollArea*>(parent);
+		}
+	}
+	return false;
+}
+}
+
+int EditorStyle::styleHint(StyleHint hint, const QStyleOption* option,
+		const QWidget* widget, QStyleHintReturn* data) const {
+	if (hint == SH_ScrollBar_Transient) {
+		// Qt moves the form of a scroll area by copying its pixels, only when
+		// nothing lies over the viewport. An overlay scroll bar does: every
+		// step of a swipe repainted all the native controls of the form, slow
+		// on macOS. Its bar is beside the form instead. Lists and views keep
+		// the overlay bar: their rows draw fast.
+		if (isFormScrollBar(widget)) {
+			return false;
+		}
+	}
+	return QProxyStyle::styleHint(hint, option, widget, data);
+}
+
 QRect EditorStyle::subControlRect(ComplexControl control, const QStyleOptionComplex* option,
 		SubControl sub_control, const QWidget* widget) const {
 	auto* box = qstyleoption_cast<const QStyleOptionGroupBox*>(option);
@@ -145,6 +173,35 @@ QSize EditorStyle::sizeFromContents(ContentsType type, const QStyleOption* optio
 
 void EditorStyle::drawComplexControl(ComplexControl control, const QStyleOptionComplex* option,
 		QPainter* painter, const QWidget* widget) const {
+	if (control == CC_ScrollBar && isFormScrollBar(widget)) {
+		// Beside the form (see styleHint) but drawn like the overlay bars: no
+		// track, a slim rounded thumb, away from the form's edge
+		const QRect slider = QProxyStyle::subControlRect(control, option, SC_ScrollBarSlider, widget);
+		if (slider.isEmpty() || !(option->state & State_Enabled)) {
+			return;
+		}
+		const bool horizontal = option->state & State_Horizontal;
+		const bool active = option->activeSubControls & SC_ScrollBarSlider;
+		const int thickness = active ? 7 : 5;
+		QRectF thumb = slider;
+		if (horizontal) {
+			thumb.setTop(option->rect.bottom() - 1 - thickness);
+			thumb.setHeight(thickness);
+		} else {
+			thumb.setLeft(option->rect.right() - 1 - thickness);
+			thumb.setWidth(thickness);
+		}
+		QColor color = option->palette.color(QPalette::WindowText);
+		color.setAlphaF(active ? 0.5 : 0.3);
+		painter->save();
+		painter->setRenderHint(QPainter::Antialiasing);
+		painter->setPen(Qt::NoPen);
+		painter->setBrush(color);
+		painter->drawRoundedRect(thumb, thickness / 2.0, thickness / 2.0);
+		painter->restore();
+		return;
+	}
+
 	auto* box = qstyleoption_cast<const QStyleOptionGroupBox*>(option);
 	if (control != CC_GroupBox || !box) {
 		QProxyStyle::drawComplexControl(control, option, painter, widget);

@@ -48,3 +48,4 @@
 #include "media_widgets.h"
 #include "hero_widgets.h"
 #include "scene_widgets.h"
+#include "maniac_widgets.h"

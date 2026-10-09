@@ -21,7 +21,10 @@
 #include "common/logging.h"
 #include "ui/main_window.h"
 #include "ui/map/map_scene.h"
+#include "ui/common/map_preview.h"
 #include "defines.h"
+#include "model/dungeon_generator.h"
+#include "model/map_tools.h"
 #include <QAbstractButton>
 #include <QButtonGroup>
 #include <QSpinBox>
@@ -49,6 +52,7 @@
 #include <QProcess>
 #include <QTabWidget>
 #include <QTimer>
+#include <QAbstractSlider>
 #include <qpa/qwindowsysteminterface.h>
 #include <QWindow>
 #include <QPaintEvent>
@@ -111,6 +115,39 @@ public:
 		return top.join(", ");
 	}
 };
+
+// A mouse event on a cell of a map preview (Select Location, Define Area Boundaries, Select Tile)
+void previewMouse(MapPreview* preview, QEvent::Type type, int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons) {
+	const QPoint pos = preview->cellPosition(x, y);
+	QWidget* viewport = preview->viewport();
+	// sent at once: the position is only right until the view scrolls for the next cell
+	QMouseEvent event(type, pos, viewport->mapToGlobal(pos), button, buttons, Qt::NoModifier);
+	QApplication::sendEvent(viewport, &event);
+}
+
+// The map of the last generate-dungeon, for the expect-dungeon-* commands
+struct GeneratedDungeon {
+	lcf::rpg::Map map;
+	std::vector<DungeonGenerator::Point> keep;
+	uint32_t seed = 0;
+};
+GeneratedDungeon& lastDungeon() {
+	static GeneratedDungeon dungeon;
+	return dungeon;
+}
+
+// A map with the generator settings of RPG Maker's new maps and the tiles
+// of the RTP dungeon chipset (as in TestGame-2003's dungeon maps)
+lcf::rpg::Map dungeonSettings(int mode, int width, int height) {
+	lcf::rpg::Map map = MapTools::newMap();
+	map.width = width;
+	map.height = height;
+	map.generator_flag = true;
+	map.generator_mode = mode;
+	map.generator_tile_ids = {4499, 5052, 5046, 4149, 5034, 4199,
+		10016, 10017, 10022, 10023, 10054, 10055, 10060, 10061, 10012, 10013, 10018, 10019};
+	return map;
+}
 
 // A mouse event on a cell of the map (posted: a double click opens a dialog)
 void mapMouse(MapScene* scene, QEvent::Type type, int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons) {
@@ -351,10 +388,16 @@ bool Automation::run(const QStringList& args) {
 		return true;
 	}
 	if (cmd == "click-item" && args.size() >= 3) {
-		// a mouse click on the first line of a list showing the text
+		// a mouse click on the line showing exactly the text, else on the
+		// first line containing it
 		auto* tree = qobject_cast<QTreeWidget*>(findWidget(args[1]));
 		const QString text = args.mid(2).join(' ');
 		QTreeWidgetItem* found = nullptr;
+		for (QTreeWidgetItemIterator it(tree); tree && *it && !found; ++it) {
+			if ((*it)->text(0) == text) {
+				found = *it;
+			}
+		}
 		for (QTreeWidgetItemIterator it(tree); tree && *it && !found; ++it) {
 			if ((*it)->text(0).contains(text)) {
 				found = *it;
@@ -397,6 +440,10 @@ bool Automation::run(const QStringList& args) {
 			emit edit->textEdited(value);
 		} else if (auto* text = qobject_cast<QPlainTextEdit*>(widget)) {
 			text->setPlainText(value);
+		} else if (auto* slider = qobject_cast<QAbstractSlider*>(widget)) {
+			slider->setValue(value.toInt());
+		} else if (auto* group = qobject_cast<QGroupBox*>(widget); group && group->isCheckable()) {
+			group->setChecked(value == "on");
 		} else {
 			fail("no control " + args[1]);
 			return false;
@@ -417,8 +464,28 @@ bool Automation::run(const QStringList& args) {
 			}
 		}
 		const bool enabled = widget ? widget->isEnabled() : action && action->isEnabled();
-		if ((!widget && !action) || enabled != on) {
+		if (!widget && !action) {
+			fail("no control " + name);
+			return false;
+		}
+		if (enabled != on) {
 			fail(QString("%1 is not %2").arg(name, on ? "enabled" : "disabled"));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "expect-checked" && args.size() >= 3) {
+		// a check box, radio button or menu option, by object name or text
+		const QString name = args.mid(1, args.size() - 2).join(' ');
+		const bool on = args.last() == "on";
+		auto* button = qobject_cast<QAbstractButton*>(findWidget(name));
+		QAction* action = button ? nullptr : m_window.findChild<QAction*>(name);
+		if (!button && !action) {
+			fail("no control " + name);
+			return false;
+		}
+		if ((button ? button->isChecked() : action->isChecked()) != on) {
+			fail(QString("%1 is not %2").arg(name, on ? "checked" : "unchecked"));
 			return false;
 		}
 		return true;
@@ -554,6 +621,33 @@ bool Automation::run(const QStringList& args) {
 		mapMouse(scene, QEvent::MouseButtonRelease, x2, y2, Qt::LeftButton, Qt::NoButton);
 		return true;
 	}
+	if ((cmd == "preview-click" || cmd == "preview-double-click") && args.size() == 4
+			&& toInt(args[2], a) && toInt(args[3], b)) {
+		auto* preview = qobject_cast<MapPreview*>(findWidget(args[1]));
+		if (!preview || a < 0 || b < 0 || a >= preview->columns() || b >= preview->rows()) {
+			fail(QString("no cell %1 %2 in %3").arg(a).arg(b).arg(args[1]));
+			return false;
+		}
+		previewMouse(preview, QEvent::MouseButtonPress, a, b, Qt::LeftButton, Qt::LeftButton);
+		previewMouse(preview, QEvent::MouseButtonRelease, a, b, Qt::LeftButton, Qt::NoButton);
+		if (cmd == "preview-double-click") {
+			previewMouse(preview, QEvent::MouseButtonDblClick, a, b, Qt::LeftButton, Qt::LeftButton);
+			previewMouse(preview, QEvent::MouseButtonRelease, a, b, Qt::LeftButton, Qt::NoButton);
+		}
+		return true;
+	}
+	if (cmd == "preview-drag" && args.size() == 6) {
+		int x2 = 0, y2 = 0;
+		auto* preview = qobject_cast<MapPreview*>(findWidget(args[1]));
+		if (!preview || !toInt(args[2], a) || !toInt(args[3], b) || !toInt(args[4], x2) || !toInt(args[5], y2)) {
+			fail("no map preview " + args[1]);
+			return false;
+		}
+		previewMouse(preview, QEvent::MouseButtonPress, a, b, Qt::LeftButton, Qt::LeftButton);
+		previewMouse(preview, QEvent::MouseMove, x2, y2, Qt::NoButton, Qt::LeftButton);
+		previewMouse(preview, QEvent::MouseButtonRelease, x2, y2, Qt::LeftButton, Qt::NoButton);
+		return true;
+	}
 	if (cmd == "palette" && (args.size() == 2 || args.size() == 4) && toInt(args[1], a)) {
 		// tiles of the palette of the current layer (0: the first after the eraser row), W x H
 		int w = 1, h = 1;
@@ -630,8 +724,17 @@ bool Automation::run(const QStringList& args) {
 		// platform's events: STEPS small pixel scrolls (negative: up) then
 		// momentum. Logs the time, the slowest event, how far it scrolled and
 		// what was painted for it.
-		auto* area = qobject_cast<QAbstractScrollArea*>(findWidget(args[1]));
-		QWidget* viewport = area ? area->viewport() : findWidget(args[1]);
+		QWidget* target = findWidget(args[1]);
+		QWidget* window = Screenshot::activeWindow();
+		for (QWidget* widget : window && !target ? window->findChildren<QWidget*>() : QList<QWidget*>()) {
+			// else the first one shown of a class (QScrollArea...)
+			if (widget->inherits(args[1].toUtf8()) && widget->isVisible()) {
+				target = widget;
+				break;
+			}
+		}
+		auto* area = qobject_cast<QAbstractScrollArea*>(target);
+		QWidget* viewport = area ? area->viewport() : target;
 		QWindow* handle = viewport ? viewport->window()->windowHandle() : nullptr;
 		if (!handle) {
 			fail("no widget " + args[1]);
@@ -652,7 +755,9 @@ bool Automation::run(const QStringList& args) {
 			QWindowSystemInterface::handleWheelEvent(handle, local, global, QPoint(0, pixels), QPoint(0, pixels * 2),
 				Qt::NoModifier, phase, source);
 			QWindowSystemInterface::flushWindowSystemEvents();
-			QApplication::processEvents();
+			// the repaint (UpdateRequest is posted); not processEvents(): its
+			// timers would run the next commands inside this one
+			QCoreApplication::sendPostedEvents();
 			slowest = std::max(slowest, step_timer.elapsed());
 			events++;
 		};
@@ -661,17 +766,108 @@ bool Automation::run(const QStringList& args) {
 		for (int i = 0; i < std::abs(a); i++) {
 			send(direction * 8, Qt::ScrollUpdate, Qt::MouseEventNotSynthesized);
 		}
-		send(0, Qt::ScrollEnd, Qt::MouseEventNotSynthesized);
+		// Cocoa sends the end after the momentum: until then, the scrolled
+		// widget keeps the wheel (QApplicationPrivate::wheel_widget)
 		for (int speed = 12; speed > 0; speed--) {
 			send(direction * speed, Qt::ScrollMomentum, Qt::MouseEventSynthesizedBySystem);
 		}
+		send(0, Qt::ScrollEnd, Qt::MouseEventSynthesizedBySystem);
 		qApp->removeEventFilter(&paints);
 		const int after = area ? area->verticalScrollBar()->value() : 0;
 		qCInfo(lcAutomation).noquote() << QString("wheel %1: %2 events in %3 ms, slowest %4 ms, scrolled %5 px")
-			.arg(args[1]).arg(events).arg(timer.elapsed()).arg(slowest).arg(after - before);
+			.arg(describe(target)).arg(events).arg(timer.elapsed()).arg(slowest).arg(after - before);
 		qCInfo(lcAutomation).noquote() << QString("wheel %1: painted %2 widgets per event (%3 pixels; the scrolled area has %4): %5")
-			.arg(args[1]).arg(paints.count / std::max(events, 1)).arg(paints.pixels / std::max(events, 1))
+			.arg(describe(target)).arg(paints.count / std::max(events, 1)).arg(paints.pixels / std::max(events, 1))
 			.arg(viewport->width() * viewport->height()).arg(paints.summary());
+		return true;
+	}
+	if (cmd == "generate-dungeon" && args.size() >= 5 && toInt(args[1], a)) {
+		// generate-dungeon MODE W H SEED [granularity=1|2] [upper-wall=0|1] [surround=0|1]
+		//   [room=WxH] [floor-b=0|1] [floor-c=0|1] [extra-b=0|1] [extra-c=0|1] [keep=X,Y]...
+		// MODE: 0 winding passage, 1 rooms, 2 maze, 3 open room. Logs the dungeon as text.
+		int w = 0, h = 0, seed = 0;
+		if (a < 0 || a > 3 || !toInt(args[2], w) || !toInt(args[3], h) || !toInt(args[4], seed)) {
+			fail("usage: generate-dungeon MODE W H SEED [OPTION=VALUE]...");
+			return false;
+		}
+		GeneratedDungeon& dungeon = lastDungeon();
+		dungeon.map = dungeonSettings(a, w, h);
+		dungeon.keep.clear();
+		dungeon.seed = static_cast<uint32_t>(seed);
+		lcf::rpg::Map& map = dungeon.map;
+		for (const QString& option : args.mid(5)) {
+			const QString key = option.section('=', 0, 0);
+			const QString value = option.section('=', 1);
+			const bool on = value != "0";
+			if (key == "granularity")
+				map.generator_tiles = value == "2" ? lcf::rpg::Map::GeneratorTiles_two : lcf::rpg::Map::GeneratorTiles_one;
+			else if (key == "upper-wall")
+				map.generator_upper_wall = on;
+			else if (key == "surround")
+				map.generator_surround = on;
+			else if (key == "floor-b")
+				map.generator_floor_b = on;
+			else if (key == "floor-c")
+				map.generator_floor_c = on;
+			else if (key == "extra-b")
+				map.generator_extra_b = on;
+			else if (key == "extra-c")
+				map.generator_extra_c = on;
+			else if (key == "room") {
+				map.generator_width = value.section('x', 0, 0).toInt();
+				map.generator_height = value.section('x', 1).toInt();
+			} else if (key == "keep")
+				dungeon.keep.push_back({value.section(',', 0, 0).toInt(), value.section(',', 1).toInt()});
+			else {
+				fail("unknown option " + option);
+				return false;
+			}
+		}
+		DungeonGenerator::generate(map, dungeon.seed, dungeon.keep);
+		qCInfo(lcAutomation).noquote() << "dungeon:\n" + QString::fromStdString(DungeonGenerator::toText(map));
+		return true;
+	}
+	if (cmd == "expect-dungeon-connected" && args.size() == 1) {
+		// every floor cell reachable from the others, the keep cells too, the border closed
+		const std::string problems = DungeonGenerator::check(lastDungeon().map, lastDungeon().keep);
+		if (!problems.empty()) {
+			fail(QString::fromStdString(problems));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "expect-dungeons-valid" && args.size() == 2 && toInt(args[1], a)) {
+		// every mode and option, 3 sizes, seeds 0..N-1: generate twice (same result), check
+		int runs = 0, failures = 0;
+		const int sizes[3][2] = {{20, 15}, {57, 43}, {120, 90}};
+		for (int mode = 0; mode < 4; mode++)
+		for (int options = 0; options < 8; options++)
+		for (const auto& size : sizes)
+		for (int seed = 0; seed < a; seed++) {
+			lcf::rpg::Map map = dungeonSettings(mode, size[0], size[1]);
+			map.generator_tiles = options & 1 ? lcf::rpg::Map::GeneratorTiles_two : lcf::rpg::Map::GeneratorTiles_one;
+			map.generator_upper_wall = options & 2;
+			map.generator_surround = options & 4;
+			map.generator_width = 2 + seed % 7;
+			map.generator_height = 2 + seed % 5;
+			const std::vector<DungeonGenerator::Point> keep = {{5, 5}, {size[0] - 1, size[1] - 1}};
+			lcf::rpg::Map again = map;
+			DungeonGenerator::generate(map, static_cast<uint32_t>(seed), keep);
+			DungeonGenerator::generate(again, static_cast<uint32_t>(seed), keep);
+			std::string problems = DungeonGenerator::check(map, keep);
+			if (again.lower_layer != map.lower_layer || again.upper_layer != map.upper_layer)
+				problems += " not deterministic";
+			runs++;
+			if (!problems.empty() && failures++ < 5)
+				qCWarning(lcAutomation).noquote() << QString("dungeon mode %1 options %2 size %3x%4 seed %5: %6\n%7")
+					.arg(mode).arg(options).arg(size[0]).arg(size[1]).arg(seed)
+					.arg(QString::fromStdString(problems), QString::fromStdString(DungeonGenerator::toText(map)));
+		}
+		qCInfo(lcAutomation).noquote() << QString("dungeons: %1 generated, %2 invalid").arg(runs).arg(failures);
+		if (failures > 0) {
+			fail(QString("%1 invalid dungeons").arg(failures));
+			return false;
+		}
 		return true;
 	}
 	if (cmd == "close" && args.size() == 1) {
@@ -712,11 +908,14 @@ QWidget* Automation::findWidget(const QString& name) {
 		hidden = hidden ? hidden : widget;
 	}
 	if (!hidden) {
-		// a button by its text
+		// a button by its text, the one shown first (else on a page not shown)
 		for (auto* button : window->findChildren<QAbstractButton*>()) {
 			const QString text = button->text().remove('&');
-			if (button->isVisibleTo(window) && (text == name || text == name + "...")) {
-				return button;
+			if (text == name || text == name + "...") {
+				if (button->isVisibleTo(window)) {
+					return button;
+				}
+				hidden = hidden ? hidden : button;
 			}
 		}
 	}
@@ -727,13 +926,17 @@ QString Automation::widgetText(QWidget* widget) {
 	if (auto* tree = qobject_cast<QTreeWidget*>(widget)) {
 		QStringList lines;
 		// the current line is marked with ">"
-		for (QTreeWidgetItemIterator it(tree); *it; ++it) {
+		// the lines shown: those a filter hides do not count
+		for (QTreeWidgetItemIterator it(tree, QTreeWidgetItemIterator::NotHidden); *it; ++it) {
 			lines << ((*it) == tree->currentItem() ? "> " : "  ") + (*it)->text(0);
 		}
 		return lines.join('\n');
 	}
 	if (auto* edit = qobject_cast<QLineEdit*>(widget)) {
 		return edit->text();
+	}
+	if (auto* spin = qobject_cast<QAbstractSpinBox*>(widget)) {
+		return spin->text();
 	}
 	if (auto* label = qobject_cast<QLabel*>(widget)) {
 		return label->text();
@@ -754,7 +957,9 @@ int Automation::checkLayout(QWidget* window) {
 		// headers size their sections themselves, tab bars scroll
 		if (widget->isWindow() || !widget->isVisibleTo(window)
 				|| qobject_cast<QHeaderView*>(widget) || qobject_cast<QTabBar*>(widget)
-				|| qobject_cast<QTabBar*>(widget->parentWidget())) {
+				|| qobject_cast<QTabBar*>(widget->parentWidget())
+				// the clear button Qt puts in a line edit sizes itself
+				|| qobject_cast<QLineEdit*>(widget->parentWidget())) {
 			continue;
 		}
 		QSize minimum = widget->minimumSizeHint().expandedTo(widget->minimumSize());

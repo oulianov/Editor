@@ -17,6 +17,7 @@
 
 #include "import_project_dialog.h"
 #include "ui_import_project_dialog.h"
+#include "ui/common/theme_icon.h"
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -27,6 +28,8 @@ ImportProjectDialog::ImportProjectDialog(QWidget *parent) :
 	ui(new Ui::ImportProjectDialog)
 {
 	ui->setupUi(this);
+	ui->toolSourcePath->setIcon(themeIcon(this, QStringLiteral("folder")));
+	ui->toolProjectPath->setIcon(themeIcon(this, QStringLiteral("folder")));
 	setModal(true);
 	ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
 }

@@ -6,331 +6,227 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>428</width>
-    <height>380</height>
+    <width>860</width>
+    <height>540</height>
    </rect>
-  </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Resource Manager</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2">
+  <layout class="QVBoxLayout" name="layoutDialog">
    <item>
-    <widget class="QFrame" name="frame">
-     <property name="frameShape">
-      <enum>QFrame::WinPanel</enum>
-     </property>
-     <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
-     </property>
-     <layout class="QHBoxLayout" name="horizontalLayout">
-      <property name="topMargin">
-       <number>7</number>
-      </property>
-      <property name="bottomMargin">
-       <number>7</number>
-      </property>
-      <item>
-       <widget class="QListWidget" name="listResourceType">
-        <property name="minimumSize">
-         <size>
-          <width>95</width>
-          <height>0</height>
-         </size>
+    <layout class="QHBoxLayout" name="layoutMain" stretch="0,2,3">
+     <item>
+      <widget class="QTreeWidget" name="listFolders">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="horizontalScrollBarPolicy">
+        <enum>Qt::ScrollBarAlwaysOff</enum>
+       </property>
+       <property name="rootIsDecorated">
+        <bool>false</bool>
+       </property>
+       <property name="uniformRowHeights">
+        <bool>true</bool>
+       </property>
+       <property name="headerHidden">
+        <bool>true</bool>
+       </property>
+       <column>
+        <property name="text">
+         <string>Folder</string>
         </property>
-        <property name="maximumSize">
-         <size>
-          <width>95</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="verticalScrollBarPolicy">
-         <enum>Qt::ScrollBarAlwaysOff</enum>
-        </property>
-        <property name="horizontalScrollBarPolicy">
-         <enum>Qt::ScrollBarAlwaysOff</enum>
-        </property>
-        <property name="gridSize">
-         <size>
-          <width>0</width>
-          <height>16</height>
-         </size>
-        </property>
-        <property name="currentRow">
-         <number>0</number>
-        </property>
-        <item>
-         <property name="text">
-          <string>Backdrop</string>
+       </column>
+      </widget>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="layoutFiles">
+       <item>
+        <widget class="QLineEdit" name="filterFiles">
+         <property name="placeholderText">
+          <string>Filter</string>
          </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
+         <property name="clearButtonEnabled">
+          <bool>true</bool>
          </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Battle</string>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTreeWidget" name="listFiles">
+         <property name="rootIsDecorated">
+          <bool>false</bool>
          </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
+         <property name="uniformRowHeights">
+          <bool>true</bool>
          </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Battle2</string>
+         <property name="headerHidden">
+          <bool>true</bool>
          </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>BattleCharset</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>BattleWeapon</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>CharSet</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>ChipSet</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>FaceSet</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Frame</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>GameOver</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Monster</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Movie</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Music</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Panorama</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Picture</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Sound</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>System</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>System2</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Title</string>
-         </property>
-         <property name="icon">
-          <iconset resource="Resources.qrc">
-           <normaloff>:/icons/share/old_folder.png</normaloff>:/icons/share/old_folder.png</iconset>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item>
-       <widget class="QListView" name="listResources">
-        <property name="maximumSize">
-         <size>
-          <width>175</width>
-          <height>16777215</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <layout class="QVBoxLayout" name="verticalLayout">
-        <item>
-         <widget class="QPushButton" name="pushImport">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
+         <column>
           <property name="text">
-           <string>Import</string>
+           <string>File</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="labelCount"/>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="layoutRight">
+       <item>
+        <layout class="QHBoxLayout" name="layoutActions">
+         <item>
+          <layout class="QVBoxLayout" name="layoutButtons">
+           <item>
+            <widget class="QPushButton" name="pushImport">
+             <property name="text">
+              <string>Import...</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushExport">
+             <property name="text">
+              <string>Export...</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushDelete">
+             <property name="text">
+              <string>Delete</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="groupImportAs">
+           <property name="title">
+            <string>Import as</string>
+           </property>
+           <layout class="QVBoxLayout" name="layoutImportAs">
+            <item>
+             <widget class="QRadioButton" name="radioImportPng">
+              <property name="text">
+               <string>PNG Image</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioImportXyz">
+              <property name="text">
+               <string>XYZ Image</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacerActions">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QScrollArea" name="preview">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>1</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <widget class="QLabel" name="previewImage">
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
           </property>
          </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="pushExport">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>1</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Export</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="pushDelete">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>1</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Delete</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QFrame" name="frame_2">
-          <property name="frameShape">
-           <enum>QFrame::Box</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Raised</enum>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-     </layout>
-    </widget>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="previewInfo">
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+         <property name="textInteractionFlags">
+          <set>Qt::TextSelectableByMouse</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="layoutAudio">
+         <item>
+          <widget class="QPushButton" name="pushPlay">
+           <property name="text">
+            <string>Play</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushStop">
+           <property name="text">
+            <string>Stop</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacerAudio">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </item>
+    </layout>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Help</set>
+      <set>QDialogButtonBox::Close|QDialogButtonBox::Help</set>
      </property>
     </widget>
    </item>
   </layout>
  </widget>
- <resources>
-  <include location="Resources.qrc"/>
- </resources>
+ <resources/>
  <connections>
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
    <receiver>ResourceManagerDialog</receiver>
    <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>213</x>
-     <y>360</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>213</x>
-     <y>189</y>
-    </hint>
-   </hints>
   </connection>
  </connections>
 </ui>

@@ -22,6 +22,7 @@
 #include "model/project_data.h"
 #include "ui/common/rpg_combobox.h"
 #include "ui/common/rpg_spinbox.h"
+#include "ui/event/event_command_palette.h"
 #include "ui/picker/picker_backdrop_widget.h"
 #include "ui/picker/picker_dialog.h"
 #include <QButtonGroup>
@@ -157,7 +158,7 @@ void fillTransitions(QComboBox* combo, bool show, bool useDefault, bool noTransi
 }
 
 PictureWidget::PictureWidget(ProjectData& project, bool move, QWidget* parent) :
-	EventCommandBaseWidget(project, parent), m_move(move) {}
+	ManiacCommandWidget(project, parent), m_move(move) {}
 
 ShowPictureWidget::ShowPictureWidget(ProjectData& project, QWidget* parent) : PictureWidget(project, false, parent) {
 	setWindowTitle(tr("Show Picture"));
@@ -167,9 +168,49 @@ MovePictureWidget::MovePictureWidget(ProjectData& project, QWidget* parent) : Pi
 	setWindowTitle(tr("Move Picture"));
 }
 
+void PictureWidget::growParameters(int index) {
+	// The parameters of RPG Maker 2003 1.12 and Maniac Patch: a shorter
+	// command gets the values EasyRPG Player uses when they are missing
+	const int full = m_move ? 22 : 30;
+	const int first = m_move ? 16 : 14;
+	std::vector<int32_t> parameters(m_cmd->parameters.begin(), m_cmd->parameters.end());
+	const int size = static_cast<int>(parameters.size());
+	if (size < full && index >= first) {
+		parameters.resize(full, 0);
+		if (size <= first) {
+			// the bottom half as transparent as the top one
+			parameters[first] = ::parameter(m_cmd, 6);
+		}
+		if (!m_move) {
+			// erased on map change, flashed and shaken with the screen
+			parameters[29] = 1 | 32 | 64;
+		}
+	}
+	parameters.resize(std::max<size_t>(parameters.size(), index + 1), 0);
+	m_cmd->parameters = lcf::DBArray<int32_t>(parameters.begin(), parameters.end());
+}
+
 void PictureWidget::setData(lcf::rpg::EventCommand* cmd) {
 	EventCommandBaseWidget::setData(cmd);
 	const bool rpg2003 = m_project.database().system.ldb_id == 2003;
+	const bool maniac = this->maniac();
+	// low byte: bottom transparency; above: Maniac Patch blend mode and flips
+	const int flags = m_move ? 16 : 14;
+	// a command written with Maniac Patch shows its options in any game
+	const bool showManiac = maniac || (::parameter(cmd, 1) >> 8) != 0 || (::parameter(cmd, flags) >> 8) != 0
+		|| ::parameter(cmd, 12) == 3 || (m_move && (::parameter(cmd, 15) & ~1) != 0);
+	const auto modes = numberModes();
+	// a value whose mode (number, variable...) EasyRPG Player reads in bits of another parameter
+	auto modeValue = [&](const QString& name, int modeIndex, int shift, int bits, int index, int minimum, int maximum) {
+		auto* row = new QWidget(this);
+		auto* rowLayout = new QHBoxLayout(row);
+		rowLayout->setContentsMargins(0, 0, 0, 0);
+		auto* mode = modeComboAt(name + QStringLiteral("Mode"), modeIndex, shift, bits, modes);
+		mode->setEnabled(maniac);
+		rowLayout->addWidget(mode);
+		rowLayout->addWidget(valueField(name, mode, index, minimum, maximum), 1);
+		return row;
+	};
 	auto* layout = new QVBoxLayout(this);
 	auto* tabs = new QTabWidget(this);
 	tabs->setObjectName(QStringLiteral("pictureTabs"));
@@ -184,7 +225,12 @@ void PictureWidget::setData(lcf::rpg::EventCommand* cmd) {
 
 	auto* picture = new QGroupBox(tr("Picture No."), general);
 	auto* pictureForm = new QFormLayout(picture);
-	pictureForm->addRow(tr("Picture No."), spin(picture, cmd, QStringLiteral("pictureId"), 0, 1, 9999, 1));
+	if (showManiac) {
+		// the mode of the id: p17, its low byte for Move Picture
+		pictureForm->addRow(tr("Picture No."), modeValue(QStringLiteral("pictureId"), 17, 0, m_move ? 8 : 4, 0, 1, 9999));
+	} else {
+		pictureForm->addRow(tr("Picture No."), spin(picture, cmd, QStringLiteral("pictureId"), 0, 1, 9999, 1));
+	}
 	left->addWidget(picture);
 	if (!m_move) {
 		auto* image = new QGroupBox(tr("Image File"), general);
@@ -213,15 +259,23 @@ void PictureWidget::setData(lcf::rpg::EventCommand* cmd) {
 
 	auto* coordinates = new QGroupBox(m_move ? tr("Target Coordinates") : tr("Display Coordinates"), general);
 	auto* coordinateLayout = new QVBoxLayout(coordinates);
-	auto* modes = new QButtonGroup(coordinates);
+	auto* modeButtons = new QButtonGroup(coordinates);
 	auto* specific = new QRadioButton(tr("Specific Coordinates"), coordinates);
 	auto* variables = new QRadioButton(tr("Variable Reference"), coordinates);
 	specific->setObjectName(QStringLiteral("pictureCoordinatesConstant"));
 	variables->setObjectName(QStringLiteral("pictureCoordinatesVariable"));
-	modes->addButton(specific, 0);
-	modes->addButton(variables, 1);
+	modeButtons->addButton(specific, 0);
+	modeButtons->addButton(variables, 1);
 	coordinateLayout->addWidget(specific);
 	coordinateLayout->addWidget(variables);
+	if (showManiac) {
+		// Maniac Patch: the variables hold the ids of the variables of X and Y
+		auto* pointers = new QRadioButton(tr("Variable Pointer"), coordinates);
+		pointers->setObjectName(QStringLiteral("pictureCoordinatesPointer"));
+		pointers->setEnabled(maniac);
+		modeButtons->addButton(pointers, 2);
+		coordinateLayout->addWidget(pointers);
+	}
 	auto* coordinatePages = new QStackedWidget(coordinates);
 	coordinateLayout->addWidget(coordinatePages);
 	auto* valuesPage = new QWidget(coordinatePages);
@@ -239,42 +293,43 @@ void PictureWidget::setData(lcf::rpg::EventCommand* cmd) {
 	yVariable->makeModel(m_project);
 	xVariable->comboBox()->setObjectName(QStringLiteral("pictureXVariable"));
 	yVariable->comboBox()->setObjectName(QStringLiteral("pictureYVariable"));
-	xVariable->setCurrentIndex(parameter(cmd, 2, 1) - 1);
-	yVariable->setCurrentIndex(parameter(cmd, 3, 1) - 1);
+	xVariable->setCurrentIndex(::parameter(cmd, 2, 1) - 1);
+	yVariable->setCurrentIndex(::parameter(cmd, 3, 1) - 1);
 	variablesForm->addRow(tr("X"), xVariable);
 	variablesForm->addRow(tr("Y"), yVariable);
 	coordinatePages->addWidget(variablesPage);
-	const int positionMode = parameter(cmd, 1) & 0xff;
-	if (auto* button = modes->button(positionMode)) {
+	const int positionMode = ::parameter(cmd, 1) & 0xff;
+	if (auto* button = modeButtons->button(positionMode)) {
 		button->setChecked(true);
 	}
-	coordinatePages->setCurrentIndex(positionMode == 1 ? 1 : 0);
-	connect(modes, &QButtonGroup::idToggled, this, [=](int mode, bool selected) {
+	coordinatePages->setCurrentIndex(positionMode == 1 || positionMode == 2 ? 1 : 0);
+	connect(modeButtons, &QButtonGroup::idToggled, this, [=](int mode, bool selected) {
 		if (!selected) {
 			return;
 		}
-		setParameter(cmd, 1, mode, 0xff);
-		coordinatePages->setCurrentIndex(mode);
+		// the upper bits are the origin of Maniac Patch
+		::setParameter(cmd, 1, mode, 0xff);
+		coordinatePages->setCurrentIndex(mode == 0 ? 0 : 1);
 		if (mode == 0) {
-			setParameter(cmd, 2, x->value());
-			setParameter(cmd, 3, y->value());
+			::setParameter(cmd, 2, x->value());
+			::setParameter(cmd, 3, y->value());
 		} else {
 			if (xVariable->currentIndex() >= 0) {
-				setParameter(cmd, 2, xVariable->currentIndex() + 1);
+				::setParameter(cmd, 2, xVariable->currentIndex() + 1);
 			}
 			if (yVariable->currentIndex() >= 0) {
-				setParameter(cmd, 3, yVariable->currentIndex() + 1);
+				::setParameter(cmd, 3, yVariable->currentIndex() + 1);
 			}
 		}
 	});
 	connect(xVariable->comboBox(), &QComboBox::currentIndexChanged, this, [=](int index) {
-		if (index >= 0 && variables->isChecked()) {
-			setParameter(cmd, 2, index + 1);
+		if (index >= 0 && modeButtons->checkedId() > 0) {
+			::setParameter(cmd, 2, index + 1);
 		}
 	});
 	connect(yVariable->comboBox(), &QComboBox::currentIndexChanged, this, [=](int index) {
-		if (index >= 0 && variables->isChecked()) {
-			setParameter(cmd, 3, index + 1);
+		if (index >= 0 && modeButtons->checkedId() > 0) {
+			::setParameter(cmd, 3, index + 1);
 		}
 	});
 	if (!m_move) {
@@ -295,27 +350,48 @@ void PictureWidget::setData(lcf::rpg::EventCommand* cmd) {
 
 	auto* magnification = new QGroupBox(tr("Magnification"), general);
 	auto* magnificationForm = new QFormLayout(magnification);
-	auto* scale = spin(magnification, cmd, QStringLiteral("pictureMagnification"), 5, 0, 2000, 100);
-	scale->setSuffix(tr("%"));
-	magnificationForm->addRow(scale);
+	if (showManiac) {
+		// p20: width mode, bit 4 for a separate height, then the height mode
+		magnificationForm->addRow(modeValue(QStringLiteral("pictureMagnification"), 20, 0, 4, 5, 0, 2000));
+		auto* separate = flag(QStringLiteral("pictureSeparateHeight"), tr("Separate height"), 20, 4);
+		auto* height = modeValue(QStringLiteral("pictureHeight"), 20, 5, 4, m_move ? 18 : 31, 0, 2000);
+		separate->setEnabled(maniac);
+		height->setEnabled(maniac && separate->isChecked());
+		connect(separate, &QCheckBox::toggled, height, [height, maniac](bool checked) { height->setEnabled(maniac && checked); });
+		magnificationForm->addRow(separate);
+		magnificationForm->addRow(tr("Height"), height);
+	} else {
+		auto* scale = spin(magnification, cmd, QStringLiteral("pictureMagnification"), 5, 0, 2000, 100);
+		scale->setSuffix(tr("%"));
+		magnificationForm->addRow(scale);
+	}
 	right->addWidget(magnification);
 	auto* transparency = new QGroupBox(tr("Transparency"), general);
 	auto* transparencyForm = new QFormLayout(transparency);
-	auto* top = spin(transparency, cmd, QStringLiteral("pictureTopTransparency"), 6, 0, 100);
-	auto* bottom = spin(transparency, cmd, QStringLiteral("pictureBottomTransparency"), m_move ? 16 : 14,
-		0, 100, parameter(cmd, 6), 0xff);
-	top->setSuffix(tr("%"));
+	auto* bottom = spin(transparency, cmd, QStringLiteral("pictureBottomTransparency"), flags,
+		0, 100, ::parameter(cmd, 6), 0xff);
 	bottom->setSuffix(tr("%"));
 	bottom->setEnabled(rpg2003);
-	transparencyForm->addRow(tr("Top Half"), top);
+	if (showManiac) {
+		transparencyForm->addRow(tr("Top Half"), modeValue(QStringLiteral("pictureTopTransparency"), 21, 0, 32, 6, 0, 100));
+	} else {
+		auto* top = spin(transparency, cmd, QStringLiteral("pictureTopTransparency"), 6, 0, 100);
+		top->setSuffix(tr("%"));
+		transparencyForm->addRow(tr("Top Half"), top);
+	}
 	transparencyForm->addRow(tr("Bottom Half"), bottom);
 	right->addWidget(transparency);
 	if (m_move) {
 		auto* timing = new QGroupBox(tr("Transition Time"), general);
 		auto* timingForm = new QFormLayout(timing);
-		auto* duration = spin(timing, cmd, QStringLiteral("pictureDuration"), 14, 0, 10000);
-		duration->setSuffix(tr(" × 0.1 s"));
-		timingForm->addRow(duration);
+		if (showManiac) {
+			// the mode of the duration: slot 2 of p17
+			timingForm->addRow(tr("Tenths of a second"), modeValue(QStringLiteral("pictureDuration"), 17, 8, 4, 14, -10000, 10000));
+		} else {
+			auto* duration = spin(timing, cmd, QStringLiteral("pictureDuration"), 14, 0, 10000);
+			duration->setSuffix(tr(" × 0.1 s"));
+			timingForm->addRow(duration);
+		}
 		right->addWidget(timing);
 		auto* options = new QGroupBox(tr("Option"), general);
 		auto* optionsLayout = new QVBoxLayout(options);
@@ -332,11 +408,24 @@ void PictureWidget::setData(lcf::rpg::EventCommand* cmd) {
 	auto* colorForm = new QFormLayout(color);
 	QStringList colorNames = {tr("Red"), tr("Green"), tr("Blue"), tr("Saturation")};
 	QList<RpgSpinBox*> tint;
+	QComboBox* colorMode = nullptr;
+	if (showManiac) {
+		// one mode for the four values: slot 3 of p17
+		colorMode = modeComboAt(QStringLiteral("pictureColorMode"), 17, 12, 4, modes);
+		colorMode->setEnabled(maniac);
+		colorForm->addRow(tr("Given as"), colorMode);
+	}
 	for (int index = 0; index < colorNames.size(); ++index) {
-		auto* value = spin(color, cmd, QStringLiteral("pictureColor%1").arg(index), 8 + index, 0, 200, 100);
-		value->setSuffix(tr("%"));
-		colorForm->addRow(colorNames[index], value);
-		tint.append(value);
+		const QString name = QStringLiteral("pictureColor%1").arg(index);
+		if (colorMode) {
+			colorForm->addRow(colorNames[index], valueField(name, colorMode, 8 + index, 0, 200));
+			tint.append(findChild<RpgSpinBox*>(name));
+		} else {
+			auto* value = spin(color, cmd, name, 8 + index, 0, 200, 100);
+			value->setSuffix(tr("%"));
+			colorForm->addRow(colorNames[index], value);
+			tint.append(value);
+		}
 	}
 	auto* sample = new QLabel(tr("Sample"), color);
 	sample->setAutoFillBackground(true);
@@ -362,19 +451,104 @@ void PictureWidget::setData(lcf::rpg::EventCommand* cmd) {
 	effect->addItem(tr("None"), 0);
 	effect->addItem(tr("Rotation"), 1);
 	effect->addItem(tr("Waver"), 2);
+	if (showManiac) {
+		effect->addItem(tr("Fixed Angle"), 3);
+	}
 	bindCombo(effect, this, cmd, 12);
-	auto* strength = spin(effects, cmd, QStringLiteral("pictureEffectPower"), 13, 0, 10000);
-	auto* powerLabel = new QLabel(effect->currentData().toInt() == 1 ? tr("Speed") : tr("Magnitude"), effects);
+	// Maniac Patch, fixed angle: angle / divisor, their modes in p16 (p4 for Move Picture)
+	const int angleModes = m_move ? 4 : 16;
+	QWidget* strength = showManiac ? modeValue(QStringLiteral("pictureEffectPower"), angleModes, 0, 4, 13, -10000, 10000)
+		: spin(effects, cmd, QStringLiteral("pictureEffectPower"), 13, 0, 10000);
+	auto powerLabel = [](int mode) {
+		return mode == 1 ? tr("Speed") : mode == 3 ? tr("Angle") : tr("Magnitude");
+	};
+	auto* powerName = new QLabel(powerLabel(effect->currentData().toInt()), effects);
 	effectsForm->addRow(tr("Effect"), effect);
-	effectsForm->addRow(powerLabel, strength);
+	effectsForm->addRow(powerName, strength);
+	QWidget* divisor = nullptr;
+	if (showManiac) {
+		divisor = modeValue(QStringLiteral("pictureAngleDivisor"), angleModes, 4, 4, m_move ? 7 : 15, -10000, 10000);
+		effectsForm->addRow(tr("Divisor"), divisor);
+		effectsForm->setRowVisible(divisor, effect->currentData().toInt() == 3);
+	}
 	strength->setEnabled(effect->currentData().toInt() != 0);
 	connect(effect, &QComboBox::currentIndexChanged, this, [=](int) {
 		const int mode = effect->currentData().toInt();
 		strength->setEnabled(mode != 0);
-		powerLabel->setText(mode == 1 ? tr("Speed") : tr("Magnitude"));
+		powerName->setText(powerLabel(mode));
+		if (divisor) {
+			effectsForm->setRowVisible(divisor, mode == 3);
+		}
 	});
 	attributesLayout->addWidget(effects);
 	attributesLayout->addStretch();
+
+	if (showManiac) {
+		addManiacTab(tabs, maniac);
+	}
+}
+
+void PictureWidget::addManiacTab(QTabWidget* tabs, bool enabled) {
+	const int flags = m_move ? 16 : 14;
+	auto* page = new QWidget(tabs);
+	page->setEnabled(enabled);
+	auto* columns = new QHBoxLayout(page);
+	auto* left = new QVBoxLayout();
+	auto* right = new QVBoxLayout();
+	columns->addLayout(left, 1);
+	columns->addLayout(right, 1);
+	tabs->addTab(page, tr("Maniac Patch"));
+
+	auto* display = section(left, tr("Display"));
+	// the origin is above the coordinate mode (p1 >> 8), as for Show String Picture
+	display->addRow(tr("Origin"), choice(QStringLiteral("pictureOrigin"), 1, {{0, tr("Center")}, {1, tr("Top left")},
+		{2, tr("Bottom left")}, {3, tr("Top right")}, {4, tr("Bottom right")}, {5, tr("Top")}, {6, tr("Bottom")},
+		{7, tr("Left")}, {8, tr("Right")}}, 8, 24));
+	display->addRow(tr("Blend mode"), choice(QStringLiteral("pictureBlendMode"), flags, {{0, tr("Normal")},
+		{1, tr("Multiply")}, {2, tr("Additive")}, {3, tr("Overlay")}}, 8, 2));
+	display->addRow(flag(QStringLiteral("pictureFlipX"), tr("Flip horizontally"), flags, 12));
+	display->addRow(flag(QStringLiteral("pictureFlipY"), tr("Flip vertically"), flags, 13));
+
+	if (m_move) {
+		// p15: bit 0 is "wait"; EasyRPG Player reads the others but does not use them yet
+		auto* options = section(left, tr("Option"));
+		const QList<std::pair<int, QString>> bits = {{1, tr("Relative to the current position")},
+			{2, tr("Keep the color tint")}, {3, tr("Keep the effect")}, {4, tr("Keep the blend mode")},
+			{5, tr("Keep the flips")}, {6, tr("Keep the transition time")}, {8, tr("Position of the magnified picture")}};
+		for (const auto& bit : bits) {
+			options->addRow(flag(QStringLiteral("pictureOption%1").arg(bit.first), bit.second, 15, bit.first));
+		}
+	} else {
+		// slot 2 of p17: the file name, from this command or from a string (p30)
+		auto* file = section(left, tr("Image File"));
+		auto* mode = modeComboAt(QStringLiteral("pictureNameMode"), 17, 8, 4, stringModes());
+		file->addRow(tr("Name given as"), mode);
+		auto* note = new QLabel(tr("The file of the Picture tab"), this);
+		file->addRow(tr("Name"), valueField(QStringLiteral("pictureName"), mode, 30, 0, 99999, note));
+
+		auto* sheet = section(right, tr("Spritesheet"));
+		sheet->addRow(tr("Columns (0: none)"), number(QStringLiteral("pictureSheetColumns"), 22, 0, 999));
+		sheet->addRow(tr("Rows"), number(QStringLiteral("pictureSheetRows"), 23, 0, 999));
+		// p24: 2 animates the frames; else the mode of the frame number (from 1)
+		auto* frameMode = modeCombo(QStringLiteral("pictureSheetMode"), 24, -1, {{0, tr("Frame"), Kind::Number},
+			{1, tr("Frame in variable"), Kind::Variable}, {2, tr("Animation"), Kind::Number}});
+		sheet->addRow(tr("Show"), frameMode);
+		sheet->addRow(tr("Frame or speed"), valueField(QStringLiteral("pictureSheetFrame"), frameMode, 25, 0, 99999));
+		auto* once = boolean(QStringLiteral("pictureSheetOnce"), tr("Play once"), 26);
+		sheet->addRow(once);
+		showWhen(sheet, once, frameMode, {2});
+
+		auto* layer = section(right, tr("Layer"));
+		layer->addRow(tr("Map layer"), number(QStringLiteral("pictureMapLayer"), 27, 0, 10));
+		layer->addRow(tr("Battle layer"), number(QStringLiteral("pictureBattleLayer"), 28, 0, 10));
+		layer->addRow(flag(QStringLiteral("pictureEraseOnMapChange"), tr("Erase on map change"), 29, 0));
+		layer->addRow(flag(QStringLiteral("pictureEraseOnBattleEnd"), tr("Erase when the battle ends"), 29, 1));
+		layer->addRow(flag(QStringLiteral("pictureAffectedByTint"), tr("Affected by the screen tint"), 29, 4));
+		layer->addRow(flag(QStringLiteral("pictureAffectedByFlash"), tr("Affected by the screen flash"), 29, 5));
+		layer->addRow(flag(QStringLiteral("pictureAffectedByShake"), tr("Affected by the screen shake"), 29, 6));
+	}
+	left->addStretch();
+	right->addStretch();
 }
 
 ErasePictureWidget::ErasePictureWidget(ProjectData& project, QWidget* parent) : EventCommandBaseWidget(project, parent) {
@@ -389,19 +563,24 @@ void ErasePictureWidget::setData(lcf::rpg::EventCommand* cmd) {
 	auto* id = spin(group, cmd, QStringLiteral("erasePictureId"), 0, 1, 9999, 1);
 	form->addRow(tr("Picture No."), id);
 	// The optional ID selector belongs to later versions; do not add it to
-	// a legacy command merely by opening its editor.
-	if (cmd->parameters.size() > 1) {
+	// a legacy command merely by opening its editor (its controls only
+	// write when they are changed: Maniac Patch games always show it).
+	const bool maniac = EventCommandPalette::usesManiacPatch(m_project.project());
+	if (cmd->parameters.size() > 1 || maniac) {
 		auto* kind = new QComboBox(group);
 		kind->setObjectName(QStringLiteral("erasePictureMode"));
 		kind->addItem(tr("Specific Picture"), 0);
 		kind->addItem(tr("Variable Reference"), 1);
 		kind->addItem(tr("Range"), 2);
 		const int currentMode = parameter(cmd, 1);
-		if (currentMode == 3) {
+		// the Maniac Patch selections, as EasyRPG Player reads them
+		if (maniac || currentMode == 3) {
 			kind->addItem(tr("Range from Variables"), 3);
-		} else if (currentMode == 4) {
+		}
+		if (maniac || currentMode == 4) {
 			kind->addItem(tr("Indirect Variable Reference"), 4);
-		} else if (currentMode == 5) {
+		}
+		if (maniac || currentMode == 5) {
 			kind->addItem(tr("All Pictures"), 5);
 		}
 		bindCombo(kind, this, cmd, 1);
@@ -455,7 +634,7 @@ void ErasePictureWidget::setData(lcf::rpg::EventCommand* cmd) {
 				}
 			}
 		});
-		const bool rpg2003 = m_project.database().system.ldb_id == 2003;
+		const bool rpg2003 = m_project.database().system.ldb_id == 2003 || maniac;
 		kind->setEnabled(rpg2003);
 		lastId->setEnabled(rpg2003);
 		variable->setEnabled(rpg2003);

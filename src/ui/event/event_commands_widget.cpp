@@ -31,12 +31,45 @@
 #include <QUndoStack>
 #include <functional>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QTreeWidgetItemIterator>
 #include "common/dbstring.h"
+#include "common/editor_settings.h"
+#include <QPainter>
 #include <QHeaderView>
 #include <QAction>
+#include <QStyledItemDelegate>
 #include <memory>
 
+namespace {
+class CommandLineDelegate : public QStyledItemDelegate {
+public:
+	explicit CommandLineDelegate(QTreeWidget* view) : QStyledItemDelegate(view), m_view(view) {}
+
+	QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+		QSize size = QStyledItemDelegate::sizeHint(option, index);
+		if (index.data(Qt::UserRole + 1).toBool()) {
+			// All preceding lines have the same height. Only the final insertion
+			// row expands; long lists retain a normal last row and scroll normally.
+			const int line = index.siblingAtColumn(1).data().toInt();
+			size.setHeight(std::max(size.height(), m_view->viewport()->height() - line * size.height()));
+		}
+		return size;
+	}
+
+	void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+		QStyleOptionViewItem line = option;
+		if (index.data(Qt::UserRole + 1).toBool()) {
+			// Keep "<>" on the first line rather than in the middle of the space.
+			line.rect.setHeight(QStyledItemDelegate::sizeHint(option, index).height());
+		}
+		QStyledItemDelegate::paint(painter, line, index);
+	}
+
+private:
+	QTreeWidget* m_view;
+};
+}
 
 std::vector<lcf::rpg::EventCommand> EventCommandsWidget::s_clipboard;
 
@@ -50,6 +83,17 @@ EventCommandsWidget::EventCommandsWidget(QWidget* parent) :
 	setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 	header()->setSectionResizeMode(QHeaderView::ResizeToContents);
 	header()->setStretchLastSection(false);
+	// No expand arrows nor their gutter: nesting shows by indentation only,
+	// one step per level, like RPG Maker; every block stays open
+	setRootIsDecorated(false);
+	setItemsExpandable(false);
+	// The last insertion row fills the space left below the command lines.
+	setItemDelegate(new CommandLineDelegate(this));
+	updateLook();
+	connect(&EditorSettings::instance(), &EditorSettings::changed, this, [this] {
+		updateLook();
+		viewport()->update();
+	});
 
 	setContextMenuPolicy(Qt::CustomContextMenu);
 
@@ -128,7 +172,7 @@ WidgetAsDialogWrapper<T, EventCommandList>* make_complex_evt_dialog(ProjectData*
 
 void EventCommandsWidget::editEvent(QTreeWidgetItem* item, int column) {
 	Q_UNUSED(column)
-	if (!item) {
+	if (!item || !(item->flags() & Qt::ItemIsSelectable)) {
 		return;
 	}
 	int index = indexOf(item);
@@ -144,21 +188,10 @@ void EventCommandsWidget::editEvent(QTreeWidgetItem* item, int column) {
 	}
 }
 
-bool EventCommandsWidget::editCommand(int index, bool is_new) {
+bool EventCommandsWidget::hasEditor(lcf::rpg::EventCommand::Code code) {
 	using Cmd = lcf::rpg::EventCommand::Code;
-
-	// The next lines of a message or comment edit its first line
-	while (index > 0) {
-		auto code = static_cast<Cmd>((*m_commands)[index].code);
-		if (code != Cmd::ShowMessage_2 && code != Cmd::Comment_2) {
-			break;
-		}
-		--index;
-	}
-	auto& cmd = (*m_commands)[index];
-
 	// Commands with no configuration
-	switch (static_cast<Cmd>(cmd.code))	{
+	switch (code) {
 		case Cmd::END:
 		case Cmd::EnterExitVehicle:
 		case Cmd::ProceedWithMovement:
@@ -196,9 +229,20 @@ bool EventCommandsWidget::editCommand(int index, bool is_new) {
 		case Cmd::EndInn:
 		case Cmd::ElseBranch_B:
 		case Cmd::EndBranch_B:
-			return true;
+		case Cmd::Maniac_EndLoadProcess:
+			return false;
 		default:
-			break;
+			return true;
+	}
+}
+
+bool EventCommandsWidget::editCommand(int index, bool is_new) {
+	using Cmd = lcf::rpg::EventCommand::Code;
+	// The next lines of a message or comment edit its first line.
+	index = commandStart(index);
+	auto& cmd = (*m_commands)[index];
+	if (!hasEditor(static_cast<Cmd>(cmd.code))) {
+		return true;
 	}
 
 	std::unique_ptr<QDialog> evt_dialog;
@@ -305,25 +349,31 @@ bool EventCommandsWidget::editCommand(int index, bool is_new) {
 		case Cmd::ShowBattleAnimation_B: evt_dialog.reset(make_evt_dialog<ShowBattleAnimation_BWidget>(m_project, cmd, this)); break;
 		case Cmd::ConditionalBranch_B: evt_dialog.reset(make_complex_evt_dialog<ConditionalBranchBattleWidget>(m_project, evt_lst, this)); break;
 		//case Cmd::Comment_2: evt_dialog.reset(make_evt_dialog<Comment_2Widget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_GetSaveInfo: evt_dialog.reset(make_evt_dialog<Maniac_GetSaveInfoWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_Save: evt_dialog.reset(make_evt_dialog<Maniac_SaveWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_Load: evt_dialog.reset(make_evt_dialog<Maniac_LoadWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_EndLoadProcess: evt_dialog.reset(make_evt_dialog<Maniac_EndLoadProcessWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_GetMousePosition: evt_dialog.reset(make_evt_dialog<Maniac_GetMousePositionWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_SetMousePosition: evt_dialog.reset(make_evt_dialog<Maniac_SetMousePositionWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_ShowStringPicture: evt_dialog.reset(make_evt_dialog<Maniac_ShowStringPictureWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_GetPictureInfo: evt_dialog.reset(make_evt_dialog<Maniac_GetPictureInfoWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_ControlBattle: evt_dialog.reset(make_evt_dialog<Maniac_ControlBattleWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_ControlAtbGauge: evt_dialog.reset(make_evt_dialog<Maniac_ControlAtbGaugeWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_ChangeBattleCommandEx: evt_dialog.reset(make_evt_dialog<Maniac_ChangeBattleCommandExWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_GetBattleInfo: evt_dialog.reset(make_evt_dialog<Maniac_GetBattleInfoWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_ControlVarArray: evt_dialog.reset(make_evt_dialog<Maniac_ControlVarArrayWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_KeyInputProcEx: evt_dialog.reset(make_evt_dialog<Maniac_KeyInputProcExWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_RewriteMap: evt_dialog.reset(make_evt_dialog<Maniac_RewriteMapWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_ControlGlobalSave: evt_dialog.reset(make_evt_dialog<Maniac_ControlGlobalSaveWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_ChangePictureId: evt_dialog.reset(make_evt_dialog<Maniac_ChangePictureIdWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_SetGameOption: evt_dialog.reset(make_evt_dialog<Maniac_SetGameOptionWidget>(m_project, cmd, this)); break;
-		//case Cmd::Maniac_CallCommand: evt_dialog.reset(make_evt_dialog<Maniac_CallCommandWidget>(m_project, cmd, this)); break;
+		case Cmd::Maniac_ShowStringPicture: evt_dialog.reset(make_evt_dialog<ManiacShowStringPictureWidget>(m_project, cmd, this)); break;
+		case Cmd::Maniac_ControlStrings: evt_dialog.reset(make_evt_dialog<ManiacControlStringsWidget>(m_project, cmd, this)); break;
+		case Cmd::Maniac_GetSaveInfo:
+		case Cmd::Maniac_Save:
+		case Cmd::Maniac_Load:
+		case Cmd::Maniac_GetMousePosition:
+		case Cmd::Maniac_SetMousePosition:
+		case Cmd::Maniac_GetPictureInfo:
+		case Cmd::Maniac_ControlBattle:
+		case Cmd::Maniac_ControlAtbGauge:
+		case Cmd::Maniac_ChangeBattleCommandEx:
+		case Cmd::Maniac_GetBattleInfo:
+		case Cmd::Maniac_ControlVarArray:
+		case Cmd::Maniac_KeyInputProcEx:
+		case Cmd::Maniac_RewriteMap:
+		case Cmd::Maniac_ControlGlobalSave:
+		case Cmd::Maniac_ChangePictureId:
+		case Cmd::Maniac_SetGameOption:
+		case Cmd::Maniac_CallCommand:
+		case Cmd::Maniac_GetGameInfo:
+		case Cmd::Maniac_EditPicture:
+		case Cmd::Maniac_WritePicture:
+		case Cmd::Maniac_EditTile:
+		case Cmd::Maniac_ControlTextProcessing:
+		case Cmd::Maniac_Zoom: evt_dialog.reset(make_evt_dialog<ManiacCommandWidget>(m_project, cmd, this)); break;
 		default: {
 			// No dedicated editor yet: edit the parameters
 			auto* wrapper = new WidgetAsDialogWrapper<EventRawWidget, lcf::rpg::EventCommand>(*m_project, cmd, this);
@@ -349,7 +399,7 @@ void EventCommandsWidget::addRawEvent(QTreeWidgetItem *item) {
 	dialog.reset(wrapper);
 
 	if (dialog->exec() == QDialog::Accepted) {
-		if (!item) {
+		if (!item || indexOf(item) >= static_cast<int>(m_commands->size())) {
 			m_commands->push_back(cmd);
 		} else {
 			m_commands->insert(m_commands->begin() + item->text(1).toInt() + 1, cmd);
@@ -456,7 +506,7 @@ std::pair<int, int> EventCommandsWidget::commandRange(QTreeWidgetItem* item) con
 
 void EventCommandsWidget::highlightCommand(QTreeWidgetItem* current) {
 	m_highlight = {-1, -1};
-	if (current) {
+	if (current && (current->flags() & Qt::ItemIsSelectable)) {
 		m_highlight = commandRange(current);
 		if (m_highlight.first == m_highlight.second) {
 			m_highlight = {indexOf(current), indexOf(current) + 1};
@@ -465,13 +515,88 @@ void EventCommandsWidget::highlightCommand(QTreeWidgetItem* current) {
 	viewport()->update();
 }
 
+void EventCommandsWidget::updateLook() {
+	using CommandColors::Kind;
+	const auto& settings = EditorSettings::instance();
+	m_colors = settings.commandColors();
+	m_stripes = settings.commandStripes();
+
+	const QPalette base = palette();
+	m_stripe = CommandColors::stripeColor(base);
+	for (size_t i = 0; i < m_linePalettes.size(); ++i) {
+		const auto kind = static_cast<Kind>(i);
+		QPalette line = base;
+		if (kind == Kind::End && !m_colors) {
+			// the empty lines are dimmed when commands are not colored
+			line.setColor(QPalette::Text, base.color(QPalette::Disabled, QPalette::Text));
+		} else if (m_colors && kind != Kind::Text && kind != Kind::End) {
+			line.setColor(QPalette::Text, CommandColors::color(kind, base));
+		}
+		m_linePalettes[i] = line;
+	}
+
+	// A nested line starts under the text of its parent, after its "<>"
+	setIndentation(std::max(8, fontMetrics().horizontalAdvance(QStringLiteral("<>"))));
+}
+
+void EventCommandsWidget::resizeEvent(QResizeEvent* event)
+{
+	QTreeWidget::resizeEvent(event);
+	// Lines are as wide as the list at least (wider ones scroll): a click or
+	// a double click anywhere on a line hits it, not only on its text
+	header()->setMinimumSectionSize(viewport()->width());
+	scheduleDelayedItemsLayout();
+}
+
+void EventCommandsWidget::changeEvent(QEvent* event) {
+	QTreeWidget::changeEvent(event);
+	switch (event->type()) {
+		case QEvent::PaletteChange:
+		case QEvent::FontChange:
+		case QEvent::StyleChange:
+			// light / dark mode: colors made for the new base
+			updateLook();
+			viewport()->update();
+			break;
+		default:
+			break;
+	}
+}
+
 void EventCommandsWidget::drawRow(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const {
+	using CommandColors::Kind;
 	QStyleOptionViewItem row = option;
 	const int line = indexOf(itemFromIndex(index));
 	if (line >= m_highlight.first && line < m_highlight.second) {
 		row.state |= QStyle::State_Selected;
 	}
+
+	// Every block is open and there is one row per line: the line number
+	// is the row, so every other line is tinted, as in RPG Maker 2003
+	if (m_stripes && (line & 1)) {
+		painter->fillRect(QRect(0, option.rect.top(), viewport()->width(), option.rect.height()), m_stripe);
+	}
+	if (index.data(Qt::UserRole + 1).toBool() && (row.state & QStyle::State_Selected)) {
+		painter->fillRect(QRect(0, option.rect.top(), viewport()->width(), option.rect.height()), palette().highlight());
+	}
+
+	Kind kind = Kind::End;
+	if (m_commands && line >= 0 && line < static_cast<int>(m_commands->size())) {
+		kind = CommandColors::kind((*m_commands)[line].code);
+	}
+	if (kind != Kind::Text) {
+		// the delegate draws the text with the palette's Text (HighlightedText when selected)
+		row.palette = m_linePalettes[static_cast<size_t>(kind)];
+	}
 	QTreeWidget::drawRow(painter, row, index);
+}
+
+void EventCommandsWidget::drawBranches(QPainter* painter, const QRect& rect, const QModelIndex& index) const {
+	// No expand arrows nor branch lines in the indentation. Its background
+	// (selection) is drawn by QTreeView::drawRow before this.
+	Q_UNUSED(painter)
+	Q_UNUSED(rect)
+	Q_UNUSED(index)
 }
 
 int EventCommandsWidget::indexOf(QTreeWidgetItem* item) const {
@@ -480,12 +605,36 @@ int EventCommandsWidget::indexOf(QTreeWidgetItem* item) const {
 
 void EventCommandsWidget::selectIndex(int index) {
 	for (QTreeWidgetItemIterator it(this); *it; ++it) {
-		if (indexOf(*it) == index) {
+		if (indexOf(*it) >= index && ((*it)->flags() & Qt::ItemIsSelectable)) {
 			setCurrentItem(*it);
 			scrollToItem(*it);
 			return;
 		}
 	}
+}
+
+void EventCommandsWidget::mousePressEvent(QMouseEvent* event) {
+	auto* item = itemAt(event->position().toPoint());
+	if (item && !(item->flags() & Qt::ItemIsSelectable)) {
+		event->accept();
+		return;
+	}
+	QTreeWidget::mousePressEvent(event);
+}
+
+QModelIndex EventCommandsWidget::moveCursor(CursorAction action, Qt::KeyboardModifiers modifiers) {
+	QModelIndex next = QTreeWidget::moveCursor(action, modifiers);
+	if (!next.isValid()) {
+		return next;
+	}
+	QTreeWidgetItemIterator it(itemFromIndex(next));
+	const bool backwards = action == MoveUp || action == MovePrevious || action == MovePageUp
+		|| action == MoveLeft || action == MoveEnd;
+	while (*it && !((*it)->flags() & Qt::ItemIsSelectable)) {
+		if (backwards) --it;
+		else ++it;
+	}
+	return *it ? indexFromItem(*it) : currentIndex();
 }
 
 void EventCommandsWidget::keyPressEvent(QKeyEvent* event) {
@@ -516,7 +665,7 @@ void EventCommandsWidget::showContextMenu(const QPoint& pos) {
 	using Cmd = lcf::rpg::EventCommand::Code;
 	bool removable = item && commandRange(item).first != commandRange(item).second;
 	bool editable = item && indexOf(item) < static_cast<int>(m_commands->size())
-		&& static_cast<Cmd>((*m_commands)[indexOf(item)].code) != Cmd::END;
+		&& hasEditor(static_cast<Cmd>((*m_commands)[commandStart(indexOf(item))].code));
 
 	QMenu menu(this);
 	menu.addAction(m_undoStack->createUndoAction(&menu));
@@ -538,7 +687,7 @@ void EventCommandsWidget::showContextMenu(const QPoint& pos) {
 	}
 	menu.addSeparator();
 	menu.addAction(tr("Add raw") + "...", this, [=, this] { addRawEvent(item); });
-	if (item) {
+	if (item && indexOf(item) < static_cast<int>(m_commands->size())) {
 		menu.addAction(tr("Edit raw") + "...", this, [=, this] { editRawEvent(item, 0, false); });
 	}
 
@@ -589,6 +738,10 @@ void EventCommandsWidget::refreshList() {
 		cmd.indent = indent;
 
 		auto* item = new QTreeWidgetItem({Stringizer::stringize(cmd), QString::number(i)});
+		if (static_cast<Cmd>(cmd.code) != Cmd::END && !hasEditor(static_cast<Cmd>(cmd.code))) {
+			// Keep structural parents enabled so their editable children stay enabled.
+			item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
+		}
 		if (static_cast<Cmd>(cmd.code) == Cmd::ShowMessage_2 || static_cast<Cmd>(cmd.code) == Cmd::Comment_2) {
 			// under the text of the first line, after its "Message: "
 			QString first = static_cast<Cmd>(cmd.code) == Cmd::ShowMessage_2
@@ -599,9 +752,8 @@ void EventCommandsWidget::refreshList() {
 			item->setText(0, QString(spaces, ' ') + ": " + ToQString(cmd.string));
 		}
 		if (static_cast<Cmd>(cmd.code) == Cmd::END) {
-			// where commands are inserted
+			// where commands are inserted (its color: drawRow)
 			item->setText(0, QStringLiteral("<>"));
-			item->setForeground(0, palette().brush(QPalette::Disabled, QPalette::Text));
 		}
 		item->setToolTip(0, tr("Line") + ": " + QString::number(i + 1));
 		item->setData(0, Qt::UserRole, QVariant::fromValue(reinterpret_cast<void*>(&cmd)));
@@ -633,7 +785,7 @@ void EventCommandsWidget::refreshList() {
 
 	// RPG Maker does not store the empty line ending the page, it only shows it
 	auto* last = new QTreeWidgetItem({QStringLiteral("<>"), QString::number(m_commands->size())});
-	last->setForeground(0, palette().brush(QPalette::Disabled, QPalette::Text));
+	last->setData(0, Qt::UserRole + 1, true);
 	addTopLevelItem(last);
 
 	expandAll();

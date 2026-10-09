@@ -20,6 +20,8 @@
 #include <QDialog>
 #include "model/project.h"
 
+template<typename T> class QFutureWatcher;
+
 namespace Ui {
 class OpenProjectDialog;
 }
@@ -50,5 +52,5 @@ private:
 	bool removeDir(const QString &dirName);
 	void refreshProjectList();
 	Project::ProjectList prjList;
+	QFutureWatcher<Project::ProjectList>* m_projectScan = nullptr;
 };
-

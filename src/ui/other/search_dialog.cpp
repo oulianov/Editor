@@ -18,37 +18,41 @@
 #include "search_dialog.h"
 #include "ui_search_dialog.h"
 #include "ui/main_window.h"
-#include "core.h"
 #include "common/dbstring.h"
 #include "stringizer.h"
 
-#include <lcf/lmu/reader.h>
-#include <functional>
-#include <vector>
-#include <tuple>
-#include <QMessageBox>
 #include <QCompleter>
+#include <QHeaderView>
 #include <QRegularExpression>
+#include <QSet>
+#include <QStringListModel>
+#include <algorithm>
+#include <tuple>
 
 SearchDialog::SearchDialog(ProjectData& project, QWidget *parent) :
-	QDialog(parent),
-	ui(new Ui::SearchDialog), m_project(project)
+	QDialog(parent), ui(new Ui::SearchDialog), m_project(project)
 {
 	ui->setupUi(this);
-
 	ui->list_result->setColumnCount(5);
-	ui->list_result->setRowCount(0);
+	ui->list_result->setHorizontalHeaderLabels({tr("Map"), tr("Event"), tr("Event Page"), tr("Source Line"), tr("Match")});
 	ui->list_result->setSelectionBehavior(QAbstractItemView::SelectRows);
+	ui->list_result->setSelectionMode(QAbstractItemView::SingleSelection);
 	ui->list_result->setEditTriggers(QAbstractItemView::NoEditTriggers);
-
-
-	for (auto *box : {ui->combo_variable, ui->combo_switch, ui->combo_item, ui->combo_eventname})
-	{
-		box->completer()->setFilterMode(Qt::MatchContains);
-		box->completer()->setCompletionMode(QCompleter::PopupCompletion);
-	}
-
+	ui->list_result->horizontalHeader()->setStretchLastSection(true);
+	ui->list_result->verticalHeader()->hide();
+	ui->search_text->setClearButtonEnabled(true);
+	auto* completer = new QCompleter(new QStringListModel(this), this);
+	completer->setCaseSensitivity(Qt::CaseInsensitive);
+	completer->setFilterMode(Qt::MatchContains);
+	completer->setCompletionMode(QCompleter::PopupCompletion);
+	ui->search_text->setCompleter(completer);
+	connect(ui->filter_type, &QComboBox::currentIndexChanged, this, &SearchDialog::updateUI);
+	connect(ui->search_text, &QLineEdit::returnPressed, this, &SearchDialog::on_button_search_clicked);
+	connect(ui->search_text, &QLineEdit::textChanged, this, [this](const QString& text) {
+		ui->button_search->setEnabled(!text.trimmed().isEmpty());
+	});
 	enableCache(false);
+	updateUI();
 }
 
 SearchDialog::~SearchDialog()
@@ -58,333 +62,242 @@ SearchDialog::~SearchDialog()
 
 void SearchDialog::updateUI()
 {
+	QStringList suggestions;
+	const int type = ui->filter_type->currentIndex();
+	auto append = [&](const auto& records) {
+		for (const auto& record : records) {
+			suggestions.append(QStringLiteral("%1: %2").arg(record.ID).arg(ToQString(record.name)));
+		}
+	};
 	const auto& database = m_project.database();
-	
-	const QString format("%1: %2");
-
-	for (auto &v : database.variables)
-		ui->combo_variable->addItem(format.arg(QString::number(v.ID), ToQString(v.name)), v.ID);
-	for (auto &s : database.switches)
-		ui->combo_switch->addItem(format.arg(QString::number(s.ID), ToQString(s.name)), s.ID);
-	for (auto &i : database.items)
-		ui->combo_item->addItem(format.arg(QString::number(i.ID), ToQString(i.name)), i.ID);
-	for (auto &e : database.commonevents)
-		ui->combo_eventname->addItem(format.arg(QString::number(e.ID), ToQString(e.name)), e.ID);
+	if (type == 0 || type == 1) append(database.variables);
+	if (type == 0 || type == 2) append(database.switches);
+	if (type == 0 || type == 3) append(database.items);
+	if (type == 0 || type == 4) append(database.commonevents);
+	suggestions.removeDuplicates();
+	static_cast<QStringListModel*>(ui->search_text->completer()->model())->setStringList(suggestions);
+	map_cache.clear();
 }
 
 void SearchDialog::enableCache(bool enable)
 {
 	useCache = enable;
-
-	if (enable)
-		map_cache = std::vector<std::shared_ptr<lcf::rpg::Map>>(m_project.treeMap().maps.size());
-	else
-		map_cache.clear();
-
+	map_cache.clear();
 }
 
 void SearchDialog::on_button_search_clicked()
 {
+	const QString text = ui->search_text->text().trimmed();
+	if (text.isEmpty()) return;
 	objectData.clear();
-	ui->list_result->clear();
 	ui->list_result->setRowCount(0);
-	QStringList sl;
-	sl << tr("Map") << tr("Event") << tr("Event Page") << tr("Sourceline") << tr("Action");
-	ui->list_result->setHorizontalHeaderLabels(sl);
-
-	std::function<bool(const lcf::rpg::EventCommand&)> search_predicate;
-	auto map_searcher = [&search_predicate](int mapID, const lcf::rpg::Map& map) {
-		std::vector<command_info> res;
-		for (auto& e : map.events)
-			for (auto& p : e.pages)
-				for (size_t line = 0; line < p.event_commands.size(); line++)
-				{
-					auto& com = p.event_commands[line];
-					if (search_predicate(com))
-						res.emplace_back(mapID, e.ID, p.ID, line+1, com);
-				}
-
-		return res;
+	const int type = ui->filter_type->currentIndex();
+	const int scope = ui->filter_scope->currentIndex();
+	// IDs match exactly, including a completed "ID: Name" suggestion. Names match partially.
+	static const QRegularExpression numbered(QStringLiteral("^(\\d+)(?::\\s.*)?$"));
+	const auto number = numbered.match(text);
+	const int id = number.hasMatch() ? number.captured(1).toInt() : -1;
+	auto nameMatches = [&](int recordID, const auto& name) {
+		return number.hasMatch() ? recordID == id : ToQString(name).contains(text, Qt::CaseInsensitive);
 	};
-	auto common_searcher = [&search_predicate](const std::vector<lcf::rpg::CommonEvent>& events) {
-		std::vector<command_info> res;
-		for (auto& e : events)
-			for (size_t line = 0; line < e.event_commands.size(); line++)
-			{
-				auto& com = e.event_commands[line];
-				if (search_predicate(com))
-					res.emplace_back(0, e.ID, 0, line+1, com);
+	auto matchingIDs = [&](const auto& records, int category) {
+		QSet<int> ids;
+		if (type == 0 || type == category) {
+			for (const auto& record : records) {
+				if (nameMatches(record.ID, record.name)) ids.insert(record.ID);
 			}
-
-		return res;
+			// References to an unnamed or deleted database entry still have a meaningful ID.
+			if (id > 0) ids.insert(id);
+		}
+		return ids;
 	};
-
+	const auto& database = m_project.database();
+	const auto variables = matchingIDs(database.variables, 1);
+	const auto switches = matchingIDs(database.switches, 2);
+	const auto items = matchingIDs(database.items, 3);
+	static const QRegularExpression messageVariable(QStringLiteral("\\\\[vV]\\[\\s*(\\d+)\\s*\\]"));
 	using Cmd = lcf::rpg::EventCommand::Code;
-
-	if (ui->radio_variable->isChecked())
-	{
-		int varID = ui->combo_variable->currentData().toInt();
-
-		search_predicate = [varID](const lcf::rpg::EventCommand& com)
-		{
-			switch (static_cast<Cmd>(com.code))
-			{
-				case Cmd::InputNumber:
-					return com.parameters[1] == varID;
-				case Cmd::ControlSwitches:
-					return com.parameters[0] == 2 && com.parameters[1] == varID;
-				case Cmd::ControlVars:
-					return (com.parameters[4] == 1 && com.parameters[5] == varID) ||
-						(com.parameters[4] == 2 && com.parameters[5] == varID) ||
-						com.parameters[1] == varID || com.parameters[2] == varID;
-				case Cmd::ChangeItems:
-				case Cmd::ChangePartyMembers:
-					return com.parameters[1] == 1 && com.parameters[2] == varID;
-				case Cmd::EnemyEncounter:
-					return com.parameters[0] == 1 && com.parameters[2] == varID;
-				case Cmd::ChangeSkills:
-				case Cmd::ChangeEquipment:
-				case Cmd::ChangeHP:
-				case Cmd::ChangeSP:
-					return com.parameters[3] == 1 && com.parameters[4] == varID;
-				case Cmd::SimulatedAttack:
-					return com.parameters[6] != 0 && com.parameters[7] == varID;
-				case Cmd::MemorizeLocation:
-				case Cmd::RecallToLocation:
-					return com.parameters[0] == varID || com.parameters[1] == varID ||
-						com.parameters[2] == varID;
-				case Cmd::SetVehicleLocation:
-					return (com.parameters[1] == 1 && com.parameters[2] == varID) ||
-						(com.parameters[1] == 1 && com.parameters[3] == varID) ||
-						(com.parameters[1] == 1 && com.parameters[4] == varID);
-				case Cmd::ChangeEventLocation:
-				case Cmd::ShowPicture:
-				case Cmd::MovePicture:
-					return (com.parameters[1] == 1 && com.parameters[2] == varID) ||
-						(com.parameters[1] == 1 && com.parameters[3] == varID);
-				case Cmd::StoreTerrainID:
-				case Cmd::StoreEventID:
-					return (com.parameters[1] == 1 && com.parameters[2] == varID) ||
-						(com.parameters[1] == 1 && com.parameters[3] == varID) ||
-						(com.parameters[1] == 1 && com.parameters[4] == varID);
-				case Cmd::KeyInputProc:
-					return com.parameters[0] == varID ||
-						(com.parameters.size() > 6 && com.parameters[7] == varID);
-				case Cmd::ConditionalBranch:
-					return com.parameters[0] == 1 &&
-						(com.parameters[1] == varID || (com.parameters[2] != 0 && com.parameters[3] == varID));
-				case Cmd::CallEvent:
-					return com.parameters[0] == 2 && (com.parameters[1] == varID || com.parameters[2] == varID);
-				case Cmd::PlayMovie:
-					return (com.parameters[0] == 1 && com.parameters[1] == varID) ||
-						(com.parameters[0] == 1 && com.parameters[2] == varID);
-				default:
-					return false;
-			}
+	auto matchesCommand = [&](const lcf::rpg::EventCommand& command) {
+		auto p = [&](size_t i) { return i < command.parameters.size() ? command.parameters[i] : -1; };
+		auto variable = [&](size_t i) { return variables.contains(p(i)); };
+		auto range = [&](const QSet<int>& ids) {
+			return std::any_of(ids.begin(), ids.end(), [&](int candidate) {
+				return p(0) == 0 ? candidate == p(1) : p(0) == 1 && candidate >= p(1) && candidate <= p(2);
+			});
 		};
-	}
-	else if (ui->radio_switch->isChecked())
-	{
-		int switchID = ui->combo_switch->currentData().toInt();
-
-		search_predicate = [switchID](const lcf::rpg::EventCommand& com)
-		{
-			switch (static_cast<Cmd>(com.code))
-			{
-				case Cmd::ControlSwitches:
-					return (com.parameters[0] != 2 && com.parameters[1] == switchID) ||
-						(com.parameters[0] == 1 && com.parameters[2] == switchID);
-				case Cmd::ConditionalBranch:
-					return com.parameters[0] == 0 && com.parameters[1] == switchID;
-				default:
-					return false;
+		bool match = false;
+		switch (static_cast<Cmd>(command.code)) {
+		case Cmd::ShowMessage:
+		case Cmd::ShowMessage_2:
+		case Cmd::ShowChoiceOption: {
+			auto references = messageVariable.globalMatch(ToQString(command.string));
+			while (references.hasNext()) {
+				if (variables.contains(references.next().captured(1).toInt())) { match = true; break; }
 			}
-		};
-	}
-	else if (ui->radio_item->isChecked())
-	{
-		int itemID = ui->combo_item->currentData().toInt();
-
-		search_predicate = [itemID](const lcf::rpg::EventCommand& com)
-		{
-			switch (static_cast<Cmd>(com.code))
-			{
-				case Cmd::ChangeItems:
-					return com.parameters[2] == itemID;
-				case Cmd::ControlVars:
-					return com.parameters[4] == 4 && com.parameters[5] == itemID;
-				case Cmd::ChangeEquipment:
-					return com.parameters[3] == 0 && com.parameters[4] == itemID;
-				case Cmd::ConditionalBranch:
-					return com.parameters[0] == 4 && com.parameters[1] == itemID;
-				default:
-					return false;
-			}
-		};
-	}
-	else //if (ui->radio_eventname->isChecked())
-	{
-		searchEventNames();
-		return;
-	}
-
-	if (!search_predicate)
-	{
-		QMessageBox::warning(this, "", tr("This search parameter isn't supported yet."));
-		return;
-	}
-
-	if (ui->scope_current->isChecked())
-	{
-		const auto mapID = static_cast<MainWindow*>(parent())->currentScene()->id();
-		auto map = loadMap(mapID);
-
-		auto res = map_searcher(mapID, *map);
-		showResults(res);
-	}
-	else if (ui->scope_events->isChecked())
-	{
-		showResults(common_searcher(m_project.project().database().commonevents));
-	}
-	else // if (ui->scope_project->isChecked())
-	{
-		for (auto &map : m_project.treeMap().maps)
-		{
-			ui->label_status->setText(QString(tr("Parsing Map %1 / %2")).arg(QString::number(map.ID + 1), QString::number(m_project.treeMap().maps.size())));
-			QApplication::processEvents(); //FIXME: can this be done better?!
-
-			auto mapp = loadMap(map.ID);
-
-			if (!mapp) continue;
-
-			auto res = map_searcher(map.ID, *mapp);
-			showResults(res);
+			break;
 		}
-	}
-	ui->list_result->resizeColumnsToContents();
-}
-
-void SearchDialog::searchEventNames()
-{
-	// a name picked in the list ("0003: Name") or any part of a name
-	QString text = ui->combo_eventname->currentText().trimmed();
-	static const QRegularExpression numbered(QStringLiteral("^\\d+: "));
-	text.remove(numbered);
-	if (text.isEmpty()) {
-		return;
-	}
-
-	static const lcf::rpg::EventCommand no_command;
-	auto add = [&](int mapID, int eventID, const QString& name, const QString& where) {
-		const int rows = ui->list_result->rowCount();
-		ui->list_result->setRowCount(rows + 1);
-		ui->list_result->setItem(rows, 0, new QTableWidgetItem(where));
-		ui->list_result->setItem(rows, 1, new QTableWidgetItem(QString::number(eventID)));
-		ui->list_result->setItem(rows, 2, new QTableWidgetItem(QString()));
-		ui->list_result->setItem(rows, 3, new QTableWidgetItem(QString()));
-		ui->list_result->setItem(rows, 4, new QTableWidgetItem(name));
-		objectData.emplace_back(mapID, eventID, 0, 0, no_command);
+		case Cmd::InputNumber:
+			match = variable(1); break;
+		case Cmd::ControlSwitches:
+			match = range(switches) || (p(0) == 2 && variable(1)); break;
+		case Cmd::ControlVars:
+			match = range(variables) || (p(0) == 2 && variable(1)) ||
+				((p(4) == 1 || p(4) == 2) && variable(5)) || (p(4) == 4 && items.contains(p(5))); break;
+		case Cmd::TimerOperation:
+			match = p(0) == 0 && p(1) == 1 && variable(2); break;
+		case Cmd::ChangeGold:
+		case Cmd::ChangePartyMembers:
+			match = p(1) == 1 && variable(2); break;
+		case Cmd::ChangeItems:
+			match = (p(1) == 1 && variable(2)) || (p(3) == 1 && variable(4)) ||
+				(p(1) == 0 && items.contains(p(2))); break;
+		case Cmd::EnemyEncounter:
+			match = p(0) == 1 && variable(1); break;
+		case Cmd::ChangeExp:
+		case Cmd::ChangeLevel:
+		case Cmd::ChangeSkills:
+		case Cmd::ChangeEquipment:
+		case Cmd::ChangeHP:
+		case Cmd::ChangeSP:
+			match = (p(0) == 2 && variable(1)) || (p(3) == 1 && variable(4)) ||
+				(command.code == static_cast<int>(Cmd::ChangeEquipment) && p(2) == 0 && p(3) == 0 && items.contains(p(4))); break;
+		case Cmd::ChangeParameters:
+			match = (p(0) == 2 && variable(1)) || (p(4) == 1 && variable(5)); break;
+		case Cmd::ChangeCondition:
+		case Cmd::FullHeal:
+			match = p(0) == 2 && variable(1); break;
+		case Cmd::SimulatedAttack:
+			match = (p(0) == 2 && variable(1)) || (p(6) == 1 && variable(7)); break;
+		case Cmd::MemorizeLocation:
+		case Cmd::RecallToLocation:
+			match = variable(0) || variable(1) || variable(2); break;
+		case Cmd::SetVehicleLocation:
+			match = p(1) == 1 && (variable(2) || variable(3) || variable(4)); break;
+		case Cmd::ChangeEventLocation:
+		case Cmd::ShowPicture:
+		case Cmd::MovePicture:
+			match = (p(1) == 1 && (variable(2) || variable(3))); break;
+		case Cmd::StoreTerrainID:
+		case Cmd::StoreEventID:
+			match = variable(3) || (p(0) == 1 && (variable(1) || variable(2))); break;
+		case Cmd::KeyInputProc:
+			match = variable(0) || (p(8) == 1 && variable(7)); break;
+		case Cmd::ConditionalBranch:
+			match = (p(0) == 0 && switches.contains(p(1))) ||
+				(p(0) == 1 && (variable(1) || (p(2) == 1 && variable(3)))) ||
+				(p(0) == 4 && items.contains(p(1))); break;
+		case Cmd::CallEvent:
+			match = p(0) == 2 && (variable(1) || variable(2)); break;
+		case Cmd::PlayMovie:
+			match = p(0) == 1 && (variable(1) || variable(2)); break;
+		default: break;
+		}
+		return match || ((type == 0 || type == 5) && !command.string.empty() &&
+			ToQString(command.string).contains(text, Qt::CaseInsensitive));
 	};
-	auto search_map = [&](int mapID) {
-		auto map = loadMap(mapID);
-		if (!map) {
-			return;
-		}
-		QString where;
-		for (const auto& info : m_project.treeMap().maps) {
-			if (info.ID == mapID) {
-				where = ToQString(info.name);
-			}
-		}
-		for (const auto& e : map->events) {
-			QString name = ToQString(e.name);
-			if (name.contains(text, Qt::CaseInsensitive)) {
-				add(mapID, e.ID, QString("%1 (%2, %3)").arg(name).arg(e.x).arg(e.y), where);
+	auto searchCommands = [&](int mapID, int eventID, int pageID, const auto& commands) {
+		for (size_t line = 0; line < commands.size(); ++line) {
+			if (matchesCommand(commands[line])) {
+				addResult(mapID, eventID, pageID, static_cast<int>(line + 1), Stringizer::stringize(commands[line]));
 			}
 		}
 	};
-
-	if (ui->scope_current->isChecked()) {
-		if (auto* scene = static_cast<MainWindow*>(parent())->currentScene()) {
-			search_map(scene->id());
-		}
-	} else if (ui->scope_events->isChecked()) {
-		for (const auto& e : m_project.database().commonevents) {
-			if (ToQString(e.name).contains(text, Qt::CaseInsensitive)) {
-				add(0, e.ID, ToQString(e.name), tr("Common"));
+	auto searchMap = [&](int mapID) {
+		const auto map = loadMap(mapID);
+		if (!map) return;
+		for (const auto& event : map->events) {
+			if ((type == 0 || type == 4) && nameMatches(event.ID, event.name)) {
+				addResult(mapID, event.ID, 0, 0, ToQString(event.name));
+			}
+			for (const auto& page : event.pages) {
+				const auto& condition = page.condition;
+				if ((condition.flags.variable && variables.contains(condition.variable_id)) ||
+					(condition.flags.switch_a && switches.contains(condition.switch_a_id)) ||
+					(condition.flags.switch_b && switches.contains(condition.switch_b_id)) ||
+					(condition.flags.item && items.contains(condition.item_id))) {
+					addResult(mapID, event.ID, page.ID, 0, tr("Event page condition"));
+				}
+				searchCommands(mapID, event.ID, page.ID, page.event_commands);
 			}
 		}
-	} else {
-		for (const auto& info : m_project.treeMap().maps) {
-			if (info.ID > 0) {
-				search_map(info.ID);
-			}
+	};
+	ui->button_search->setEnabled(false);
+	setCursor(Qt::WaitCursor);
+	auto* window = qobject_cast<MainWindow*>(parent());
+	if (scope == 1) {
+		if (auto* scene = window ? window->currentScene() : nullptr) searchMap(scene->id());
+	} else if (scope == 0) {
+		for (const auto& map : m_project.treeMap().maps) {
+			if (map.ID > 0 && map.type == lcf::rpg::TreeMap::MapType_map) searchMap(map.ID);
 		}
 	}
-	ui->list_result->resizeColumnsToContents();
+	if (scope != 1) {
+		for (const auto& event : database.commonevents) {
+			if ((type == 0 || type == 4) && nameMatches(event.ID, event.name)) {
+				addResult(0, event.ID, 0, 0, ToQString(event.name));
+			}
+			if (event.switch_flag && switches.contains(event.switch_id)) {
+				addResult(0, event.ID, 0, 0, tr("Common event condition"));
+			}
+			searchCommands(0, event.ID, 0, event.event_commands);
+		}
+	}
+	unsetCursor();
+	ui->button_search->setEnabled(true);
+	ui->label_status->setText(tr("%n result(s)", nullptr, ui->list_result->rowCount()));
+	for (int column = 0; column < 4; ++column) ui->list_result->resizeColumnToContents(column);
 }
 
 void SearchDialog::on_list_result_doubleClicked(const QModelIndex &index)
 {
-	// common events are not on a map
-	if (std::get<0>(objectData[static_cast<size_t>(index.row())]) == 0) {
-		return;
+	if (index.row() < 0 || static_cast<size_t>(index.row()) >= objectData.size()) return;
+	const auto [mapID, eventID, pageID, line] = objectData[static_cast<size_t>(index.row())];
+	if (mapID == 0) return;
+	auto* window = qobject_cast<MainWindow*>(parent());
+	if (!window) return;
+	window->openScene(mapID);
+	if (auto* scene = window->currentScene()) {
+		if (auto* event = (*scene->mapEvents())[eventID]) {
+			window->selectTile(event->x, event->y);
+			scene->centerOnTile(event->x, event->y);
+		}
 	}
-	auto *par = static_cast<MainWindow*>(parent());
-	par->openScene(std::get<0>(objectData[static_cast<size_t>(index.row())]));
-	auto *event = (*par->currentScene()->mapEvents())[std::get<1>(objectData[static_cast<size_t>(index.row())])];
-	par->selectTile(event->x, event->y);
-	par->currentScene()->centerOnTile(event->x, event->y);
 }
 
 std::shared_ptr<lcf::rpg::Map> SearchDialog::loadMap(int mapID)
 {
-	if (!(useCache && map_cache[static_cast<size_t>(mapID)]))
-	{
-		const std::shared_ptr<lcf::rpg::Map> res_map{m_project.project().loadMap(mapID)};
-
-		if (useCache)
-			map_cache[static_cast<size_t>(mapID)] = res_map;
-
-		return res_map;
+	// Searches include the current contents of open tabs, without saving them.
+	if (auto* window = qobject_cast<MainWindow*>(parent())) {
+		if (auto* scene = window->getScene(mapID)) return std::make_shared<lcf::rpg::Map>(scene->mapData());
 	}
-
-	return map_cache[static_cast<size_t>(mapID)];
+	if (useCache && map_cache.contains(mapID)) return map_cache.value(mapID);
+	std::shared_ptr<lcf::rpg::Map> map{m_project.project().loadMap(mapID)};
+	if (useCache && map) map_cache.insert(mapID, map);
+	return map;
 }
 
-void SearchDialog::showResults(const std::vector<command_info>& results) {
-	for (auto &r : results)
-	{
-		int mapID, eventID, eventPage,	sourceLine;
-		const lcf::rpg::EventCommand& command = std::get<4>(r);
-		std::tie(mapID, eventID, eventPage, sourceLine, std::ignore) = r;
-
-		auto mm = mapID;
-		QStringList maps_rev;
-		if (mm == 0) // Common Event
-		{
-			maps_rev << tr("Common");
+void SearchDialog::addResult(int mapID, int eventID, int pageID, int line, const QString& description)
+{
+	QStringList path;
+	if (mapID == 0) path.append(tr("Common Events"));
+	else {
+		QSet<int> visited;
+		int parentID = mapID;
+		while (parentID > 0 && !visited.contains(parentID)) {
+			visited.insert(parentID);
+			const auto& maps = m_project.treeMap().maps;
+			const auto info = std::find_if(maps.begin(), maps.end(), [&](const auto& map) { return map.ID == parentID; });
+			if (info == maps.end()) break;
+			path.prepend(ToQString(info->name));
+			parentID = info->parent_map;
 		}
-		else
-		{
-			do
-			{
-				auto& mapinfo = m_project.treeMap().maps[static_cast<size_t>(mm)];
-				maps_rev << ToQString(mapinfo.name);
-				mm = mapinfo.parent_map;
-			} while (mm != 0);
-		}
-
-		const auto descr = Stringizer::stringize(command);
-
-		const int rows = ui->list_result->rowCount();
-		ui->list_result->setRowCount(rows+1);
-		ui->list_result->setItem(rows, 0, new QTableWidgetItem(maps_rev.join(" > ")));
-		ui->list_result->setItem(rows, 1, new QTableWidgetItem(QString::number(eventID)));
-		ui->list_result->setItem(rows, 2, new QTableWidgetItem(QString::number(eventPage)));
-		ui->list_result->setItem(rows, 3, new QTableWidgetItem(QString::number(sourceLine)));
-		ui->list_result->setItem(rows, 4, new QTableWidgetItem(descr));
-
-		objectData.push_back(r);
 	}
+	const int row = ui->list_result->rowCount();
+	ui->list_result->insertRow(row);
+	ui->list_result->setItem(row, 0, new QTableWidgetItem(path.join(QStringLiteral(" > "))));
+	ui->list_result->setItem(row, 1, new QTableWidgetItem(QString::number(eventID)));
+	ui->list_result->setItem(row, 2, new QTableWidgetItem(pageID > 0 ? QString::number(pageID) : QString()));
+	ui->list_result->setItem(row, 3, new QTableWidgetItem(line > 0 ? QString::number(line) : QString()));
+	ui->list_result->setItem(row, 4, new QTableWidgetItem(description));
+	objectData.emplace_back(mapID, eventID, pageID, line);
 }

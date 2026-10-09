@@ -47,7 +47,7 @@ private:
 	QComboBox* map(QFormLayout* form, const QString& label, const QString& name, int index);
 	QComboBox* character(QFormLayout* form, const QString& label, const QString& name, int index);
 	void location(int mode_index, int map_index, int x_index, int y_index, int direction_index = -1);
-	void direction(QFormLayout* form, int index, QComboBox* mode = nullptr);
+	QComboBox* direction(QFormLayout* form, int index, QComboBox* mode = nullptr);
 	void tile(QFormLayout* form, const QString& label, const QString& name, int index);
 };
 

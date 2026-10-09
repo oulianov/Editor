@@ -17,15 +17,28 @@
 
 #pragma once
 
-#include "ui/event/event_command_base_widget.h"
+#include "maniac_widgets.h"
 
-class PictureWidget : public EventCommandBaseWidget {
+class QTabWidget;
+
+/**
+ * Show Picture (11110) and Move Picture (11120). With Maniac Patch, as
+ * EasyRPG Player reads them: values from variables (modes in p17, p20, p21),
+ * origin (p1 >> 8), blend mode and flips (above the bottom transparency),
+ * a separate height, the fixed angle effect and, for Show Picture, the file
+ * name from a string, the spritesheet, the layers and the erase flags.
+ */
+class PictureWidget : public ManiacCommandWidget {
 	Q_OBJECT
 public:
 	PictureWidget(ProjectData& project, bool move, QWidget* parent = nullptr);
 	void setData(lcf::rpg::EventCommand* cmd) override;
 
+protected:
+	void growParameters(int index) override;
+
 private:
+	void addManiacTab(QTabWidget* tabs, bool enabled);
 	bool m_move;
 };
 

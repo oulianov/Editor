@@ -16,25 +16,42 @@
  */
 
 #include "import_item.h"
-#include <QBitmap>
+#include <QCursor>
+#include <QtMath>
 
-ImportItem::ImportItem(const QPixmap pix) :
-	QGraphicsPixmapItem(pix),
-	m_original_pix(pix)
+ImportItem::ImportItem(const QPixmap& pix) :
+	QGraphicsPixmapItem(pix)
 {
-
+	setCursor(Qt::CrossCursor);
 }
 
-void ImportItem::mousePressEvent(QGraphicsSceneMouseEvent	*event)
+void ImportItem::setPickHandler(std::function<void(QPoint)> handler)
 {
-	updateKeyColor(event->pos());
-	QGraphicsItem::mousePressEvent(event);
+	m_handler = std::move(handler);
 }
 
-void ImportItem::updateKeyColor(QPointF pos)
+void ImportItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-	QColor keycolor = QColor(pixmap().toImage().pixel(pos.toPoint()));
-	QPixmap pix = QPixmap(m_original_pix);
-	pix.setMask(m_original_pix.createMaskFromColor(keycolor));
-	this->setPixmap(pix);
+	if (event->button() == Qt::LeftButton) {
+		pick(event->pos());
+		event->accept();
+		return;
+	}
+	QGraphicsPixmapItem::mousePressEvent(event);
+}
+
+void ImportItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
+{
+	// dragging over the image changes the color live, as in RPG Maker
+	if (event->buttons() & Qt::LeftButton) {
+		pick(event->pos());
+	}
+}
+
+void ImportItem::pick(const QPointF& pos)
+{
+	const QPoint pixel(qFloor(pos.x()), qFloor(pos.y()));
+	if (m_handler && pixmap().rect().contains(pixel)) {
+		m_handler(pixel);
+	}
 }

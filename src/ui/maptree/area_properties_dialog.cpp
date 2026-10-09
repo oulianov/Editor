@@ -16,6 +16,7 @@
  */
 
 #include "area_properties_dialog.h"
+#include "area_boundaries_dialog.h"
 #include "encounter_list.h"
 #include "common/dbstring.h"
 #include <QDialogButtonBox>
@@ -73,7 +74,24 @@ AreaPropertiesDialog::AreaPropertiesDialog(ProjectData& project, lcf::rpg::MapIn
 	boundsLayout->addWidget(m_width, 1, 1);
 	boundsLayout->addWidget(new QLabel(tr("Height"), groupBounds), 1, 2);
 	boundsLayout->addWidget(m_height, 1, 3);
-	boundsLayout->addWidget(new QLabel(tr("Map size: %1 x %2").arg(m_mapWidth).arg(m_mapHeight), groupBounds), 2, 0, 1, 4);
+	boundsLayout->addWidget(new QLabel(tr("Map size: %1 x %2").arg(m_mapWidth).arg(m_mapHeight), groupBounds), 2, 0, 1, 3);
+	// RPG Maker's [...] button: a box dragged on the parent map
+	auto* define = new QPushButton(tr("Define Boundaries..."), groupBounds);
+	define->setObjectName(QStringLiteral("pushBoundaries"));
+	boundsLayout->addWidget(define, 2, 3);
+	connect(define, &QPushButton::clicked, this, [this] {
+		AreaBoundariesDialog dialog(m_info.parent_map,
+			QRect(m_left->value(), m_top->value(), m_width->value(), m_height->value()), this);
+		if (dialog.exec() != QDialog::Accepted || dialog.area().isEmpty()) {
+			return;
+		}
+		const QRect area = dialog.area();
+		// the position first: it sets the largest width and height
+		m_left->setValue(area.x());
+		m_top->setValue(area.y());
+		m_width->setValue(area.width());
+		m_height->setValue(area.height());
+	});
 	boundsLayout->setColumnStretch(1, 1);
 	boundsLayout->setColumnStretch(3, 1);
 

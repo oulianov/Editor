@@ -18,6 +18,7 @@
 #pragma once
 
 #include <QDialog>
+#include <QVariantMap>
 #include <lcf/rpg/actor.h>
 #include <QDialogButtonBox>
 #include "actor_widget.h"
@@ -98,4 +99,7 @@ private:
 	DatabaseSplitWidget<lcf::rpg::CommonEvent>* pageCommonevents;
 	ProjectData& m_project;
 	ProjectData m_projectDataCopy;
+	QString m_viewStateKey;
+	QVariantMap m_viewStates;
+	int m_activePage = -1;
 };

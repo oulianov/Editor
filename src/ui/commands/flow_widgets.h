@@ -17,11 +17,12 @@
 
 #pragma once
 
-#include "ui/event/event_command_base_widget.h"
+#include "maniac_widgets.h"
 #include <array>
 
 class QCheckBox;
 class QComboBox;
+class QFormLayout;
 class QLineEdit;
 class QStackedWidget;
 class RpgComboBoxBase;
@@ -53,7 +54,12 @@ private:
 	bool m_modern2000 = false;
 };
 
-class ConditionalBranchWidget : public EventCommandBaseWidget {
+/**
+ * Conditional Branch (12010) and its battle version (13310). The map one
+ * also has the conditions of Maniac Patch (types 12-16, ids from variables),
+ * as EasyRPG Player reads them (CommandConditionalBranch).
+ */
+class ConditionalBranchWidget : public ManiacCommandWidget {
 	Q_OBJECT
 public:
 	ConditionalBranchWidget(ProjectData& project, QWidget* parent);
@@ -65,6 +71,13 @@ protected:
 
 private:
 	void store();
+	/** The Maniac Patch conditions (12-16): pages of the helpers, written when shown */
+	void addManiacPages(bool enabled);
+	/** A mode (number or variable) for the id of a condition, with the variable it may use;
+	 * stored: the condition is the one of the command, else the mode starts from a number */
+	QComboBox* addIdMode(QFormLayout* form, const QString& name, int modeIndex, QWidget* constant,
+		RpgComboBoxBase*& variable, bool stored);
+	static bool fromVariable(QComboBox* mode);
 	lcf::rpg::EventCommand m_edited;
 	bool m_battle = false;
 	bool m_loading = false;
@@ -101,6 +114,14 @@ private:
 	QComboBox* m_monster = nullptr;
 	RpgComboBoxBase* m_commandHero = nullptr;
 	QComboBox* m_battleCommand = nullptr;
+	// Maniac Patch: ids given by variables
+	QComboBox* m_itemMode = nullptr;
+	QComboBox* m_heroMode = nullptr;
+	QComboBox* m_characterMode = nullptr;
+	RpgComboBoxBase* m_itemVariable = nullptr;
+	RpgComboBoxBase* m_heroVariable = nullptr;
+	RpgComboBoxBase* m_characterVariable = nullptr;
+	QHash<int, QList<QWidget*>> m_maniacRows;
 };
 
 class ConditionalBranchBattleWidget : public ConditionalBranchWidget {

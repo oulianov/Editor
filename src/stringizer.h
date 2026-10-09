@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <lcf/rpg/movecommand.h>
+
 #include <QString>
 #include <lcf/rpg/eventcommand.h>
 #include <qcoreapplication.h>
@@ -55,6 +57,8 @@ namespace Stringizer {
 	QString mapName(int id);
 	QString direction(int id);
 	QString moveCommand(int id);
+	/** A move of a move route, with its switch, graphic or sound */
+	QString moveCommand(const lcf::rpg::MoveCommand& move);
 	QString eraseTransitionName(int id);
 	QString showTransitionName(int id);
 }

@@ -24,6 +24,11 @@
 #include "ui/picker/picker_panorama_widget.h"
 #include "ui/picker/picker_dialog.h"
 #include "encounter_list.h"
+#include "chip_selector_dialog.h"
+#include "ui/common/map_preview.h"
+#include <QPainter>
+#include <QToolButton>
+#include <array>
 #include <QMessageBox>
 #include "common/lcf_widget_binding.h"
 
@@ -90,21 +95,7 @@ MapPropertiesDialog::MapPropertiesDialog(ProjectData& project, lcf::rpg::MapInfo
 	m_buttonGroupSave->addButton(ui->radioSaveForbid);
 	m_buttonGroupSave->setId(ui->radioSaveForbid, lcf::rpg::MapInfo::TriState_forbid);
 
-	for (int terrain = 0; terrain < 162; terrain++)
-		m_generatorLowerLayer.push_back(core().translate(terrain, UP+DOWN+LEFT+RIGHT));
-	for (short tile_id = 10000; tile_id < 10144; tile_id++)
-		m_generatorUpperLayer.push_back(tile_id);
-
 	m_panoramaItem = new QGraphicsPixmapItem();
-	m_ceilingItem = new QGraphicsPixmapItem();
-	m_lowerWallItem = new QGraphicsPixmapItem();
-	m_upperWallItem = new QGraphicsPixmapItem();
-	m_floorAItem = new QGraphicsPixmapItem();
-	m_floorBItem = new QGraphicsPixmapItem();
-	m_floorCItem = new QGraphicsPixmapItem();
-	m_ObstacleAItem = new QGraphicsPixmapItem();
-	m_ObstacleBItem = new QGraphicsPixmapItem();
-	m_ObstacleCItem = new QGraphicsPixmapItem();
 
 	ui->spinDungeonRoomHeight->setValue(m_map_copy.generator_height);
 	ui->spinDungeonRoomWidth->setValue(m_map_copy.generator_width);
@@ -125,100 +116,28 @@ MapPropertiesDialog::MapPropertiesDialog(ProjectData& project, lcf::rpg::MapInfo
 	ui->groupFloorC->setChecked(m_map_copy.generator_floor_c);
 	ui->groupObstacleB->setChecked(m_map_copy.generator_extra_b);
 	ui->groupObstacleC->setChecked(m_map_copy.generator_extra_c);
-	on_groupUseGenerator_toggled(m_map_copy.generator_flag);
+
+	// The tiles of the boxes: 9 cells of the palette, 6 lower tiles then 3
+	// blocks of 2 x 2 upper tiles. A new map has RPG Maker's defaults.
+	m_generatorX = m_map_copy.generator_x;
+	m_generatorY = m_map_copy.generator_y;
+	m_generatorTiles = m_map_copy.generator_tile_ids;
+	m_generatorX.resize(GeneratorBoxes, 0);
+	m_generatorY.resize(GeneratorBoxes, 0);
+	if (m_generatorTiles.size() < 18) {
+		m_generatorTiles = {49, 49, 49, 49, 49, 49,
+			10000, 10001, 10006, 10007, 10000, 10001, 10006, 10007, 10000, 10001, 10006, 10007};
+	}
+	for (int box = 0; box < GeneratorBoxes; box++) {
+		connect(generatorButton(box), &QToolButton::clicked, this, [this, box] { pickGeneratorTiles(box); });
+	}
 
 	m_encounters = new EncounterList(project, ui->tableEncounters, this);
 	m_encounters->setEncounters(m_info_copy.encounters);
 
 	ui->graphicsPanorama->setScene(new QGraphicsScene(this));
-	ui->graphicsCeiling->setScene(new QGraphicsScene(this));
-	ui->graphicsFloorA->setScene(new QGraphicsScene(this));
-	ui->graphicsFloorB->setScene(new QGraphicsScene(this));
-	ui->graphicsFloorC->setScene(new QGraphicsScene(this));
-	ui->graphicsLowerWall->setScene(new QGraphicsScene(this));
-	ui->graphicsObstacleA->setScene(new QGraphicsScene(this));
-	ui->graphicsObstacleB->setScene(new QGraphicsScene(this));
-	ui->graphicsObstacleC->setScene(new QGraphicsScene(this));
-	ui->graphicsUpperWall->setScene(new QGraphicsScene(this));
-
 	ui->graphicsPanorama->scene()->addItem(m_panoramaItem);
-	ui->graphicsCeiling->scene()->addItem(m_ceilingItem);
-	ui->graphicsFloorA->scene()->addItem(m_floorAItem);
-	ui->graphicsFloorB->scene()->addItem(m_floorBItem);
-	ui->graphicsFloorC->scene()->addItem(m_floorCItem);
-	ui->graphicsLowerWall->scene()->addItem(m_lowerWallItem);
-	ui->graphicsObstacleA->scene()->addItem(m_ObstacleAItem);
-	ui->graphicsObstacleB->scene()->addItem(m_ObstacleBItem);
-	ui->graphicsObstacleC->scene()->addItem(m_ObstacleCItem);
-	ui->graphicsUpperWall->scene()->addItem(m_upperWallItem);
-	QPixmap pix(32, 32);
-	if (m_map_copy.generator_tile_ids.size() >= 18)
-	{
-
-	pix.fill();
-	core().beginPainting(pix);
-	core().renderTile(m_map_copy.generator_tile_ids[0], QRect(0,0,32,32));
-	core().endPainting();
-	m_ceilingItem->setPixmap(pix);
-
-	pix.fill();
-	core().beginPainting(pix);
-	core().renderTile(m_map_copy.generator_tile_ids[1], QRect(0,0,32,32));
-	core().endPainting();
-	m_lowerWallItem->setPixmap(pix);
-
-	pix.fill();
-	core().beginPainting(pix);
-	core().renderTile(m_map_copy.generator_tile_ids[2], QRect(0,0,32,32));
-	core().endPainting();
-	m_upperWallItem->setPixmap(pix);
-
-	pix.fill();
-	core().beginPainting(pix);
-	core().renderTile(m_map_copy.generator_tile_ids[3], QRect(0,0,32,32));
-	core().endPainting();
-	m_floorAItem->setPixmap(pix);
-
-	pix.fill();
-	core().beginPainting(pix);
-	core().renderTile(m_map_copy.generator_tile_ids[4], QRect(0,0,32,32));
-	core().endPainting();
-	m_floorBItem->setPixmap(pix);
-
-	pix.fill();
-	core().beginPainting(pix);
-	core().renderTile(m_map_copy.generator_tile_ids[5], QRect(0,0,32,32));
-	core().endPainting();
-	m_floorCItem->setPixmap(pix);
-
-	pix = QPixmap(64, 64);
-	pix.fill();
-	core().beginPainting(pix);
-	core().renderTile(m_map_copy.generator_tile_ids[6], QRect(0,0,32,32));
-	core().renderTile(m_map_copy.generator_tile_ids[7], QRect(32,0,32,32));
-	core().renderTile(m_map_copy.generator_tile_ids[8], QRect(0,32,32,32));
-	core().renderTile(m_map_copy.generator_tile_ids[9], QRect(32,32,32,32));
-	core().endPainting();
-	m_ObstacleAItem->setPixmap(pix);
-
-	pix.fill();
-	core().beginPainting(pix);
-	core().renderTile(m_map_copy.generator_tile_ids[10], QRect(0,0,32,32));
-	core().renderTile(m_map_copy.generator_tile_ids[11], QRect(32,0,32,32));
-	core().renderTile(m_map_copy.generator_tile_ids[12], QRect(0,32,32,32));
-	core().renderTile(m_map_copy.generator_tile_ids[13], QRect(32,32,32,32));
-	core().endPainting();
-	m_ObstacleBItem->setPixmap(pix);
-
-	pix.fill();
-	core().beginPainting(pix);
-	core().renderTile(m_map_copy.generator_tile_ids[14], QRect(0,0,32,32));
-	core().renderTile(m_map_copy.generator_tile_ids[15], QRect(32,0,32,32));
-	core().renderTile(m_map_copy.generator_tile_ids[16], QRect(0,32,32,32));
-	core().renderTile(m_map_copy.generator_tile_ids[17], QRect(32,32,32,32));
-	core().endPainting();
-	m_ObstacleCItem->setPixmap(pix);
-	}
+	QPixmap pix;
 	if (m_map_copy.parallax_flag)
 	{
 		pix = QPixmap(m_project.project().findFile(PANORAMA, ToQString(m_map_copy.parallax_name), FileFinder::FileType::Image));
@@ -285,20 +204,14 @@ MapPropertiesDialog::MapPropertiesDialog(ProjectData& project, lcf::rpg::MapInfo
 
 	ui->spinHorizontalScrollSpeed->setEnabled(m_map_copy.parallax_auto_loop_x);
 	ui->spinVerticalScrollSpeed->setEnabled(m_map_copy.parallax_auto_loop_y);
+
+	updateGeneratorTiles();
+	connect(ui->comboTileset, &QComboBox::currentIndexChanged, this, [this] { updateGeneratorTiles(); });
 }
 
 MapPropertiesDialog::~MapPropertiesDialog()
 {
 	delete m_panoramaItem;
-	delete m_ceilingItem;
-	delete m_lowerWallItem;
-	delete m_upperWallItem;
-	delete m_floorAItem;
-	delete m_floorBItem;
-	delete m_floorCItem;
-	delete m_ObstacleAItem;
-	delete m_ObstacleBItem;
-	delete m_ObstacleCItem;
 
 	delete ui;
 }
@@ -362,6 +275,11 @@ void MapPropertiesDialog::accept() {
 	m_map_copy.generator_floor_c = ui->groupFloorC->isChecked();
 	m_map_copy.generator_extra_b = ui->groupObstacleB->isChecked();
 	m_map_copy.generator_extra_c = ui->groupObstacleC->isChecked();
+	if (m_generatorChanged) {
+		m_map_copy.generator_x = m_generatorX;
+		m_map_copy.generator_y = m_generatorY;
+		m_map_copy.generator_tile_ids = m_generatorTiles;
+	}
 
 	// Resize map if map bounds have been changed
 	if (width != old_width || height != old_height) {
@@ -418,53 +336,96 @@ void MapPropertiesDialog::on_groupPanorama_toggled(bool arg1)
 	m_panoramaItem->setVisible(arg1);
 }
 
-void MapPropertiesDialog::on_groupUseGenerator_toggled(bool arg1)
-{
-	m_ceilingItem->setVisible(arg1);
-	m_lowerWallItem->setVisible(arg1);
-	m_floorAItem->setVisible(arg1);
-	m_ObstacleAItem->setVisible(arg1);
-	if (arg1)
-	{
-		m_upperWallItem->setVisible(ui->groupUpperWall->isChecked());
-		m_floorBItem->setVisible(ui->groupFloorB->isChecked());
-		m_floorCItem->setVisible(ui->groupFloorC->isChecked());
-		m_ObstacleBItem->setVisible(ui->groupObstacleB->isChecked());
-		m_ObstacleCItem->setVisible(ui->groupObstacleC->isChecked());
+QToolButton* MapPropertiesDialog::generatorButton(int box) const {
+	const std::array<QToolButton*, GeneratorBoxes> buttons = {
+		ui->toolCeiling, ui->toolLowerWall, ui->toolUpperWall,
+		ui->toolFloorA, ui->toolFloorB, ui->toolFloorC,
+		ui->toolObstacleA, ui->toolObstacleB, ui->toolObstacleC};
+	return buttons[static_cast<size_t>(box)];
+}
+
+QRect MapPropertiesDialog::generatorCells(int box) const {
+	if (box < ObstacleA) {
+		const int terrain = std::clamp(core().translate(static_cast<short>(m_generatorTiles[static_cast<size_t>(box)])), 0, 161);
+		return QRect(terrain % 6, terrain / 6, 1, 1);
 	}
-	else
-	{
-		m_upperWallItem->setVisible(false);
-		m_floorBItem->setVisible(false);
-		m_floorCItem->setVisible(false);
-		m_ObstacleBItem->setVisible(false);
-		m_ObstacleCItem->setVisible(false);
+	// an obstacle of 1 x 1, 2 x 1 or 1 x 2 tiles leaves the other cells at 10000
+	const size_t first = 6 + static_cast<size_t>(box - ObstacleA) * 4;
+	const int tile = std::clamp(core().translate(static_cast<short>(m_generatorTiles[first])) - 162, 0, 143);
+	const bool wide = m_generatorTiles[first + 1] != 10000 || m_generatorTiles[first + 3] != 10000;
+	const bool tall = m_generatorTiles[first + 2] != 10000 || m_generatorTiles[first + 3] != 10000;
+	return QRect(tile % 6, tile / 6, wide ? 2 : 1, tall ? 2 : 1);
+}
+
+void MapPropertiesDialog::setGeneratorCells(int box, const QRect& cells) {
+	m_generatorX[static_cast<size_t>(box)] = static_cast<uint32_t>(cells.x());
+	m_generatorY[static_cast<size_t>(box)] = static_cast<uint32_t>(cells.y());
+	if (box < ObstacleA) {
+		const int terrain = cells.y() * 6 + cells.x();
+		// As RPG Maker stores them: autotiles with the pattern 49, which the
+		// generator replaces by the borders of their neighbours
+		int16_t tile;
+		if (terrain < 3) {
+			tile = static_cast<int16_t>(terrain * 1000 + 49);
+		} else if (terrain < 6) {
+			tile = static_cast<int16_t>(3000 + (terrain - 3) * 50);
+		} else if (terrain < 18) {
+			tile = static_cast<int16_t>(4000 + (terrain - 6) * 50 + 49);
+		} else {
+			tile = static_cast<int16_t>(5000 + terrain - 18);
+		}
+		m_generatorTiles[static_cast<size_t>(box)] = tile;
+	} else {
+		const size_t first = 6 + static_cast<size_t>(box - ObstacleA) * 4;
+		for (int i = 0; i < 4; i++) {
+			const int dx = i % 2;
+			const int dy = i / 2;
+			const bool used = dx < cells.width() && dy < cells.height();
+			m_generatorTiles[first + static_cast<size_t>(i)] = static_cast<int16_t>(
+				used ? 10000 + (cells.y() + dy) * 6 + cells.x() + dx : 10000);
+		}
 	}
+	m_generatorChanged = true;
 }
 
-void MapPropertiesDialog::on_groupUpperWall_toggled(bool arg1)
-{
-	m_upperWallItem->setVisible(arg1);
+void MapPropertiesDialog::pickGeneratorTiles(int box) {
+	const bool obstacle = box >= ObstacleA;
+	ChipSelectorDialog dialog(ui->comboTileset->currentData().toInt(),
+		obstacle ? Core::UPPER : Core::LOWER, obstacle ? QSize(2, 2) : QSize(1, 1), this);
+	dialog.setSelection(generatorCells(box));
+	if (dialog.exec() != QDialog::Accepted || dialog.selection().isEmpty()) {
+		return;
+	}
+	setGeneratorCells(box, dialog.selection());
+	updateGeneratorTiles();
 }
 
-void MapPropertiesDialog::on_groupFloorB_toggled(bool arg1)
-{
-	m_floorBItem->setVisible(arg1);
-}
-
-void MapPropertiesDialog::on_groupFloorC_toggled(bool arg1)
-{
-	m_floorCItem->setVisible(arg1);
-}
-
-void MapPropertiesDialog::on_groupObstacleB_toggled(bool arg1)
-{
-	m_ObstacleBItem->setVisible(arg1);
-}
-
-void MapPropertiesDialog::on_groupObstacleC_toggled(bool arg1)
-{
-	m_ObstacleCItem->setVisible(arg1);
+void MapPropertiesDialog::updateGeneratorTiles() {
+	const int size = 32;
+	const int chipset_id = ui->comboTileset->currentData().toInt();
+	if (chipset_id != m_paletteChipset) {
+		// the chipset of this map, which may not be the one of the open map
+		PreviewChipset chipset(chipset_id);
+		core().setBackground(Core::transparencyBrush().texture());
+		m_lowerTiles = core().paletteTiles(Core::LOWER, size);
+		core().beginPainting(m_lowerTiles);
+		core().renderTile(core().translate(2, 0, 240), QRect(2 * size, 0, size, size));
+		core().endPainting();
+		m_upperTiles = core().paletteTiles(Core::UPPER, size);
+		m_paletteChipset = chipset_id;
+	}
+	for (int box = 0; box < GeneratorBoxes; box++) {
+		const QRect cells = generatorCells(box);
+		const bool obstacle = box >= ObstacleA;
+		const QPixmap& tiles = obstacle ? m_upperTiles : m_lowerTiles;
+		QPixmap icon(obstacle ? 2 * size : size, obstacle ? 2 * size : size);
+		icon.fill(Qt::transparent);
+		QPainter painter(&icon);
+		painter.drawPixmap(QRect(QPoint(0, 0), cells.size() * size), tiles,
+			QRect(cells.topLeft() * size, cells.size() * size));
+		painter.end();
+		generatorButton(box)->setIcon(QIcon(icon));
+	}
 }
 
 void MapPropertiesDialog::on_pushAddEncounter_clicked() {

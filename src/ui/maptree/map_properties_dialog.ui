@@ -512,6 +512,16 @@
         </property>
         <layout class="QVBoxLayout" name="layoutGeneratorGuidelines">
          <item>
+          <widget class="QLabel" name="labelGeneratorHelp">
+           <property name="text">
+            <string>OK applies these settings. To create a dungeon map, right-click this map and choose Generate Dungeon. Choose different ceiling and floor tiles so the layout is visible.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QGroupBox" name="groupGeneratorGuidelines">
            <property name="title">
             <string>Dungeon Generation guidelines</string>
@@ -658,24 +668,15 @@
              </property>
              <layout class="QVBoxLayout" name="layoutCeiling">
               <item>
-               <widget class="QGraphicsView" name="graphicsCeiling">
-                <property name="minimumSize">
+               <widget class="QToolButton" name="toolCeiling">
+                <property name="toolTip">
+                 <string>Click to choose the tiles</string>
+                </property>
+                <property name="iconSize">
                  <size>
                   <width>32</width>
                   <height>32</height>
                  </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>32</width>
-                  <height>32</height>
-                 </size>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
                </widget>
               </item>
@@ -689,24 +690,15 @@
              </property>
              <layout class="QVBoxLayout" name="layoutLowerWall">
               <item>
-               <widget class="QGraphicsView" name="graphicsLowerWall">
-                <property name="minimumSize">
+               <widget class="QToolButton" name="toolLowerWall">
+                <property name="toolTip">
+                 <string>Click to choose the tiles</string>
+                </property>
+                <property name="iconSize">
                  <size>
                   <width>32</width>
                   <height>32</height>
                  </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>32</width>
-                  <height>32</height>
-                 </size>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
                </widget>
               </item>
@@ -723,24 +715,15 @@
              </property>
              <layout class="QVBoxLayout" name="layoutUpperWall">
               <item>
-               <widget class="QGraphicsView" name="graphicsUpperWall">
-                <property name="minimumSize">
+               <widget class="QToolButton" name="toolUpperWall">
+                <property name="toolTip">
+                 <string>Click to choose the tiles</string>
+                </property>
+                <property name="iconSize">
                  <size>
                   <width>32</width>
                   <height>32</height>
                  </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>32</width>
-                  <height>32</height>
-                 </size>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
                </widget>
               </item>
@@ -754,24 +737,15 @@
              </property>
              <layout class="QVBoxLayout" name="layoutFloorA">
               <item>
-               <widget class="QGraphicsView" name="graphicsFloorA">
-                <property name="minimumSize">
+               <widget class="QToolButton" name="toolFloorA">
+                <property name="toolTip">
+                 <string>Click to choose the tiles</string>
+                </property>
+                <property name="iconSize">
                  <size>
                   <width>32</width>
                   <height>32</height>
                  </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>32</width>
-                  <height>32</height>
-                 </size>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
                </widget>
               </item>
@@ -788,24 +762,15 @@
              </property>
              <layout class="QVBoxLayout" name="layoutFloorB">
               <item>
-               <widget class="QGraphicsView" name="graphicsFloorB">
-                <property name="minimumSize">
+               <widget class="QToolButton" name="toolFloorB">
+                <property name="toolTip">
+                 <string>Click to choose the tiles</string>
+                </property>
+                <property name="iconSize">
                  <size>
                   <width>32</width>
                   <height>32</height>
                  </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>32</width>
-                  <height>32</height>
-                 </size>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
                </widget>
               </item>
@@ -822,24 +787,15 @@
              </property>
              <layout class="QVBoxLayout" name="layoutFloorC">
               <item>
-               <widget class="QGraphicsView" name="graphicsFloorC">
-                <property name="minimumSize">
+               <widget class="QToolButton" name="toolFloorC">
+                <property name="toolTip">
+                 <string>Click to choose the tiles</string>
+                </property>
+                <property name="iconSize">
                  <size>
                   <width>32</width>
                   <height>32</height>
                  </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>32</width>
-                  <height>32</height>
-                 </size>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
                </widget>
               </item>
@@ -853,24 +809,15 @@
              </property>
              <layout class="QVBoxLayout" name="layoutObstacleA">
               <item>
-               <widget class="QGraphicsView" name="graphicsObstacleA">
-                <property name="minimumSize">
+               <widget class="QToolButton" name="toolObstacleA">
+                <property name="toolTip">
+                 <string>Click to choose the tiles</string>
+                </property>
+                <property name="iconSize">
                  <size>
                   <width>64</width>
                   <height>64</height>
                  </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>64</width>
-                  <height>64</height>
-                 </size>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
                </widget>
               </item>
@@ -887,24 +834,15 @@
              </property>
              <layout class="QVBoxLayout" name="layoutObstacleB">
               <item>
-               <widget class="QGraphicsView" name="graphicsObstacleB">
-                <property name="minimumSize">
+               <widget class="QToolButton" name="toolObstacleB">
+                <property name="toolTip">
+                 <string>Click to choose the tiles</string>
+                </property>
+                <property name="iconSize">
                  <size>
                   <width>64</width>
                   <height>64</height>
                  </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>64</width>
-                  <height>64</height>
-                 </size>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
                </widget>
               </item>
@@ -921,24 +859,15 @@
              </property>
              <layout class="QVBoxLayout" name="layoutObstacleC">
               <item>
-               <widget class="QGraphicsView" name="graphicsObstacleC">
-                <property name="minimumSize">
+               <widget class="QToolButton" name="toolObstacleC">
+                <property name="toolTip">
+                 <string>Click to choose the tiles</string>
+                </property>
+                <property name="iconSize">
                  <size>
                   <width>64</width>
                   <height>64</height>
                  </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>64</width>
-                  <height>64</height>
-                 </size>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
                </widget>
               </item>

@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include <QFile>
 #include <QMainWindow>
 #include <QSettings>
@@ -29,6 +31,9 @@
 #include "ui/other/search_dialog.h"
 #include "ui/map/map_scene.h"
 #include "ui/common/palette_scene.h"
+
+class QActionGroup;
+class QLabel;
 
 namespace Ui {
 class MainWindow;
@@ -47,6 +52,7 @@ public:
 	void ImportProject(const QDir& src_dir, QDir& target_dir, bool convert_xyz);
 
 	MapScene *currentScene();
+	MapScene *getScene(int id);
 	void openScene(int mapID);
 	bool hasMap(int mapID) const;
 	void selectTile(int x, int y);
@@ -64,7 +70,6 @@ private slots:
 
 	void on_actionDatabase_triggered();
 
-	void on_actionDatabaseNew_triggered();
 
 	void on_actionProjectNew_triggered();
 
@@ -94,7 +99,6 @@ private slots:
 
 	void on_actionProjectImport_triggered();
 
-	void on_actionDebugRtpPath_triggered();
 
 	void on_actionZoom_triggered();
 
@@ -110,6 +114,12 @@ private slots:
 	void updateLayerActions();
 
 	void updateToolActions();
+
+	/** Check the zoom ratio of the map shown (none at other scales) */
+	void updateZoomActions();
+
+	/** The edit mode, the map and the cell in the status bar, as RPG Maker */
+	void updateStatusBar();
 
 	void updateSearchUI();
 
@@ -139,6 +149,13 @@ private slots:
 	void on_actionMapProperties_triggered();
 
 	void on_actionMapShift_triggered();
+	void on_actionMapGenerateDungeon_triggered();
+	void on_actionSettings_triggered();
+	/** Applies the options of the Settings window */
+	void applySettings();
+	void setPlatformShortcuts();
+	/** Shows the map (or the area on its map) of a tree item */
+	void openTreeItem(QTreeWidgetItem* item);
 
 	void on_actionAreaNew_triggered();
 
@@ -148,7 +165,6 @@ private slots:
 
 	void on_actionPlayTestOptions_triggered();
 
-	void on_actionPlayerLocation_triggered();
 
 	void on_actionFullScreenToggle_toggled(bool checked);
 
@@ -160,9 +176,7 @@ private slots:
 
 	void on_actionSearch_triggered();
 
-	void on_actionDebugEnableCaching_toggled(bool checked);
 
-	void on_actionReloadExternalChanges_toggled(bool checked);
 
 	void onDatabaseFileChanged();
 
@@ -177,11 +191,13 @@ private:
 	void updateWatcher();
 	void populateMapTree(bool open_active_map);
 	void refreshIcons();
-	void closeEvent(QCloseEvent *event);
+	void closeEvent(QCloseEvent *event) override;
+	void changeEvent(QEvent* event) override;
 	bool saveAll();
+	void saveWorkspace();
+	void restoreWorkspace();
 	bool removeDir(const QString & dirName, const QString &root);
 	QGraphicsView *getView(int id);
-	MapScene *getScene(int id);
 	QGraphicsView *getTabView(int index);
 	MapScene *getTabScene(int index);
 	void removeView(int id);
@@ -215,7 +231,13 @@ private:
 	// Copy Map takes the map when copied: it can be pasted after a deletion
 	std::unique_ptr<lcf::rpg::Map> m_copiedMap;
 	lcf::rpg::MapInfo m_copiedMapInfo;
-	SearchDialog *searchdialog;
+	SearchDialog *searchdialog = nullptr;
+	/** The language setting seen last: a change switches the language */
+	std::optional<QString> m_languageSetting;
+	/** openTreeItem is running (opening an area selects items again) */
+	bool m_openingTreeItem = false;
+	QActionGroup *m_zoomGroup;
+	QLabel *m_editModeLabel;
+	QLabel *m_mapLabel;
+	QLabel *m_cellLabel;
 };
-
-

@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.15)
 cmake_policy(SET CMP0091 NEW) # Support MSVC_RUNTIME_LIBRARY
 
 project(EasyRPG_Editor VERSION 0.1.0 LANGUAGES CXX)
+if(APPLE)
+	# Native macOS audio and application activation
+	enable_language(OBJCXX)
+endif()
 
 # Extra CMake Module files
 set(REQUIRED_QT_VERSION "6.10.1")
@@ -24,6 +28,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Source Files
 set(EDITOR_SOURCES
 	src/common/dbstring.h
+	src/common/editor_settings.cpp
+	src/common/editor_settings.h
+	src/common/translations.cpp
+	src/common/translations.h
+	src/common/audio_backend.h
+	src/common/audio_player.cpp
+	src/common/audio_player.h
 	src/common/filefinder.cpp
 	src/common/logging.cpp
 	src/common/logging.h
@@ -66,6 +77,10 @@ set(EDITOR_SOURCES
 	src/model/item.h
 	src/model/map_tools.cpp
 	src/model/map_tools.h
+	src/model/maniac_expression.cpp
+	src/model/maniac_expression.h
+	src/model/dungeon_generator.cpp
+	src/model/dungeon_generator.h
 	src/model/project.cpp
 	src/model/project.h
 	src/model/project_data.cpp
@@ -104,6 +119,9 @@ set(EDITOR_SOURCES
 	src/ui/commands/hero_widgets.h
 	src/ui/commands/scene_widgets.cpp
 	src/ui/commands/scene_widgets.h
+	src/ui/commands/maniac_widgets.cpp
+	src/ui/commands/maniac_widgets.h
+	src/ui/commands/maniac_string_widgets.cpp
 	src/ui/commands/location_widgets.cpp
 	src/ui/commands/location_widgets.h
 	src/ui/commands/change_actor_face_widget.cpp
@@ -167,14 +185,17 @@ set(EDITOR_SOURCES
 	src/ui/commands/tint_screen_widget.ui
 	src/ui/commands/variable_operations_widget.cpp
 	src/ui/commands/variable_operations_widget.h
-	src/ui/commands/variable_operations_widget.ui
 	src/ui/commands/weather_effects_widget.cpp
 	src/ui/commands/weather_effects_widget.h
 	src/ui/commands/weather_effects_widget.ui
 	src/ui/common/edit_dialog.cpp
+	src/ui/common/toolbar_overflow.cpp
+	src/ui/common/toolbar_overflow.h
 	src/ui/common/editor_style.cpp
 	src/ui/common/help.cpp
 	src/ui/common/help.h
+	src/ui/common/view_state.cpp
+	src/ui/common/view_state.h
 	src/ui/common/editor_style.h
 	src/ui/common/edit_dialog.h
 	src/ui/common/edit_dialog.ui
@@ -189,6 +210,8 @@ set(EDITOR_SOURCES
 	src/ui/common/operand_widget.h
 	src/ui/common/palette_scene.cpp
 	src/ui/common/palette_scene.h
+	src/ui/common/map_preview.cpp
+	src/ui/common/map_preview.h
 	src/ui/common/picker_scene.cpp
 	src/ui/common/picker_scene.h
 	src/ui/common/rpg_combobox.h
@@ -283,6 +306,8 @@ set(EDITOR_SOURCES
 	src/ui/event/event_command_base_widget.h
 	src/ui/event/event_command_palette.cpp
 	src/ui/event/event_command_palette.h
+	src/ui/event/command_colors.cpp
+	src/ui/event/command_colors.h
 	src/ui/event/event_commands_widget.cpp
 	src/ui/event/move_route_dialog.cpp
 	src/ui/event/move_route_dialog.h
@@ -309,12 +334,20 @@ set(EDITOR_SOURCES
 	src/ui/map/undo_draw.h
 	src/ui/map/undo_event.cpp
 	src/ui/map/undo_event.h
+	src/ui/maptree/area_boundaries_dialog.cpp
+	src/ui/maptree/area_boundaries_dialog.h
+	src/ui/maptree/chip_selector_dialog.cpp
+	src/ui/maptree/chip_selector_dialog.h
+	src/ui/maptree/map_location_dialog.cpp
+	src/ui/maptree/map_location_dialog.h
 	src/ui/maptree/area_properties_dialog.cpp
 	src/ui/maptree/area_properties_dialog.h
 	src/ui/maptree/encounter_list.cpp
 	src/ui/maptree/encounter_list.h
 	src/ui/maptree/shift_map_dialog.cpp
 	src/ui/maptree/shift_map_dialog.h
+	src/ui/maptree/generate_dungeon_dialog.cpp
+	src/ui/maptree/generate_dungeon_dialog.h
 	src/ui/maptree/map_properties_dialog.cpp
 	src/ui/maptree/map_properties_dialog.h
 	src/ui/maptree/map_properties_dialog.ui
@@ -330,9 +363,10 @@ set(EDITOR_SOURCES
 	src/ui/other/resource_manager_dialog.cpp
 	src/ui/other/resource_manager_dialog.h
 	src/ui/other/resource_manager_dialog.ui
-	src/ui/other/rtp_path_dialog.cpp
-	src/ui/other/rtp_path_dialog.h
-	src/ui/other/rtp_path_dialog.ui
+	src/ui/other/jukebox_dialog.cpp
+	src/ui/other/jukebox_dialog.h
+	src/ui/other/settings_dialog.cpp
+	src/ui/other/settings_dialog.h
 	src/ui/other/run_game_dialog.cpp
 	src/ui/other/run_game_dialog.h
 	src/ui/other/run_game_dialog.ui
@@ -427,7 +461,7 @@ set(EDITOR_QML_INTERFACE
 # Dependencies
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
 find_package(Qt6 ${REQUIRED_QT_VERSION} CONFIG REQUIRED COMPONENTS
-	Widgets Core Multimedia Gui Svg
+	Widgets Core Concurrent Multimedia Gui Svg
 	GuiPrivate QuickPrivate QuickControls2 WidgetsPrivate)
 find_package(Qt6LinguistTools CONFIG QUIET)
 find_package(ZLIB REQUIRED)
@@ -457,6 +491,8 @@ if(APPLE)
 	qt_add_executable(${EXE_NAME} MACOSX_BUNDLE "src/main.cpp" ${EDITOR_SOURCES} ${EDITOR_BUNDLE_ICON} MANUAL_FINALIZATION)
 	set_target_properties(${EXE_NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/resources/app/Info.plist.in")
 	set_target_properties(${EXE_NAME} PROPERTIES OUTPUT_NAME ${EXE_OUTPUT_NAME})
+	# the name of the app menu on macOS
+	set_target_properties(${EXE_NAME} PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME ${EXE_OUTPUT_NAME})
 else()
 	# Executable
 	set(EXE_NAME ${PROJECT_NAME})
@@ -570,10 +606,17 @@ target_link_libraries(${EXE_NAME} PRIVATE
 	Qt6::Widgets
 	Qt6::Gui
 	Qt6::Core
+	Qt6::Concurrent
 	Qt6::Multimedia
 	Qt6::Svg
 	Qt6::QuickControls2
 )
+if(APPLE)
+	# audio of the Jukebox and the pickers: Apple's audio engine, with MIDI
+	target_sources(${EXE_NAME} PRIVATE src/common/audio_player_mac.mm src/ui/other/run_game_dialog_mac.mm)
+	set_source_files_properties(src/common/audio_player_mac.mm src/ui/other/run_game_dialog_mac.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+	target_link_libraries(${EXE_NAME} PRIVATE "-framework AVFoundation" "-framework AudioToolbox" "-framework Foundation" "-framework AppKit")
+endif()
 
 get_target_property(KIRIGAMI_TYPE KF6::Kirigami TYPE)
 message(STATUS "Kirigami library type: ${KIRIGAMI_TYPE}")

@@ -55,6 +55,17 @@
         <file alias="zoom-original">icons/bright/zoom-original.svg</file>
         <file alias="zoom-out">icons/bright/zoom-out.svg</file>
         <file alias="zoom">icons/bright/zoom.svg</file>
+        <file alias="zoom-ratio-1">icons/bright/zoom-ratio-1.svg</file>
+        <file alias="zoom-ratio-2">icons/bright/zoom-ratio-2.svg</file>
+        <file alias="zoom-ratio-4">icons/bright/zoom-ratio-4.svg</file>
+        <file alias="zoom-ratio-8">icons/bright/zoom-ratio-8.svg</file>
+        <file alias="place-teleport">icons/bright/place-teleport.svg</file>
+        <file alias="place-start">icons/bright/place-start.svg</file>
+        <file alias="place-vehicle">icons/bright/place-vehicle.svg</file>
+        <file alias="area-new">icons/bright/area-new.svg</file>
+        <file alias="map-shift">icons/bright/map-shift.svg</file>
+        <file alias="select-all">icons/bright/select-all.svg</file>
+        <file alias="help-contents">icons/bright/help-contents.svg</file>
     </qresource>
     <qresource prefix="/dark">
         <file alias="audio">icons/dark/audio.svg</file>
@@ -96,6 +107,17 @@
         <file alias="zoom-original">icons/dark/zoom-original.svg</file>
         <file alias="zoom-out">icons/dark/zoom-out.svg</file>
         <file alias="zoom">icons/dark/zoom.svg</file>
+        <file alias="zoom-ratio-1">icons/dark/zoom-ratio-1.svg</file>
+        <file alias="zoom-ratio-2">icons/dark/zoom-ratio-2.svg</file>
+        <file alias="zoom-ratio-4">icons/dark/zoom-ratio-4.svg</file>
+        <file alias="zoom-ratio-8">icons/dark/zoom-ratio-8.svg</file>
+        <file alias="place-teleport">icons/dark/place-teleport.svg</file>
+        <file alias="place-start">icons/dark/place-start.svg</file>
+        <file alias="place-vehicle">icons/dark/place-vehicle.svg</file>
+        <file alias="area-new">icons/dark/area-new.svg</file>
+        <file alias="map-shift">icons/dark/map-shift.svg</file>
+        <file alias="select-all">icons/dark/select-all.svg</file>
+        <file alias="help-contents">icons/dark/help-contents.svg</file>
     </qresource>
     <qresource prefix="/ranks">
         <file alias="rank0">icons/ranks/rank0.svg</file>

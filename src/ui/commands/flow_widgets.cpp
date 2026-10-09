@@ -21,6 +21,7 @@
 #include "core.h"
 #include "model/event_command_defaults.h"
 #include "model/event_command_list.h"
+#include "model/maniac_expression.h"
 #include "model/project_data.h"
 #include "ui/common/rpg_combobox.h"
 #include "ui/common/rpg_spinbox.h"
@@ -29,6 +30,7 @@
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QStackedWidget>
@@ -241,7 +243,7 @@ ConditionalBranchBattleWidget::ConditionalBranchBattleWidget(ProjectData& projec
 {}
 
 ConditionalBranchWidget::ConditionalBranchWidget(ProjectData& project, QWidget* parent, bool battle) :
-	EventCommandBaseWidget(project, parent), m_battle(battle)
+	ManiacCommandWidget(project, parent), m_battle(battle)
 {
 	setWindowTitle(battle ? tr("Conditional Branch (battle)") : tr("Conditional Branch"));
 }
@@ -252,10 +254,13 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 	m_cmd = &m_edited;
 	m_loading = true;
 	const bool rpg2003 = m_project.database().system.ldb_id == 2003;
-	const int kind = parameter(m_edited, 0);
-	const int first = parameter(m_edited, 1);
-	const int second = parameter(m_edited, 2);
-	const int third = parameter(m_edited, 3);
+	const int kind = ::parameter(m_edited, 0);
+	// Maniac Patch conditions: offered in its games, shown (disabled) in others
+	const bool maniacProject = !m_battle && maniac();
+	const bool showManiac = maniacProject || (!m_battle && kind >= 12 && kind <= 16);
+	const int first = ::parameter(m_edited, 1);
+	const int second = ::parameter(m_edited, 2);
+	const int third = ::parameter(m_edited, 3);
 	auto* layout = new QVBoxLayout(this);
 	auto* condition = new QGroupBox(tr("Condition"), this);
 	auto* conditionLayout = new QVBoxLayout(condition);
@@ -286,6 +291,16 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 		if (!rpg2003) {
 			disableItem(m_kind, 10);
 			disableItem(m_kind, 11);
+		}
+		if (showManiac) {
+			m_kind->addItem(tr("Other (Maniac Patch)"), 12);
+			m_kind->addItem(tr("Switch of Variable"), 13);
+			m_kind->addItem(tr("Variable of Variable"), 14);
+			m_kind->addItem(tr("String"), 15);
+			m_kind->addItem(tr("Expression"), 16);
+			for (int type = 12; type <= 16 && !maniacProject; ++type) {
+				disableItem(m_kind, type);
+			}
 		}
 	}
 	selectData(m_kind, kind);
@@ -321,9 +336,18 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 	m_variable = variableCombo;
 	m_comparison = options(variableForm->parentWidget(), QStringLiteral("conditionComparison"),
 		{tr("Equal to"), tr("Greater than or Equal to"), tr("Less than or Equal to"),
-		 tr("Greater than"), tr("Less than"), tr("Not Equal to")}, parameter(m_edited, 4));
+		 tr("Greater than"), tr("Less than"), tr("Not Equal to")}, ::parameter(m_edited, 4));
 	m_operandKind = options(variableForm->parentWidget(), QStringLiteral("conditionOperandType"), {tr("Number"), tr("Variable Reference")}, second);
-	m_operandNumber = number(variableForm->parentWidget(), QStringLiteral("conditionOperandNumber"), -9999999, 9999999, third);
+	if (maniacProject) {
+		// EasyRPG Player reads the value with ValueOrVariable: V[V[x]] too
+		const int pointer = m_operandKind->findData(2);
+		if (pointer < 0) {
+			m_operandKind->insertItem(2, tr("Variable Pointer"), 2);
+		} else {
+			m_operandKind->setItemText(pointer, tr("Variable Pointer"));
+		}
+	}
+	m_operandNumber = ::number(variableForm->parentWidget(), QStringLiteral("conditionOperandNumber"), -9999999, 9999999, third);
 	auto* operandCombo = new VariableRpgComboBox(variableForm->parentWidget());
 	operandCombo->makeModel(m_project);
 	registerDatabase(operandCombo, QStringLiteral("conditionOperandVariable"), third);
@@ -334,10 +358,10 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 	variableForm->addRow(tr("Number"), m_operandNumber);
 	variableForm->addRow(tr("Variable Reference"), operandCombo);
 	m_operandNumber->setEnabled(second == 0);
-	operandCombo->setEnabled(second == 1);
+	operandCombo->setEnabled(second != 0);
 	connect(m_operandKind, &QComboBox::currentIndexChanged, this, [this]() {
 		m_operandNumber->setEnabled(m_operandKind->currentData().toInt() == 0);
-		m_operandVariable->setEnabled(m_operandKind->currentData().toInt() == 1);
+		m_operandVariable->setEnabled(m_operandKind->currentData().toInt() != 0);
 	});
 
 	if (m_battle) {
@@ -367,7 +391,7 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 		targetForm->addRow(tr("Monster is the current target"), target);
 		connect(target, &QComboBox::currentIndexChanged, this, [this, target]() {
 			if (!m_loading && m_kind->currentData().toInt() == 4) {
-				setParameter(m_edited, 1, target->currentData().toInt());
+				::setParameter(m_edited, 1, target->currentData().toInt());
 			}
 		});
 		auto* commandForm = addPage();
@@ -387,14 +411,14 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 		commandForm->addRow(tr("Battle command"), m_battleCommand);
 	} else {
 		auto* timerForm = addPage();
-		m_minutes = number(timerForm->parentWidget(), QStringLiteral("conditionTimerMinutes"), 0, 9999, std::max(0, first) / 60);
-		m_seconds = number(timerForm->parentWidget(), QStringLiteral("conditionTimerSeconds"), 0, 59, std::max(0, first) % 60);
+		m_minutes = ::number(timerForm->parentWidget(), QStringLiteral("conditionTimerMinutes"), 0, 9999, std::max(0, first) / 60);
+		m_seconds = ::number(timerForm->parentWidget(), QStringLiteral("conditionTimerSeconds"), 0, 59, std::max(0, first) % 60);
 		m_timerComparison = options(timerForm->parentWidget(), QStringLiteral("conditionTimerComparison"), {tr("or more"), tr("or less")}, second);
 		timerForm->addRow(tr("Minutes"), m_minutes);
 		timerForm->addRow(tr("Seconds"), m_seconds);
 		timerForm->addRow(tr("Comparison"), m_timerComparison);
 		auto* moneyForm = addPage();
-		m_money = number(moneyForm->parentWidget(), QStringLiteral("conditionMoney"), 0, 9999999, first);
+		m_money = ::number(moneyForm->parentWidget(), QStringLiteral("conditionMoney"), 0, 9999999, first);
 		m_moneyComparison = options(moneyForm->parentWidget(), QStringLiteral("conditionMoneyComparison"), {tr("at least"), tr("at most")}, second);
 		moneyForm->addRow(tr("Money"), m_money);
 		moneyForm->addRow(tr("Comparison"), m_moneyComparison);
@@ -406,6 +430,11 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 		m_possession = options(itemForm->parentWidget(), QStringLiteral("conditionPossession"), {tr("Party Possesses"), tr("Party Does Not Possess")}, second);
 		itemForm->addRow(tr("Item"), item);
 		itemForm->addRow(tr("Condition"), m_possession);
+		if (maniacProject || (kind == 4 && ::parameter(m_edited, 3) != 0)) {
+			m_itemMode = addIdMode(itemForm, QStringLiteral("conditionItem"), 3, item, m_itemVariable, kind == 4);
+			m_itemMode->setEnabled(maniacProject);
+			m_itemVariable->setEnabled(maniacProject);
+		}
 		auto* heroForm = addPage();
 		auto* hero = new ActorRpgComboBox(heroForm->parentWidget());
 		hero->makeModel(m_project);
@@ -415,6 +444,11 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 			{tr("In the Party"), tr("Name"), tr("Level at least"), tr("HP at least"), tr("Skill learned"), tr("Item equipped"), tr("Condition")}, second);
 		heroForm->addRow(tr("Hero"), hero);
 		heroForm->addRow(tr("Condition"), m_heroTest);
+		if (maniacProject || (kind == 5 && ::parameter(m_edited, 4) != 0)) {
+			m_heroMode = addIdMode(heroForm, QStringLiteral("conditionHero"), 4, hero, m_heroVariable, kind == 5);
+			m_heroMode->setEnabled(maniacProject);
+			m_heroVariable->setEnabled(maniacProject);
+		}
 		m_heroPages = new QStackedWidget(heroForm->parentWidget());
 		heroForm->addRow(m_heroPages);
 		const auto addHeroPage = [this]() {
@@ -428,10 +462,10 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 		m_name->setObjectName(QStringLiteral("conditionHeroName"));
 		nameForm->addRow(tr("Name"), m_name);
 		auto* levelForm = addHeroPage();
-		m_level = number(levelForm->parentWidget(), QStringLiteral("conditionHeroLevel"), 1, 99, third);
+		m_level = ::number(levelForm->parentWidget(), QStringLiteral("conditionHeroLevel"), 1, 99, third);
 		levelForm->addRow(tr("Level at least"), m_level);
 		auto* hpForm = addHeroPage();
-		m_hp = number(hpForm->parentWidget(), QStringLiteral("conditionHeroHP"), 0, 9999999, third);
+		m_hp = ::number(hpForm->parentWidget(), QStringLiteral("conditionHeroHP"), 0, 9999999, third);
 		hpForm->addRow(tr("HP at least"), m_hp);
 		auto* skillForm = addHeroPage();
 		auto* skill = new SkillRpgComboBox(skillForm->parentWidget());
@@ -471,6 +505,21 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 		m_direction = options(characterForm->parentWidget(), QStringLiteral("conditionDirection"), {tr("Up"), tr("Right"), tr("Down"), tr("Left")}, second);
 		characterForm->addRow(tr("Sprite"), m_character);
 		characterForm->addRow(tr("is Facing"), m_direction);
+		if (maniacProject || (kind == 6 && (::parameter(m_edited, 3) != 0 || ::parameter(m_edited, 4) != 0))) {
+			m_characterMode = addIdMode(characterForm, QStringLiteral("conditionCharacter"), 3, m_character, m_characterVariable, kind == 6);
+			m_characterMode->setEnabled(maniacProject);
+			m_characterVariable->setEnabled(maniacProject);
+			// p4 = 1: only whether the event exists
+			auto* stored = m_cmd;
+			lcf::rpg::EventCommand neutral;
+			m_cmd = kind == 6 ? stored : &neutral;
+			auto* exists = boolean(QStringLiteral("conditionCharacterExists"), tr("Only check that the event exists"), 4);
+			m_cmd = stored;
+			exists->setEnabled(maniacProject);
+			characterForm->addRow(exists);
+			m_direction->setEnabled(!exists->isChecked());
+			connect(exists, &QCheckBox::toggled, m_direction, [this](bool checked) { m_direction->setEnabled(!checked); });
+		}
 		auto* vehicleForm = addPage();
 		m_vehicle = options(vehicleForm->parentWidget(), QStringLiteral("conditionVehicle"), {tr("Boat"), tr("Ship"), tr("Airship")}, first);
 		vehicleForm->addRow(tr("Party is Riding"), m_vehicle);
@@ -483,6 +532,9 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 			{tr("A save file exists"), tr("Test Play mode is active"), tr("ATB Wait mode is active"), tr("Fullscreen is active")}, first);
 		m_other->setEnabled(rpg2003);
 		otherForm->addRow(tr("Condition"), m_other);
+		if (showManiac) {
+			addManiacPages(maniacProject);
+		}
 	}
 	// Patched condition types remain unchanged until a native condition is selected.
 	if (kind >= m_pages->count() || kind < 0) {
@@ -524,7 +576,7 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 		});
 	}
 	connect(m_else, &QCheckBox::toggled, this, [this](bool checked) {
-		setParameter(m_edited, 5, checked ? 1 : 0);
+		::setParameter(m_edited, 5, checked ? 1 : 0);
 	});
 	m_loading = false;
 }
@@ -534,80 +586,214 @@ void ConditionalBranchWidget::store() {
 		return;
 	}
 	const int kind = m_kind->currentData().toInt();
-	setParameter(m_edited, 0, kind);
+	::setParameter(m_edited, 0, kind);
 	switch (kind) {
 	case 0:
-		setParameter(m_edited, 1, m_switch->comboBox()->currentIndex() + 1);
-		setParameter(m_edited, 2, m_switchState->currentData().toInt());
+		::setParameter(m_edited, 1, m_switch->comboBox()->currentIndex() + 1);
+		::setParameter(m_edited, 2, m_switchState->currentData().toInt());
 		break;
 	case 1:
-		setParameter(m_edited, 1, m_variable->comboBox()->currentIndex() + 1);
-		setParameter(m_edited, 2, m_operandKind->currentData().toInt());
-		setParameter(m_edited, 3, m_operandKind->currentData().toInt() == 0
+		::setParameter(m_edited, 1, m_variable->comboBox()->currentIndex() + 1);
+		::setParameter(m_edited, 2, m_operandKind->currentData().toInt());
+		::setParameter(m_edited, 3, m_operandKind->currentData().toInt() == 0
 			? m_operandNumber->value() : m_operandVariable->comboBox()->currentIndex() + 1);
-		setParameter(m_edited, 4, m_comparison->currentData().toInt());
+		::setParameter(m_edited, 4, m_comparison->currentData().toInt());
 		break;
 	case 2:
 	case 10:
 		if (m_battle) {
-			setParameter(m_edited, 1, m_hero->comboBox()->currentIndex() + 1);
+			::setParameter(m_edited, 1, m_hero->comboBox()->currentIndex() + 1);
 		} else {
-			setParameter(m_edited, 1, m_minutes->value() * 60 + m_seconds->value());
-			setParameter(m_edited, 2, m_timerComparison->currentData().toInt());
+			::setParameter(m_edited, 1, m_minutes->value() * 60 + m_seconds->value());
+			::setParameter(m_edited, 2, m_timerComparison->currentData().toInt());
 		}
 		break;
 	case 3:
 		if (m_battle) {
-			setParameter(m_edited, 1, m_monster->currentData().toInt());
+			::setParameter(m_edited, 1, m_monster->currentData().toInt());
 		} else {
-			setParameter(m_edited, 1, m_money->value());
-			setParameter(m_edited, 2, m_moneyComparison->currentData().toInt());
+			::setParameter(m_edited, 1, m_money->value());
+			::setParameter(m_edited, 2, m_moneyComparison->currentData().toInt());
 		}
 		break;
 	case 4:
 		if (m_battle) {
-			setParameter(m_edited, 1, findChild<QComboBox*>(QStringLiteral("conditionTargetMonster"))->currentData().toInt());
+			::setParameter(m_edited, 1, findChild<QComboBox*>(QStringLiteral("conditionTargetMonster"))->currentData().toInt());
 		} else {
-			setParameter(m_edited, 1, m_item->comboBox()->currentIndex() + 1);
-			setParameter(m_edited, 2, m_possession->currentData().toInt());
+			::setParameter(m_edited, 1, (fromVariable(m_itemMode) ? m_itemVariable : m_item)->comboBox()->currentIndex() + 1);
+			::setParameter(m_edited, 2, m_possession->currentData().toInt());
 		}
 		break;
 	case 5:
 		if (m_battle) {
-			setParameter(m_edited, 1, m_commandHero->comboBox()->currentIndex() + 1);
-			setParameter(m_edited, 2, m_battleCommand->currentData().toInt());
+			::setParameter(m_edited, 1, m_commandHero->comboBox()->currentIndex() + 1);
+			::setParameter(m_edited, 2, m_battleCommand->currentData().toInt());
 		} else {
-			setParameter(m_edited, 1, m_hero->comboBox()->currentIndex() + 1);
-			setParameter(m_edited, 2, m_heroTest->currentData().toInt());
+			::setParameter(m_edited, 1, (fromVariable(m_heroMode) ? m_heroVariable : m_hero)->comboBox()->currentIndex() + 1);
+			::setParameter(m_edited, 2, m_heroTest->currentData().toInt());
 			switch (m_heroTest->currentData().toInt()) {
 			case 1: m_edited.string = lcf::DBString(ToDBString(m_name->text())); break;
-			case 2: setParameter(m_edited, 3, m_level->value()); break;
-			case 3: setParameter(m_edited, 3, m_hp->value()); break;
-			case 4: setParameter(m_edited, 3, m_skill->comboBox()->currentIndex() + 1); break;
-			case 5: setParameter(m_edited, 3, m_equipment->comboBox()->currentIndex() + 1); break;
-			case 6: setParameter(m_edited, 3, m_condition->comboBox()->currentIndex() + 1); break;
+			case 2: ::setParameter(m_edited, 3, m_level->value()); break;
+			case 3: ::setParameter(m_edited, 3, m_hp->value()); break;
+			case 4: ::setParameter(m_edited, 3, m_skill->comboBox()->currentIndex() + 1); break;
+			case 5: ::setParameter(m_edited, 3, m_equipment->comboBox()->currentIndex() + 1); break;
+			case 6: ::setParameter(m_edited, 3, m_condition->comboBox()->currentIndex() + 1); break;
 			default: break;
 			}
 		}
 		break;
 	case 6:
 		if (!m_battle) {
-			setParameter(m_edited, 1, m_character->currentData().toInt());
-			setParameter(m_edited, 2, m_direction->currentData().toInt());
+			::setParameter(m_edited, 1, fromVariable(m_characterMode) ? m_characterVariable->comboBox()->currentIndex() + 1
+				: m_character->currentData().toInt());
+			::setParameter(m_edited, 2, m_direction->currentData().toInt());
 		}
 		break;
 	case 7:
 		if (!m_battle) {
-			setParameter(m_edited, 1, m_vehicle->currentData().toInt());
+			::setParameter(m_edited, 1, m_vehicle->currentData().toInt());
 		}
 		break;
 	case 11:
 		if (!m_battle) {
-			setParameter(m_edited, 1, m_other->currentData().toInt());
+			::setParameter(m_edited, 1, m_other->currentData().toInt());
+		}
+		break;
+	case 12:
+	case 13:
+	case 14:
+	case 15:
+	case 16:
+		// what the page shows is what is stored
+		for (auto* widget : m_maniacRows.value(kind)) {
+			commit(widget);
 		}
 		break;
 	default: break;
 	}
+}
+
+bool ConditionalBranchWidget::fromVariable(QComboBox* mode) {
+	return mode && kindOf(mode) == Kind::Variable;
+}
+
+QComboBox* ConditionalBranchWidget::addIdMode(QFormLayout* form, const QString& name, int modeIndex, QWidget* constant,
+	RpgComboBoxBase*& variable, bool stored) {
+	auto* command = m_cmd;
+	lcf::rpg::EventCommand neutral;
+	m_cmd = stored ? command : &neutral;
+	auto* mode = modeCombo(name + QStringLiteral("Mode"), modeIndex, -1, numberModes());
+	auto* variables = new VariableRpgComboBox(form->parentWidget());
+	variables->makeModel(m_project);
+	variables->setObjectName(name + QStringLiteral("Variable"));
+	variables->comboBox()->setObjectName(name + QStringLiteral("VariableCombo"));
+	variables->setCurrentIndex(fromVariable(mode) ? ::parameter(m_edited, 1) - 1 : 0);
+	m_cmd = command;
+	variable = variables;
+	int row = 0;
+	QFormLayout::ItemRole role;
+	form->getWidgetPosition(constant, &row, &role);
+	form->insertRow(row, tr("Given as"), mode);
+	form->insertRow(row + 2, tr("Variable"), variables);
+	// the id is a number of the list or a variable
+	auto show = [=, this] {
+		form->setRowVisible(constant, !fromVariable(mode));
+		form->setRowVisible(variables, fromVariable(mode));
+	};
+	show();
+	connect(mode, &QComboBox::currentIndexChanged, this, show);
+	return mode;
+}
+
+void ConditionalBranchWidget::addManiacPages(bool enabled) {
+	const int kind = ::parameter(m_edited, 0);
+	auto* stored = m_cmd;
+	// the pages of the other conditions start from neutral values
+	lcf::rpg::EventCommand neutral;
+	auto page = [&](int type, std::initializer_list<int32_t> values) {
+		neutral.parameters = lcf::DBArray<int32_t>(values.begin(), values.end());
+		m_cmd = kind == type ? stored : &neutral;
+		auto* widget = new QWidget(m_pages);
+		widget->setEnabled(enabled);
+		m_pages->addWidget(widget);
+		return new QFormLayout(widget);
+	};
+	auto row = [&](QFormLayout* form, int type, const QString& label, QWidget* field) {
+		if (label.isEmpty()) {
+			form->addRow(field);
+		} else {
+			form->addRow(label, field);
+		}
+		m_maniacRows[type].append(field);
+	};
+	const Items onOff = {{0, tr("ON")}, {1, tr("OFF")}};
+
+	auto* other = page(12, {12, 0, 0, 0, 0, 0});
+	row(other, 12, tr("Condition"), choice(QStringLiteral("conditionManiacOther"), 1, {{0, tr("A save was loaded this frame")},
+		{1, tr("A joypad is used")}, {2, tr("The window has the focus")}, {3, tr("Files can be written")}}));
+
+	auto* switches = page(13, {13, 1, 0, 0, 0, 0});
+	row(switches, 13, tr("Switch of variable"), variable(QStringLiteral("conditionSwitchPointer"), 1));
+	row(switches, 13, tr("is"), choice(QStringLiteral("conditionSwitchPointerState"), 2, onOff));
+
+	auto* variables = page(14, {14, 1, 0, 0, 0, 0});
+	row(variables, 14, tr("Variable of variable"), variable(QStringLiteral("conditionVariablePointer"), 1));
+	row(variables, 14, tr("Comparison"), choice(QStringLiteral("conditionVariablePointerComparison"), 4, {{0, tr("Equal to")},
+		{1, tr("Greater than or Equal to")}, {2, tr("Less than or Equal to")}, {3, tr("Greater than")},
+		{4, tr("Less than")}, {5, tr("Not Equal to")}}));
+	row(variables, 14, tr("Compare with"), value(QStringLiteral("conditionVariablePointerOperand"), 2, -1, 3,
+		std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), numberModes()));
+
+	// the left string is T[x] or T[V[x]] (mode + 1 for the Player), the right one also a text
+	auto* strings = page(15, {15, 0, 1, 1, 0, 0});
+	auto* leftMode = modeComboAt(QStringLiteral("conditionStringLeftMode"), 1, 0, 4,
+		{{0, tr("String"), Kind::StringId}, {1, tr("String pointer"), Kind::Variable}});
+	auto* left = new QWidget(this);
+	auto* leftLayout = new QHBoxLayout(left);
+	leftLayout->setContentsMargins(0, 0, 0, 0);
+	auto* leftValue = valueField(QStringLiteral("conditionStringLeft"), leftMode, 2, 0, 99999);
+	leftLayout->addWidget(leftMode);
+	leftLayout->addWidget(leftValue, 1);
+	onCommit(left, [=, this] {
+		commit(leftMode);
+		commit(leftValue);
+	});
+	auto* rightMode = modeComboAt(QStringLiteral("conditionStringRightMode"), 1, 4, 4, stringModes());
+	auto* text = textField(QStringLiteral("conditionStringText"));
+	auto* right = new QWidget(this);
+	auto* rightLayout = new QHBoxLayout(right);
+	rightLayout->setContentsMargins(0, 0, 0, 0);
+	auto* rightValue = valueField(QStringLiteral("conditionStringRight"), rightMode, 3, 0, 99999, text);
+	rightLayout->addWidget(rightMode);
+	rightLayout->addWidget(rightValue, 1);
+	onCommit(right, [=, this] {
+		commit(rightMode);
+		commit(rightValue);
+		if (kindOf(rightMode) == Kind::Text) {
+			m_edited.string = lcf::DBString(ToDBString(text->text()));
+		}
+	});
+	row(strings, 15, tr("String"), left);
+	row(strings, 15, tr("Comparison"), choice(QStringLiteral("conditionStringComparison"), 4, {{0, tr("Equal to")},
+		{1, tr("Not Equal to")}, {2, tr("Contains")}, {3, tr("Does not contain")}}, 0, 2));
+	row(strings, 15, tr("Compare with"), right);
+	row(strings, 15, QString(), flag(QStringLiteral("conditionStringIgnoreCase"), tr("Ignore case"), 4, 8));
+
+	// the expression is all the parameters after the "else" flag (p5)
+	auto* expression = page(16, {16, 0, 0, 0, 0, 0});
+	std::vector<int32_t> words(m_cmd->parameters.begin() + std::min<size_t>(6, m_cmd->parameters.size()), m_cmd->parameters.end());
+	if (words.empty()) {
+		size_t error = 0;
+		ManiacExpression::encode("S[1]", words, error);
+	}
+	row(expression, 16, tr("Expression"), expressionField(QStringLiteral("conditionExpression"), words,
+		[this](const std::vector<int32_t>& value) {
+			std::vector<int32_t> parameters(m_edited.parameters.begin(), m_edited.parameters.end());
+			parameters.resize(6);
+			parameters.insert(parameters.end(), value.begin(), value.end());
+			m_edited.parameters = lcf::DBArray<int32_t>(parameters.begin(), parameters.end());
+		}));
+	m_cmd = stored;
 }
 
 bool ConditionalBranchWidget::apply() {
