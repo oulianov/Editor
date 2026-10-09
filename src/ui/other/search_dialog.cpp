@@ -28,6 +28,7 @@
 #include <tuple>
 #include <QMessageBox>
 #include <QCompleter>
+#include <QRegularExpression>
 
 SearchDialog::SearchDialog(ProjectData& project, QWidget *parent) :
 	QDialog(parent),
@@ -105,7 +106,7 @@ void SearchDialog::on_button_search_clicked()
 
 		return res;
 	};
-	auto common_searcher = [&search_predicate](const std::vector<lcf::rpg::CommonEvent> events) {
+	auto common_searcher = [&search_predicate](const std::vector<lcf::rpg::CommonEvent>& events) {
 		std::vector<command_info> res;
 		for (auto& e : events)
 			for (size_t line = 0; line < e.event_commands.size(); line++)
@@ -223,7 +224,8 @@ void SearchDialog::on_button_search_clicked()
 	}
 	else //if (ui->radio_eventname->isChecked())
 	{
-		//TODO implement me
+		searchEventNames();
+		return;
 	}
 
 	if (!search_predicate)
@@ -262,8 +264,72 @@ void SearchDialog::on_button_search_clicked()
 	ui->list_result->resizeColumnsToContents();
 }
 
+void SearchDialog::searchEventNames()
+{
+	// a name picked in the list ("0003: Name") or any part of a name
+	QString text = ui->combo_eventname->currentText().trimmed();
+	static const QRegularExpression numbered(QStringLiteral("^\\d+: "));
+	text.remove(numbered);
+	if (text.isEmpty()) {
+		return;
+	}
+
+	static const lcf::rpg::EventCommand no_command;
+	auto add = [&](int mapID, int eventID, const QString& name, const QString& where) {
+		const int rows = ui->list_result->rowCount();
+		ui->list_result->setRowCount(rows + 1);
+		ui->list_result->setItem(rows, 0, new QTableWidgetItem(where));
+		ui->list_result->setItem(rows, 1, new QTableWidgetItem(QString::number(eventID)));
+		ui->list_result->setItem(rows, 2, new QTableWidgetItem(QString()));
+		ui->list_result->setItem(rows, 3, new QTableWidgetItem(QString()));
+		ui->list_result->setItem(rows, 4, new QTableWidgetItem(name));
+		objectData.emplace_back(mapID, eventID, 0, 0, no_command);
+	};
+	auto search_map = [&](int mapID) {
+		auto map = loadMap(mapID);
+		if (!map) {
+			return;
+		}
+		QString where;
+		for (const auto& info : m_project.treeMap().maps) {
+			if (info.ID == mapID) {
+				where = ToQString(info.name);
+			}
+		}
+		for (const auto& e : map->events) {
+			QString name = ToQString(e.name);
+			if (name.contains(text, Qt::CaseInsensitive)) {
+				add(mapID, e.ID, QString("%1 (%2, %3)").arg(name).arg(e.x).arg(e.y), where);
+			}
+		}
+	};
+
+	if (ui->scope_current->isChecked()) {
+		if (auto* scene = static_cast<MainWindow*>(parent())->currentScene()) {
+			search_map(scene->id());
+		}
+	} else if (ui->scope_events->isChecked()) {
+		for (const auto& e : m_project.database().commonevents) {
+			if (ToQString(e.name).contains(text, Qt::CaseInsensitive)) {
+				add(0, e.ID, ToQString(e.name), tr("Common"));
+			}
+		}
+	} else {
+		for (const auto& info : m_project.treeMap().maps) {
+			if (info.ID > 0) {
+				search_map(info.ID);
+			}
+		}
+	}
+	ui->list_result->resizeColumnsToContents();
+}
+
 void SearchDialog::on_list_result_doubleClicked(const QModelIndex &index)
 {
+	// common events are not on a map
+	if (std::get<0>(objectData[static_cast<size_t>(index.row())]) == 0) {
+		return;
+	}
 	auto *par = static_cast<MainWindow*>(parent());
 	par->openScene(std::get<0>(objectData[static_cast<size_t>(index.row())]));
 	auto *event = (*par->currentScene()->mapEvents())[std::get<1>(objectData[static_cast<size_t>(index.row())])];

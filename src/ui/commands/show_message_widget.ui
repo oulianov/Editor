@@ -21,13 +21,6 @@
      </property>
     </widget>
    </item>
-   <item>
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>FIXME: Saving not supported yet!</string>
-     </property>
-    </widget>
-   </item>
   </layout>
  </widget>
  <resources/>

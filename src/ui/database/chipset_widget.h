@@ -18,28 +18,61 @@
 #pragma once
 
 #include <QWidget>
+#include <QPixmap>
 #include <lcf/rpg/chipset.h>
 
 class ProjectData;
+class QButtonGroup;
+class QGraphicsScene;
+class QGraphicsView;
+class QLineEdit;
+class QTabBar;
+class QGroupBox;
+class RpgComboBoxBase;
 
-namespace Ui {
-class ChipSetWidget;
-}
-
-class ChipSetWidget : public QWidget
+/**
+ * The Chipset page of the database, like RPG Maker's: the graphic, then the
+ * tiles of the lower or upper layer with their terrain, their passability
+ * (passable, blocked, above the hero), the four directions that can be
+ * walked through and the counter flag; and the water animation.
+ */
+class ChipsetWidget : public QWidget
 {
 	Q_OBJECT
 
 public:
 	using value_type = lcf::rpg::Chipset;
 
-	explicit ChipSetWidget(ProjectData& project, QWidget *parent = nullptr);
-	~ChipSetWidget();
+	explicit ChipsetWidget(ProjectData& project, QWidget *parent = nullptr);
 
 	void setData(lcf::rpg::Chipset* chipset);
 
-private:
-	Ui::ChipSetWidget *ui;
-	ProjectData& m_project;
-};
+	enum class Mode { Terrain, Passability, Directions, Counter };
 
+protected:
+	bool eventFilter(QObject* watched, QEvent* event) override;
+
+private:
+	bool lowerLayer() const;
+	int tileCount() const;
+	/** The source rectangle of a tile in the chipset image, in tiles */
+	static QPoint tilePosition(bool lower, int index);
+	void loadGraphic();
+	void redraw();
+	void tileClicked(const QPointF& pos, bool right_button);
+
+	ProjectData& m_project;
+	lcf::rpg::Chipset* m_chipset = nullptr;
+	QPixmap m_graphic;
+
+	QLineEdit* m_name = nullptr;
+	QLineEdit* m_file = nullptr;
+	QTabBar* m_layer = nullptr;
+	QButtonGroup* m_mode = nullptr;
+	RpgComboBoxBase* m_terrain = nullptr;
+	QGraphicsScene* m_scene = nullptr;
+	QGraphicsView* m_view = nullptr;
+	QButtonGroup* m_sequence = nullptr;
+	QButtonGroup* m_speed = nullptr;
+	QGroupBox* m_water = nullptr;
+};

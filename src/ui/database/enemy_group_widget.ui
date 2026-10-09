@@ -6,179 +6,270 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1057</width>
-    <height>763</height>
+    <width>720</width>
+    <height>520</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Monster Group</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_4">
+  <layout class="QVBoxLayout" name="layoutMain">
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
-     <item>
-      <layout class="QFormLayout" name="formLayout">
-       <item row="0" column="0">
-        <widget class="QLabel" name="label">
-         <property name="text">
-          <string>Name:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QLineEdit" name="lineName"/>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pushButton_42">
-       <property name="text">
-        <string>Auto name group</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pushButton_43">
-       <property name="text">
-        <string>Test Battle</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pushButton_44">
-       <property name="text">
-        <string>Change Battle ground</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_3">
-     <item>
-      <widget class="QFrame" name="frame_19">
-       <property name="frameShape">
-        <enum>QFrame::Box</enum>
-       </property>
-       <property name="frameShadow">
-        <enum>QFrame::Raised</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <layout class="QVBoxLayout" name="verticalLayout_2">
-       <item>
-        <widget class="QPushButton" name="pushButton_45">
-         <property name="text">
-          <string>Add</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="pushButton_46">
-         <property name="text">
-          <string>Remove</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="pushButton_47">
-         <property name="text">
-          <string>Remove All</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QGroupBox" name="groupBox_237">
-         <property name="title">
-          <string>Alignment</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="pushButton_48">
-         <property name="text">
-          <string>Auto Align</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QVBoxLayout" name="verticalLayout_3">
-       <item>
-        <widget class="QListWidget" name="listWidget_12"/>
-       </item>
-       <item>
-        <widget class="QListWidget" name="listWidget_13"/>
-       </item>
-      </layout>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="groupBox_241">
+    <widget class="QGroupBox" name="groupName">
      <property name="title">
-      <string>Battle Event</string>
+      <string>Name</string>
      </property>
-     <layout class="QHBoxLayout" name="horizontalLayout">
+     <layout class="QHBoxLayout" name="layoutName">
       <item>
-       <layout class="QVBoxLayout" name="verticalLayout">
-        <item>
-         <widget class="QPushButton" name="buttonNewPage">
-          <property name="text">
-           <string>New Page</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="buttonCopyPage">
-          <property name="text">
-           <string>Copy Page</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="buttonPastePage">
-          <property name="text">
-           <string>Paste Page</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="buttonDeletePage">
-          <property name="text">
-           <string>Delete page</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="verticalSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
+       <widget class="QLineEdit" name="lineName"/>
       </item>
       <item>
-       <widget class="QTabWidget" name="tabCommands">
-        <property name="currentIndex">
-         <number>-1</number>
+       <widget class="QPushButton" name="pushAutoName">
+        <property name="text">
+         <string>Autoname Group</string>
         </property>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
+   <item>
+    <widget class="QSplitter" name="splitter">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="childrenCollapsible">
+      <bool>false</bool>
+     </property>
+     <widget class="QWidget" name="widgetMembers">
+      <layout class="QHBoxLayout" name="layoutMembers">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="EnemyGroupView" name="graphicsTroop">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>2</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>Drag the monsters to place them. Right-click a monster to hide it at the start of the battle.</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QVBoxLayout" name="layoutButtons">
+         <item>
+          <widget class="QPushButton" name="pushAdd">
+           <property name="text">
+            <string>&lt; Add</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushRemove">
+           <property name="text">
+            <string>Remove &gt;</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushRemoveAll">
+           <property name="text">
+            <string>Remove All</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushAutoAlign">
+           <property name="text">
+            <string>Auto-Align</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="groupAlignment">
+           <property name="title">
+            <string>Alignment</string>
+           </property>
+           <layout class="QVBoxLayout" name="layoutAlignment">
+            <item>
+             <widget class="QRadioButton" name="radioManual">
+              <property name="text">
+               <string>Manual</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioAutomatic">
+              <property name="text">
+               <string>Automatic</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkRandom">
+           <property name="text">
+            <string>Random</string>
+           </property>
+           <property name="toolTip">
+            <string>Some monsters of the group are randomly left out of the battle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushChangeBackdrop">
+           <property name="text">
+            <string>Change BG</string>
+           </property>
+           <property name="toolTip">
+            <string>Background shown here only, to place the monsters</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacerButtons">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QVBoxLayout" name="layoutLists">
+         <item>
+          <widget class="QListWidget" name="listEnemies">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>1</horstretch>
+             <verstretch>2</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="toolTip">
+            <string>Double-click a monster to add it to the group</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="groupTerrain">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>1</horstretch>
+             <verstretch>1</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="title">
+            <string>Habitat</string>
+           </property>
+           <layout class="QVBoxLayout" name="layoutTerrain">
+            <item>
+             <widget class="QListWidget" name="listTerrains">
+              <property name="toolTip">
+               <string>Terrains where the group is met in random encounters</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QGroupBox" name="groupEvents">
+      <property name="title">
+       <string>Battle Events</string>
+      </property>
+      <layout class="QHBoxLayout" name="layoutEvents">
+       <item>
+        <layout class="QVBoxLayout" name="layoutPageButtons">
+         <item>
+          <widget class="QPushButton" name="pushNewPage">
+           <property name="text">
+            <string>New Page</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushCopyPage">
+           <property name="text">
+            <string>Copy Page</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushPastePage">
+           <property name="text">
+            <string>Paste Page</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushDeletePage">
+           <property name="text">
+            <string>Delete Page</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacerPageButtons">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTabWidget" name="tabPages">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>1</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>EnemyGroupView</class>
+   <extends>QGraphicsView</extends>
+   <header>ui/database/enemy_group_view.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

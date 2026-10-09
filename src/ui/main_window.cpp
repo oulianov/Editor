@@ -21,12 +21,17 @@
 #include "ui/other/rtp_path_dialog.h"
 #include "ui/event/event_dialog.h"
 #include "ui/maptree/map_properties_dialog.h"
+#include "ui/maptree/area_properties_dialog.h"
+#include "ui/maptree/shift_map_dialog.h"
+#include "ui/other/run_game_dialog.h"
+#include "model/map_tools.h"
 #include "main_window.h"
 #include "ui_main_window.h"
 #include "common/dbstring.h"
 #include <QImage>
 #include <QToolBar>
 #include <QCloseEvent>
+#include <QActionGroup>
 #include <QApplication>
 #include <QFileInfo>
 #include <QFileDialog>
@@ -35,6 +40,10 @@
 #include <QScrollBar>
 #include <QStringList>
 #include <QDir>
+#include <QMenu>
+#include <QTimer>
+#include <QTreeWidgetItemIterator>
+#include <set>
 #include <QQmlContext>
 #include <QQmlApplicationEngine>
 #include <cassert>
@@ -79,6 +88,17 @@ static void recurseAddDir(QDir d, QStringList & list) {
 		} else
 			list << QDir::toNativeSeparators(finfo.filePath());
 	}
+}
+
+static QIcon themeIcon(const QWidget* widget, const QString& name) {
+	QString theme = widget->palette().color(widget->backgroundRole()).lightness() >= 128 ? ":/bright" : ":/dark";
+	return QIcon(theme + "/" + name);
+}
+
+/** The file of a map, as Project::loadMap names it */
+static QString mapFileName(int id) {
+	const bool easyrpg = core().project()->projectType() == FileFinder::ProjectType::EasyRpg;
+	return QString("Map%1.%2").arg(id, 4, 10, QChar('0')).arg(easyrpg ? "emu" : "lmu");
 }
 
 #ifdef Q_OS_WIN
@@ -150,6 +170,56 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(&watcher, &ProjectWatcher::treeMapChanged, this, &MainWindow::onTreeMapFileChanged);
 	connect(&watcher, &ProjectWatcher::mapChanged, this, &MainWindow::onMapFileChanged);
 	ui->actionReloadExternalChanges->setChecked(m_settings.value(RELOAD_EXTERNAL_KEY, false).toBool());
+
+	// Map tree: menus like RPG Maker's, drag and drop to make a map the
+	// child of another, and the tree shortcuts (Ctrl+C, Ctrl+V, Del, Ctrl+H)
+	ui->treeMap->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(ui->treeMap, &QWidget::customContextMenuRequested, this, &MainWindow::onMapTreeContextMenu);
+	ui->treeMap->setDragDropMode(QAbstractItemView::InternalMove);
+	ui->treeMap->setDefaultDropAction(Qt::MoveAction);
+	// only the project item is at the top level
+	ui->treeMap->invisibleRootItem()->setFlags(ui->treeMap->invisibleRootItem()->flags() & ~Qt::ItemIsDropEnabled);
+	ui->treeMap->viewport()->installEventFilter(this);
+	ui->treeMap->addActions({ui->actionMapCopy, ui->actionMapPaste, ui->actionMapDelete,
+		ui->actionMapShift, ui->actionAreaDelete});
+#ifdef Q_OS_MACOS
+	// the Delete key of Mac keyboards is Backspace
+	for (QAction* action : {ui->actionMapDelete, ui->actionAreaDelete})
+		action->setShortcuts({QKeySequence(Qt::Key_Delete), QKeySequence(Qt::Key_Backspace)});
+#endif
+	auto rememberExpanded = [this](QTreeWidgetItem* item) {
+		if (auto* info = mapInfo(item->data(1, Qt::DisplayRole).toInt())) {
+			info->expanded_node = item->isExpanded();
+		}
+	};
+	connect(ui->treeMap, &QTreeWidget::itemExpanded, this, rememberExpanded);
+	connect(ui->treeMap, &QTreeWidget::itemCollapsed, this, rememberExpanded);
+
+	// Test play: F9 like RPG Maker, the options are remembered
+	ui->actionFullScreenToggle->setChecked(m_settings.value(TESTPLAY_FULLSCREEN_KEY, false).toBool());
+	ui->actionTitleBackgroundToggle->setChecked(m_settings.value(TESTPLAY_SHOW_TITLE_KEY, true).toBool());
+	RunGameDialog::setBeforeLaunch([this] { return saveBeforeTestPlay(); });
+	ui->actionQuit->setShortcuts(QKeySequence::Quit);
+
+	// Language, applied when the Editor starts again
+	auto* languages = ui->menuTools->addMenu(tr("Language"));
+	auto* language_group = new QActionGroup(this);
+	const QString current = m_settings.value(LANGUAGE_KEY).toString();
+	for (const auto& [code, name] : std::vector<std::pair<QString, QString>>{
+			{QString(), tr("System Language")}, {"en", QStringLiteral("English")},
+			{"fr", QStringLiteral("French Boddom Rabi")}, {"de", QStringLiteral("Deutsch")}}) {
+		auto* action = languages->addAction(name);
+		action->setCheckable(true);
+		action->setChecked(code == current);
+		language_group->addAction(action);
+		connect(action, &QAction::triggered, this, [this, code] {
+			if (m_settings.value(LANGUAGE_KEY).toString() == code) {
+				return;
+			}
+			m_settings.setValue(LANGUAGE_KEY, code);
+			QMessageBox::information(this, tr("Language"), tr("The new language is used the next time the Editor starts."));
+		});
+	}
 	update_actions();
 	core().setRtpDir(m_settings.value(RTP_KEY, QString()).toString());
 	if (core().rtpPath("").isEmpty())
@@ -229,48 +299,50 @@ void MainWindow::LoadProject(QString foldername)
 void MainWindow::populateMapTree(bool open_active_map)
 {
 	ui->treeMap->clear();
+	m_treeItems.clear();
 	QTreeWidgetItem *root = new QTreeWidgetItem();
 	root->setData(1, Qt::DisplayRole, 0);
 	root->setData(0,Qt::DisplayRole,  core().project()->gameTitle());
 	root->setIcon(0,QIcon(":/icons/share/old_folder.png"));
-	lcf::rpg::TreeMap maps = core().project()->treeMap();
+	// the project item stays where it is
+	root->setFlags(root->flags() & ~Qt::ItemIsDragEnabled);
 	ui->treeMap->addTopLevelItem(root);
-	m_treeItems.clear();
 	m_treeItems[0] = root;
+	const lcf::rpg::TreeMap& maps = core().project()->treeMap();
 	//Add Items
 	for (unsigned int i = 1; i < maps.maps.size(); i++)
+		addTreeItem(maps.maps[i]);
+	//Parent Items, in the tree order
+	for (unsigned int i = 1; i < maps.tree_order.size(); i++)
 	{
-		QTreeWidgetItem *item = new QTreeWidgetItem();
-		item->setData(1,Qt::DisplayRole,maps.maps[i].ID);
-		item->setData(0,Qt::DisplayRole,ToQString(maps.maps[i].name));
-		item->setIcon(0, QIcon(":/icons/share/old_map.png"));
-		m_treeItems[maps.maps[i].ID] = item;
+		const int id = maps.tree_order[i];
+		QTreeWidgetItem* item = m_treeItems.value(id);
+		const lcf::rpg::MapInfo* info = mapInfo(id);
+		if (!item || !info || item->parent() || id == 0)
+			continue;
+		// a map whose parent is gone (older versions left some) goes under the project
+		QTreeWidgetItem* parent = m_treeItems.value(info->parent_map);
+		(parent && parent != item ? parent : root)->addChild(item);
 	}
-	//Parent Items
-	for (unsigned int i = 1; i < (maps.tree_order.size()); i++)
+	// maps missing from the tree order
+	for (auto it = m_treeItems.cbegin(); it != m_treeItems.cend(); ++it)
 	{
-		int id = maps.tree_order[i];
-		lcf::rpg::MapInfo info;
-		for (unsigned int j = 0; j < maps.maps.size(); j++)
-			if (id == maps.maps[j].ID)
-			{
-				info = maps.maps[j];
-				break;
-			}
-		m_treeItems[info.parent_map]->addChild(m_treeItems[info.ID]);
-		if (info.ID == maps.active_node && open_active_map)
-		{
-			ui->treeMap->setCurrentItem(m_treeItems[info.ID]);
-			this->on_treeMap_itemDoubleClicked(m_treeItems[info.ID], 0);
-		}
+		if (it.key() != 0 && !it.value()->parent())
+			root->addChild(it.value());
 	}
 	//Expand Items
 	for (unsigned int i = 0; i < maps.maps.size(); i++)
 	{
-		if (m_treeItems[maps.maps[i].ID])
-			m_treeItems[maps.maps[i].ID]->setExpanded(maps.maps[i].expanded_node);
+		if (QTreeWidgetItem* item = m_treeItems.value(maps.maps[i].ID))
+			item->setExpanded(maps.maps[i].expanded_node);
 	}
+	root->setExpanded(true);
 
+	if (open_active_map && maps.active_node > 0 && m_treeItems.value(maps.active_node))
+	{
+		ui->treeMap->setCurrentItem(m_treeItems[maps.active_node]);
+		this->on_treeMap_itemDoubleClicked(m_treeItems[maps.active_node], 0);
+	}
 }
 
 void MainWindow::ImportProject(const QDir& src_dir, QDir& target_dir, bool convert_xyz)
@@ -387,51 +459,8 @@ void MainWindow::ImportProject(const QDir& src_dir, QDir& target_dir, bool conve
 	}
 	progress.setValue(entries.count());
 
-	QList<QVariant> m_mapList;
-	QList<QVariant> m_scaleList;
-	ui->treeMap->clear();
-	QTreeWidgetItem *root = new QTreeWidgetItem();
-	root->setData(1, Qt::DisplayRole, 0);
-	root->setData(0,Qt::DisplayRole,  prj->gameTitle());
-	root->setIcon(0,QIcon(":/icons/share/old_folder.png"));
-	ui->treeMap->addTopLevelItem(root);
-	m_treeItems.clear();
-	m_treeItems[0] = root;
 	core().project() = prj;
-
-	//Add Items
-	for (unsigned int i = 1; i < maps.maps.size(); i++)
-	{
-		QTreeWidgetItem *item = new QTreeWidgetItem();
-		item->setData(1,Qt::DisplayRole,maps.maps[i].ID);
-		item->setData(0,Qt::DisplayRole,ToQString(maps.maps[i].name));
-		item->setIcon(0, QIcon(":/icons/share/old_map.png"));
-		m_treeItems[maps.maps[i].ID] = item;
-	}
-	//Parent Items
-	for (unsigned int i = 0; i < maps.maps.size(); i++)
-	{
-		int id = maps.tree_order[i];
-		lcf::rpg::MapInfo info;
-		for (unsigned int j = 0; j < maps.maps.size(); j++)
-			if (id == maps.maps[j].ID)
-			{
-				info = maps.maps[j];
-				break;
-			}
-		m_treeItems[info.parent_map]->addChild(m_treeItems[info.ID]);
-		if (info.ID == maps.active_node)
-		{
-			ui->treeMap->setCurrentItem(m_treeItems[info.ID]);
-			m_mapList.push_back(info.ID);
-			m_scaleList.push_back(1.0);
-		}
-	}
-	//Expand Items
-	for (unsigned int i = 0; i < maps.maps.size(); i++)
-	{
-		m_treeItems[maps.maps[i].ID]->setExpanded(maps.maps[i].expanded_node);
-	}
+	populateMapTree(false);
 
 	/*m_projSett = new QSettings(core().project()->findFile(ROOT, EASY_CFG),
 							   QSettings::IniFormat,
@@ -529,8 +558,15 @@ void MainWindow::on_actionDatabaseNew_triggered() {
 void MainWindow::update_actions()
 {
 	bool has_project = core().project() != nullptr;
+	MapScene* scene = currentScene();
+	// the selected node of the map tree (nothing selected: the project)
+	const int type = has_project ? mapType(currentMapId()) : -1;
+	const bool on_root = has_project && (type == lcf::rpg::TreeMap::MapType_root || type == -1);
+	const bool on_map = type == lcf::rpg::TreeMap::MapType_map;
+	const bool on_area = type == lcf::rpg::TreeMap::MapType_area;
 
 	ui->actionDrawCircle->setEnabled(has_project);
+	ui->actionDrawSelect->setEnabled(has_project);
 	ui->actionGameDiskCreate->setEnabled(has_project);
 	ui->actionDatabase->setEnabled(has_project);
 	ui->actionDatabaseNew->setEnabled(has_project);
@@ -539,12 +575,14 @@ void MainWindow::update_actions()
 	ui->actionProjectImport->setEnabled(!has_project);
 	ui->actionDrawRectangle->setEnabled(has_project);
 	ui->actionResourceManager->setEnabled(has_project);
-	ui->actionZoom100->setEnabled(has_project);
-	ui->actionMapRevert->setEnabled(currentScene() && currentScene()->isModified());
-	ui->actionZoomIn->setEnabled(has_project);
-	ui->actionZoomOut->setEnabled(has_project);
+	// zooming needs a map
+	ui->actionZoom100->setEnabled(scene);
+	ui->actionZoomIn->setEnabled(scene);
+	ui->actionZoomOut->setEnabled(scene);
+	ui->actionMapRevert->setEnabled(scene && scene->isModified());
 	ui->actionSearch->setEnabled(has_project);
-	ui->actionUndo->setEnabled(currentScene() && currentScene()->isModified());
+	ui->actionUndo->setEnabled(scene && scene->canUndo());
+	ui->actionRedo->setEnabled(scene && scene->canRedo());
 	ui->actionZoom->setEnabled(has_project);
 	ui->actionProjectClose->setEnabled(has_project);
 	ui->actionLayerEvents->setEnabled(has_project);
@@ -554,19 +592,21 @@ void MainWindow::update_actions()
 	ui->actionProjectNew->setEnabled(!has_project);
 	ui->actionProjectOpen->setEnabled(!has_project);
 	ui->actionPlayTest->setEnabled(has_project);
-	ui->actionMapSave->setEnabled(currentScene() && currentScene()->isModified());
+	ui->actionPlayTestOptions->setEnabled(has_project);
+	ui->actionMapSave->setEnabled(scene && scene->isModified());
 	ui->actionScriptEditor->setEnabled(has_project);
 	ui->actionTitleBackgroundToggle->setEnabled(has_project);
-	ui->actionMapNew->setEnabled(has_project);
-	ui->actionMapProperties->setEnabled(has_project);
-	ui->actionMapCopy->setEnabled(has_project);
-	ui->actionMapPaste->setEnabled(has_project);
-	ui->actionMapDelete->setEnabled(has_project);
 
-	ui->actionMapProperties->setEnabled(ui->tabMap->count());
-	ui->actionMapCopy->setEnabled(ui->treeMap->currentItem() && ui->treeMap->currentItem()->data(1,Qt::DisplayRole).toInt() != 0);
-	ui->actionMapPaste->setEnabled(!m_copiedMap.isEmpty());
-	ui->actionMapDelete->setEnabled(ui->treeMap->currentItem() && ui->treeMap->currentItem()->data(1,Qt::DisplayRole).toInt() != 0);
+	// Map tree: what RPG Maker's menus offer on the selected node
+	ui->actionMapNew->setEnabled(on_root || on_map);
+	ui->actionMapProperties->setEnabled(on_map || on_area || scene);
+	ui->actionMapCopy->setEnabled(on_map);
+	ui->actionMapPaste->setEnabled(m_copiedMap && (on_root || on_map));
+	ui->actionMapDelete->setEnabled(on_map);
+	ui->actionMapShift->setEnabled(on_map);
+	ui->actionAreaNew->setEnabled(on_map);
+	ui->actionAreaProperties->setEnabled(on_area);
+	ui->actionAreaDelete->setEnabled(on_area);
 }
 
 void MainWindow::on_actionProjectNew_triggered() {
@@ -600,90 +640,12 @@ void MainWindow::on_actionProjectNew_triggered() {
 			d_gamepath.mkpath(dir);
 		m_settings.setValue(DEFAULT_DIR_KEY,dlg.getDefDir());
 
-		QString t_folder = qApp->applicationDirPath()+"/templates/";
-
-		if (!(QFile::copy(t_folder+EASY_DB, d_gamepath.absolutePath() + "/" + EASY_DB) &&
-			QFile::copy(t_folder+EASY_MT, d_gamepath.absolutePath() + "/" + EASY_MT) &&
-			QFile::copy(t_folder+"Map0001.emu", d_gamepath.absolutePath() + "/Map0001.emu"))) {
-			QMessageBox::critical(this,
-				tr("Creating new project failed"),
-				tr("Copying of template failed"));
+		const QString error = Project::create(d_gamepath, dlg.getGameTitle(), static_cast<Project::Format>(dlg.getFormat()));
+		if (!error.isEmpty()) {
+			QMessageBox::critical(this, tr("Creating new project failed"), error);
 			return;
 		}
-
-		// Player not error checked because is not bundled
-		QFile::copy(t_folder+PLAYER, d_gamepath.absolutePath() + "/" + PLAYER);
-
-		auto prj = Project::load(d_gamepath);
-		prj->loadDatabaseAndMapTree();
-		core().project() = prj;
-
-		core().project()->setGameTitle(dlg.getGameTitle());
-		setWindowTitle(tr("EasyRPG Editor") + " - " +  core().project()->gameTitle());
-		m_settings.setValue(CURRENT_PROJECT_KEY, core().project()->gameTitle());
-		m_settings.setValue(CURRENT_PROJECT_KEY, core().project()->projectDir().absolutePath());
-
-		/* Map tree */
-		core().project()->treeMap().maps[0].name = ToDBString(core().project()->gameTitle());
-		core().project()->saveTreeMap();
-
-		/*m_projSett = new QSettings(core().project()->findFile(ROOT, EASY_CFG),
-								   QSettings::IniFormat,
-								   this);*/
-		QList<QVariant> mapList;
-		mapList.append(1);
-		QList<QVariant> scaleList;
-		scaleList.append(1.0);
-		/*m_projSett->setValue(GAMETITLE, core().project()->gameTitle());
-		m_projSett->setValue(LAYER, core().layer());
-		m_projSett->setValue(MAPS, mapList);
-		m_projSett->setValue(SCALES, scaleList);
-		m_projSett->setValue(TILESIZE, 16);*/
-		QTreeWidgetItem *root = new QTreeWidgetItem();
-		root->setData(1, Qt::DisplayRole, 0);
-		root->setData(0,Qt::DisplayRole,  core().project()->gameTitle());
-		root->setIcon(0,QIcon(":/icons/share/old_folder.png"));
-		lcf::rpg::TreeMap maps = core().project()->treeMap();
-		ui->treeMap->addTopLevelItem(root);
-		m_treeItems.clear();
-		m_treeItems[0] = root;
-		//Add Items
-		for (unsigned int i = 1; i < maps.maps.size(); i++)
-		{
-			QTreeWidgetItem *item = new QTreeWidgetItem();
-			item->setData(1,Qt::DisplayRole,maps.maps[i].ID);
-			item->setData(0,Qt::DisplayRole,ToQString(maps.maps[i].name));
-			item->setIcon(0, QIcon(":/icons/share/old_map.png"));
-			m_treeItems[maps.maps[i].ID] = item;
-		}
-		//Parent Items
-		for (unsigned int i = 0; i < maps.maps.size(); i++)
-		{
-			int id = maps.tree_order[i];
-			lcf::rpg::MapInfo info;
-			for (unsigned int j = 1; j < maps.maps.size(); j++)
-				if (id == maps.maps[j].ID)
-				{
-					info = maps.maps[j];
-					break;
-				}
-			m_treeItems[info.parent_map]->addChild(m_treeItems[info.ID]);
-			if (info.ID == maps.active_node)
-			{
-				ui->treeMap->setCurrentItem(m_treeItems[info.ID]);
-			}
-		}
-		//Expand Items
-		for (unsigned int i = 0; i < maps.maps.size(); i++)
-		{
-			m_treeItems[maps.maps[i].ID]->setExpanded(maps.maps[i].expanded_node);
-		}
-		QGraphicsView *view = getView(1);
-		MapScene *scene = getScene(1);
-		scene->setScale(0 < scaleList.size() ? scaleList[0].toFloat() : 1.0);
-		ui->tabMap->setCurrentWidget(view);
-		update_actions();
-
+		LoadProject(d_gamepath.absolutePath());
 	}
 }
 
@@ -785,7 +747,9 @@ MapScene *MainWindow::currentScene()
 
 void MainWindow::removeView(int id)
 {
-	QGraphicsView* view = m_views[id];
+	QGraphicsView* view = m_views.value(id);
+	if (!view)
+		return;
 	MapScene* scene = static_cast<MapScene*>(view->scene());
 	m_views.remove(id);
 	delete scene;
@@ -805,6 +769,7 @@ void MainWindow::updateToolActions()
 	ui->actionDrawPen->setChecked(core().tool() == Core::PENCIL);
 	ui->actionDrawRectangle->setChecked(core().tool() == Core::RECTANGLE);
 	ui->actionDrawCircle->setChecked(core().tool() == Core::CIRCLE);
+	ui->actionDrawSelect->setChecked(core().tool() == Core::SELECT);
 	ui->actionDrawFill->setChecked(core().tool() == Core::FILL);
 }
 
@@ -815,13 +780,14 @@ void MainWindow::on_actionProjectClose_triggered()
 
 	if (result == true) {
 		ui->treeMap->clear();
+		m_treeItems.clear();
 		while (ui->tabMap->currentIndex() != -1)
 			removeView(currentScene()->id());
 
 		core().project().reset();
 		updateWatcher();
 
-		m_copiedMap.clear();
+		m_copiedMap.reset();
 
 		update_actions();
 		setWindowTitle(tr("EasyRPG Editor"));
@@ -863,27 +829,55 @@ void MainWindow::on_actionLayerEvents_triggered()
 
 void MainWindow::on_actionZoomIn_triggered()
 {
-	if (static_cast<double>(currentScene()->scale()) < 8.0)
-		currentScene()->setScale(currentScene()->scale()*2);
+	MapScene* scene = currentScene();
+	if (scene && static_cast<double>(scene->scale()) < 8.0)
+		scene->setScale(scene->scale()*2);
 }
 
 void MainWindow::on_actionZoomOut_triggered()
 {
-	if (static_cast<double>(currentScene()->scale()) > 0.125)
-		currentScene()->setScale(currentScene()->scale()/2);
+	MapScene* scene = currentScene();
+	if (scene && static_cast<double>(scene->scale()) > 0.125)
+		scene->setScale(scene->scale()/2);
 }
 
 void MainWindow::on_actionZoom100_triggered()
 {
-	currentScene()->setScale(1.0);
+	if (currentScene())
+		currentScene()->setScale(1.0);
 }
 
 void MainWindow::on_treeMap_itemDoubleClicked(QTreeWidgetItem *item, int column)
 {
-	Q_UNUSED(column)
-	if (item->data(1,Qt::DisplayRole).toInt() == 0)
+	if (!item)
 		return;
-	QGraphicsView *view = getView(item->data(1,Qt::DisplayRole).toInt());
+	const int id = item->data(1,Qt::DisplayRole).toInt();
+	if (id == 0)
+		return;
+	if (mapType(id) == lcf::rpg::TreeMap::MapType_area)
+	{
+		// an area has no map file: it is shown on its map
+		QTreeWidgetItem* parent = item->parent();
+		if (parent && parent->data(1, Qt::DisplayRole).toInt() != 0)
+		{
+			const int parent_id = parent->data(1, Qt::DisplayRole).toInt();
+			on_treeMap_itemDoubleClicked(parent, column);
+			ui->treeMap->setCurrentItem(item);
+			const auto* info = mapInfo(id);
+			if (MapScene* scene = m_views.value(parent_id) ? getScene(parent_id) : nullptr; scene && info) {
+				const auto& r = info->area_rect;
+				scene->showArea(QRect(r.l, r.t, r.r - r.l, r.b - r.t));
+			}
+		}
+		return;
+	}
+	if (!m_views.value(id) && !core().project()->loadMap(id))
+	{
+		QMessageBox::warning(this, tr("Open Map"),
+			tr("The file of the map %1 (%2) is missing or cannot be read.").arg(item->text(0), mapFileName(id)));
+		return;
+	}
+	QGraphicsView *view = getView(id);
 	ui->tabMap->setCurrentWidget(view);
 	if (ui->tabMap->count() == 1)
 		m_paletteScene->onChipsetChange();
@@ -921,16 +915,18 @@ void MainWindow::on_tabMap_currentChanged(int index)
 	{
 		for (int i = 0; i < m_paletteScene->items().size(); i++)
 			m_paletteScene->items()[i]->setVisible(false);
+		update_actions();
 		return;
 	}
 	if (currentScene())
 	{
 		core().LoadChipset(currentScene()->chipsetId());
 		core().setCurrentMapEvents(currentScene()->mapEvents());
-		ui->actionUndo->setEnabled(currentScene()->isModified());
-		ui->actionMapSave->setEnabled(currentScene()->isModified());
-		ui->actionMapRevert->setEnabled(currentScene()->isModified());
+		// the tree shows the map of the tab, Map Properties edits it
+		if (QTreeWidgetItem* item = m_treeItems.value(currentScene()->id()))
+			ui->treeMap->setCurrentItem(item);
 	}
+	update_actions();
 }
 
 void MainWindow::on_actionProjectImport_triggered()
@@ -991,6 +987,11 @@ void MainWindow::on_actionDrawCircle_triggered()
 	core().setTool(Core::CIRCLE);
 }
 
+void MainWindow::on_actionDrawSelect_triggered()
+{
+	core().setTool(Core::SELECT);
+}
+
 void MainWindow::on_actionDrawFill_triggered()
 {
 	core().setTool(Core::FILL);
@@ -998,28 +999,90 @@ void MainWindow::on_actionDrawFill_triggered()
 
 void MainWindow::on_actionPlayTest_triggered()
 {
-	core().runGame();
+	RunGameDialog::launch(this, {});
+}
+
+void MainWindow::on_actionPlayTestOptions_triggered()
+{
+	RunGameDialog dlg(core().project()->projectData(), this);
+	dlg.exec();
+}
+
+void MainWindow::on_actionPlayerLocation_triggered()
+{
+	RunGameDialog::choosePlayer(this);
+}
+
+void MainWindow::on_actionFullScreenToggle_toggled(bool checked)
+{
+	m_settings.setValue(TESTPLAY_FULLSCREEN_KEY, checked);
+}
+
+void MainWindow::on_actionTitleBackgroundToggle_toggled(bool checked)
+{
+	m_settings.setValue(TESTPLAY_SHOW_TITLE_KEY, checked);
+}
+
+bool MainWindow::saveBeforeTestPlay()
+{
+	bool modified = false;
+	for (int i = 0; i < ui->tabMap->count(); i++)
+		modified = modified || getTabScene(i)->isModified();
+	if (!modified)
+		return true;
+	// The Player reads the files: what is not saved is not tested
+	int result = QMessageBox::question(this, tr("Test Play"),
+		tr("Some maps have unsaved changes.\nSave them before the test play?"),
+		QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+	if (result == QMessageBox::Cancel)
+		return false;
+	if (result == QMessageBox::Yes)
+		for (int i = 0; i < ui->tabMap->count(); i++)
+			getTabScene(i)->Save();
+	return true;
+}
+
+MapScene* MainWindow::senderScene()
+{
+	return qobject_cast<MapScene*>(sender());
+}
+
+void MainWindow::setTabText(MapScene* scene)
+{
+	// the scene that changed, which is not always the current tab
+	int index = ui->tabMap->indexOf(m_views.value(scene->id()));
+	if (index >= 0)
+		ui->tabMap->setTabText(index, scene->mapName() + (scene->isModified() ? " *" : ""));
 }
 
 void MainWindow::on_mapChanged()
 {
-	ui->actionMapRevert->setEnabled(true);
-	ui->actionMapSave->setEnabled(true);
-	ui->actionUndo->setEnabled(true);
-	ui->tabMap->setTabText(ui->tabMap->currentIndex(), currentScene()->mapName()+" *");
+	update_actions();
+	if (MapScene* scene = senderScene())
+		setTabText(scene);
 }
 
 void MainWindow::on_mapUnchanged()
 {
-	ui->actionMapRevert->setEnabled(false);
-	ui->actionMapSave->setEnabled(false);
-	ui->actionUndo->setEnabled(false);
-	ui->tabMap->setTabText(ui->tabMap->currentIndex(), currentScene()->mapName());
+	update_actions();
+	if (MapScene* scene = senderScene())
+		setTabText(scene);
+	// A saved map writes its copy of its tree entry: keep the tree's
+	// parents and order, which can have changed since it was opened
+	if (core().project() && syncTreeOrder())
+		core().project()->saveTreeMap();
 }
 
 void MainWindow::on_actionUndo_triggered()
 {
-	currentScene()->undo();
+	if (currentScene())
+		currentScene()->undo();
+}
+
+void MainWindow::on_actionRedo_triggered()
+{
+	if (currentScene())
+		currentScene()->redo();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -1072,64 +1135,235 @@ void MainWindow::on_actionMapSave_triggered()
 
 void MainWindow::on_actionMapRevert_triggered()
 {
-	if (currentScene())
-		currentScene()->Load(true);
+	if (!currentScene())
+		return;
+	if (QMessageBox::question(this, tr("Revert Map"),
+			tr("Map data will revert to the last time it was saved. Proceed?")) != QMessageBox::Yes)
+		return;
+	currentScene()->Load(true);
 }
 
 
 void MainWindow::on_treeMap_currentItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous)
 {
+	Q_UNUSED(current)
 	Q_UNUSED(previous)
+	// what can be done depends on the node: project, map or area
+	update_actions();
+}
 
-	if (!current)
+int MainWindow::currentMapId() const
+{
+	QTreeWidgetItem* item = ui->treeMap->currentItem();
+	return item ? item->data(1, Qt::DisplayRole).toInt() : -1;
+}
+
+int MainWindow::mapType(int id) const
+{
+	if (!core().project() || id < 0)
+		return -1;
+	if (id == 0)
+		return lcf::rpg::TreeMap::MapType_root;
+	for (const auto& info : core().project()->treeMap().maps)
+		if (info.ID == id)
+			return info.type;
+	return -1;
+}
+
+lcf::rpg::MapInfo* MainWindow::mapInfo(int id)
+{
+	if (!core().project())
+		return nullptr;
+	for (auto& info : core().project()->treeMap().maps)
+		if (info.ID == id)
+			return &info;
+	return nullptr;
+}
+
+int MainWindow::freeMapId() const
+{
+	// RPG Maker takes the first free id, maps and areas share them
+	std::set<int> used;
+	for (const auto& info : core().project()->treeMap().maps)
+		used.insert(info.ID);
+	int id = 1;
+	while (used.count(id))
+		id++;
+	return id;
+}
+
+QTreeWidgetItem* MainWindow::addTreeItem(const lcf::rpg::MapInfo& info)
+{
+	QTreeWidgetItem *item = new QTreeWidgetItem();
+	item->setData(1, Qt::DisplayRole, info.ID);
+	item->setData(0, Qt::DisplayRole, ToQString(info.name));
+	if (info.type == lcf::rpg::TreeMap::MapType_area)
 	{
-		ui->actionMapCopy->setEnabled(false);
-		ui->actionMapDelete->setEnabled(false);
-		return;
+		item->setIcon(0, themeIcon(this, "select"));
+		// an area belongs to its map: it is not moved and holds nothing
+		item->setFlags(item->flags() & ~(Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
 	}
+	else
+		item->setIcon(0, QIcon(":/icons/share/old_map.png"));
+	m_treeItems[info.ID] = item;
+	return item;
+}
+
+QTreeWidgetItem* MainWindow::insertMapInfo(const lcf::rpg::MapInfo& info)
+{
+	// sorted by id: the Player looks the maps up by id
+	auto& maps = core().project()->treeMap().maps;
+	auto pos = std::lower_bound(maps.begin(), maps.end(), info.ID,
+		[](const lcf::rpg::MapInfo& other, int id) { return other.ID < id; });
+	maps.insert(pos, info);
+
+	QTreeWidgetItem* parent = m_treeItems.value(info.parent_map, m_treeItems.value(0));
+	QTreeWidgetItem* item = addTreeItem(info);
+	parent->addChild(item);
+	parent->setExpanded(true);
+	syncTreeOrder();
+	core().project()->saveTreeMap();
+	ui->treeMap->setCurrentItem(item);
+	return item;
+}
+
+bool MainWindow::syncTreeOrder()
+{
+	auto& tree = core().project()->treeMap();
+	const auto old_maps = tree.maps;
+	const auto old_order = tree.tree_order;
+
+	// tree_order lists the nodes depth first, parents before children
+	std::vector<int32_t> order;
+	for (QTreeWidgetItemIterator it(ui->treeMap); *it; ++it)
+	{
+		const int id = (*it)->data(1, Qt::DisplayRole).toInt();
+		order.push_back(id);
+		lcf::rpg::MapInfo* info = mapInfo(id);
+		if (!info)
+			continue;
+		info->expanded_node = (*it)->isExpanded();
+		if (id == 0)
+			continue;
+		QTreeWidgetItem* parent = (*it)->parent();
+		info->parent_map = parent ? parent->data(1, Qt::DisplayRole).toInt() : 0;
+		int depth = 0;
+		for (; parent; parent = parent->parent())
+			depth++;
+		info->indentation = depth;
+	}
+	tree.tree_order = order;
+	return tree.tree_order != old_order || tree.maps != old_maps;
+}
+
+QSize MainWindow::mapSize(int id)
+{
+	auto map = core().project()->loadMap(id);
+	return map ? QSize(map->width, map->height) : QSize();
+}
+
+void MainWindow::onMapTreeContextMenu(const QPoint& pos)
+{
+	if (!core().project())
+		return;
+	// a click beside the maps is a click on the project
+	QTreeWidgetItem* item = ui->treeMap->itemAt(pos);
+	ui->treeMap->setCurrentItem(item ? item : m_treeItems.value(0));
+	update_actions();
+
+	QMenu menu(this);
+	switch (mapType(currentMapId()))
+	{
+	case lcf::rpg::TreeMap::MapType_map:
+		menu.addAction(ui->actionMapProperties);
+		menu.addSeparator();
+		menu.addAction(ui->actionMapNew);
+		menu.addAction(ui->actionAreaNew);
+		menu.addSeparator();
+		menu.addAction(ui->actionMapCopy);
+		menu.addAction(ui->actionMapPaste);
+		menu.addAction(ui->actionMapDelete);
+		menu.addSeparator();
+		menu.addAction(ui->actionMapShift);
+		break;
+	case lcf::rpg::TreeMap::MapType_area:
+		menu.addAction(ui->actionAreaProperties);
+		menu.addSeparator();
+		menu.addAction(ui->actionAreaDelete);
+		break;
+	default:
+		menu.addAction(ui->actionMapNew);
+		menu.addSeparator();
+		menu.addAction(ui->actionMapPaste);
+		break;
+	}
+	menu.exec(ui->treeMap->viewport()->mapToGlobal(pos));
+}
+
+bool MainWindow::eventFilter(QObject* watched, QEvent* event)
+{
+	// the type first: the tree can be gone while the window is destroyed
+	if (event->type() == QEvent::Drop && watched == ui->treeMap->viewport())
+	{
+		// the tree moves the item itself, the map tree data follows after
+		QTimer::singleShot(0, this, &MainWindow::onMapTreeDropped);
+	}
+	return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::onMapTreeDropped()
+{
+	if (!core().project())
+		return;
+	if (syncTreeOrder())
+	{
+		core().project()->saveTreeMap();
+		// the open maps keep a copy of their tree entry
+		for (int i = 0; i < ui->tabMap->count(); i++)
+			getTabScene(i)->refreshMapInfo();
+	}
+	update_actions();
 }
 
 void MainWindow::on_actionMapCopy_triggered()
 {
-	copiedMapId = ui->treeMap->currentItem()->data(1, Qt::DisplayRole).toInt();
-	m_copiedMap = core().project()->projectDir().path() + (core().project()->projectType() == FileFinder::ProjectType::EasyRpg ? "/Map%1.emu" : "/Map%1.lmu");
-	m_copiedMap = m_copiedMap.arg(QString::number(copiedMapId),
-								  4, QLatin1Char('0'));
-	ui->actionMapPaste->setEnabled(true);
+	const int id = currentMapId();
+	if (mapType(id) != lcf::rpg::TreeMap::MapType_map)
+		return;
+	MapScene* scene = getScene(id);
+	if (scene && scene->isModified())
+	{
+		int result = QMessageBox::question(this, tr("Copy Map"),
+			tr("%1 has unsaved changes.\nSave them, to copy them too?").arg(scene->mapName()),
+			QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+		if (result == QMessageBox::Cancel)
+			return;
+		if (result == QMessageBox::Yes)
+			scene->Save();
+	}
+	auto map = core().project()->loadMap(id);
+	const lcf::rpg::MapInfo* info = mapInfo(id);
+	if (!map || !info)
+	{
+		QMessageBox::critical(this, tr("Copy Map"), tr("The file %1 cannot be read.").arg(mapFileName(id)));
+		return;
+	}
+	m_copiedMap = std::move(map);
+	m_copiedMapInfo = *info;
+	update_actions();
 }
-
 
 void MainWindow::on_actionMapNew_triggered()
 {
-	QString template_file = qApp->applicationDirPath()+"/templates/Map0001.emu";
-	QFileInfo f(template_file);
-
-	if (!f.exists())
-	{
-		QMessageBox::critical(this,
-							  tr("File not found"),
-							  QString(tr("The file %1 can't be found. Please check if the templates directory is in the same directory as the editor executable.")).arg(template_file));
-		return;
-	}
-
-	std::unique_ptr<lcf::rpg::Map> map = lcf::LMU_Reader::LoadXml(template_file.toStdString());
+	const int current = currentMapId();
 	lcf::rpg::MapInfo info;
-
-	// Find first free map id
-	for (int i = 1;;++i)
-	{
-		if (!m_treeItems.contains(i))
-		{
-			info.ID = i;
-			info.name = ToDBString(tr("MAP%1").arg(QString::number(i),4, QLatin1Char('0')));
-			break;
-		}
-	}
-
+	info.ID = freeMapId();
+	info.name = ToDBString(tr("MAP%1").arg(info.ID, 4, 10, QChar('0')));
 	info.type = lcf::rpg::TreeMap::MapType_map;
-	info.parent_map = ui->treeMap->currentItem()->data(1, Qt::DisplayRole).toInt();
+	info.parent_map = mapType(current) == lcf::rpg::TreeMap::MapType_map ? current : 0;
 	if (info.parent_map == 0)
 	{
+		// nothing to inherit from
 		info.music_type = lcf::rpg::MapInfo::MusicType_event;
 		info.background_type = lcf::rpg::MapInfo::BGMType_terrain;
 		info.teleport = lcf::rpg::MapInfo::TriState_allow;
@@ -1137,86 +1371,36 @@ void MainWindow::on_actionMapNew_triggered()
 		info.save = lcf::rpg::MapInfo::TriState_allow;
 	}
 
-	int depth = 1;
-	QTreeWidgetItem *curItem = ui->treeMap->currentItem();
-	while (curItem->parent() != nullptr) {
-		depth++;
-		curItem = curItem->parent();
-	}
-	info.indentation = depth;
+	// RPG Maker asks for the properties first: Cancel creates nothing
+	lcf::rpg::Map map = MapTools::newMap();
+	MapPropertiesDialog dlg(core().project()->projectData(), info, map, this);
+	if (dlg.exec() != QDialog::Accepted)
+		return;
 
-	core().project()->treeMap().maps.insert(core().project()->treeMap().maps.begin() + info.ID, info);
-	QTreeWidgetItem *item = new QTreeWidgetItem();
-	item->setData(1,Qt::DisplayRole,info.ID);
-	item->setData(0,Qt::DisplayRole,ToQString(info.name));
-	item->setIcon(0, QIcon(":/icons/share/old_map.png"));
-	m_treeItems[info.ID] = item;
-	m_treeItems[info.parent_map]->addChild(item);
-	QTreeWidgetItem *root = m_treeItems[0];
-	QTreeWidgetItemIterator it(root);
-	std::vector<int> tree_order;
-	while (*it)
+	if (!core().project()->saveMap(map, info.ID))
 	{
-		tree_order.push_back((*it)->data(1, Qt::DisplayRole).toInt());
-		it++;
+		QMessageBox::critical(this, tr("New Map"), tr("The file %1 cannot be written.").arg(mapFileName(info.ID)));
+		return;
 	}
-	core().project()->treeMap().tree_order = tree_order;
-	ui->treeMap->currentItem()->setExpanded(true);
-	ui->treeMap->currentItem()->setSelected(false);
-	item->setSelected(true);
-	core().project()->saveTreeMap();
-	QString path = core().project()->projectDir().path() + (core().project()->projectType() == FileFinder::ProjectType::EasyRpg ? "/Map%1.emu" : "/Map%1.lmu");
-	path = path.arg(QString::number(info.ID), 4, QLatin1Char('0'));
-	auto lcf_engine = lcf::GetEngineVersion(core().project()->database());
-	if (core().project()->projectType() == FileFinder::ProjectType::EasyRpg) {
-		lcf::LMU_Reader::SaveXml(path.toStdString(), *map, lcf_engine);
-	} else {
-		lcf::LMU_Reader::Save(path.toStdString(), *map, lcf_engine, core().project()->encoding().toStdString());
-	}
+	QTreeWidgetItem* item = insertMapInfo(info);
 	on_treeMap_itemDoubleClicked(item, 0);
 }
 
 void MainWindow::on_actionMapPaste_triggered()
 {
-	QFileInfo f(m_copiedMap);
-
-	if (!f.exists())
-	{
-		QMessageBox::critical(this,
-							  tr("File not found"),
-							  QString(tr("The file %1 can't be found.")).arg(m_copiedMap));
+	const int current = currentMapId();
+	const int type = mapType(current);
+	if (!m_copiedMap || type == lcf::rpg::TreeMap::MapType_area)
 		return;
-	}
 
-	std::unique_ptr<lcf::rpg::Map> map;
-	if (core().project()->projectType() == FileFinder::ProjectType::EasyRpg) {
-		map = lcf::LMU_Reader::LoadXml(m_copiedMap.toStdString());
-	} else {
-		map = lcf::LMU_Reader::Load(m_copiedMap.toStdString(), core().project()->encoding().toStdString());
-	}
-	lcf::rpg::MapInfo info;
-	for (size_t i = 0; i < core().project()->treeMap().maps.size(); i++)
-	{
-		if (core().project()->treeMap().maps[i].ID == copiedMapId)
-		{
-			info = core().project()->treeMap().maps[i];
-			break;
-		}
-	}
-
-	// Find first free map id
-	for (int i = 1;;++i)
-	{
-		if (!m_treeItems.contains(i))
-		{
-			info.ID = i;
-			info.name = ToDBString(tr("MAP%1").arg(QString::number(i),4, QLatin1Char('0')));
-			break;
-		}
-	}
-
+	// The copy becomes a child of the selected map
+	lcf::rpg::MapInfo info = m_copiedMapInfo;
+	info.ID = freeMapId();
 	info.type = lcf::rpg::TreeMap::MapType_map;
-	info.parent_map = ui->treeMap->currentItem()->data(1, Qt::DisplayRole).toInt();
+	info.parent_map = type == lcf::rpg::TreeMap::MapType_map ? current : 0;
+	info.scrollbar_x = 0;
+	info.scrollbar_y = 0;
+	info.expanded_node = false;
 	if (info.parent_map == 0)
 	{
 		if (info.music_type == lcf::rpg::MapInfo::MusicType_parent)
@@ -1231,109 +1415,230 @@ void MainWindow::on_actionMapPaste_triggered()
 			info.save = lcf::rpg::MapInfo::TriState_allow;
 	}
 
-	int depth = 1;
-	QTreeWidgetItem *curItem = ui->treeMap->currentItem();
-	while (curItem->parent() != nullptr) {
-		depth++;
-		curItem = curItem->parent();
-	}
-	info.indentation = depth;
-
-	core().project()->treeMap().maps.insert(core().project()->treeMap().maps.begin() + info.ID, info);
-	QTreeWidgetItem *item = new QTreeWidgetItem();
-	item->setData(1,Qt::DisplayRole,info.ID);
-	item->setData(0,Qt::DisplayRole,ToQString(info.name));
-	item->setIcon(0, QIcon(":/icons/share/old_map.png"));
-	m_treeItems[info.ID] = item;
-	m_treeItems[info.parent_map]->addChild(item);
-	QTreeWidgetItem *root = m_treeItems[0];
-	QTreeWidgetItemIterator it(root);
-	std::vector<int> tree_order;
-	while (*it)
+	// saving counts the saves: the clipboard keeps its own copy
+	lcf::rpg::Map map = *m_copiedMap;
+	if (!core().project()->saveMap(map, info.ID))
 	{
-		tree_order.push_back((*it)->data(1, Qt::DisplayRole).toInt());
-		it++;
+		QMessageBox::critical(this, tr("Paste Map"), tr("The file %1 cannot be written.").arg(mapFileName(info.ID)));
+		return;
 	}
-	core().project()->treeMap().tree_order = tree_order;
-	ui->treeMap->currentItem()->setExpanded(true);
-	ui->treeMap->currentItem()->setSelected(false);
-	item->setSelected(true);
-	core().project()->saveTreeMap();
-	QString path = core().project()->projectDir().path() + (core().project()->projectType() == FileFinder::ProjectType::EasyRpg ? "/Map%1.emu" : "/Map%1.lmu");
-	path = path.arg(QString::number(info.ID), 4, QLatin1Char('0'));
-	auto lcf_engine = lcf::GetEngineVersion(core().project()->database());
-	if (core().project()->projectType() == FileFinder::ProjectType::EasyRpg) {
-		lcf::LMU_Reader::SaveXml(path.toStdString(), *map, lcf_engine);
-	} else {
-		lcf::LMU_Reader::Save(path.toStdString(), *map, lcf_engine, core().project()->encoding().toStdString());
-	}
+	QTreeWidgetItem* item = insertMapInfo(info);
 	on_treeMap_itemDoubleClicked(item, 0);
 }
 
 void MainWindow::on_actionMapDelete_triggered()
 {
+	const int id = currentMapId();
+	if (mapType(id) != lcf::rpg::TreeMap::MapType_map)
+		return;
 	int result = QMessageBox::question(this,
-		tr("Delete map"),
-		QString(tr("You are about to delete the selected map and its children.\nThis cannot be undone. Do you want to continue?")),
+		tr("Delete Map"),
+		tr("%1 will be deleted, with its child maps and areas.\nThis cannot be undone. Proceed?")
+			.arg(m_treeItems.value(id)->text(0)),
 		QMessageBox::Yes | QMessageBox::No);
+	if (result != QMessageBox::Yes)
+		return;
 
-	if (result == QMessageBox::Yes) {
-		removeMap(ui->treeMap->currentItem()->data(1, Qt::DisplayRole).toInt());
-
-		core().project()->saveTreeMap();
-	}
+	removeMap(id);
+	syncTreeOrder();
+	core().project()->saveTreeMap();
+	update_actions();
 }
 
 void MainWindow::removeMap(const int id)
 {
-	// First remove children maps
-	for (int i = 0; i < m_treeItems[id]->childCount(); i++)
-		removeMap(m_treeItems[id]->child(i)->data(1, Qt::DisplayRole).toInt());
+	QTreeWidgetItem* item = m_treeItems.value(id);
+	if (!item || id == 0)
+		return;
 
-	QString mapPath = core().project()->projectDir().path() + (core().project()->projectType() == FileFinder::ProjectType::EasyRpg ? "/Map%1.emu" : "/Map%1.lmu");
-
-	mapPath = mapPath.arg(QString::number(id), 4, QLatin1Char('0'));
-
-	if (QFileInfo(mapPath).exists())
-		QFile::remove(mapPath);
-	else
-		qWarning() << QString(tr("file not found: %1")).arg(mapPath);
-
-	for (unsigned int i = 0; i < core().project()->treeMap().maps.size(); i++)
+	// Children first: each call takes its child out of the item
+	while (item->childCount() > 0)
 	{
-		if (core().project()->treeMap().maps[i].ID == id)
-		{
-			core().project()->treeMap().maps.erase(core().project()->treeMap().maps.begin()+i);
-			break;
-		}
+		QTreeWidgetItem* child = item->child(0);
+		const int child_id = child->data(1, Qt::DisplayRole).toInt();
+		if (m_treeItems.value(child_id) == child)
+			removeMap(child_id);
+		else
+			delete item->takeChild(0);
 	}
 
-	for (unsigned int i = 0; i < core().project()->treeMap().tree_order.size(); i++)
+	// areas have no file
+	if (mapType(id) == lcf::rpg::TreeMap::MapType_map)
 	{
-		if (core().project()->treeMap().tree_order[i] == id)
-		{
-			core().project()->treeMap().tree_order.erase(core().project()->treeMap().tree_order.begin()+i);
-			break;
-		}
+		removeView(id);
+		const QString path = core().project()->findFile(mapFileName(id));
+		if (!path.isEmpty())
+			QFile::remove(path);
+		else
+			qWarning() << QString("file not found: %1").arg(mapFileName(id));
 	}
 
-	QGraphicsView* view = m_views[id];
-	if (view)
-	{
-		ui->tabMap->removeTab(ui->tabMap->indexOf(view));
-		m_views.remove(id);
-	}
+	auto& tree = core().project()->treeMap();
+	tree.maps.erase(std::remove_if(tree.maps.begin(), tree.maps.end(),
+		[id](const lcf::rpg::MapInfo& info) { return info.ID == id; }), tree.maps.end());
+	tree.tree_order.erase(std::remove(tree.tree_order.begin(), tree.tree_order.end(), id), tree.tree_order.end());
 
-	m_treeItems[id]->parent()->removeChild(m_treeItems[id]);
 	m_treeItems.remove(id);
+	delete item;
 }
 
 void MainWindow::on_actionMapProperties_triggered()
 {
-	if (!currentScene())
+	// the map selected in the tree, else the map shown
+	int id = currentMapId();
+	const int type = mapType(id);
+	if (type == lcf::rpg::TreeMap::MapType_area)
+	{
+		on_actionAreaProperties_triggered();
+		return;
+	}
+	if (type != lcf::rpg::TreeMap::MapType_map)
+	{
+		if (!currentScene())
+			return;
+		id = currentScene()->id();
+	}
+
+	if (MapScene* scene = getScene(id))
+	{
+		scene->editMapProperties(m_treeItems.value(id));
+		return;
+	}
+
+	// a map that is not open is edited on disk
+	auto map = core().project()->loadMap(id);
+	if (!map || !mapInfo(id))
+	{
+		QMessageBox::critical(this, tr("Map Properties"), tr("The file %1 cannot be read.").arg(mapFileName(id)));
+		return;
+	}
+	lcf::rpg::MapInfo info = *mapInfo(id);
+	MapPropertiesDialog dlg(core().project()->projectData(), info, *map, this);
+	if (dlg.exec() != QDialog::Accepted)
+		return;
+	*mapInfo(id) = info;
+	if (!core().project()->saveMap(*map, id))
+		QMessageBox::critical(this, tr("Map Properties"), tr("The file %1 cannot be written.").arg(mapFileName(id)));
+	core().project()->saveTreeMap();
+	if (QTreeWidgetItem* item = m_treeItems.value(id))
+		item->setText(0, ToQString(info.name));
+}
+
+void MainWindow::on_actionMapShift_triggered()
+{
+	const int id = currentMapId();
+	if (mapType(id) != lcf::rpg::TreeMap::MapType_map)
+		return;
+	ShiftMapDialog dlg(this);
+	if (dlg.exec() != QDialog::Accepted)
 		return;
 
-	currentScene()->editMapProperties(ui->treeMap->currentItem());
+	// The map is shifted on disk, then the open tab reads it again
+	MapScene* scene = getScene(id);
+	if (scene && scene->isModified())
+	{
+		if (QMessageBox::question(this, tr("Shift Map"),
+				tr("%1 has unsaved changes. They are saved before the map is shifted. Proceed?").arg(scene->mapName()))
+				!= QMessageBox::Yes)
+			return;
+		scene->Save();
+	}
+	auto map = core().project()->loadMap(id);
+	if (!map)
+	{
+		QMessageBox::critical(this, tr("Shift Map"), tr("The file %1 cannot be read.").arg(mapFileName(id)));
+		return;
+	}
+	const int dx = dlg.dx();
+	const int dy = dlg.dy();
+	MapTools::shiftMap(*map, dx, dy);
+	if (!core().project()->saveMap(*map, id))
+	{
+		QMessageBox::critical(this, tr("Shift Map"), tr("The file %1 cannot be written.").arg(mapFileName(id)));
+		return;
+	}
+
+	// the start positions on this map move with it
+	auto& start = core().project()->treeMap().start;
+	bool start_moved = false;
+	auto shiftStart = [&](int map_id, int32_t& x, int32_t& y) {
+		if (map_id == id)
+		{
+			x = MapTools::wrap(x + dx, map->width);
+			y = MapTools::wrap(y + dy, map->height);
+			start_moved = true;
+		}
+	};
+	shiftStart(start.party_map_id, start.party_x, start.party_y);
+	shiftStart(start.boat_map_id, start.boat_x, start.boat_y);
+	shiftStart(start.ship_map_id, start.ship_x, start.ship_y);
+	shiftStart(start.airship_map_id, start.airship_x, start.airship_y);
+	if (start_moved)
+		core().project()->saveTreeMap();
+
+	if (scene)
+		scene->reloadFromDisk();
+}
+
+void MainWindow::on_actionAreaNew_triggered()
+{
+	const int parent_id = currentMapId();
+	if (mapType(parent_id) != lcf::rpg::TreeMap::MapType_map)
+		return;
+	const QSize size = mapSize(parent_id);
+	if (!size.isValid())
+	{
+		QMessageBox::critical(this, tr("Create Area"), tr("The file %1 cannot be read.").arg(mapFileName(parent_id)));
+		return;
+	}
+
+	lcf::rpg::MapInfo info;
+	info.ID = freeMapId();
+	info.name = ToDBString(tr("AREA%1").arg(info.ID, 4, 10, QChar('0')));
+	info.type = lcf::rpg::TreeMap::MapType_area;
+	info.parent_map = parent_id;
+	info.area_rect.r = static_cast<uint32_t>(std::min(5, size.width()));
+	info.area_rect.b = static_cast<uint32_t>(std::min(5, size.height()));
+	AreaPropertiesDialog dlg(core().project()->projectData(), info, size.width(), size.height(), this);
+	if (dlg.exec() != QDialog::Accepted)
+		return;
+	insertMapInfo(info);
+}
+
+void MainWindow::on_actionAreaProperties_triggered()
+{
+	const int id = currentMapId();
+	lcf::rpg::MapInfo* stored = mapInfo(id);
+	if (!stored || stored->type != lcf::rpg::TreeMap::MapType_area)
+		return;
+	const QSize size = mapSize(stored->parent_map);
+	if (!size.isValid())
+	{
+		QMessageBox::critical(this, tr("Area Properties"), tr("The file %1 cannot be read.").arg(mapFileName(stored->parent_map)));
+		return;
+	}
+	lcf::rpg::MapInfo info = *stored;
+	AreaPropertiesDialog dlg(core().project()->projectData(), info, size.width(), size.height(), this);
+	if (dlg.exec() != QDialog::Accepted)
+		return;
+	*mapInfo(id) = info;
+	core().project()->saveTreeMap();
+	if (QTreeWidgetItem* item = m_treeItems.value(id))
+		item->setText(0, ToQString(info.name));
+}
+
+void MainWindow::on_actionAreaDelete_triggered()
+{
+	const int id = currentMapId();
+	if (mapType(id) != lcf::rpg::TreeMap::MapType_area)
+		return;
+	if (QMessageBox::question(this, tr("Delete Area"),
+			tr("%1 will be deleted. Proceed?").arg(m_treeItems.value(id)->text(0))) != QMessageBox::Yes)
+		return;
+	removeMap(id);
+	syncTreeOrder();
+	core().project()->saveTreeMap();
+	update_actions();
 }
 
 void MainWindow::on_actionSearch_triggered()
@@ -1348,7 +1653,7 @@ void MainWindow::updateSearchUI()
 
 void MainWindow::openScene(int mapID)
 {
-	this->on_treeMap_itemDoubleClicked(m_treeItems[mapID], 0);
+	this->on_treeMap_itemDoubleClicked(m_treeItems.value(mapID), 0);
 }
 
 bool MainWindow::hasMap(int mapID) const
@@ -1400,9 +1705,11 @@ void MainWindow::refreshIcons() {
 	// Tilemap
 	set(ui->actionDrawPen, "draw-pen");
 	set(ui->actionDrawCircle, "draw-circle");
+	set(ui->actionDrawSelect, "select");
 	set(ui->actionDrawRectangle, "draw-rectangle");
 	set(ui->actionDrawFill, "draw-fill");
 	set(ui->actionUndo, "edit-undo");
+	set(ui->actionRedo, "edit-redo");
 	set(ui->actionZoom, "zoom");
 
 	// Map Tree
@@ -1535,8 +1842,12 @@ void MainWindow::onMapReloaded()
 	if (!scene) {
 		return;
 	}
+	// undoing Map Properties can rename the map
+	if (QTreeWidgetItem* item = m_treeItems.value(scene->id())) {
+		item->setText(0, scene->mapName());
+	}
 	int index = ui->tabMap->indexOf(m_views.value(scene->id()));
 	if (index >= 0) {
-		ui->tabMap->setTabText(index, scene->mapName());
+		ui->tabMap->setTabText(index, scene->mapName() + (scene->isModified() ? " *" : ""));
 	}
 }

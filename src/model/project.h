@@ -38,6 +38,15 @@ public:
 	static ProjectList enumerate(const QDir& path);
 
 	static std::shared_ptr<Project> load(const QString& path);
+
+	enum class Format { Rpg2003, Rpg2000, EasyRpg };
+	/**
+	 * Writes a new game in dir from the template bundled with the Editor
+	 * (database using the RTP, a first map). The RPG Maker formats can be
+	 * opened by RPG Maker 2000/2003 too. Returns an error message, or an
+	 * empty string.
+	 */
+	static QString create(const QDir& dir, const QString& title, Format format);
 	static std::shared_ptr<Project> load(const QDir& path);
 
 	bool loadDatabaseAndMapTree();

@@ -25,6 +25,7 @@
 #define PLAYER "easyrpg-player"
 #endif
 
+#include <QHash>
 #include <QPixmap>
 #include <QPainter>
 #include <QListWidget>
@@ -54,7 +55,17 @@ public:
 		PENCIL,
 		RECTANGLE,
 		CIRCLE,
-		FILL
+		FILL,
+		SELECT
+	};
+
+	/** A rectangle of map tiles (both layers) copied by the selection tool */
+	struct TileClipboard
+	{
+		int width = 0;
+		int height = 0;
+		std::vector<short> lower;
+		std::vector<short> upper;
 	};
 
 	Core();
@@ -63,6 +74,9 @@ public:
 
 	void LoadChipset(int n_chipsetid);
 	void LoadBackground(QString name);
+	/** The panorama drawn behind the lower tiles; each map keeps its own */
+	const QPixmap& background() const;
+	void setBackground(const QPixmap& background);
 
 	int tileSize();
 	void setTileSize(int tileSize);
@@ -81,6 +95,8 @@ public:
 	void beginPainting(QPixmap &dest);
 	void renderTile(const short &tile_id, const QRect &dest_rect);
 	void renderEvent(const lcf::rpg::Event& event, const QRect &dest_rect);
+	/** A start position: the charset (facing down) with its label, or the label alone */
+	void renderMarker(const QString& charset_name, int charset_index, const QString& label, const QRect &dest_rect);
 	void endPainting();
 
 	QColor keycolor();
@@ -88,7 +104,10 @@ public:
 	short translate(int terrain_id, int _code = 0, int _scode = 0);
 	int translate(short tile_id);
 
-	inline bool chipsetIsNull() {return m_tileCache[0].isNull();}
+	inline bool chipsetIsNull() {return m_tileCache.value(0).isNull();}
+	/** The tiles of a layer (LOWER or UPPER) of the chipset, 6 per row,
+	 *  size x size each, in the order of the palette */
+	QPixmap paletteTiles(Layer layer, int size = 32);
 	QPixmap createDummyPixmap(int width, int height);
 
 	bool isWater(int terrain_id);
@@ -108,6 +127,13 @@ public:
 	int selWidth();
 	int selHeight();
 	void setSelection(std::vector<short> n_sel, int n_w, int n_h);
+
+	/** The map region copied by the selection tool, shared by all maps */
+	const TileClipboard& tileClipboard() const;
+	void setTileClipboard(const TileClipboard& clipboard);
+	/** The event copied on a map, shared by all maps (nullptr when empty) */
+	const lcf::rpg::Event* eventClipboard() const;
+	void setEventClipboard(const lcf::rpg::Event& event);
 
 	lcf::rpg::Event *currentMapEvent(int eventID);
 	/** The events of the map being edited, by id (nullptr without a map) */
@@ -133,9 +159,13 @@ signals:
 
 	void chipsetChanged();
 
+	/** The tiles of the current layer were picked (palette or eyedropper) */
+	void selectionChanged();
+
 private:
 	lcf::rpg::Map *m_map;
 	lcf::rpg::Chipset m_chipset;
+	const Project* m_chipsetProject = nullptr;
 	int m_tileSize;
 	QPainter m_painter;
 	QString m_defDir;
@@ -146,6 +176,13 @@ private:
 	QPixmap m_background;
 	QMap<int, QPixmap> m_tileCache;
 	QMap<int, QPixmap> m_eventCache;
+	/** Charset images by name: events are redrawn on every scroll */
+	QHash<QString, QPixmap> m_charsetCache;
+	const Project* m_cacheProject = nullptr;
+	QPixmap charsetImage(const QString& name);
+	TileClipboard m_tileClipboard;
+	lcf::rpg::Event m_eventClipboard;
+	bool m_eventClipboardSet = false;
 	QMap<int, short> m_dictionary;
 	QMap<int, lcf::rpg::Map> m_maps;
 	QMap<int, QWidget*> m_mapTabs;

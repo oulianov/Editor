@@ -1,0 +1,30 @@
+# The event window: layout, inserting a command, undo and redo, Apply.
+# Run on TestGame-2003 (https://github.com/EasyRPG/TestGame); nothing is saved.
+open-event 1 1
+resize 1100 700
+check-layout
+resize 900 560
+check-layout
+
+focus commands
+key End
+key Space
+type Wait
+key Return
+click OK
+expect commands "Wait: 0.0s"
+key Ctrl+Z
+expect-not commands "Wait: 0.0s"
+key Ctrl+Shift+Z
+expect commands "Wait: 0.0s"
+
+# Apply puts the event on the map: a later Cancel keeps it
+focus lineName
+key Ctrl+A
+type Applied name
+click Apply
+close
+open-event 1 1
+expect lineName "Applied name"
+close
+quit

@@ -81,7 +81,10 @@ void NewProjectDialog::on_toolProjectPath_clicked()
 	m_defDir = ui->lineProjectPath->text();
 }
 
-//TODO: generate RTP template code.
+int NewProjectDialog::getFormat() const
+{
+	return ui->comboFormat->currentIndex();
+}
 
 void NewProjectDialog::on_lineGameFolder_textChanged(const QString &arg1)
 {

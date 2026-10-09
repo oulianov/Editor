@@ -1,6 +1,10 @@
 <RCC>
     <qresource prefix="/">
         <file>app/splash.png</file>
+        <file>help/en/index.html</file>
+        <file alias="templates/EASY_RT.edb">../bin/templates/EASY_RT.edb</file>
+        <file alias="templates/EASY_RT.emt">../bin/templates/EASY_RT.emt</file>
+        <file alias="templates/Map0001.emu">../bin/templates/Map0001.emu</file>
         <file>app/easyrpg.png</file>
         <file>app/editor.ico</file>
         <file>app/logo.svg</file>

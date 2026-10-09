@@ -32,7 +32,7 @@ namespace Stringizer {
 	// This is normally copied from qcoreapplication.h by the macro...
 	static inline QString tr(const char *sourceText, const char *disambiguation = nullptr, int n = -1)
 	{
-		return QCoreApplication::translate("stringizer", sourceText, disambiguation, n);
+		return QCoreApplication::translate("Stringizer", sourceText, disambiguation, n);
 	}
 #endif
 	QString stringize(const lcf::rpg::EventCommand& com);

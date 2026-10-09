@@ -1,0 +1,29 @@
+{
+ "about": "Mistakes of the French translation of RPG Maker 2003 by Rabbi-Bodom, fixed when it is used.",
+ "keys": {
+  "TFORMEDEVENT|FormEDEvent/Foundation/TabControl/GroupBoxE/CheckBoxE|Caption": "Interdire la superposition",
+  "TFORMEDJOB|FormEDJob/Panel1/GroupBox2/StaticText7|Caption": "Rang",
+  "TFORMEDMOVEROUTE|FormEDMoveRoute/TabControl1/GroupBox4/ButtonList1|Items.Strings[12]": "Accélérer le mouvement",
+  "TFORMEDSYSTEM|FormEDSystem/GroupBoxB/ButtonB|Caption": "Modifier",
+  "TFORMEVCMD11210|FormEvCmd11210/TabControl1/GroupBox1|Caption": "Animation de combat : ",
+  "TFORMEVCMDLIST2|FormEvCmdList2/TabControl1/ButtonList1|Items.Strings[30]": "Jouer un effet sonore...",
+  "TFORMEVCMDLIST|FormEvCmdList/PageControl1/TabSheet3/ButtonList3|Items.Strings[7]": "Modifier le chipset de la carte...",
+  "TFORMEVCMDLIST|FormEvCmdList/PageControl1/TabSheet3/ButtonList3|Items.Strings[8]": "Modifier l'arrière-plan...",
+  "TFORMEVCMDLIST|FormEvCmdList/PageControl1/TabSheet3/ButtonList3|Items.Strings[9]": "Modifier le taux de rencontres..."
+ },
+ "replace": {
+  "Evènement": "Évènement",
+  "Evenement": "Évènement",
+  "Editer": "Éditer",
+  "Ecran": "Écran",
+  "Etat": "État",
+  "Etiquette": "Étiquette",
+  "Equipe": "Équipe",
+  "Equipement": "Équipement",
+  "Equiper": "Équiper",
+  "Echec": "Échec",
+  "Elément": "Élément",
+  "Element": "Élément",
+  "Energie": "Énergie"
+ }
+}

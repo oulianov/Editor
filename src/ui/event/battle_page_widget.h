@@ -18,6 +18,7 @@
 #pragma once
 
 #include <QWidget>
+#include <lcf/rpg/troop.h>
 #include <lcf/rpg/trooppage.h>
 
 class ProjectData;
@@ -35,9 +36,16 @@ public:
 	~BattlePageWidget() override;
 
 	lcf::rpg::TroopPage* eventPage() const;
-	void setEventPage(ProjectData& project, lcf::rpg::TroopPage *eventPage);
+	/** The troop names the monsters of the conditions */
+	void setEventPage(ProjectData& project, const lcf::rpg::Troop& troop, lcf::rpg::TroopPage *eventPage);
+	/** Shows the conditions again, after the monsters of the group changed */
+	void updateTrigger();
 
 private:
+	void editTrigger();
+
 	Ui::BattlePageWidget* ui;
-	lcf::rpg::TroopPage*m_eventPage = nullptr;
+	ProjectData* m_project = nullptr;
+	const lcf::rpg::Troop* m_troop = nullptr;
+	lcf::rpg::TroopPage* m_eventPage = nullptr;
 };

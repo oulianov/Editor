@@ -17,12 +17,14 @@
 
 #include "battle_page_widget.h"
 #include "ui_battle_page_widget.h"
+#include "battle_page_condition_dialog.h"
 
 BattlePageWidget::BattlePageWidget(QWidget *parent) :
 	QWidget(parent),
 	ui(new Ui::BattlePageWidget)
 {
 	ui->setupUi(this);
+	connect(ui->pushTrigger, &QToolButton::clicked, this, &BattlePageWidget::editTrigger);
 }
 
 BattlePageWidget::~BattlePageWidget()
@@ -34,8 +36,29 @@ lcf::rpg::TroopPage* BattlePageWidget::eventPage() const {
 	return m_eventPage;
 }
 
-void BattlePageWidget::setEventPage(ProjectData& project, lcf::rpg::TroopPage* eventPage) {
+void BattlePageWidget::setEventPage(ProjectData& project, const lcf::rpg::Troop& troop, lcf::rpg::TroopPage* eventPage) {
+	m_project = &project;
+	m_troop = &troop;
 	m_eventPage = eventPage;
 
 	ui->commands->setData(project, eventPage);
+	updateTrigger();
+}
+
+void BattlePageWidget::editTrigger() {
+	if (!m_eventPage) {
+		return;
+	}
+	BattlePageConditionDialog dialog(*m_project, *m_troop, m_eventPage->condition, this);
+	if (dialog.exec() == QDialog::Accepted) {
+		updateTrigger();
+	}
+}
+
+void BattlePageWidget::updateTrigger() {
+	QString text = m_eventPage ? BattlePageConditionDialog::conditionText(*m_project, *m_troop, m_eventPage->condition) : QString();
+	ui->lineTrigger->setText(text);
+	// The whole text when the line is too short for it
+	ui->lineTrigger->setToolTip(text);
+	ui->lineTrigger->setCursorPosition(0);
 }

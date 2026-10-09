@@ -18,11 +18,14 @@
 #include "core.h"
 #include "ui/main_window.h"
 #include "ui/common/editor_style.h"
+#ifdef EDITOR_SCRIPTS
 #include "ui/tools/automation.h"
+#endif
 #include "ui/tools/screenshot.h"
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
+#include <QLibraryInfo>
 #include <QLoggingCategory>
 #include <QSettings>
 #include <QSplashScreen>
@@ -46,13 +49,20 @@ int main(int argc, char *argv[]) {
 	parser.setApplicationDescription("EasyRPG Editor");
 	parser.addHelpOption();
 	parser.addPositionalArgument("project", QCoreApplication::translate("main", "Project folder to open (EasyRPG or RPG Maker 2000/2003)."), "[project]");
+	QCommandLineOption verbose_option("verbose",
+		QCoreApplication::translate("main", "Log the details of what the Editor does."));
+	QCommandLineOption language_option("language",
+		QCoreApplication::translate("main", "Language of the Editor (en, fr, de...), instead of the one chosen in the Editor."),
+		"code");
+	parser.addOption(language_option);
+	parser.addOption(verbose_option);
+#ifdef EDITOR_SCRIPTS
+	// test builds only (EDITOR_SCRIPTS in CMake)
 	QCommandLineOption script_option("script",
 		QCoreApplication::translate("main", "Run the Editor commands of <file> and quit, for tests and screenshots (see docs/Automation.adoc)."),
 		"file");
-	QCommandLineOption verbose_option("verbose",
-		QCoreApplication::translate("main", "Log the details of what the Editor does."));
 	parser.addOption(script_option);
-	parser.addOption(verbose_option);
+#endif
 	parser.process(app);
 
 	// The details only on request
@@ -60,7 +70,11 @@ int main(int argc, char *argv[]) {
 		? QStringLiteral("editor.*.debug=true")
 		: QStringLiteral("editor.*.debug=false"));
 
+#ifdef EDITOR_SCRIPTS
 	const bool automation = parser.isSet(script_option);
+#else
+	const bool automation = false;
+#endif
 	if (automation) {
 		// Keep the settings of scripts apart from the user's (last project,
 		// window sizes...), but use the same RTP
@@ -118,10 +132,17 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}*/
 
-	// load translations
+	// load translations: the language chosen in the Editor, else the system's
 	s.showMessage("Loading translations...");
 	app.processEvents();
-	QTranslator t;
+	QString language = parser.value(language_option);
+	if (language.isEmpty()) {
+		// scripts find widgets by their text: the same language everywhere
+		language = automation ? QStringLiteral("en") : QSettings().value(LANGUAGE_KEY).toString();
+	}
+	const QLocale locale = language.isEmpty() ? QLocale() : QLocale(language);
+	QLocale::setDefault(locale);
+	QTranslator t, qt_translator;
 	bool found = false;
 #ifndef NDEBUG
 	// allow overwriting in debug builds
@@ -130,11 +151,16 @@ int main(int argc, char *argv[]) {
 		found = t.load(e);
 #endif
 	if (!found)
-		found = t.load(QLocale(), QLatin1String("easyrpg-editor"), QLatin1String("_"), QLatin1String(":/i18n"));
-	if (found)
+		found = t.load(locale, QLatin1String("easyrpg-editor"), QLatin1String("_"), QLatin1String(":/i18n"));
+	if (found) {
 		app.installTranslator(&t);
-	else
+		// the standard buttons and dialogs of Qt
+		if (qt_translator.load(locale, QLatin1String("qtbase"), QLatin1String("_"), QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
+			app.installTranslator(&qt_translator);
+		}
+	} else {
 		qDebug() << "No translation(s) available.";
+	}
 
 	// main window and project
 	s.showMessage("Loading main window...");
@@ -154,6 +180,7 @@ int main(int argc, char *argv[]) {
 	s.clearMessage();
 	w.show();
 
+#ifdef EDITOR_SCRIPTS
 	if (automation) {
 		Automation script(w, parser.value(script_option));
 		if (!script.isValid()) {
@@ -163,6 +190,7 @@ int main(int argc, char *argv[]) {
 		script.start();
 		return app.exec();
 	}
+#endif
 	Screenshot::installShortcut();
 #ifndef NDEBUG
 	// close splash immediately in debug

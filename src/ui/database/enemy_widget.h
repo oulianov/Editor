@@ -18,9 +18,12 @@
 #pragma once
 
 #include <QWidget>
+#include <optional>
 #include <lcf/rpg/enemy.h>
 
 class ProjectData;
+class QGraphicsPixmapItem;
+class QListWidget;
 
 namespace Ui {
 class EnemyWidget;
@@ -34,12 +37,35 @@ public:
 	using value_type = lcf::rpg::Enemy;
 
 	explicit EnemyWidget(ProjectData& project, QWidget *parent = nullptr);
-	~EnemyWidget();
+	~EnemyWidget() override;
 
 	void setData(lcf::rpg::Enemy* enemy);
 
+protected:
+	bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
+	void chooseGraphic();
+	void refreshGraphic();
+	void fitGraphic();
+
+	void refreshActions(int select = -1);
+	/** Edits the action of a line of the list (the empty last line adds one) */
+	void editAction(int index);
+	void copyAction(bool cut);
+	void pasteAction();
+	void deleteAction();
+	int currentActionIndex() const;
+
+	void refreshRanks(QListWidget* list, const std::vector<uint8_t>& ranks);
+	/** Next resistance rank (A to E) of a line, like a click in RPG Maker */
+	void cycleRank(QListWidget* list, std::vector<uint8_t>& ranks, int row);
+
 	Ui::EnemyWidget *ui;
 	ProjectData& m_project;
-};
+	lcf::rpg::Enemy m_dummy;
+	lcf::rpg::Enemy* m_current = nullptr;
+	QGraphicsPixmapItem* m_graphicItem = nullptr;
 
+	static std::optional<lcf::rpg::EnemyAction> s_clipboard;
+};

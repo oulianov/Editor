@@ -40,6 +40,8 @@ PaletteScene::PaletteScene(QObject *parent) :
 	m_tiles->setGraphicsEffect(effect);
 	m_tiles->stackBefore(m_selectionItem);
 	setBackgroundBrush(QBrush(QPixmap(":/embedded/share/old_grid.png")));
+	// the eyedropper of the map picks tiles too
+	connect(&core(), &Core::selectionChanged, this, &PaletteScene::onSelectionChanged);
 }
 
 void PaletteScene::onLayerChange()
@@ -55,6 +57,24 @@ void PaletteScene::onLayerChange()
 		this->setSceneRect(QRect(0,0,192,800));
 	}
 	m_tiles->graphicsEffect()->setEnabled(core().layer() != Core::LOWER);
+	// each layer keeps its own selection
+	onSelectionChanged();
+}
+
+void PaletteScene::onSelectionChanged()
+{
+	if (m_settingSelection || core().layer() == Core::EVENT)
+		return;
+	// the palette index of the first tile: the terrain for lower tiles, from
+	// 162 for upper tiles; the row 0 is the eraser
+	int index = core().translate(core().selection(0, 0));
+	if (core().layer() == Core::UPPER)
+		index -= 162;
+	if (index < 0)
+		return;
+	const QRectF rect((index % 6) * 32, (index / 6 + 1) * 32, core().selWidth() * 32, core().selHeight() * 32);
+	m_selectionItem->setRect(rect);
+	last_selection = rect;
 }
 
 void PaletteScene::onChipsetChange()
@@ -71,26 +91,18 @@ void PaletteScene::onChipsetChange()
 	m_upperTiles = QPixmap(192, 800);
 	m_lowerTiles.fill(QColor(0,0,0,0));
 	m_upperTiles.fill(QColor(0,0,0,0));
+	// the eraser, then the tiles
 	QPainter p(&m_lowerTiles);
 	p.drawPixmap(0,0,192,32,QPixmap(":/embedded/share/eraser.png"));
+	p.drawPixmap(0,32,core().paletteTiles(Core::LOWER));
 	p.end();
 	p.begin(&m_upperTiles);
 	p.drawPixmap(0,0,192,32,QPixmap(":/embedded/share/eraser.png"));
+	p.drawPixmap(0,32,core().paletteTiles(Core::UPPER));
 	p.end();
+	// deep water is shown surrounded by water
 	core().beginPainting(m_lowerTiles);
-	for (int terrain_id = 0; terrain_id < 162; terrain_id++)
-	{
-		QRect rect(((terrain_id)%6)*32,(terrain_id/6+1)*32,32,32);
-		core().renderTile(core().translate(terrain_id,15), rect);
-	}
 	core().renderTile(core().translate(2,0,240), QRect(64,32,32,32));
-	core().endPainting();
-	core().beginPainting(m_upperTiles);
-	for (int terrain_id = 0; terrain_id < 144; terrain_id++)
-	{
-		QRect rect(((terrain_id)%6)*32,(terrain_id/6+1)*32,32,32);
-		core().renderTile(core().translate(terrain_id+162), rect);
-	}
 	core().endPainting();
 	onLayerChange();
 }
@@ -176,8 +188,16 @@ void PaletteScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 	int h = static_cast<int>(m_selectionItem->rect().height())/32;
 	if (y == 0)
 	{
-		sel.push_back(NTILE);
+		// RPG Maker's empty tiles: water (the first lower tile, as in a new
+		// map) and the first upper tile, transparent. The Player cannot draw
+		// other ids (NTILE corrupted the maps)
+		if (core().layer() == Core::LOWER)
+			sel.push_back(core().translate(0, SAMPLE));
+		else
+			sel.push_back(10000);
+		m_settingSelection = true;
 		core().setSelection(sel, 1, 1);
+		m_settingSelection = false;
 	}
 	else
 	{
@@ -188,7 +208,9 @@ void PaletteScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 					sel.push_back(core().translate(_x+_y*6, SAMPLE));
 				else
 					sel.push_back(core().translate(_x+_y*6+162, SAMPLE));
+		m_settingSelection = true;
 		core().setSelection(sel, w, h);
+		m_settingSelection = false;
 	}
 	last_selection = m_selectionItem->boundingRect();
 	QGraphicsScene::mouseReleaseEvent(event);

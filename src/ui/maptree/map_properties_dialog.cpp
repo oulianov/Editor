@@ -23,6 +23,7 @@
 #include "ui/picker/picker_backdrop_widget.h"
 #include "ui/picker/picker_panorama_widget.h"
 #include "ui/picker/picker_dialog.h"
+#include "encounter_list.h"
 #include <QMessageBox>
 #include "common/lcf_widget_binding.h"
 
@@ -116,15 +117,18 @@ MapPropertiesDialog::MapPropertiesDialog(ProjectData& project, lcf::rpg::MapInfo
 	ui->radioDungeonOpenRoom->setChecked(m_map_copy.generator_mode == 3);
 	ui->radioDungeonPassage1_1->setChecked(m_map_copy.generator_tiles == 0);
 	ui->radioDungeonPassage2_2->setChecked(m_map_copy.generator_tiles == 1);
-	for (int i = 0; i < static_cast<int>(m_info_copy.encounters.size()); i++) {
-		QTableWidgetItem *item = new QTableWidgetItem();
-		item->setData(Qt::DisplayRole, ToQString(database.troops[static_cast<size_t>(m_info_copy.encounters[static_cast<size_t>(i)].troop_id)-1].name));
-		item->setData(Qt::UserRole, m_info_copy.encounters[static_cast<size_t>(i)].troop_id);
-		ui->tableEncounters->insertRow(i);
-		ui->tableEncounters->setItem(i, 0, item);
-	}
-	m_encounterDelegate = new QEncounterDelegate(this);
-	ui->tableEncounters->setItemDelegate(m_encounterDelegate);
+	// room dimensions are only used by "Rooms Linked with Passages"
+	ui->spinDungeonRoomWidth->setEnabled(m_map_copy.generator_mode == 1);
+	ui->spinDungeonRoomHeight->setEnabled(m_map_copy.generator_mode == 1);
+	ui->groupUpperWall->setChecked(m_map_copy.generator_upper_wall);
+	ui->groupFloorB->setChecked(m_map_copy.generator_floor_b);
+	ui->groupFloorC->setChecked(m_map_copy.generator_floor_c);
+	ui->groupObstacleB->setChecked(m_map_copy.generator_extra_b);
+	ui->groupObstacleC->setChecked(m_map_copy.generator_extra_c);
+	on_groupUseGenerator_toggled(m_map_copy.generator_flag);
+
+	m_encounters = new EncounterList(project, ui->tableEncounters, this);
+	m_encounters->setEncounters(m_info_copy.encounters);
 
 	ui->graphicsPanorama->setScene(new QGraphicsScene(this));
 	ui->graphicsCeiling->setScene(new QGraphicsScene(this));
@@ -148,7 +152,7 @@ MapPropertiesDialog::MapPropertiesDialog(ProjectData& project, lcf::rpg::MapInfo
 	ui->graphicsObstacleC->scene()->addItem(m_ObstacleCItem);
 	ui->graphicsUpperWall->scene()->addItem(m_upperWallItem);
 	QPixmap pix(32, 32);
-	if(m_map_copy.generator_tile_ids.size()>0)
+	if (m_map_copy.generator_tile_ids.size() >= 18)
 	{
 
 	pix.fill();
@@ -329,14 +333,35 @@ void MapPropertiesDialog::accept() {
 	new_music.name = ui->lineBGMname->text().toStdString();
 	m_info_copy.music = new_music;
 
-	m_info_copy.encounters.clear();
-	for (int i = 0; i < ui->tableEncounters->rowCount(); i++) {
-		QTableWidgetItem *item = ui->tableEncounters->item(i, 0);
-		lcf::rpg::Encounter enc;
-		enc.troop_id = item->data(Qt::UserRole).toInt();
-		m_info_copy.encounters.push_back(enc);
-	}
+	m_info_copy.encounters = m_encounters->encounters();
 	m_info_copy.encounter_steps = ui->spinEncounterRate->value();
+
+	// Random dungeon generator
+	m_map_copy.generator_flag = ui->groupUseGenerator->isChecked();
+	if (ui->radioDungeonSinglePassage->isChecked()) {
+		m_map_copy.generator_mode = lcf::rpg::Map::GeneratorMode_single_passage;
+	} else if (ui->radioDungeonLinkedRooms->isChecked()) {
+		m_map_copy.generator_mode = lcf::rpg::Map::GeneratorMode_linked_rooms;
+	} else if (ui->radioDungeonMaze->isChecked()) {
+		m_map_copy.generator_mode = lcf::rpg::Map::GeneratorMode_maze_passage;
+	} else if (ui->radioDungeonOpenRoom->isChecked()) {
+		m_map_copy.generator_mode = lcf::rpg::Map::GeneratorMode_open_room;
+	}
+	if (ui->radioDungeonPassage1_1->isChecked() || ui->radioDungeonPassage2_2->isChecked()) {
+		m_map_copy.generator_tiles = ui->radioDungeonPassage2_2->isChecked()
+			? lcf::rpg::Map::GeneratorTiles_two : lcf::rpg::Map::GeneratorTiles_one;
+	}
+	// only this mode shows them: other maps keep values outside 2..20 x 2..15
+	if (ui->radioDungeonLinkedRooms->isChecked()) {
+		m_map_copy.generator_width = ui->spinDungeonRoomWidth->value();
+		m_map_copy.generator_height = ui->spinDungeonRoomHeight->value();
+	}
+	m_map_copy.generator_surround = ui->checkDungeonSurroundWithWalls->isChecked();
+	m_map_copy.generator_upper_wall = ui->groupUpperWall->isChecked();
+	m_map_copy.generator_floor_b = ui->groupFloorB->isChecked();
+	m_map_copy.generator_floor_c = ui->groupFloorC->isChecked();
+	m_map_copy.generator_extra_b = ui->groupObstacleB->isChecked();
+	m_map_copy.generator_extra_c = ui->groupObstacleC->isChecked();
 
 	// Resize map if map bounds have been changed
 	if (width != old_width || height != old_height) {
@@ -443,18 +468,11 @@ void MapPropertiesDialog::on_groupObstacleC_toggled(bool arg1)
 }
 
 void MapPropertiesDialog::on_pushAddEncounter_clicked() {
-	QTableWidgetItem* item = new QTableWidgetItem();
-	item->setData(Qt::DisplayRole, ToQString(m_project.database().troops[0].name));
-	item->setData(Qt::UserRole, 1);
-	ui->tableEncounters->insertRow(ui->tableEncounters->rowCount());
-	ui->tableEncounters->setItem(ui->tableEncounters->rowCount() - 1, 0, item);
+	m_encounters->add();
 }
 
 void MapPropertiesDialog::on_pushRemoveEncounter_clicked() {
-	QTableWidgetItem *item = ui->tableEncounters->currentItem();
-	if (item) {
-		ui->tableEncounters->removeRow(item->row());
-	}
+	m_encounters->remove();
 }
 
 void MapPropertiesDialog::on_pushSetPanorama_clicked() {

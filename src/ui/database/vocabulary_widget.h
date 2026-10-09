@@ -18,27 +18,18 @@
 #pragma once
 
 #include <QWidget>
-#include <lcf/rpg/terms.h>
-
-// FIXME: This currently lists all terms. Should be filtered by engine
 
 class ProjectData;
 
-namespace Ui {
-class VocabularyWidget;
-}
-
+/**
+ * The Vocabulary page of the database: the terms of the game, grouped like in
+ * RPG Maker. Only the terms of the game's engine (2000 or 2003) are shown;
+ * each field is named after its term.
+ */
 class VocabularyWidget : public QWidget
 {
 	Q_OBJECT
 
 public:
 	explicit VocabularyWidget(ProjectData& project, QWidget *parent = nullptr);
-	~VocabularyWidget() override;
-
-private:
-	Ui::VocabularyWidget *ui;
-	ProjectData& m_project;
-	lcf::rpg::Terms& m_terms;
 };
-

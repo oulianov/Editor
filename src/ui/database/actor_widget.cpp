@@ -196,7 +196,7 @@ void ActorWidget::on_comboBattleset_currentIndexChanged(int index)
 
 	auto& database = m_project.database();
 
-	if (index <= 0 || index >= static_cast<int>(database.battleranimations.size()))
+	if (index <= 0 || index > static_cast<int>(database.battleranimations.size()))
 		m_battlerItem->setBasePix(BattleAnimationItem::Battler,"");
 	else
 		m_battlerItem->setDemoAnimation(database.battleranimations[static_cast<size_t>(index) - 1]);
@@ -268,7 +268,8 @@ void ActorWidget::on_currentActorChanged(lcf::rpg::Actor *actor)
 		ui->tableSkills->item(i, 0)->setText(QString::number(actor->skills[static_cast<size_t>(i)].level));
 		// TODO: move getSkillName to Core
 		QString name = QString("<%1?>").arg(actor->skills[static_cast<size_t>(i)].skill_id);
-		if (actor->skills[static_cast<size_t>(i)].skill_id < static_cast<int>(database.skills.size()))
+		const int skill_id = actor->skills[static_cast<size_t>(i)].skill_id;
+		if (skill_id > 0 && skill_id <= static_cast<int>(database.skills.size()))
 			name = database.skills[static_cast<size_t>(actor->skills[static_cast<size_t>(i)].skill_id)-1].name.c_str();
 		// TODO/
 		ui->tableSkills->item(i, 1)->setText(name);
@@ -290,7 +291,7 @@ void ActorWidget::on_currentActorChanged(lcf::rpg::Actor *actor)
 	}
 
 	if (actor->battler_animation <= 0 ||
-			actor->battler_animation >= static_cast<int>(database.battleranimations.size()))
+			actor->battler_animation > static_cast<int>(database.battleranimations.size()))
 		m_battlerItem->setBasePix(BattleAnimationItem::Battler,"");
 	else
 		m_battlerItem->setDemoAnimation(database.battleranimations[static_cast<size_t>(actor->battler_animation)-1]);

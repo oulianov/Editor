@@ -3,6 +3,20 @@
 The Editor can run a list of commands without anyone at the keyboard: to test
 a change, to check that dialogs fit small screens, or to take screenshots.
 
+== Building
+
+The script runner is not part of releases. Turn it on in a development build:
+
+----
+cmake -B build -DEDITOR_SCRIPTS=ON -DEDITOR_TEST_PROJECT=/path/to/TestGame-2003
+cmake --build build
+ctest --test-dir build --output-on-failure
+----
+
+`EDITOR_TEST_PROJECT` is a game the tests run on, such as `TestGame-2003` of
+https://github.com/EasyRPG/TestGame; the scripts in `tests/scripts` become
+tests, run without a display. They change nothing on disk.
+
 == Running a script
 
 ----
@@ -13,7 +27,9 @@ The script runs once the project is loaded, then the Editor quits. The exit
 code is the number of failed commands and checks (0 when all pass).
 
 Scripts keep their settings apart from yours (last project, window sizes),
-and nothing is saved unless the script does it.
+and nothing is saved unless the script does it. They run in English, so that
+`click` and `type` find the same texts on every system; `--language fr` runs
+one in another language.
 
 To run without a display (continuous integration, remote machines), use Qt's
 offscreen platform. Screenshots then use the Fusion style instead of the
@@ -61,16 +77,31 @@ at once: the next commands act on the dialog, until `close`.
 
 | `open-project FOLDER` | Opens a project.
 | `open-map ID` | Opens a map in a tab.
+| `select-map ID` | Selects a map, an area or the project (0) in the map tree.
 | `open-event MAP EVENT` | Opens the event dialog of an event.
 | `action NAME` | Triggers a menu action, by its object name (`actionDatabase`...).
 | `action NAME on\|off` | Checks or unchecks a menu option (`actionReloadExternalChanges`...).
 | `tab NAME INDEX` | Shows a page of a tab widget, by its object name.
 | `focus NAME` | Gives the focus to a widget, by its object name (`commands` is the command list of the event page shown).
+| `select-command INDEX` | Selects and focuses an event command by its zero-based list index.
 | `key SEQUENCE` | Presses a key (`Return`, `Space`, `Del`, `Ctrl+C`...) in the focused widget.
 | `type TEXT` | Types text in the focused widget.
 | `click TEXT` | Clicks the button with this text or object name.
 | `click-item NAME TEXT` | Clicks the first line of a list (by object name) that shows the text.
 | `expect NAME TEXT` | Fails unless the widget shows the text (for a list: one of its lines; the current line starts with `>`).
+| `expect-not NAME TEXT` | Fails if the widget shows the text.
+| `set-control NAME VALUE` | Sets a control: index of a combo box, number of a spin box, `on`/`off` for a check box or radio button, text of a field, button id of a button group.
+| `expect-enabled NAME on\|off` | Fails unless the control (by object name or button text) or menu action (by object name or text) is enabled (`on`) or disabled (`off`).
+| `expect-option-enabled NAME INDEX on\|off` | The same for one item of a combo box.
+| `inspect-controls FILE` | Writes the controls and group boxes of the dialog to a JSON file: values, choices, enabled states, position and widths (to find what makes a window too wide).
+| `map-click X Y [left\|right]` | Clicks a cell of the map shown.
+| `map-double-click X Y` | Double-clicks a cell of the map shown.
+| `map-drag X1 Y1 X2 Y2` | Drags on the map with the left button, through every cell.
+| `palette INDEX [W H]` | Selects tiles of the palette of the current layer (0: the first tile after the eraser row), a block of W x H tiles.
+| `expect-tile lower\|upper X Y ID` | Fails unless the tile of the cell is ID (lower layer: the same terrain).
+| `expect-event X Y ID` | Fails unless the event on the cell has this ID (0: no event).
+| `expect-start party\|boat\|ship\|airship MAP X Y` | Fails unless the start position is there.
+| `wheel NAME STEPS` | A trackpad swipe over the middle of a widget: STEPS small pixel scrolls (negative: up) then momentum, sent to the widget under the pointer. Logs the time, the slowest event and how far the widget scrolled.
 | `resize WIDTH HEIGHT` | Resizes the dialog or window.
 | `screenshot [FILE]` | Saves the dialog or window as a PNG (default: Pictures/EasyRPG Editor).
 | `check-layout` | Fails for every control smaller than it needs to be (clipped text...).

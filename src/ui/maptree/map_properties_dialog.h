@@ -22,10 +22,10 @@
 #include <QTableWidgetItem>
 #include <lcf/rpg/mapinfo.h>
 #include <lcf/rpg/map.h>
-#include "ui/common/encounter_delegate.h"
 #include <QButtonGroup>
 
 class ProjectData;
+class EncounterList;
 
 namespace Ui {
 class MapPropertiesDialog;
@@ -80,7 +80,7 @@ private:
 	QGraphicsPixmapItem *m_ObstacleBItem;
 	QGraphicsPixmapItem *m_ObstacleCItem;
 
-	QEncounterDelegate *m_encounterDelegate;
+	EncounterList *m_encounters;
 
 	lcf::rpg::MapInfo &m_info;
 	lcf::rpg::Map &m_map;

@@ -110,17 +110,25 @@ Core *Core::getCore()
 
 void Core::LoadChipset(int n_chipsetid)
 {
-	if (n_chipsetid == m_chipset.ID)
-		return;
+	lcf::rpg::Chipset n_chipset;
 	for (auto & chipset : project()->database().chipsets)
 		if (chipset.ID == n_chipsetid)
 		{
-			m_chipset = chipset;
+			n_chipset = chipset;
 			break;
 		}
+	// Compare the whole chipset, not its id: a database reloaded from disk
+	// can have changed its image or terrain
+	if (n_chipset == m_chipset && m_chipsetProject == project().get())
+		return;
+	m_chipset = n_chipset;
+	m_chipsetProject = project().get();
+	m_charsetCache.clear();
 	if (m_chipset.ID == 0)
 	{
+		// unknown chipset: do not keep the tiles of the previous one
 		m_tileCache.clear();
+		emit chipsetChanged();
 		return;
 	}
 
@@ -552,7 +560,7 @@ void Core::LoadChipset(int n_chipsetid)
 			int orig_y = tile_row*r_tileSize;
 			ef.drawPixmap(0,0,tileSize(),tileSize(),o_chipset.copy(orig_x,orig_y,r_tileSize,r_tileSize));
 			ef.end();
-			ef_tile.setMask(a_tile.createMaskFromColor(m_keycolor));
+			ef_tile.setMask(ef_tile.createMaskFromColor(m_keycolor));
 			m_tileCache[translate(terrain_id)] = ef_tile;
 			terrain_id++;
 		}
@@ -575,6 +583,16 @@ void Core::LoadBackground(QString name)
 		m_background.fill(Qt::magenta);
 	} else
 		m_background = ImageLoader::Load(project()->findFile(PANORAMA, name, FileFinder::FileType::Image));
+}
+
+const QPixmap& Core::background() const
+{
+	return m_background;
+}
+
+void Core::setBackground(const QPixmap& background)
+{
+	m_background = background;
 }
 
 int Core::tileSize()
@@ -701,6 +719,21 @@ ProjectWatcher& Core::watcher() {
 	return m_watcher;
 }
 
+QPixmap Core::paletteTiles(Layer layer, int size)
+{
+	const bool lower = layer == LOWER;
+	const int count = lower ? 162 : 144;
+	QPixmap tiles(6 * size, (count / 6) * size);
+	tiles.fill(Qt::transparent);
+	beginPainting(tiles);
+	for (int i = 0; i < count; i++) {
+		const QRect rect((i % 6) * size, (i / 6) * size, size, size);
+		renderTile(lower ? translate(i, 15) : translate(i + 162), rect);
+	}
+	endPainting();
+	return tiles;
+}
+
 void Core::beginPainting(QPixmap &dest)
 {
 	m_painter.begin(&dest);
@@ -713,7 +746,8 @@ void Core::renderTile(const short &tile_id, const QRect &dest_rect)
 {
 	if (tile_id < 10000)
 		m_painter.fillRect(dest_rect, QBrush(m_background));
-	m_painter.drawPixmap(dest_rect, m_tileCache[tile_id]);
+	// value(): operator[] would add an empty tile for every unknown id
+	m_painter.drawPixmap(dest_rect, m_tileCache.value(tile_id));
 }
 
 void Core::renderEvent(const lcf::rpg::Event& event, const QRect &dest_rect)
@@ -733,6 +767,30 @@ void Core::renderEvent(const lcf::rpg::Event& event, const QRect &dest_rect)
 	}
 }
 
+void Core::renderMarker(const QString& charset_name, int charset_index, const QString& label, const QRect &dest_rect)
+{
+	const QPixmap charset = charset_name.isEmpty() ? QPixmap() : charsetImage(charset_name);
+	if (!charset.isNull()) {
+		// the middle frame facing down, as on the map
+		const int src_x = (charset_index % 4) * 72 + 24;
+		const int src_y = (charset_index / 4) * 128 + 2 * 32;
+		m_painter.drawPixmap(dest_rect, charset, QRect(src_x, src_y + 6, 24, 24));
+	}
+	m_painter.save();
+	m_painter.setPen(QPen(Qt::cyan, 2));
+	m_painter.drawRect(dest_rect.adjusted(1, 1, -1, -1));
+	QFont font = m_painter.font();
+	font.setPixelSize(std::max(6, dest_rect.height() / 3));
+	font.setBold(true);
+	m_painter.setFont(font);
+	const QRect text_rect = dest_rect.adjusted(2, 2, -2, -2);
+	m_painter.setPen(Qt::black);
+	m_painter.drawText(text_rect.translated(1, 1), Qt::AlignLeft | Qt::AlignTop, label);
+	m_painter.setPen(Qt::cyan);
+	m_painter.drawText(text_rect, Qt::AlignLeft | Qt::AlignTop, label);
+	m_painter.restore();
+}
+
 void Core::endPainting()
 {
 	m_painter.end();
@@ -749,8 +807,9 @@ short Core::translate(int terrain_id, int _code, int _scode)
 		return 0x7FFF;
 	if (isWater(terrain_id))
 		return (static_cast<short>(terrain_id)*1000+m_dictionary[_code]+m_dictionary[_scode]*50);
+	// animated tiles have no borders: RPG Maker writes 3000, 3050, 3100
 	if (isAnimation(terrain_id))
-		return (3000+(static_cast<short>(terrain_id)-3)*50+m_dictionary[_code]);
+		return (3000+(static_cast<short>(terrain_id)-3)*50);
 	if (isDblock(terrain_id))
 		return (4000+(static_cast<short>(terrain_id)-6)*50+m_dictionary[_code]);
 	if (isEblock(terrain_id))
@@ -770,10 +829,11 @@ int Core::translate(short tile_id)
 		return (tile_id-3000)/50+3;
 	else if (tile_id >= 4000 && tile_id < 4600)
 		return (tile_id-4000)/50+6;
-	else if (tile_id >= 5000 && tile_id < 5162)
+	else if (tile_id >= 5000 && tile_id < 5144)
 		return tile_id-5000+18;
 	else if (tile_id >= 10000 && tile_id < 10144)
-		return tile_id-10000+161;
+		// the inverse of translate(int): F block terrains start at 162
+		return tile_id-10000+162;
 	else
 		return -1;
 }
@@ -854,6 +914,28 @@ void Core::setSelection(std::vector<short> n_sel, int n_w, int n_h)
 		m_eventSel = n_sel[0];
 		break;
 	}
+	emit selectionChanged();
+}
+
+const Core::TileClipboard& Core::tileClipboard() const
+{
+	return m_tileClipboard;
+}
+
+void Core::setTileClipboard(const TileClipboard& clipboard)
+{
+	m_tileClipboard = clipboard;
+}
+
+const lcf::rpg::Event* Core::eventClipboard() const
+{
+	return m_eventClipboardSet ? &m_eventClipboard : nullptr;
+}
+
+void Core::setEventClipboard(const lcf::rpg::Event& event)
+{
+	m_eventClipboard = event;
+	m_eventClipboardSet = true;
 }
 
 const QMap<int, lcf::rpg::Event *>* Core::currentMapEvents() const
@@ -868,8 +950,11 @@ lcf::rpg::Event *Core::currentMapEvent(int eventID)
 		event = m_currentMapEvents->value(eventID);
 	if (!event)
 	{
-		event = new lcf::rpg::Event();
-		event->name = "<?>";
+		// one shared placeholder instead of a new (leaked) event per call
+		static lcf::rpg::Event unknown;
+		unknown = lcf::rpg::Event();
+		unknown.name = "<?>";
+		event = &unknown;
 	}
 	return event;
 }
@@ -879,6 +964,8 @@ void Core::setCurrentMapEvents(QMap<int, lcf::rpg::Event *> *events)
 	m_currentMapEvents = events;
 
 	m_eventCache.clear();
+	if (!events)
+		return;
 	for (QMap<int, lcf::rpg::Event*>::iterator it = events->begin(); it != events->end(); ++it)
 	{
 		lcf::rpg::Event* ev = it.value();
@@ -889,16 +976,7 @@ void Core::setCurrentMapEvents(QMap<int, lcf::rpg::Event *> *events)
 		if (evp.character_name.empty())
 			continue;
 
-		QString char_name = ToQString(evp.character_name);
-
-		QPixmap charset(ImageLoader::Load(project()->findFile(CHARSET,char_name, FileFinder::FileType::Image)));
-		if (!charset)
-			charset = ImageLoader::Load(rtpPath(CHARSET,char_name));
-		if (!charset)
-		{
-			qWarning()<<"CharSet"<<char_name<<"not found.";
-			charset = createDummyPixmap(288,256);
-		}
+		const QPixmap charset = charsetImage(ToQString(evp.character_name));
 
 		int char_index = evp.character_index;
 		int src_x = (char_index%4)*72 + evp.character_pattern * 24;
@@ -907,9 +985,31 @@ void Core::setCurrentMapEvents(QMap<int, lcf::rpg::Event *> *events)
 	}
 }
 
+QPixmap Core::charsetImage(const QString& name)
+{
+	if (m_cacheProject != project().get()) {
+		m_charsetCache.clear();
+		m_cacheProject = project().get();
+	}
+	auto it = m_charsetCache.constFind(name);
+	if (it != m_charsetCache.constEnd())
+		return it.value();
+
+	QPixmap charset(ImageLoader::Load(project()->findFile(CHARSET, name, FileFinder::FileType::Image)));
+	if (!charset)
+		charset = ImageLoader::Load(rtpPath(CHARSET, name));
+	if (!charset)
+	{
+		qWarning()<<"CharSet"<<name<<"not found.";
+		charset = createDummyPixmap(288,256);
+	}
+	m_charsetCache.insert(name, charset);
+	return charset;
+}
+
 QPixmap Core::createDummyPixmap(int width, int height)
 {
-	QPixmap dummy(QPixmap(480,256));
+	QPixmap dummy(width, height);
 	QPainter p(&dummy);
 	p.drawTiledPixmap(0, 0, width, height, QPixmap(":/embedded/share/old_grid.png"));
 	p.end();

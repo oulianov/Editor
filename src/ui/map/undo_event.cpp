@@ -17,15 +17,13 @@
 
 #include "undo_event.h"
 
-UndoEvent::UndoEvent(lcf::rpg::Event data,
-					   MapScene *scene,
-					   QUndoCommand *parent) :
-QUndoCommand(parent),
-m_data(data),
-m_scene(scene)
+UndoEvent::UndoEvent(int id, std::optional<lcf::rpg::Event> before, MapScene *scene) :
+	m_id(id), m_data(std::move(before)), m_scene(scene)
 {}
 
-void UndoEvent::undo()
+void UndoEvent::swap()
 {
-	m_scene->setEventData(m_data.ID, m_data);
+	std::optional<lcf::rpg::Event> current = m_scene->eventData(m_id);
+	m_scene->setEventData(m_id, m_data);
+	m_data = std::move(current);
 }

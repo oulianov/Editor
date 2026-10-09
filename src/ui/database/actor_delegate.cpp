@@ -38,14 +38,16 @@ QWidget *ActorDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem
 void ActorDelegate::setEditorData(QWidget *editor, const QModelIndex &index) const
 {
 	int id = index.model()->data(index, Qt::UserRole).toInt();
-	static_cast<QComboBox*>(editor)->setCurrentIndex(id);
+	auto* combo = static_cast<QComboBox*>(editor);
+	combo->setCurrentIndex(std::max(0, combo->findData(id)));
 }
 
 void ActorDelegate::setModelData(QWidget *editor, QAbstractItemModel *model, const QModelIndex &index) const
 {
-	int id = static_cast<QComboBox*>(editor)->currentIndex() + 1;
-	model->setData(index, id, Qt::UserRole);
-	model->setData(index, ToQString(core().project()->database().actors[static_cast<size_t>(id)-1].name));
+	// the first choice is <None>
+	auto* combo = static_cast<QComboBox*>(editor);
+	model->setData(index, combo->currentData().toInt(), Qt::UserRole);
+	model->setData(index, combo->currentText());
 }
 
 void ActorDelegate::updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option, const QModelIndex &index) const

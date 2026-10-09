@@ -40,6 +40,7 @@
 #define DEFAULT_DIR_KEY "default_dir"
 #define RTP_KEY "rtp_path"
 #define RELOAD_EXTERNAL_KEY "reload_external_changes"
+#define LANGUAGE_KEY "language"
 
 /****************************
  *	   PROJECT SETTINGS		*

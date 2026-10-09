@@ -46,6 +46,8 @@ private slots:
 
 private:
 	std::shared_ptr<lcf::rpg::Map> loadMap(int mapID);
+	/** Events whose name contains the text of the event name field */
+	void searchEventNames();
 
 	Ui::SearchDialog *ui;
 	using command_info = std::tuple<int, int, int, int, const lcf::rpg::EventCommand&>; // map id, event id, page index, line, event command

@@ -2,26 +2,18 @@
 <ui version="4.0">
  <class>ClassWidget</class>
  <widget class="QWidget" name="ClassWidget">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>1019</width>
-    <height>634</height>
-   </rect>
-  </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Class</string>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout">
+  <layout class="QHBoxLayout" name="layoutColumns">
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_26">
+    <layout class="QVBoxLayout" name="layoutLeft">
      <item>
-      <widget class="QGroupBox" name="groupBox_273">
+      <widget class="QGroupBox" name="groupName">
        <property name="title">
-        <string>Hero Name</string>
+        <string>Name</string>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_27">
+       <layout class="QVBoxLayout" name="layoutName">
         <item>
          <widget class="QLineEdit" name="lineName"/>
         </item>
@@ -29,23 +21,17 @@
       </widget>
      </item>
      <item>
-      <widget class="QGroupBox" name="groupBox_274">
+      <widget class="QGroupBox" name="groupAnimation">
        <property name="title">
-        <string>Hero Graphics</string>
+        <string>Animation Group</string>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_28">
+       <layout class="QHBoxLayout" name="layoutAnimation">
         <item>
          <widget class="QGraphicsView" name="graphicsBattler">
-          <property name="minimumSize">
-           <size>
-            <width>48</width>
-            <height>48</height>
-           </size>
-          </property>
           <property name="maximumSize">
            <size>
-            <width>48</width>
-            <height>48</height>
+            <width>52</width>
+            <height>52</height>
            </size>
           </property>
           <property name="verticalScrollBarPolicy">
@@ -57,42 +43,12 @@
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="comboBattler"/>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <widget class="QGroupBox" name="groupBox_275">
-       <property name="title">
-        <string>Optios</string>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_29">
-        <item>
-         <widget class="QCheckBox" name="checkDualWeapon">
-          <property name="text">
-           <string>Two weapons</string>
+         <widget class="QComboBox" name="comboBattler">
+          <property name="sizeAdjustPolicy">
+           <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
           </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="checkFixEquip">
-          <property name="text">
-           <string>Lock Equip</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="checkAI">
-          <property name="text">
-           <string>AI control</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="checkStrongDefense">
-          <property name="text">
-           <string>Might GUARD</string>
+          <property name="minimumContentsLength">
+           <number>10</number>
           </property>
          </widget>
         </item>
@@ -100,261 +56,157 @@
       </widget>
      </item>
      <item>
-      <widget class="QGroupBox" name="groupBox_5">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-         <horstretch>0</horstretch>
-         <verstretch>1</verstretch>
-        </sizepolicy>
-       </property>
+      <widget class="QGroupBox" name="groupOptions">
        <property name="title">
-        <string/>
+        <string>Options</string>
        </property>
+       <layout class="QVBoxLayout" name="layoutOptions">
+        <item>
+         <widget class="QCheckBox" name="checkAutoBattle">
+          <property name="text">
+           <string>AI Control</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkTwoWeapons">
+          <property name="text">
+           <string>Two Weapons</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkLockEquipment">
+          <property name="text">
+           <string>Lock Equipment</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkMightyGuard">
+          <property name="text">
+           <string>Mighty Guard</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="groupBattleCommands">
+       <property name="title">
+        <string>Battle Commands</string>
+       </property>
+       <layout class="QVBoxLayout" name="layoutBattleCommands">
+        <item>
+         <widget class="QComboBox" name="comboBattleCommand1"/>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBattleCommand2"/>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBattleCommand3"/>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBattleCommand4"/>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBattleCommand5"/>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBattleCommand6"/>
+        </item>
+        <item>
+         <widget class="QLabel" name="labelRow">
+          <property name="text">
+           <string>Row</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacerLeft">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+      </spacer>
      </item>
     </layout>
    </item>
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_30">
+    <layout class="QVBoxLayout" name="layoutMiddle">
      <item>
-      <widget class="QGroupBox" name="groupBox_276">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
+      <widget class="QGroupBox" name="groupStatistics">
        <property name="title">
-        <string>Curves</string>
+        <string>Basic Statistics</string>
        </property>
-       <layout class="QGridLayout" name="gridLayout_17">
+       <layout class="QGridLayout" name="layoutStatistics">
         <item row="0" column="0">
-         <widget class="QLabel" name="label_60">
-          <property name="frameShape">
-           <enum>QFrame::Panel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
+         <widget class="QLabel" name="labelHp">
           <property name="text">
-           <string>Hit Points</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+           <string>Maximum HP</string>
           </property>
          </widget>
         </item>
         <item row="0" column="1">
-         <widget class="QLabel" name="label_61">
-          <property name="frameShape">
-           <enum>QFrame::Panel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
+         <widget class="QLabel" name="labelMp">
           <property name="text">
-           <string>Magic Points</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+           <string>Maximum MP</string>
           </property>
          </widget>
         </item>
         <item row="1" column="0">
-         <widget class="QGraphicsView" name="graphicsHp">
-          <property name="minimumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-         </widget>
+         <widget class="QGraphicsView" name="graphicsHp"/>
         </item>
         <item row="1" column="1">
-         <widget class="QGraphicsView" name="graphicsMp">
-          <property name="minimumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-         </widget>
+         <widget class="QGraphicsView" name="graphicsMp"/>
         </item>
         <item row="2" column="0">
-         <widget class="QLabel" name="label_62">
-          <property name="frameShape">
-           <enum>QFrame::Panel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
+         <widget class="QLabel" name="labelAttack">
           <property name="text">
-           <string>Attack</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+           <string>Attack Power</string>
           </property>
          </widget>
         </item>
         <item row="2" column="1">
-         <widget class="QLabel" name="label_63">
-          <property name="frameShape">
-           <enum>QFrame::Panel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
+         <widget class="QLabel" name="labelDefense">
           <property name="text">
-           <string>Defense</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+           <string>Defense Power</string>
           </property>
          </widget>
         </item>
         <item row="3" column="0">
-         <widget class="QGraphicsView" name="graphicsAtt">
-          <property name="minimumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-         </widget>
+         <widget class="QGraphicsView" name="graphicsAttack"/>
         </item>
         <item row="3" column="1">
-         <widget class="QGraphicsView" name="graphicsDef">
-          <property name="minimumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-         </widget>
+         <widget class="QGraphicsView" name="graphicsDefense"/>
         </item>
         <item row="4" column="0">
-         <widget class="QLabel" name="label_64">
-          <property name="frameShape">
-           <enum>QFrame::Panel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
+         <widget class="QLabel" name="labelIntelligence">
           <property name="text">
            <string>Intelligence</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
         <item row="4" column="1">
-         <widget class="QLabel" name="label_65">
-          <property name="frameShape">
-           <enum>QFrame::Panel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
+         <widget class="QLabel" name="labelAgility">
           <property name="text">
            <string>Agility</string>
           </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
          </widget>
         </item>
         <item row="5" column="0">
-         <widget class="QGraphicsView" name="graphicsInt">
-          <property name="minimumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-         </widget>
+         <widget class="QGraphicsView" name="graphicsIntelligence"/>
         </item>
         <item row="5" column="1">
-         <widget class="QGraphicsView" name="graphicsAgy">
-          <property name="minimumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>96</width>
-            <height>54</height>
-           </size>
-          </property>
-         </widget>
+         <widget class="QGraphicsView" name="graphicsAgility"/>
         </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <widget class="QGroupBox" name="groupBox_277">
-       <property name="title">
-        <string>Experience curve</string>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_31">
-        <item>
-         <widget class="QLabel" name="labelExp">
-          <property name="frameShape">
-           <enum>QFrame::WinPanel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
+        <item row="6" column="0" colspan="2">
+         <widget class="QPushButton" name="pushEditCurves">
           <property name="text">
-           <string>Initial=X;Increment=Y;Correction=Z</string>
-          </property>
-         </widget>
-        </item>
-        <item alignment="Qt::AlignHCenter">
-         <widget class="QGraphicsView" name="graphicsExp">
-          <property name="minimumSize">
-           <size>
-            <width>200</width>
-            <height>120</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>200</width>
-            <height>120</height>
-           </size>
+           <string>Edit Curves...</string>
           </property>
          </widget>
         </item>
@@ -362,116 +214,89 @@
       </widget>
      </item>
      <item>
-      <widget class="QWidget" name="widget_6" native="true">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-         <horstretch>0</horstretch>
-         <verstretch>2</verstretch>
-        </sizepolicy>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QGridLayout" name="gridLayout_18">
-     <item row="0" column="0" colspan="2">
-      <widget class="QGroupBox" name="groupBox_278">
+      <widget class="QGroupBox" name="groupExperience">
        <property name="title">
-        <string>Battle Commands</string>
+        <string>Experience Curve</string>
        </property>
-       <layout class="QGridLayout" name="gridLayout_19">
-        <property name="spacing">
-         <number>4</number>
-        </property>
-        <item row="5" column="0">
-         <widget class="QComboBox" name="comboBattleCommand6"/>
-        </item>
-        <item row="4" column="0">
-         <widget class="QComboBox" name="comboBattleCommand5"/>
-        </item>
-        <item row="2" column="0">
-         <widget class="QComboBox" name="comboBattleCommand3"/>
-        </item>
-        <item row="1" column="0">
-         <widget class="QComboBox" name="comboBattleCommand2"/>
-        </item>
+       <layout class="QFormLayout" name="layoutExperience">
         <item row="0" column="0">
-         <widget class="QComboBox" name="comboBattleCommand1">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>1</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0">
-         <widget class="QComboBox" name="comboBattleCommand4"/>
-        </item>
-        <item row="6" column="0">
-         <widget class="QLabel" name="label_6">
-          <property name="frameShape">
-           <enum>QFrame::WinPanel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
+         <widget class="QLabel" name="labelExpBase">
           <property name="text">
-           <string>Row</string>
+           <string>Primary</string>
           </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+          <property name="buddy">
+           <cstring>spinExpBase</cstring>
           </property>
          </widget>
         </item>
         <item row="0" column="1">
-         <widget class="QPushButton" name="pushSetBattleCommands">
+         <widget class="QSpinBox" name="spinExpBase">
+          <property name="maximum">
+           <number>9999</number>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="labelExpInflation">
           <property name="text">
-           <string>Set</string>
+           <string>Secondary</string>
+          </property>
+          <property name="buddy">
+           <cstring>spinExpInflation</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QSpinBox" name="spinExpInflation">
+          <property name="maximum">
+           <number>9999</number>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="labelExpCorrection">
+          <property name="text">
+           <string>Tertiary</string>
+          </property>
+          <property name="buddy">
+           <cstring>spinExpCorrection</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QSpinBox" name="spinExpCorrection">
+          <property name="maximum">
+           <number>9999</number>
           </property>
          </widget>
         </item>
        </layout>
       </widget>
      </item>
-     <item row="1" column="0" colspan="2">
-      <widget class="QGroupBox" name="groupBox_279">
-       <property name="title">
-        <string>Skills</string>
+     <item>
+      <spacer name="spacerMiddle">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
        </property>
-       <layout class="QHBoxLayout" name="horizontalLayout_43">
-        <property name="spacing">
-         <number>3</number>
-        </property>
-        <property name="leftMargin">
-         <number>5</number>
-        </property>
-        <property name="topMargin">
-         <number>5</number>
-        </property>
-        <property name="rightMargin">
-         <number>5</number>
-        </property>
-        <property name="bottomMargin">
-         <number>5</number>
-        </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="layoutRight" stretch="2,1,1">
+     <item>
+      <widget class="QGroupBox" name="groupSkills">
+       <property name="title">
+        <string>Skill Progression</string>
+       </property>
+       <layout class="QVBoxLayout" name="layoutSkills">
         <item>
          <widget class="QTableWidget" name="tableSkills">
-          <property name="horizontalScrollBarPolicy">
-           <enum>Qt::ScrollBarAlwaysOff</enum>
+          <property name="contextMenuPolicy">
+           <enum>Qt::ActionsContextMenu</enum>
           </property>
           <property name="editTriggers">
-           <set>QAbstractItemView::DoubleClicked</set>
-          </property>
-          <property name="showDropIndicator" stdset="0">
-           <bool>false</bool>
-          </property>
-          <property name="dragDropOverwriteMode">
-           <bool>false</bool>
-          </property>
-          <property name="alternatingRowColors">
-           <bool>true</bool>
+           <set>QAbstractItemView::NoEditTriggers</set>
           </property>
           <property name="selectionMode">
            <enum>QAbstractItemView::SingleSelection</enum>
@@ -479,46 +304,29 @@
           <property name="selectionBehavior">
            <enum>QAbstractItemView::SelectRows</enum>
           </property>
-          <property name="sortingEnabled">
-           <bool>true</bool>
-          </property>
           <property name="wordWrap">
            <bool>false</bool>
           </property>
           <property name="cornerButtonEnabled">
            <bool>false</bool>
           </property>
-          <attribute name="horizontalHeaderDefaultSectionSize">
-           <number>60</number>
+          <attribute name="horizontalHeaderStretchLastSection">
+           <bool>true</bool>
           </attribute>
           <attribute name="horizontalHeaderHighlightSections">
            <bool>false</bool>
           </attribute>
-          <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
-           <bool>false</bool>
-          </attribute>
-          <attribute name="horizontalHeaderStretchLastSection">
-           <bool>true</bool>
-          </attribute>
           <attribute name="verticalHeaderVisible">
            <bool>false</bool>
           </attribute>
-          <attribute name="verticalHeaderDefaultSectionSize">
-           <number>36</number>
-          </attribute>
-          <row>
-           <property name="text">
-            <string/>
-           </property>
-          </row>
           <column>
            <property name="text">
-            <string>Lv</string>
+            <string>Level</string>
            </property>
           </column>
           <column>
            <property name="text">
-            <string>Skill</string>
+            <string>Skill Learned</string>
            </property>
           </column>
          </widget>
@@ -526,26 +334,34 @@
        </layout>
       </widget>
      </item>
-     <item row="2" column="0">
-      <widget class="QGroupBox" name="groupBox_280">
+     <item>
+      <widget class="QGroupBox" name="groupStates">
        <property name="title">
         <string>Condition Resist</string>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_54">
+       <layout class="QVBoxLayout" name="layoutStates">
         <item>
-         <widget class="QListWidget" name="listStates"/>
+         <widget class="QListWidget" name="listStates">
+          <property name="toolTip">
+           <string>Click a condition to change its rank (A to E)</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </widget>
      </item>
-     <item row="2" column="1">
-      <widget class="QGroupBox" name="groupBox_281">
+     <item>
+      <widget class="QGroupBox" name="groupAttributes">
        <property name="title">
-        <string>Atribute resist</string>
+        <string>Attribute Resist</string>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_55">
+       <layout class="QVBoxLayout" name="layoutAttributes">
         <item>
-         <widget class="QListWidget" name="listAttributes"/>
+         <widget class="QListWidget" name="listAttributes">
+          <property name="toolTip">
+           <string>Click an attribute to change its rank (A to E)</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </widget>

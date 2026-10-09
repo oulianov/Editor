@@ -35,8 +35,6 @@ public:
 	explicit EventDialog(ProjectData& project, QWidget *parent = nullptr);
 	~EventDialog();
 
-	static int edit(QWidget *parent, lcf::rpg::Event& event, ProjectData& project);
-
 	static bool equalEvents(const lcf::rpg::Event &e1,
 							const lcf::rpg::Event &e2);
 
@@ -52,6 +50,10 @@ public:
 	/** The event was changed by another program (nullptr: it was removed).
 	 *  Shows the new version, asking first when the user changed it. */
 	void reloadEvent(const lcf::rpg::Event* event);
+
+signals:
+	/** Apply was clicked: the event as it is now, to put on the map */
+	void applied(const lcf::rpg::Event& event);
 
 private slots:
 	void apply();

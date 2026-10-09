@@ -18,24 +18,18 @@
 #pragma once
 
 #include <QWidget>
-#include <lcf/rpg/system.h>
 
 class ProjectData;
 
-namespace Ui {
-class SystemWidget;
-}
-
+/**
+ * The System page of the database, like RPG Maker's: vehicles, title, game over
+ * and system graphics, starting party, music, sound effects and screen
+ * transitions. Edits the system of the given project data.
+ */
 class SystemWidget : public QWidget
 {
 	Q_OBJECT
 
 public:
 	explicit SystemWidget(ProjectData& project, QWidget *parent = nullptr);
-	~SystemWidget();
-
-private:
-	Ui::SystemWidget *ui;
-	ProjectData& m_project;
 };
-

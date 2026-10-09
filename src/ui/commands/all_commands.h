@@ -29,11 +29,8 @@
 #include "flash_screen_widget.h"
 #include "full_heal_widget.h"
 #include "message_options_widget.h"
-#include "face_graphics_widget.h"
-#include "input_number_widget.h"
 #include "message_options_widget.h"
 #include "shake_screen_widget.h"
-#include "show_choices_widget.h"
 #include "show_message_widget.h"
 #include "simple_command_widgets.h"
 #include "switch_operations_widget.h"
@@ -41,3 +38,13 @@
 #include "tint_screen_widget.h"
 #include "variable_operations_widget.h"
 #include "weather_effects_widget.h"
+
+#include "location_widgets.h"
+
+#include "picture_widgets.h"
+
+#include "flow_widgets.h"
+#include "message_input_widgets.h"
+#include "media_widgets.h"
+#include "hero_widgets.h"
+#include "scene_widgets.h"

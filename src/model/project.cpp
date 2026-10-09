@@ -27,6 +27,10 @@
 #include <lcf/lmt/reader.h>
 #include <lcf/encoder.h>
 #include <QDir>
+#include <QFile>
+#include <QSettings>
+#include <sstream>
+#include "common/dbstring.h"
 #include <memory>
 #include <fstream>
 
@@ -90,6 +94,59 @@ std::shared_ptr<Project> Project::load(const QDir& dir) {
 	}
 
 	return p;
+}
+
+QString Project::create(const QDir& dir, const QString& title, Format format) {
+	auto read = [](const QString& resource) {
+		QFile file(resource);
+		file.open(QIODevice::ReadOnly);
+		return std::istringstream(file.readAll().toStdString());
+	};
+	auto db_stream = read(QStringLiteral(":/templates/EASY_RT.edb"));
+	auto mt_stream = read(QStringLiteral(":/templates/EASY_RT.emt"));
+	auto map_stream = read(QStringLiteral(":/templates/Map0001.emu"));
+	auto db = lcf::LDB_Reader::LoadXml(db_stream);
+	auto treemap = lcf::LMT_Reader::LoadXml(mt_stream);
+	auto map = lcf::LMU_Reader::LoadXml(map_stream);
+	if (!db || !treemap || !map) {
+		return tr("The template of new projects cannot be read.");
+	}
+
+	// The root of the map tree is the game
+	if (!treemap->maps.empty()) {
+		treemap->maps[0].name = ToDBString(title);
+	}
+
+	auto path = [&](const char* name) { return dir.filePath(QString::fromLatin1(name)).toStdString(); };
+	bool saved;
+	if (format == Format::EasyRpg) {
+		saved = lcf::LDB_Reader::SaveXml(path(EASY_DB), *db)
+			&& lcf::LMT_Reader::SaveXml(path(EASY_MT), *treemap, lcf::EngineVersion::e2k3)
+			&& lcf::LMU_Reader::SaveXml(path("Map0001.emu"), *map, lcf::EngineVersion::e2k3);
+		QSettings ini(dir.filePath(EASY_CFG), QSettings::IniFormat);
+		ini.setValue(QStringLiteral("RPG_RT/" GAMETITLE), title);
+	} else {
+		const bool rpg2k3 = format == Format::Rpg2003;
+		const auto engine = rpg2k3 ? lcf::EngineVersion::e2k3 : lcf::EngineVersion::e2k;
+		db->system.ldb_id = rpg2k3 ? 2003 : 0;
+		// the code page of the system, like RPG Maker
+		const std::string encoding = lcf::ReaderUtil::GetLocaleEncoding();
+		saved = lcf::LDB_Reader::Save(path(RM_DB), *db, encoding)
+			&& lcf::LMT_Reader::Save(path(RM_MT), *treemap, engine, encoding)
+			&& lcf::LMU_Reader::Save(path("Map0001.lmu"), *map, engine, encoding);
+
+		// RPG_RT.ini in the code page of the game
+		std::string ini = "[RPG_RT]\r\nGameTitle=" + title.toStdString() + "\r\nMapEditMode=1\r\nMapEditZoom=1\r\nFullPackageFlag=0\r\n"
+			"\r\n[EasyRPG]\r\nEncoding=" + encoding + "\r\n";
+		lcf::Encoder encoder(encoding);
+		if (encoder.IsOk()) {
+			encoder.Encode(ini);
+		}
+		std::ofstream out(path(RM_INI), std::ios::binary);
+		out << ini;
+		saved = saved && out.good();
+	}
+	return saved ? QString() : tr("The files of the new project cannot be written in %1.").arg(dir.absolutePath());
 }
 
 bool Project::loadDatabaseAndMapTree() {
@@ -197,7 +254,13 @@ QString Project::findFile(const QString& filename, FileFinder::FileType type) co
 }
 
 QString Project::findFile(const QString& dir, const QString& filename, FileFinder::FileType type) const {
-	return FileFinder::Find(projectDir().absolutePath(), dir, filename, type);
+	QString found = FileFinder::Find(projectDir().absolutePath(), dir, filename, type);
+	const QString rtp = core().rtpPath(QString());
+	if (found.isEmpty() && !rtp.isEmpty()) {
+		// the game's own files first, then the RTP's (monsters, charsets... of RPG Maker)
+		found = FileFinder::Find(QDir(rtp), dir, filename, type);
+	}
+	return found;
 }
 
 QString Project::findFileOrDefault(const QString& filename) const {

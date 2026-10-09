@@ -59,9 +59,13 @@ set(EDITOR_SOURCES
 	src/model/event_command_defaults.cpp
 	src/model/event_command_defaults.h
 	src/model/event_command_list.cpp
+	src/model/move_route_codec.cpp
+	src/model/move_route_codec.h
 	src/model/event_command_list.h
 	src/model/item.cpp
 	src/model/item.h
+	src/model/map_tools.cpp
+	src/model/map_tools.h
 	src/model/project.cpp
 	src/model/project.h
 	src/model/project_data.cpp
@@ -86,6 +90,22 @@ set(EDITOR_SOURCES
 	src/stringizer.cpp
 	src/stringizer.h
 	src/ui/commands/all_commands.h
+	src/ui/commands/flow_widgets.cpp
+	src/ui/commands/flow_widgets.h
+	src/ui/commands/event_branch_helpers.cpp
+	src/ui/commands/event_branch_helpers.h
+	src/ui/commands/picture_widgets.cpp
+	src/ui/commands/picture_widgets.h
+	src/ui/commands/message_input_widgets.cpp
+	src/ui/commands/message_input_widgets.h
+	src/ui/commands/media_widgets.cpp
+	src/ui/commands/media_widgets.h
+	src/ui/commands/hero_widgets.cpp
+	src/ui/commands/hero_widgets.h
+	src/ui/commands/scene_widgets.cpp
+	src/ui/commands/scene_widgets.h
+	src/ui/commands/location_widgets.cpp
+	src/ui/commands/location_widgets.h
 	src/ui/commands/change_actor_face_widget.cpp
 	src/ui/commands/change_actor_face_widget.h
 	src/ui/commands/change_actor_face_widget.ui
@@ -119,27 +139,18 @@ set(EDITOR_SOURCES
 	src/ui/commands/enable_disable_widget.cpp
 	src/ui/commands/enable_disable_widget.h
 	src/ui/commands/enable_disable_widget.ui
-	src/ui/commands/face_graphics_widget.cpp
-	src/ui/commands/face_graphics_widget.h
-	src/ui/commands/face_graphics_widget.ui
 	src/ui/commands/flash_screen_widget.cpp
 	src/ui/commands/flash_screen_widget.h
 	src/ui/commands/flash_screen_widget.ui
 	src/ui/commands/full_heal_widget.cpp
 	src/ui/commands/full_heal_widget.h
 	src/ui/commands/full_heal_widget.ui
-	src/ui/commands/input_number_widget.cpp
-	src/ui/commands/input_number_widget.h
-	src/ui/commands/input_number_widget.ui
 	src/ui/commands/message_options_widget.cpp
 	src/ui/commands/message_options_widget.h
 	src/ui/commands/message_options_widget.ui
 	src/ui/commands/shake_screen_widget.cpp
 	src/ui/commands/shake_screen_widget.h
 	src/ui/commands/shake_screen_widget.ui
-	src/ui/commands/show_choices_widget.cpp
-	src/ui/commands/show_choices_widget.h
-	src/ui/commands/show_choices_widget.ui
 	src/ui/commands/show_message_widget.cpp
 	src/ui/commands/simple_command_widgets.cpp
 	src/ui/commands/simple_command_widgets.h
@@ -162,6 +173,8 @@ set(EDITOR_SOURCES
 	src/ui/commands/weather_effects_widget.ui
 	src/ui/common/edit_dialog.cpp
 	src/ui/common/editor_style.cpp
+	src/ui/common/help.cpp
+	src/ui/common/help.h
 	src/ui/common/editor_style.h
 	src/ui/common/edit_dialog.h
 	src/ui/common/edit_dialog.ui
@@ -200,16 +213,15 @@ set(EDITOR_SOURCES
 	src/ui/database/attribute_widget.ui
 	src/ui/database/battle_animation2_widget.cpp
 	src/ui/database/battle_animation2_widget.h
-	src/ui/database/battle_animation2_widget.ui
 	src/ui/database/battle_animation_widget.cpp
 	src/ui/database/battle_animation_widget.h
-	src/ui/database/battle_animation_widget.ui
 	src/ui/database/battle_screen_widget.cpp
 	src/ui/database/battle_screen_widget.h
 	src/ui/database/battle_screen_widget.ui
 	src/ui/database/chipset_widget.cpp
 	src/ui/database/chipset_widget.h
-	src/ui/database/chipset_widget.ui
+	src/ui/database/class_editors.cpp
+	src/ui/database/class_editors.h
 	src/ui/database/class_widget.cpp
 	src/ui/database/class_widget.h
 	src/ui/database/class_widget.ui
@@ -222,6 +234,14 @@ set(EDITOR_SOURCES
 	src/ui/database/database_split_widget.cpp
 	src/ui/database/database_split_widget.h
 	src/ui/database/database_split_widget.ui
+	src/ui/database/enemy_action_dialog.cpp
+	src/ui/database/enemy_action_dialog.h
+	src/ui/database/enemy_graphics.cpp
+	src/ui/database/enemy_graphics.h
+	src/ui/database/enemy_group_view.cpp
+	src/ui/database/enemy_group_view.h
+	src/ui/database/enemy_picker_widget.cpp
+	src/ui/database/enemy_picker_widget.h
 	src/ui/database/enemy_group_widget.cpp
 	src/ui/database/enemy_group_widget.h
 	src/ui/database/enemy_group_widget.ui
@@ -230,10 +250,10 @@ set(EDITOR_SOURCES
 	src/ui/database/enemy_widget.ui
 	src/ui/database/item_widget.cpp
 	src/ui/database/item_widget.h
-	src/ui/database/item_widget.ui
+	src/ui/database/skill_item_common.cpp
+	src/ui/database/skill_item_common.h
 	src/ui/database/skill_widget.cpp
 	src/ui/database/skill_widget.h
-	src/ui/database/skill_widget.ui
 	src/ui/database/state_widget.cpp
 	src/ui/database/state_widget.h
 	src/ui/database/state_widget.ui
@@ -242,10 +262,10 @@ set(EDITOR_SOURCES
 	src/ui/database/switch_widget.ui
 	src/ui/database/system2_widget.cpp
 	src/ui/database/system2_widget.h
-	src/ui/database/system2_widget.ui
+	src/ui/database/system_fields.cpp
+	src/ui/database/system_fields.h
 	src/ui/database/system_widget.cpp
 	src/ui/database/system_widget.h
-	src/ui/database/system_widget.ui
 	src/ui/database/terrain_widget.cpp
 	src/ui/database/terrain_widget.h
 	src/ui/database/terrain_widget.ui
@@ -254,7 +274,8 @@ set(EDITOR_SOURCES
 	src/ui/database/variable_widget.ui
 	src/ui/database/vocabulary_widget.cpp
 	src/ui/database/vocabulary_widget.h
-	src/ui/database/vocabulary_widget.ui
+	src/ui/event/battle_page_condition_dialog.cpp
+	src/ui/event/battle_page_condition_dialog.h
 	src/ui/event/battle_page_widget.cpp
 	src/ui/event/battle_page_widget.h
 	src/ui/event/battle_page_widget.ui
@@ -263,6 +284,8 @@ set(EDITOR_SOURCES
 	src/ui/event/event_command_palette.cpp
 	src/ui/event/event_command_palette.h
 	src/ui/event/event_commands_widget.cpp
+	src/ui/event/move_route_dialog.cpp
+	src/ui/event/move_route_dialog.h
 	src/ui/event/event_commands_widget.h
 	src/ui/event/event_dialog.cpp
 	src/ui/event/event_dialog.h
@@ -274,18 +297,24 @@ set(EDITOR_SOURCES
 	src/ui/event/event_raw_widget.h
 	src/ui/event/event_raw_widget.ui
 	src/ui/main_window.cpp
-	src/ui/tools/automation.cpp
-	src/ui/tools/automation.h
 	src/ui/tools/screenshot.cpp
 	src/ui/tools/screenshot.h
 	src/ui/main_window.h
 	src/ui/main_window.ui
+	src/ui/map/map_cursors.cpp
+	src/ui/map/map_cursors.h
 	src/ui/map/map_scene.cpp
 	src/ui/map/map_scene.h
 	src/ui/map/undo_draw.cpp
 	src/ui/map/undo_draw.h
 	src/ui/map/undo_event.cpp
 	src/ui/map/undo_event.h
+	src/ui/maptree/area_properties_dialog.cpp
+	src/ui/maptree/area_properties_dialog.h
+	src/ui/maptree/encounter_list.cpp
+	src/ui/maptree/encounter_list.h
+	src/ui/maptree/shift_map_dialog.cpp
+	src/ui/maptree/shift_map_dialog.h
 	src/ui/maptree/map_properties_dialog.cpp
 	src/ui/maptree/map_properties_dialog.h
 	src/ui/maptree/map_properties_dialog.ui
@@ -579,10 +608,32 @@ qt_import_qml_plugins(${EXE_NAME})
 # Add resources
 target_sources(${EXE_NAME} PRIVATE "resources/Resources.qrc")
 
+# Script runner and its tests: not part of releases (docs/Automation.adoc)
+option(EDITOR_SCRIPTS "Build the script runner (--script) used by the tests and for screenshots" OFF)
+set(EDITOR_TEST_PROJECT "" CACHE PATH "Game the script tests run on (TestGame-2003 of https://github.com/EasyRPG/TestGame)")
+if(EDITOR_SCRIPTS)
+	target_sources(${EXE_NAME} PRIVATE src/ui/tools/automation.cpp src/ui/tools/automation.h)
+	target_compile_definitions(${EXE_NAME} PRIVATE EDITOR_SCRIPTS=1)
+	# wheel: trackpad events injected like the platform's
+	target_link_libraries(${EXE_NAME} PRIVATE Qt6::GuiPrivate)
+	if(EDITOR_TEST_PROJECT)
+		enable_testing()
+		file(GLOB EDITOR_TEST_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/scripts/*.txt")
+		foreach(script ${EDITOR_TEST_SCRIPTS})
+			get_filename_component(name ${script} NAME_WE)
+			add_test(NAME script_${name}
+				COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${script} ${EDITOR_TEST_PROJECT}
+				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+			set_tests_properties(script_${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+		endforeach()
+	endif()
+endif()
+
 # Translations
 if(TARGET Qt6::lrelease)
 	set(TRANSLATION_SOURCES
 		translations/editor_de.ts
+		translations/editor_fr.ts
 	)
 	set(TRANSLATION_RES ${CMAKE_CURRENT_BINARY_DIR}/translations/editor.qrc)
 	configure_file(translations/editor.qrc ${TRANSLATION_RES} COPYONLY)

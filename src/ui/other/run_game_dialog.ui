@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Run Game</string>
+   <string>Test Play Options</string>
   </property>
   <property name="modal">
    <bool>true</bool>
@@ -172,7 +172,7 @@
       <item row="0" column="1">
        <widget class="QCheckBox" name="checkRTP">
         <property name="text">
-         <string>Disable RPT</string>
+         <string>Disable RTP</string>
         </property>
        </widget>
       </item>
@@ -279,6 +279,9 @@
      </property>
      <property name="checkable">
       <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_9">
       <item>

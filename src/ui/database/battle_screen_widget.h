@@ -20,21 +20,28 @@
 #include <QWidget>
 
 class ProjectData;
+class QButtonGroup;
 
 namespace Ui {
 class BattleScreenWidget;
 }
 
+// The battle layout and the battle commands of RPG Maker 2003
+// (lcf::rpg::BattleCommands), edited in the database copy of the dialog
 class BattleScreenWidget : public QWidget
 {
 	Q_OBJECT
 
 public:
 	explicit BattleScreenWidget(ProjectData& project, QWidget *parent = nullptr);
-	~BattleScreenWidget();
+	~BattleScreenWidget() override;
 
 private:
+	void fillCommands(int current_row);
+	void showCommand(int row);
+	void updateEnabled();
+
 	Ui::BattleScreenWidget *ui;
+	QButtonGroup* m_deathHandler = nullptr;
 	ProjectData& m_project;
 };
-

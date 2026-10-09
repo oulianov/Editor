@@ -22,8 +22,10 @@
 #include <QDialogButtonBox>
 #include <QAbstractButton>
 #include <QAbstractItemModel>
+#include <type_traits>
 #include <lcf/rpg/fwd.h>
 #include "model/project.h"
+#include "ui/common/help.h"
 #include "ui/database/actor_widget.h"
 #include "ui/database/attribute_widget.h"
 #include "ui/database/battle_animation2_widget.h"
@@ -58,7 +60,7 @@ public:
 				reject();
 				break;
 			case QDialogButtonBox::Apply:
-				apply();
+				tryApply();
 				break;
 			case QDialogButtonBox::Help:
 				help();
@@ -69,18 +71,30 @@ public:
 	}
 
 	void accept() override {
-		apply();
-		QDialog::accept();
+		if (tryApply()) {
+			QDialog::accept();
+		}
 	};
 
 	virtual void apply() {}
+
+	// Editors removing populated branches can refuse an application.
+	virtual bool tryApply() {
+		apply();
+		return true;
+	}
 
 	void reject() override {
 		QDialog::reject();
 	}
 
 	void help() {
-		// FIXME: not implemented
+		Help::open(this, m_helpTopic);
+	}
+
+	/** Where the Help button opens the guide */
+	void setHelpTopic(const QString& topic) {
+		m_helpTopic = topic;
 	}
 
 signals:
@@ -88,6 +102,7 @@ signals:
 
 protected:
 	QDialogButtonBox* buttonBox = nullptr;
+	QString m_helpTopic = QStringLiteral("database");
 };
 
 template <typename T>
@@ -128,12 +143,19 @@ public:
 	}
 
 private:
-	void apply() override {
+	bool tryApply() override {
 		if constexpr (HasApply<WIDGET>::value) {
-			wrappedWidget->apply();
+			if constexpr (std::is_same_v<decltype(wrappedWidget->apply()), bool>) {
+				if (!wrappedWidget->apply()) {
+					return false;
+				}
+			} else {
+				wrappedWidget->apply();
+			}
 		}
 
 		dataOriginal = dataCopy;
+		return true;
 	}
 
 private:

@@ -16,6 +16,7 @@
  */
 
 #include "actor.h"
+#include <QPixmapCache>
 #include <lcf/rpg/item.h>
 #include "common/image_loader.h"
 #include "ui/database/actor_widget.h"
@@ -31,19 +32,25 @@ lcf::rpg::Actor& ActorModel::data() {
 }
 
 QPixmap ActorModel::preview() {
+	// Lists draw it on every repaint: no file search and loading each time
+	const QString key = QStringLiteral("face-thumbnail:%1:%2:%3").arg(m_project->project().projectDir().absolutePath(),
+		ToQString(m_data->face_name)).arg(m_data->face_index);
+	QPixmap face;
+	if (QPixmapCache::find(key, &face)) {
+		return face;
+	}
 	QString path = m_project->project().findFile("FaceSet", ToQString(m_data->face_name), FileFinder::FileType::Image);
 	if (!path.isEmpty()) {
 		QPixmap faceSet = ImageLoader::Load(path);
 		int x = (m_data->face_index % 4) * 48;
 		int y = (m_data->face_index / 4) * 48;
-
-		return faceSet.copy(x, y, 48, 48);
+		face = faceSet.copy(x, y, 48, 48);
 	} else {
-		QPixmap faceSet = QPixmap(48, 48);
-		faceSet.fill(QColor(255, 255, 255, 0));
-
-		return faceSet;
+		face = QPixmap(48, 48);
+		face.fill(Qt::transparent);
 	}
+	QPixmapCache::insert(key, face);
+	return face;
 }
 
 const lcf::rpg::Actor& ActorModel::data() const {

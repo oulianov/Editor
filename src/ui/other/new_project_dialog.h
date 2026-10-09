@@ -34,6 +34,8 @@ public:
 	QString getGameTitle() const;
 	QString getProjectFolder() const;
 	int getTileSize() const;
+	/** Project::Format: RPG Maker 2003, RPG Maker 2000 or EasyRPG */
+	int getFormat() const;
 
 	//TODO: generate RTP template code.
 

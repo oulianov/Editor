@@ -16,11 +16,9 @@
  */
 
 #include "enemy.h"
-#include "common/filefinder.h"
-#include "common/image_loader.h"
 #include "model/project.h"
 #include "model/project_data.h"
-#include "ui/database/enemy_widget.h"
+#include "ui/database/enemy_graphics.h"
 #include "common/dbstring.h"
 
 EnemyModel::EnemyModel(ProjectData& project, lcf::rpg::Enemy& data) :
@@ -33,9 +31,5 @@ lcf::rpg::Enemy& EnemyModel::data() {
 }
 
 QPixmap EnemyModel::preview() {
-	QPixmap monster = ImageLoader::Load(m_project->project().findFile("Monster", ToQString(data().battler_name), FileFinder::FileType::Image));
-	if (!monster) {
-		return QPixmap(48, 48);
-	}
-	return monster.scaled(48, 48, Qt::AspectRatioMode::KeepAspectRatio);
+	return EnemyGraphics::thumbnail(*m_project, data(), 48);
 }

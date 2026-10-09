@@ -16,6 +16,7 @@
  */
 
 #include "core.h"
+#include "ui/common/help.h"
 #include "database_dialog.h"
 #include "ui_database_dialog.h"
 #include <QPushButton>
@@ -46,10 +47,8 @@ DatabaseDialog::DatabaseDialog(ProjectData& project, QWidget *parent) :
 	pageBattleAnimations2 = new DatabaseSplitWidget<lcf::rpg::BattlerAnimation>(m_projectDataCopy, this);
 	pageBattleScreen = new BattleScreenWidget(m_projectDataCopy, this);
 	pageTerrain = new DatabaseSplitWidget<lcf::rpg::Terrain>(m_projectDataCopy, this);
-	// FIXME: This fails to compile pageChipset = new DatabaseSplitWidget<lcf::rpg::Chipset>(m_projectDataCopy, this);
+	pageChipset = new DatabaseSplitWidget<lcf::rpg::Chipset>(m_projectDataCopy, this);
 	pageCommonevents = new DatabaseSplitWidget<lcf::rpg::CommonEvent>(m_projectDataCopy, this);
-	pageSwitches = new DatabaseSplitWidget<lcf::rpg::Switch>(m_projectDataCopy, this);
-	pageVariables = new DatabaseSplitWidget<lcf::rpg::Variable>(m_projectDataCopy, this);
 
 	pageVocabulary = new VocabularyWidget(m_projectDataCopy, this);
 	pageSystem = new SystemWidget(m_projectDataCopy, this);
@@ -58,21 +57,19 @@ DatabaseDialog::DatabaseDialog(ProjectData& project, QWidget *parent) :
 	ui->tabOld_Pages->insertTab(1, pageClasses, tr("Professions"));
 	ui->tabOld_Pages->insertTab(2, pageSkills, tr("Skills"));
 	ui->tabOld_Pages->insertTab(3, pageItems, tr("Items"));
-	ui->tabOld_Pages->insertTab(4, pageEnemies, tr("Enemys"));
-	ui->tabOld_Pages->insertTab(5, pageEnemyGroups, tr("EnemyGroup"));
+	ui->tabOld_Pages->insertTab(4, pageEnemies, tr("Monsters"));
+	ui->tabOld_Pages->insertTab(5, pageEnemyGroups, tr("Monster Groups"));
 	ui->tabOld_Pages->insertTab(6, pageAttributes, tr("Attributes"));
 	ui->tabOld_Pages->insertTab(7, pageStates, tr("Hero Status"));
 	ui->tabOld_Pages->insertTab(8, pageBattleAnimations, tr("Battle Animation"));
 	ui->tabOld_Pages->insertTab(9, pageBattleAnimations2, tr("Battle Animation 2"));
 	ui->tabOld_Pages->insertTab(10, pageBattleScreen, tr("Battle screen"));
 	ui->tabOld_Pages->insertTab(11, pageTerrain, tr("Terrain"));
-	// FIXME ui->tabOld_Pages->insertTab(12, pageChipset, tr("Chipset"));
+	ui->tabOld_Pages->insertTab(12, pageChipset, tr("Chipset"));
 	ui->tabOld_Pages->insertTab(13, pageVocabulary, tr("Vocabulary"));
 	ui->tabOld_Pages->insertTab(14, pageSystem, tr("System"));
-	ui->tabOld_Pages->insertTab(15, pageSystem2, tr("System"));
+	ui->tabOld_Pages->insertTab(15, pageSystem2, tr("System 2"));
 	ui->tabOld_Pages->insertTab(16, pageCommonevents, tr("Common events"));
-	ui->tabOld_Pages->insertTab(17, pageSwitches, tr("Switches"));
-	ui->tabOld_Pages->insertTab(19, pageVariables, tr("Variables"));
 
 	ui->tabOld_Pages->setCurrentWidget(pageActors);
 	ui->stackedStyle->setCurrentWidget(ui->pageOld);
@@ -169,6 +166,26 @@ void DatabaseDialog::on_buttonBox_clicked(QAbstractButton *button)
 			m_project = m_projectDataCopy;
 			lcf::LDB_Reader::PrepareSave(m_project.database());
 			core().project()->saveDatabase();
+		}
+		break;
+		case QDialogButtonBox::Help: {
+			const QWidget* page = ui->tabOld_Pages->currentWidget();
+			const std::vector<std::pair<const QWidget*, const char*>> topics = {
+				{pageActors, "database-heroes"}, {pageClasses, "database-classes"}, {pageSkills, "database-skills"},
+				{pageItems, "database-items"}, {pageEnemies, "database-monsters"}, {pageEnemyGroups, "database-monster-groups"},
+				{pageAttributes, "database-attributes"}, {pageStates, "database-conditions"},
+				{pageBattleAnimations, "database-battle-animations"}, {pageBattleAnimations2, "database-battler-animations"},
+				{pageBattleScreen, "database-battle-screen"}, {pageTerrain, "database-terrain"}, {pageChipset, "database-chipset"},
+				{pageVocabulary, "database-vocabulary"}, {pageSystem, "database-system"}, {pageSystem2, "database-system2"},
+				{pageCommonevents, "database-common-events"},
+			};
+			QString topic = QStringLiteral("database");
+			for (const auto& [widget, name] : topics) {
+				if (widget == page) {
+					topic = QString::fromLatin1(name);
+				}
+			}
+			Help::open(this, topic);
 		}
 		break;
 		default:

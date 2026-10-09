@@ -16,6 +16,7 @@
  */
 
 #include "picker_dialog.h"
+#include "ui/common/help.h"
 #include "ui_picker_dialog.h"
 #include "model/project.h"
 #include "common/image_loader.h"
@@ -75,7 +76,7 @@ void PickerDialog::buttonClicked(QAbstractButton* button) {
 			emit fileSelected(m_currentFile.baseName());
 			break;
 		case QDialogButtonBox::Help:
-			// TODO
+			Help::open(this);
 			break;
 		default:
 			break;

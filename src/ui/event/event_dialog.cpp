@@ -23,6 +23,8 @@
 #include <QSettings>
 #include "event_page_widget.h"
 #include "core.h"
+#include "ui/common/help.h"
+#include <QPushButton>
 #include "common/dbstring.h"
 
 
@@ -56,22 +58,14 @@ EventDialog::EventDialog(ProjectData& project, QWidget *parent) :
 			SIGNAL(clicked()),
 			this,
 			SLOT(apply()));
+	connect(ui->buttonBox->button(QDialogButtonBox::Help), &QPushButton::clicked, this, [this] {
+		Help::open(this, QStringLiteral("event-editor"));
+	});
 }
 
 EventDialog::~EventDialog()
 {
 	delete ui;
-}
-
-int EventDialog::edit(QWidget *parent, lcf::rpg::Event& event, ProjectData& project)
-{
-	// FIXME: Use WidgetAsDialogWrapper instead of this function
-	EventDialog dlg(project, parent);
-	dlg.setEvent(event);
-	dlg.exec();
-	if (dlg.lst_result != QDialogButtonBox::Cancel)
-		event = dlg.getEvent();
-	return dlg.lst_result;
 }
 
 bool EventDialog::equalEvents(const lcf::rpg::Event &e1, const lcf::rpg::Event &e2)
@@ -169,7 +163,7 @@ bool EventDialog::isModified() const
 {
 	lcf::rpg::Event current = m_event;
 	current.name = ToDBString(ui->lineName->text());
-	return lst_result != QDialogButtonBox::Cancel || !equalEvents(current, r_event);
+	return !equalEvents(current, r_event);
 }
 
 void EventDialog::reloadEvent(const lcf::rpg::Event* event)
@@ -204,10 +198,13 @@ void EventDialog::apply()
 {
 	m_event.name = ToDBString(ui->lineName->text());
 	a_event = m_event;
-	if (equalEvents(a_event, r_event))
-		lst_result = QDialogButtonBox::Cancel;
-	else
-		lst_result = QDialogButtonBox::Apply;
+	if (equalEvents(a_event, r_event)) {
+		return;
+	}
+	// Put it on the map now, like RPG Maker; later changes compare to it
+	lst_result = QDialogButtonBox::Apply;
+	r_event = a_event;
+	emit applied(a_event);
 }
 
 void EventDialog::ok()

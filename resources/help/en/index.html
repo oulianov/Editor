@@ -1,0 +1,791 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html>
+<head>
+<meta charset="utf-8">
+<title>EasyRPG Editor Help</title>
+<style type="text/css">
+h1 { font-size: 20pt; margin-top: 4px; margin-bottom: 8px; }
+h2 { font-size: 16pt; margin-top: 18px; margin-bottom: 6px; color: #3a7bd5; }
+h3 { font-size: 13pt; margin-top: 12px; margin-bottom: 4px; }
+p { margin-top: 2px; margin-bottom: 6px; }
+li { margin-bottom: 2px; }
+.note { color: #888888; font-style: italic; }
+.toc { margin-left: 8px; }
+td { padding: 2px 8px 2px 2px; vertical-align: top; }
+</style>
+</head>
+<body>
+
+<a name="top"></a>
+<h1>EasyRPG Editor Help</h1>
+<p>The EasyRPG Editor lets you make games compatible with RPG Maker 2000 and RPG Maker 2003, played with EasyRPG Player. In each window, the <b>Help</b> button opens the matching section of this page.</p>
+
+<h2>Contents</h2>
+<table class="toc">
+<tr><td>
+<b>Project and maps</b>
+<ul>
+<li><a href="#new-project">New project</a></li>
+<li><a href="#maps">Maps and drawing</a></li>
+<li><a href="#map-properties">Map properties</a></li>
+<li><a href="#search">Search</a></li>
+<li><a href="#test-play">Test play</a></li>
+<li><a href="#rtp">RTP path</a></li>
+<li><a href="#reload">Reload files changed on disk</a></li>
+<li><a href="#screenshots">Screenshots</a></li>
+</ul>
+<b>Events</b>
+<ul>
+<li><a href="#event-editor">Event window</a></li>
+<li><a href="#command-palette">Event Commands window</a></li>
+<li><a href="#move-route">Move route</a></li>
+</ul>
+</td><td>
+<b>Database</b>
+<ul>
+<li><a href="#database">Database overview</a></li>
+<li><a href="#database-heroes">Heroes</a>, <a href="#database-classes">Classes</a>, <a href="#database-skills">Skills</a>, <a href="#database-items">Items</a></li>
+<li><a href="#database-monsters">Monsters</a>, <a href="#database-monster-groups">Monster Groups</a></li>
+<li><a href="#database-attributes">Attributes</a>, <a href="#database-conditions">Conditions</a></li>
+<li><a href="#database-battle-animations">Battle Animations</a>, <a href="#database-battler-animations">Battler Animations</a>, <a href="#database-battle-screen">Battle Screen</a></li>
+<li><a href="#database-terrain">Terrain</a>, <a href="#database-chipset">Chipset</a></li>
+<li><a href="#database-vocabulary">Vocabulary</a>, <a href="#database-system">System</a>, <a href="#database-system2">System 2</a></li>
+<li><a href="#database-common-events">Common Events</a>, <a href="#database-switches">Switches and variables</a></li>
+</ul>
+<b>Event commands</b>
+<ul>
+<li><a href="#commands-messages">Messages</a></li>
+<li><a href="#commands-progression">Game progression</a></li>
+<li><a href="#commands-heroes">Heroes</a></li>
+<li><a href="#commands-system">System</a></li>
+<li><a href="#commands-scenes">Scenes</a></li>
+<li><a href="#commands-map">Map and movement</a></li>
+<li><a href="#commands-screen">Screen and pictures</a></li>
+<li><a href="#commands-sound">Sound and movie</a></li>
+<li><a href="#commands-flow">Flow control</a></li>
+<li><a href="#commands-battle">Battle events</a></li>
+</ul>
+</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>Project and maps</h2>
+
+<a name="new-project"></a>
+<h3>New project</h3>
+<p>Creates an empty game folder ready to be played with EasyRPG Player.</p>
+<ul>
+<li><b>Game Title</b>: the name shown in the window title of the game.</li>
+<li><b>Game Folder</b>: the name of the folder created for the project, inside the <b>Path to games folder</b>.</li>
+<li><b>DB template</b>: the starting database (heroes, items, chipsets...) copied into the new project.</li>
+<li><b>Tile Size</b>: size of one map tile in pixels. RPG Maker 2000/2003 games always use 16; larger sizes only work with EasyRPG Player.</li>
+</ul>
+
+<a name="maps"></a>
+<h3>Maps and drawing</h3>
+<p>The <b>map tree</b> on the left lists every map of the project. Double-click a map to open it, right-click to create a new map, open its properties, copy, paste or delete it. Drag a map onto another one to make it a child map: child maps can inherit the music, battle background and permissions of their parent. Areas are rectangles of a parent map that have their own list of random encounters.</p>
+<p>A map has three layers. Choose the layer to edit with the toolbar or the keys:</p>
+<ul>
+<li><b>Lower layer</b> (F5): ground, water, walls and autotiles.</li>
+<li><b>Upper layer</b> (F6): decorations drawn over the ground (trees, furniture, roofs).</li>
+<li><b>Events</b> (F7): double-click a tile to create or edit an event, drag an event to move it, right-click to copy, paste or delete it.</li>
+</ul>
+<p>Drawing tools: <b>Pen</b> draws tile by tile, <b>Rectangle</b> fills a rectangle, <b>Circle</b> fills an ellipse, <b>Fill</b> replaces a whole area of identical tiles. Pick tiles in the chipset palette; you can select several tiles at once to stamp a block. Use <b>Zoom In</b>, <b>Zoom Out</b> and <b>Zoom 100%</b> to change the view. <b>Save Map</b> (Ctrl+S) writes your changes, <b>Revert Map</b> (Ctrl+R) discards them, Ctrl+Z undoes the last change.</p>
+
+<a name="map-properties"></a>
+<h3>Map properties</h3>
+<ul>
+<li><b>Name</b>: shown in the map tree (not in the game).</li>
+<li><b>Chipset</b>: the tile set used to draw the map.</li>
+<li><b>Width / Height</b>: map size in tiles (minimum 20 × 15, the size of the screen).</li>
+<li><b>Scroll type</b>: no loop, vertical loop, horizontal loop or both. A looping map wraps around when the hero walks past its edge.</li>
+<li><b>Parallax background</b>: an image shown behind transparent tiles, with optional horizontal/vertical scrolling and auto-scroll speed.</li>
+<li><b>BGM</b>: inherit from the parent map, keep what an event set, or play a specific music.</li>
+<li><b>Battle background</b>: inherit from parent, use the terrain background, or a specific image.</li>
+<li><b>Teleport / Escape / Save</b>: inherit, allow or forbid the Teleport and Escape skills and saving on this map.</li>
+<li><b>Encounters</b>: the monster groups that can attack the hero on this map and the average number of steps between battles.</li>
+</ul>
+
+<a name="search"></a>
+<h3>Search</h3>
+<p>Finds where something is used in your events.</p>
+<ul>
+<li><b>Search parameters</b>: search by <b>Variable</b>, <b>Switch</b> or <b>Item</b> (pick one in the list), or by <b>Event Name</b> (type part of the name).</li>
+<li><b>Search scope</b>: <b>Current Map</b>, <b>Common Events</b> only, or <b>Current Project</b> (every map and common event).</li>
+<li><b>Results</b>: every event page and command that matches. Double-click a result to open it.</li>
+</ul>
+
+<a name="test-play"></a>
+<h3>Test play</h3>
+<p><b>Play Test</b> (F4) saves your work and starts the game in EasyRPG Player in test mode (F9 opens the debug menu in game, Ctrl lets the hero walk through walls).</p>
+<ul>
+<li><b>Play mode</b>: <b>New Game</b>, <b>Load savegame</b> (pick a slot), or <b>Test Battle</b> against a monster group, with a chosen party, levels, equipment, formation and battle background.</li>
+<li><b>Replace initial party / starting position</b>: start with another party or at another place than the ones set in the database.</li>
+<li><b>Options</b>: window or fullscreen, disable music, sound effects or random encounters, and disable the RTP.</li>
+</ul>
+
+<a name="rtp"></a>
+<h3>RTP path</h3>
+<p>The RTP (Run Time Package) is the set of standard graphics and sounds of RPG Maker 2000/2003. Games that use RTP files do not include them, so the Editor needs to know where the RTP is installed. Set <b>Path to RTP</b> to the RTP folder (the one containing CharSet, ChipSet, Music...). Files in your project always take priority over RTP files with the same name.</p>
+
+<a name="reload"></a>
+<h3>Reload files changed on disk</h3>
+<p>Option in the <b>Tools</b> menu. When another program writes the project files (for example a script or a sync tool that edits the database or maps as text), the Editor reloads the database, the map tree and the open maps automatically. It is <b>off</b> by default. If you have unsaved changes in the Editor, it asks before discarding them.</p>
+
+<a name="screenshots"></a>
+<h3>Screenshots</h3>
+<p>Press <b>Ctrl+Alt+S</b> (<b>Cmd+Option+S</b> on macOS) to save a picture of the active window, dialog included. The file is written in the <b>Pictures/EasyRPG Editor</b> folder of your user account.</p>
+
+<!-- ============================================================ -->
+<h2>Events</h2>
+
+<a name="event-editor"></a>
+<h3>Event window</h3>
+<p>An event is anything on the map that can act: a person, a chest, a door, a hidden trigger. It has one or more <b>pages</b>. During the game, the page with the highest number whose conditions are all met is the active one; if no page qualifies, the event is not there.</p>
+<ul>
+<li><b>Name</b>: for your own reference.</li>
+<li><b>New / Copy / Paste / Delete / Clear page</b>: add a page, copy the current page, paste a copied page, remove the current page, or reset it to empty.</li>
+</ul>
+<p><b>Conditions</b> (all checked conditions must be true):</p>
+<ul>
+<li><b>Switch</b> (two of them): the switch must be ON.</li>
+<li><b>Variable</b>: the variable compared to a number. RPG Maker 2000 only checks "greater than or equal"; the other comparisons (=, ≤, &gt;, &lt;, ≠) are RPG Maker 2003 only.</li>
+<li><b>Item</b>: the party owns this item.</li>
+<li><b>Hero</b>: this hero is in the party.</li>
+<li><b>Timer</b>: the timer is at or below the given minutes and seconds. <b>Timer 2</b> is RPG Maker 2003 only.</li>
+</ul>
+<p><b>Graphic</b>: the charset sprite (or a tile of the upper layer) shown for the event. Leave it empty for an invisible event.</p>
+<p><b>Trigger</b> (what starts the commands):</p>
+<ul>
+<li><b>Action Key</b>: the hero faces the event and presses the action key (or bumps into it, for events on the same layer as the hero).</li>
+<li><b>Touched by Hero</b>: the hero walks into or onto the event.</li>
+<li><b>Collision with Hero</b>: the event touches the hero, or the hero touches it.</li>
+<li><b>Autostart</b>: starts as soon as the page is active and repeats as long as it stays active; the player cannot move meanwhile. Turn a switch off or erase the event to stop it.</li>
+<li><b>Parallel Process</b>: runs in a loop in the background while the game continues.</li>
+</ul>
+<p><b>Layer</b>: <b>Below hero</b> (the hero walks over it), <b>Same as hero</b> (blocks the way like a character), <b>Above hero</b> (drawn over the hero). <b>Forbid event overlap</b> keeps other events from moving onto the same tile, even when they are on another layer.</p>
+<p><b>Movement</b>: <b>Type</b> is Stationary, Random, Up and down, Left and right, Toward hero, Away from hero, or Custom (click <b>Edit route</b> to write a <a href="#move-route">move pattern</a> that repeats). <b>Frequency</b> (1 to 8) is how often the event moves, <b>Speed</b> (1 = 1/8 normal to 6 = 4× normal) how fast.</p>
+<p><b>Animation type</b>: Standing animation (steps only while moving), Walking animation (steps all the time), Fixed direction with standing or walking animation (never turns), Fixed graphic (no animation), Spin.</p>
+<p><b>Commands</b>: the list on the right is what the event does, from top to bottom.</p>
+<ul>
+<li>Double-click or press <b>Space</b> on a <code>&lt;&gt;</code> line to insert a command there (opens the <a href="#command-palette">Event Commands</a> window).</li>
+<li><b>Enter</b> edits the selected command, <b>Delete</b> removes it.</li>
+<li><b>Ctrl+C</b>, <b>Ctrl+X</b> and <b>Ctrl+V</b> copy, cut and paste whole commands; a branch, choice or loop is copied with everything inside it.</li>
+</ul>
+
+<a name="command-palette"></a>
+<h3>Event Commands window</h3>
+<p>Lists every event command, grouped in tabs (messages, game progression, map, screen, sound, flow control...). Click a command to add it. Type in the <b>search field</b> to filter the list by name in all tabs at once; <b>Enter</b> picks the best match. Commands that do not exist in the current game type (RPG Maker 2000 or 2003) are not shown.</p>
+
+<a name="move-route"></a>
+<h3>Move route</h3>
+<p>Builds a list of moves for an event or the hero. Click a button on the right to add a move after the selected one; double-click a move to change it, Delete removes it.</p>
+<ul>
+<li><b>Moves</b>: step in 8 directions, random step, step toward or away from the hero, step forward; face a direction, turn 90° left/right, turn 180°, face hero, face away from hero; wait; begin and end jump; lock and unlock facing; increase or decrease speed and frequency; phasing mode on/off (walk through obstacles); stop and resume animation; increase or decrease transparency.</li>
+<li><b>Switch ON / Switch OFF</b>: turns a switch on or off when the move is reached.</li>
+<li><b>Change Graphic</b>: choose a new charset and sprite for the moving character.</li>
+<li><b>Play Sound Effect</b>: a sound file with volume, tempo and balance.</li>
+<li><b>Repeat</b>: start over at the end of the list.</li>
+<li><b>Skip impossible moves</b>: if a move is blocked, go to the next one instead of waiting.</li>
+<li><b>Target</b> and <b>Frequency</b> (only in the <a href="#cmd-MoveEvent">Move Event</a> command): which character moves (hero, this event, a vehicle or another event) and how often it moves.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>Database</h2>
+
+<a name="database"></a>
+<h3>Database overview</h3>
+<p>The database (F8) holds everything that is shared by the whole game: heroes, skills, items, monsters, chipsets, words used by the menus, music and more. Each tab has a list on the left; select an entry to edit it on the right. Click <b>OK</b> or <b>Apply</b> to keep your changes. Tabs marked RPG Maker 2003 are only shown for 2003 projects.</p>
+
+<a name="database-heroes"></a>
+<h3>Heroes</h3>
+<p>The characters who can join the party.</p>
+<ul>
+<li><b>Name</b>, <b>Title</b>, <b>Charset</b> (map sprite), <b>Face</b>, and in RPG Maker 2003 the <b>Class</b> and <b>Battler</b> (side-view battle graphic).</li>
+<li><b>Initial / Maximum level</b>, <b>Critical hits</b> (chance of a critical hit), <b>Experience curve</b>.</li>
+<li>Options: <b>Two weapons</b>, <b>Lock equipment</b>, <b>AI controlled</b> in battle, <b>Strong defense</b>.</li>
+<li><b>Parameter curves</b> for Max HP, Max MP, Attack, Defense, Spirit and Agility at each level.</li>
+<li><b>Initial equipment</b>, <b>Skills</b> learned at each level, <b>Attribute</b> and <b>Condition</b> resistance (A = most affected, E = least affected), unarmed battle animation, and in RPG Maker 2003 the <b>Battle commands</b>.</li>
+</ul>
+
+<a name="database-classes"></a>
+<h3>Classes (RPG Maker 2003)</h3>
+<p>A class is a template for heroes: parameter curves, experience curve, skills learned by level, battle commands, battler animation and resistances. A hero takes the values of his class when it is set or changed with <a href="#cmd-ChangeClass">Change Class</a>.</p>
+
+<a name="database-skills"></a>
+<h3>Skills</h3>
+<ul>
+<li><b>Name</b>, <b>Description</b>, <b>Message</b> shown when used, <b>MP cost</b> (also as a % of max MP in RPG Maker 2003).</li>
+<li><b>Type</b>: Normal (damage, healing, conditions), Teleport, Escape, or Switch (turns a switch on; usable on the map and/or in battle). RPG Maker 2003 adds custom skill groups.</li>
+<li><b>Target</b>: one enemy, all enemies, user, one ally, all allies.</li>
+<li><b>Effect rating</b> (base power), <b>Attack/Spirit influence</b>, <b>Variance</b>, <b>Success rate</b>, <b>Battle animation</b>.</li>
+<li>Affected parameters (HP, MP, Attack...), absorb or ignore defense, <b>Attributes</b> and <b>Conditions</b> it inflicts or cures.</li>
+</ul>
+
+<a name="database-items"></a>
+<h3>Items</h3>
+<ul>
+<li><b>Name</b>, <b>Description</b>, <b>Price</b> (0 = cannot be sold).</li>
+<li><b>Type</b>: Common item, Weapon, Shield, Armor, Helmet, Accessory, Medicine, Book (teaches a skill), Seed (raises a parameter), Special (uses a skill), Switch (turns a switch on).</li>
+<li><b>Uses</b> (0 = unlimited), which heroes (or classes in RPG Maker 2003) can use or equip it, parameter bonuses, hit rate and critical chance for weapons, attributes and conditions.</li>
+</ul>
+
+<a name="database-monsters"></a>
+<h3>Monsters</h3>
+<ul>
+<li><b>Name</b>, <b>Battler</b> graphic with <b>Hue</b>, <b>Transparent</b> and <b>Flying</b> options.</li>
+<li>Max HP, Max MP, Attack, Defense, Spirit, Agility; <b>Experience</b> and <b>Money</b> earned; <b>Item</b> dropped and drop chance; critical hits.</li>
+<li>Attribute and condition resistance.</li>
+<li><b>Action patterns</b>: what the monster can do (attack, defend, skill, transform, escape...), each with a condition (turn, HP, MP, party level, switch) and a <b>priority</b>; actions with higher priority are chosen more often.</li>
+</ul>
+
+<a name="database-monster-groups"></a>
+<h3>Monster Groups</h3>
+<p>The groups of monsters the party fights. Place the monsters on the battle screen preview; a monster can be <b>hidden</b> at the start (revealed with <a href="#cmd-ShowHiddenMonster">Show Hidden Monster</a>). <b>Terrain</b> sets on which terrains the group can appear in random encounters. The lower part holds <b>battle events</b>: pages of commands that run during the battle when their conditions (switches, variables, turn number, monster or hero HP, and more in RPG Maker 2003) are met. See <a href="#commands-battle">Battle events</a>.</p>
+<p><b>Battle event triggers.</b> The <b>Trigger</b> line above the commands of a page sums up when the page runs; its "..." button opens <i>Define Battle Event Triggers</i>, where you tick the conditions that must all be true: one or two switches ON, a variable at or above a value, the turns elapsed (a&nbsp;x&nbsp;+&nbsp;b: every a turns starting at turn b, or only turn b when a is 0), the HP of a monster of the group or of a hero between two percentages. RPG Maker 2003 adds the party's exhaustion, the turns taken by one monster or one hero, and a hero using a battle command (shown but disabled in RPG Maker 2000 games). A page with no condition ticked never runs.</p>
+
+<a name="database-attributes"></a>
+<h3>Attributes</h3>
+<p>Elements and weapon kinds (Sword, Fire, Ice...). Each attribute is <b>Physical</b> or <b>Magical</b> and has five damage rates, A to E. Heroes, monsters and armors use the letters to say how much damage they take from that attribute (A = the most damage, E = the least).</p>
+
+<a name="database-conditions"></a>
+<h3>Conditions</h3>
+<p>States such as Poison, Sleep or Confusion.</p>
+<ul>
+<li><b>Name</b>, <b>Color</b>, <b>Priority</b>, <b>Lasts</b> only in battle or after battle too.</li>
+<li><b>Restriction</b>: none, cannot act, attacks enemies at random, attacks allies at random.</li>
+<li>Chance per letter A to E, parameter changes (×2, ×½), recovery chance each turn or when hit, HP and MP damage per turn or per step, skills blocked, and the messages shown.</li>
+<li>Condition 1 is always "Death".</li>
+</ul>
+
+<a name="database-battle-animations"></a>
+<h3>Battle Animations</h3>
+<p>Animations played for attacks and skills. Choose the animation graphic, the <b>target</b> (each target or the whole screen) and the vertical position. Edit each <b>frame</b> by placing cells from the graphic. <b>Timing</b> adds sound effects and screen or target flashes at given frames. Use <b>Play</b> to preview.</p>
+
+<a name="database-battler-animations"></a>
+<h3>Battler Animations (RPG Maker 2003)</h3>
+<p>The side-view hero animations. Each set gives a <b>pose</b> (standing, attacking, using a skill, damaged, dead, victory...) from a battle charset or a battle animation, and <b>weapon</b> animations shown when attacking. Also choose the animation display speed.</p>
+
+<a name="database-battle-screen"></a>
+<h3>Battle Screen (RPG Maker 2003)</h3>
+<p>The battle layout: <b>Battle type</b> Traditional, Alternative or Gauge, transparent windows, the window size, automatic or manual placement of heroes, and the list of <b>Battle commands</b> (Attack, Skill, Defend, Item, Escape, custom skill groups...) that heroes can have.</p>
+
+<a name="database-terrain"></a>
+<h3>Terrain</h3>
+<ul>
+<li><b>Name</b>, <b>Damage</b> per step (positive hurts, like lava), <b>Encounter rate</b> multiplier.</li>
+<li><b>Battle background</b> used when a fight starts on this terrain (RPG Maker 2003 can also use two scrolling frames).</li>
+<li>Which vehicles can pass (boat, ship, airship) and whether the airship can land.</li>
+<li><b>Hero graphic</b>: normal, upper half transparent (bushes) or fully transparent; step sound (RPG Maker 2003).</li>
+<li>RPG Maker 2003: chances of special battle formations (back attack, pincer, surround) on this terrain.</li>
+</ul>
+
+<a name="database-chipset"></a>
+<h3>Chipset</h3>
+<p>A chipset is a tile set: one ChipSet graphic plus the rules of each tile. Switch between the <b>Lower layer</b> and <b>Upper layer</b> tabs, then choose an editing mode:</p>
+<ul>
+<li><b>Terrain</b>: pick a terrain, then click lower-layer tiles to assign it.</li>
+<li><b>Passability</b>: click to cycle: <b>○</b> passable, <b>×</b> blocked, <b>☆</b> drawn above the hero (the hero can walk "under" it, like a treetop or a roof edge). Right click goes back one step.</li>
+<li><b>Directions</b>: click the side of a tile to allow or block walking through that side (for cliffs, fences, ledges).</li>
+<li><b>Counter</b> (upper layer): <b>□</b> marks a counter; the hero can talk with an event on the other side of it, like a shop keeper.</li>
+<li><b>Water animation</b>: <b>Sequence</b> 1-2-3-2 or 1-2-3, and <b>Speed</b> slow or fast.</li>
+</ul>
+
+<a name="database-vocabulary"></a>
+<h3>Vocabulary</h3>
+<p>All the words and messages of the game: battle messages ("X attacks!", "Victory!"...), shop and inn texts, menu commands, parameter names, the currency unit, level-up and game-over texts. Translate or rename them here.</p>
+
+<a name="database-system"></a>
+<h3>System</h3>
+<ul>
+<li><b>Initial party</b> (up to 4 heroes).</li>
+<li><b>Title</b> and <b>Game Over</b> screen images, <b>System graphic</b> (window skin, cursor, font colors), wallpaper stretched or tiled, and the font (RPG Maker 2000).</li>
+<li>Vehicle charsets (boat, ship, airship).</li>
+<li>Music: title, battle, victory, inn, vehicles, game over.</li>
+<li>Sound effects: cursor, decision, cancel, buzzer, battle start, escape, attacks, damage, evasion, enemy death, item use.</li>
+<li><b>Screen transitions</b> for teleports and battles, and the battle test setup.</li>
+</ul>
+
+<a name="database-system2"></a>
+<h3>System 2 (RPG Maker 2003)</h3>
+<p>Settings added by RPG Maker 2003: the commands of the main menu and their order, a <b>Frame</b> image drawn over the whole screen, window options, and what happens when the party is defeated in a random encounter (game over, or teleport and call a common event).</p>
+
+<a name="database-common-events"></a>
+<h3>Common Events</h3>
+<p>Events that do not belong to a map and can be used anywhere. <b>Trigger</b>: <b>Call</b> (only runs when called by <a href="#cmd-CallEvent">Call Event</a>), <b>Autostart</b> or <b>Parallel Process</b> (both only while the chosen <b>condition switch</b> is ON, on every map). Write the commands as in the <a href="#event-editor">event window</a>.</p>
+
+<a name="database-switches"></a>
+<h3>Switches and variables</h3>
+<a name="database-variables"></a>
+<p>Switches are ON/OFF flags that remember what the player did (door opened, quest done). Variables hold whole numbers (from -999,999 to 999,999 in RPG Maker 2000, -9,999,999 to 9,999,999 in RPG Maker 2003) such as counters, coordinates or choices. All switches are OFF and all variables 0 when a new game starts. As in RPG Maker, they are not in the database: name them with the "..." button next to a switch or variable in an event command or an event page condition; names are only for you.</p>
+
+<!-- ============================================================ -->
+<h2>Event commands</h2>
+
+<a name="commands-messages"></a>
+<h2>Messages</h2>
+
+<a name="cmd-ShowMessage"></a>
+<h3>Show Message</h3>
+<p>Shows text in a message window, 4 lines at a time. Codes in the text: <code>\v[n]</code> value of variable n, <code>\n[n]</code> hero name, <code>\c[n]</code> color, <code>\s[n]</code> text speed, <code>\$</code> money window, <code>\!</code> wait for a key, <code>\.</code> and <code>\|</code> short and long pauses, <code>\^</code> close without waiting.</p>
+
+<a name="cmd-MessageOptions"></a>
+<h3>Message Options</h3>
+<p>Sets how the next messages look: <b>window</b> normal or transparent, <b>position</b> top, middle or bottom, <b>avoid covering the hero</b>, and <b>allow other events to move</b> while a message is shown.</p>
+
+<a name="cmd-ChangeFaceGraphic"></a>
+<h3>Select Face Graphic</h3>
+<p>Chooses the face shown in the next messages, on the left or right, optionally mirrored. Choose no face to remove it.</p>
+
+<a name="cmd-ShowChoice"></a>
+<h3>Show Choices</h3>
+<p>Shows up to 4 choices; each one gets a branch with its own commands. <b>Cancel</b>: forbid it, run the branch of one of the choices, or use a separate cancel branch. Put a Show Message just before to ask the question.</p>
+
+<a name="cmd-InputNumber"></a>
+<h3>Input Number</h3>
+<p>Lets the player enter a number with the chosen number of digits, stored in a variable.</p>
+
+<a name="commands-progression"></a>
+<h2>Game progression</h2>
+
+<a name="cmd-ControlSwitches"></a>
+<h3>Control Switches</h3>
+<p>Turns ON, turns OFF or toggles one switch, a range of switches, or the switch whose number is in a variable.</p>
+
+<a name="cmd-ControlVars"></a>
+<h3>Control Variables</h3>
+<p>Changes one variable, a range, or the variable whose number is in another variable. <b>Operation</b>: set, add, subtract, multiply, divide, modulo. <b>Operand</b>: a number, another variable, a variable reference, a random number, the count of an item, a hero parameter, an event's position or direction, or other values (money, timer, party size, saves, battles, play time...).</p>
+
+<a name="cmd-TimerOperation"></a>
+<h3>Timer Operation</h3>
+<p>Sets the timer to a time, starts it (counting down, optionally shown on screen and running during battles) or stops it. When it reaches 0, nothing happens by itself: test it in a page condition or Conditional Branch. RPG Maker 2003 has a second timer.</p>
+
+<a name="cmd-ChangeGold"></a>
+<h3>Change Money</h3>
+<p>Adds or removes money, by a fixed amount or the value of a variable.</p>
+
+<a name="cmd-ChangeItems"></a>
+<h3>Change Items</h3>
+<p>Adds or removes some copies of an item (fixed or from variables). The party can hold up to 99 of each item.</p>
+
+<a name="cmd-ChangePartyMembers"></a>
+<h3>Change Party Members</h3>
+<p>Adds a hero to the party or removes one (fixed or from a variable). The party holds at most 4 heroes.</p>
+
+<a name="commands-heroes"></a>
+<h2>Heroes</h2>
+
+<a name="cmd-ChangeExp"></a>
+<h3>Change Experience</h3>
+<p>Adds or removes experience points to one hero or the whole party; option to show the level-up message.</p>
+
+<a name="cmd-ChangeLevel"></a>
+<h3>Change Level</h3>
+<p>Raises or lowers the level of one hero or the whole party; option to show the level-up message.</p>
+
+<a name="cmd-ChangeParameters"></a>
+<h3>Change Parameters</h3>
+<p>Raises or lowers Max HP, Max MP, Attack, Defense, Spirit or Agility of a hero permanently.</p>
+
+<a name="cmd-ChangeSkills"></a>
+<h3>Change Skills</h3>
+<p>Teaches a skill to a hero or makes him forget it.</p>
+
+<a name="cmd-ChangeEquipment"></a>
+<h3>Change Equipment</h3>
+<p>Equips an item on a hero (it must be in the inventory, otherwise it is added), or removes the equipment of one slot or all slots.</p>
+
+<a name="cmd-ChangeHP"></a>
+<h3>Change HP</h3>
+<p>Adds or removes HP. Option: allow the hero to die from this damage (otherwise HP stops at 1).</p>
+
+<a name="cmd-ChangeSP"></a>
+<h3>Change MP</h3>
+<p>Adds or removes MP of a hero or the party.</p>
+
+<a name="cmd-ChangeCondition"></a>
+<h3>Change Condition</h3>
+<p>Inflicts or removes a condition (Poison, Death...) on a hero or the party.</p>
+
+<a name="cmd-FullHeal"></a>
+<h3>Full Heal</h3>
+<p>Restores all HP and MP and removes all conditions of a hero or the party.</p>
+
+<a name="cmd-SimulatedAttack"></a>
+<h3>Simulated Attack</h3>
+<p>Damages heroes as if attacked: base power, defense and spirit influence, variance. Option to store the damage in a variable.</p>
+
+<a name="cmd-ChangeClass"></a>
+<h3>Change Class (RPG Maker 2003)</h3>
+<p>Gives a hero (or the whole party) another class, or none. Options: go back to level 1; skills: keep them, replace them with those of the new class, or add those; parameters: keep them, halve them, use the level 1 values of the new class, or its values at the current level; show a message for each skill learned.</p>
+
+<a name="cmd-ChangeBattleCommands"></a>
+<h3>Change Battle Commands (RPG Maker 2003)</h3>
+<p>Adds or removes a battle command (or all of them) for a hero.</p>
+
+<a name="cmd-ChangeHeroName"></a>
+<h3>Change Hero Name</h3>
+<p>Renames a hero.</p>
+
+<a name="cmd-ChangeHeroTitle"></a>
+<h3>Change Hero Title</h3>
+<p>Changes the title (degree) shown under a hero's name in the menu.</p>
+
+<a name="cmd-ChangeSpriteAssociation"></a>
+<h3>Change Hero Graphic</h3>
+<p>Changes the charset sprite of a hero on the map; option to make it semi-transparent.</p>
+
+<a name="cmd-ChangeActorFace"></a>
+<h3>Change Hero Face</h3>
+<p>Changes the face of a hero shown in the menus.</p>
+
+<a name="cmd-ChangeVehicleGraphic"></a>
+<h3>Change Vehicle Graphic</h3>
+<p>Changes the sprite of the boat, ship or airship.</p>
+
+<a name="commands-system"></a>
+<h2>System</h2>
+
+<a name="cmd-ChangeSystemBGM"></a>
+<h3>Change System BGM</h3>
+<p>Changes the music of battles, victory, inn, boat, ship, airship or game over.</p>
+
+<a name="cmd-ChangeSystemSFX"></a>
+<h3>Change System Sound Effect</h3>
+<p>Changes a system sound: cursor, decision, cancel, buzzer, battle start, escape, attacks, damage, evasion, enemy death or item use.</p>
+
+<a name="cmd-ChangeSystemGraphics"></a>
+<h3>Change System Graphic</h3>
+<p>Changes the window skin, with the wallpaper stretched or tiled (and the font in RPG Maker 2000).</p>
+
+<a name="cmd-ChangeScreenTransitions"></a>
+<h3>Change Screen Transitions</h3>
+<p>Changes the transition used to hide or show the screen for teleports, battle start and battle end (fade, dissolve, blinds, mosaic...).</p>
+
+<a name="cmd-OpenSaveMenu"></a>
+<h3>Open Save Menu</h3>
+<p>Opens the save screen.</p>
+
+<a name="cmd-ChangeSaveAccess"></a>
+<h3>Change Save Access</h3>
+<p>Allows or forbids saving from the main menu.</p>
+
+<a name="cmd-OpenMainMenu"></a>
+<h3>Open Main Menu</h3>
+<p>Opens the main menu.</p>
+
+<a name="cmd-ChangeMainMenuAccess"></a>
+<h3>Change Main Menu Access</h3>
+<p>Allows or forbids opening the main menu with the cancel key.</p>
+
+<a name="cmd-GameOver"></a>
+<h3>Game Over</h3>
+<p>Shows the game over screen, then goes back to the title screen.</p>
+
+<a name="cmd-ReturntoTitleScreen"></a>
+<h3>Return to Title Screen</h3>
+<p>Ends the game and goes back to the title screen.</p>
+
+<a name="cmd-OpenLoadMenu"></a>
+<h3>Open Load Menu (RPG Maker 2003)</h3>
+<p>Opens the load screen. Added in RPG Maker 2003 version 1.12.</p>
+
+<a name="cmd-ExitGame"></a>
+<h3>Exit Game (RPG Maker 2003)</h3>
+<p>Closes the game. Added in RPG Maker 2003 version 1.12.</p>
+
+<a name="cmd-ToggleAtbMode"></a>
+<h3>Toggle ATB Mode (RPG Maker 2003)</h3>
+<p>Switches battles between Active mode (time keeps running while choosing) and Wait mode.</p>
+
+<a name="cmd-ToggleFullscreen"></a>
+<h3>Toggle Fullscreen (RPG Maker 2003)</h3>
+<p>Switches between window and fullscreen. Added in RPG Maker 2003 version 1.12.</p>
+
+<a name="cmd-OpenVideoOptions"></a>
+<h3>Open Video Options (RPG Maker 2003)</h3>
+<p>Opens the video settings window. Added in RPG Maker 2003 version 1.12; in EasyRPG Player it opens the Player settings.</p>
+
+<a name="commands-scenes"></a>
+<h2>Scenes</h2>
+
+<a name="cmd-EnemyEncounter"></a>
+<h3>Start Combat</h3>
+<p>Starts a battle against a monster group (fixed or from a variable). <b>Background</b>: from the map/terrain or a specific image (RPG Maker 2003 adds the formation: normal, back attack, surround, pincer). <b>Escape</b>: forbidden, ends the event, or runs a branch. <b>Defeat</b>: game over or a branch. <b>First strike</b> gives the party the first turn.</p>
+
+<a name="cmd-OpenShop"></a>
+<h3>Open Shop</h3>
+<p>Opens a shop: buy and sell, buy only, or sell only; one of three message styles; the list of items for sale. Option to add a branch for "made a transaction" and "left without buying".</p>
+
+<a name="cmd-ShowInn"></a>
+<h3>Show Inn</h3>
+<p>Offers to rest for a price: if accepted, the screen fades, the party is fully healed and the inn music plays. Two message styles; option for a "stayed" / "did not stay" branch.</p>
+
+<a name="cmd-EnterHeroName"></a>
+<h3>Enter Hero Name</h3>
+<p>Opens the name entry screen for a hero. Choose the starting character set (letters or symbols, or Japanese in the original) and whether the current name is shown.</p>
+
+<a name="commands-map"></a>
+<h2>Map and movement</h2>
+
+<a name="cmd-Teleport"></a>
+<h3>Teleport</h3>
+<p>Moves the party to a map and a position: choose the map and enter X and Y coordinates. Retain the current facing direction, or choose a new facing direction in RPG Maker 2003.</p>
+
+<a name="cmd-MemorizeLocation"></a>
+<h3>Memorize Location</h3>
+<p>Stores the current map ID, X and Y of the hero in three variables.</p>
+
+<a name="cmd-RecallToLocation"></a>
+<h3>Recall to Location</h3>
+<p>Teleports the party to the map ID, X and Y stored in three variables.</p>
+
+<a name="cmd-EnterExitVehicle"></a>
+<h3>Enter/Exit Vehicle</h3>
+<p>Makes the hero board the vehicle in front of him, or leave the current one.</p>
+
+<a name="cmd-SetVehicleLocation"></a>
+<h3>Set Vehicle Location</h3>
+<p>Places the boat, ship or airship on a map and position (fixed or from variables).</p>
+
+<a name="cmd-ChangeEventLocation"></a>
+<h3>Set Event Location</h3>
+<p>Moves the hero, a vehicle or an event instantly to another position of the current map (fixed or from variables). RPG Maker 2003 can set the facing direction when using fixed coordinates.</p>
+
+<a name="cmd-TradeEventLocations"></a>
+<h3>Swap Event Locations</h3>
+<p>Swaps the positions of two events.</p>
+
+<a name="cmd-StoreTerrainID"></a>
+<h3>Get Terrain ID</h3>
+<p>Stores in a variable the terrain number of a map tile (fixed or from variables).</p>
+
+<a name="cmd-StoreEventID"></a>
+<h3>Get Event ID</h3>
+<p>Stores in a variable the ID of the event standing on a tile (0 if none).</p>
+
+<a name="cmd-ShowBattleAnimation"></a>
+<h3>Show Battle Animation</h3>
+<p>Plays a battle animation on the hero or an event on the map, or over the whole screen. Option to wait until it ends.</p>
+
+<a name="cmd-PlayerVisibility"></a>
+<h3>Hero Visibility</h3>
+<p>Hides or shows the hero sprite (useful for cutscenes). The hero still moves and blocks the way while hidden.</p>
+
+<a name="cmd-FlashSprite"></a>
+<h3>Flash Event</h3>
+<p>Makes the hero or an event flash with a color, strength and duration; option to wait.</p>
+
+<a name="cmd-MoveEvent"></a>
+<h3>Move Event</h3>
+<p>Gives a <a href="#move-route">move route</a> to the hero, an event or a vehicle, with a frequency, and the Repeat and Skip impossible moves options. The event continues to the next command right away; use Proceed with Movement to wait.</p>
+
+<a name="cmd-ProceedWithMovement"></a>
+<h3>Proceed with Movement</h3>
+<p>Waits until all move routes started by Move Event are finished. Do not use it with repeating routes, or the event waits forever.</p>
+
+<a name="cmd-HaltAllMovement"></a>
+<h3>Halt All Movement</h3>
+<p>Cancels all move routes given by Move Event.</p>
+
+<a name="cmd-ChangeMapTileset"></a>
+<h3>Change Chipset</h3>
+<p>Changes the chipset of the current map until the hero leaves it.</p>
+
+<a name="cmd-ChangePBG"></a>
+<h3>Change Parallax Background</h3>
+<p>Changes the parallax background image of the current map and its scrolling settings.</p>
+
+<a name="cmd-ChangeEncounterSteps"></a>
+<h3>Change Encounter Rate</h3>
+<p>Changes the average number of steps between random battles on the current map.</p>
+
+<a name="cmd-TileSubstitution"></a>
+<h3>Change Tile</h3>
+<p>Replaces every use of one tile by another tile on the lower or upper layer of the current map (for example to open all doors of a kind).</p>
+
+<a name="cmd-TeleportTargets"></a>
+<h3>Teleport Targets</h3>
+<p>Adds or removes a destination for the Teleport skill: a map, a position, and optionally a switch turned ON on arrival.</p>
+
+<a name="cmd-ChangeTeleportAccess"></a>
+<h3>Change Teleport Access</h3>
+<p>Allows or forbids Teleport skills.</p>
+
+<a name="cmd-EscapeTarget"></a>
+<h3>Escape Target</h3>
+<p>Sets where the Escape skill takes the party (map, position, optional switch).</p>
+
+<a name="cmd-ChangeEscapeAccess"></a>
+<h3>Change Escape Access</h3>
+<p>Allows or forbids Escape skills.</p>
+
+<a name="commands-screen"></a>
+<h2>Screen and pictures</h2>
+
+<a name="cmd-EraseScreen"></a>
+<h3>Hide Screen</h3>
+<p>Hides the screen with a transition (fade, dissolve, blinds...) or the default teleport transition. The screen stays black until Show Screen.</p>
+
+<a name="cmd-ShowScreen"></a>
+<h3>Show Screen</h3>
+<p>Shows the screen again with a transition.</p>
+
+<a name="cmd-TintScreen"></a>
+<h3>Tint Screen</h3>
+<p>Changes the colors of the screen: red, green, blue (100% = normal) and saturation, over a duration in tenths of a second; option to wait.</p>
+
+<a name="cmd-FlashScreen"></a>
+<h3>Flash Screen</h3>
+<p>Flashes the screen with a color and strength for a duration; option to wait. RPG Maker 2003 can also flash continuously and stop it.</p>
+
+<a name="cmd-ShakeScreen"></a>
+<h3>Shake Screen</h3>
+<p>Shakes the screen with a strength, speed and duration; option to wait. RPG Maker 2003 can also shake continuously and stop it.</p>
+
+<a name="cmd-PanScreen"></a>
+<h3>Pan Screen</h3>
+<p>Locks or unlocks the camera, pans it in a direction by a number of tiles, or returns it to the hero. Pan and return operations have a movement speed and an option to wait until completion.</p>
+
+<a name="cmd-WeatherEffects"></a>
+<h3>Weather Effects</h3>
+<p>None, rain or snow, with a strength (weak, medium, strong). RPG Maker 2003 adds fog and sandstorm.</p>
+
+<a name="cmd-ShowPicture"></a>
+<h3>Show Picture</h3>
+<p>Displays a numbered picture from the Picture folder, at fixed coordinates or coordinates stored in variables. Choose whether it follows the map, the transparent color, magnification and transparency, then set red, green, blue, saturation and rotation or waving on Additional Attributes. RPG Maker 2003 supports separate top and bottom transparency. Later picture extensions are preserved when editing the standard controls.</p>
+
+<a name="cmd-MovePicture"></a>
+<h3>Move Picture</h3>
+<p>Changes the position, magnification, transparency, tint and effects of a numbered picture over a duration in tenths of a second. Coordinates can come from variables; an option waits for completion. RPG Maker 2003 supports separate top and bottom transparency. The picture image is retained.</p>
+
+<a name="cmd-ErasePicture"></a>
+<h3>Erase Picture</h3>
+<p>Removes a picture from the screen.</p>
+
+<a name="commands-sound"></a>
+<h2>Sound and movie</h2>
+
+<a name="cmd-PlayBGM"></a>
+<h3>Play BGM</h3>
+<p>Plays background music with fade-in time, volume, tempo and balance. "(OFF)" stops the music.</p>
+
+<a name="cmd-FadeOutBGM"></a>
+<h3>Fade Out BGM</h3>
+<p>Fades out the music over the chosen time, in milliseconds (1000 = 1 second).</p>
+
+<a name="cmd-MemorizeBGM"></a>
+<h3>Memorize BGM</h3>
+<p>Remembers the music currently playing.</p>
+
+<a name="cmd-PlayMemorizedBGM"></a>
+<h3>Play Memorized BGM</h3>
+<p>Plays again the music remembered by Memorize BGM.</p>
+
+<a name="cmd-PlaySound"></a>
+<h3>Play Sound Effect</h3>
+<p>Plays a sound effect with volume, tempo and balance.</p>
+
+<a name="cmd-PlayMovie"></a>
+<h3>Play Movie</h3>
+<p>Plays a video file (AVI or MPEG) at a position and size. EasyRPG Player does not play movies and skips this command.</p>
+
+<a name="commands-flow"></a>
+<h2>Flow control</h2>
+
+<a name="cmd-ConditionalBranch"></a>
+<h3>Conditional Branch</h3>
+<p>Runs commands only if a condition is true, with an optional "Else" branch. Conditions: a switch, a variable compared to a number or a variable, the timer, money, an item owned, a hero (in party, name, level, HP, skill, equipment, condition), an event's direction, the vehicle in use, the event started by the Action Key, or the music has played once. RPG Maker 2003 adds Timer 2 and other tests. The RPG Maker 2003 Other tests cover a save file, Test Play, ATB Wait mode and fullscreen. Removing a populated else handler requires confirmation; declining preserves the block.</p>
+
+<a name="cmd-Label"></a>
+<h3>Label</h3>
+<p>Marks a place in the command list with a number, to jump to with Jump to Label.</p>
+
+<a name="cmd-JumpToLabel"></a>
+<h3>Jump to Label</h3>
+<p>Continues from the label with that number in the same event page.</p>
+
+<a name="cmd-Loop"></a>
+<h3>Loop</h3>
+<p>Repeats the commands inside it forever, until Break Loop.</p>
+
+<a name="cmd-BreakLoop"></a>
+<h3>Break Loop</h3>
+<p>Leaves the loop it is in and continues after the end of the loop.</p>
+
+<a name="cmd-EndEventProcessing"></a>
+<h3>End Event Processing</h3>
+<p>Stops the commands of this event page right now.</p>
+
+<a name="cmd-EraseEvent"></a>
+<h3>Erase Event</h3>
+<p>Removes this event from the map until the map is entered again. To remove it for good, use a switch and an empty page.</p>
+
+<a name="cmd-CallEvent"></a>
+<h3>Call Event</h3>
+<p>Runs a common event, or a page of an event on the current map (fixed or from variables), then comes back and continues.</p>
+
+<a name="cmd-Comment"></a>
+<h3>Comment</h3>
+<p>A note for yourself; it does nothing in the game.</p>
+
+<a name="cmd-KeyInputProc"></a>
+<h3>Key Input Processing</h3>
+<p>Stores the pressed key code in a variable: down 1, left 2, right 3, up 4, decision 5, cancel 6, Shift 7. Choose individual arrows, decision, cancel and Shift, and whether to wait or read the current input. RPG Maker 2003 adds number keys (10–19), operator keys (20–24) and elapsed-time storage in tenths of a second while waiting. Older parameter layouts are upgraded only when an edited option needs the newer layout.</p>
+
+<a name="cmd-Wait"></a>
+<h3>Wait</h3>
+<p>Pauses the event for a time in tenths of a second. RPG Maker 2003 can also wait until a key is pressed.</p>
+
+<a name="commands-battle"></a>
+<h2>Battle events</h2>
+<p>These commands are used in the battle events of a <a href="#database-monster-groups">monster group</a>.</p>
+
+<a name="cmd-ChangeMonsterHP"></a>
+<h3>Change Monster HP</h3>
+<p>Adds or removes HP of a monster: a fixed amount, the value of a variable, or a percentage of its <b>current</b> HP. Option to let the change kill the monster.</p>
+
+<a name="cmd-ChangeMonsterMP"></a>
+<h3>Change Monster MP</h3>
+<p>Adds or removes MP of a monster.</p>
+
+<a name="cmd-ChangeMonsterCondition"></a>
+<h3>Change Monster Condition</h3>
+<p>Inflicts or removes a condition on a monster.</p>
+
+<a name="cmd-ShowHiddenMonster"></a>
+<h3>Show Hidden Monster</h3>
+<p>Makes a monster that was hidden at the start of the battle appear.</p>
+
+<a name="cmd-ChangeBattleBG"></a>
+<h3>Change Battle Background</h3>
+<p>Changes the background image of the current battle.</p>
+
+<a name="cmd-ShowBattleAnimation_B"></a>
+<h3>Show Battle Animation (battle)</h3>
+<p>Plays a battle animation on one monster, all monsters or (in RPG Maker 2003) a hero; option to wait.</p>
+
+<a name="cmd-ConditionalBranch_B"></a>
+<h3>Conditional Branch (battle)</h3>
+<p>Tests a switch or variable, whether a hero or monster can act, or (RPG Maker 2003) the current monster target or a hero’s battle command. Add an else handler if needed. Removing a handler containing commands requires confirmation; declining leaves the editor open and preserves the block.</p>
+
+<a name="cmd-TerminateBattle"></a>
+<h3>End Battle</h3>
+<p>Ends the battle immediately, without victory or defeat.</p>
+
+<a name="cmd-CallCommonEvent"></a>
+<h3>Call Common Event (RPG Maker 2003)</h3>
+<p>Runs a common event during the battle, then continues.</p>
+
+<a name="cmd-ForceFlee"></a>
+<h3>Force Flee (RPG Maker 2003)</h3>
+<p>Makes the party, all monsters or one monster flee the battle. Option: nothing happens when the target is surrounded (the party in a pincer attack, the monsters in a surround attack).</p>
+
+<a name="cmd-EnableCombo"></a>
+<h3>Enable Combo (RPG Maker 2003)</h3>
+<p>Makes a hero repeat a battle command (such as Attack) several times in one turn.</p>
+
+<p><a href="#top">Back to top</a></p>
+
+</body>
+</html>

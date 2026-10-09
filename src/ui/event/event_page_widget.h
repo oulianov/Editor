@@ -62,6 +62,8 @@ private slots:
 
 	void on_pushSetSprite_clicked();
 
+	void on_pushMovePattern_clicked();
+
 protected:
 	void showEvent(QShowEvent* event) override;
 
@@ -69,6 +71,8 @@ private:
 	bool m_sized = false;
 
 	void updateGraphic();
+	/** Choose a tile of the upper layer (-1: none chosen) */
+	int pickUpperTile(int current);
 
 	Ui::QEventWidget *ui;
 	ProjectData& m_project;

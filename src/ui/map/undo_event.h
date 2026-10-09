@@ -17,20 +17,22 @@
 
 #pragma once
 
-#include <QUndoCommand>
+#include <optional>
 #include <lcf/rpg/event.h>
-#include "map_scene.h"
+#include "undo_draw.h"
 
-class UndoEvent : public QUndoCommand
+/** An event added, changed or removed */
+class UndoEvent : public SwapCommand
 {
 public:
-	explicit UndoEvent(lcf::rpg::Event data,
-						MapScene *scene,
-						QUndoCommand *parent = nullptr);
-	void undo();
+	/** before: the event as it was, none when it was added */
+	UndoEvent(int id, std::optional<lcf::rpg::Event> before, MapScene *scene);
+
+protected:
+	void swap() override;
 
 private:
-	lcf::rpg::Event m_data;
+	int m_id;
+	std::optional<lcf::rpg::Event> m_data;
 	MapScene* m_scene;
 };
-

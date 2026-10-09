@@ -18,24 +18,18 @@
 #pragma once
 
 #include <QWidget>
-#include <lcf/rpg/system.h>
 
 class ProjectData;
 
-namespace Ui {
-class System2Widget;
-}
-
+/**
+ * The System 2 page of the database: the menu and graphics of RPG Maker 2003
+ * (disabled in RPG Maker 2000 games) and the test battle settings.
+ * Edits the system of the given project data.
+ */
 class System2Widget : public QWidget
 {
 	Q_OBJECT
 
 public:
 	explicit System2Widget(ProjectData& project, QWidget *parent = nullptr);
-	~System2Widget();
-
-private:
-	Ui::System2Widget *ui;
-	ProjectData& m_project;
 };
-

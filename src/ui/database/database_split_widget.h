@@ -28,6 +28,8 @@
 #include "ui/common/widget_as_dialog_wrapper.h"
 #include "model/rpg_base.h"
 #include "model/rpg_reflect.h"
+#include <QAbstractButton>
+#include <QLineEdit>
 #include "actor_widget.h"
 #include "attribute_widget.h"
 #include "battle_animation2_widget.h"
@@ -95,6 +97,9 @@ inline DatabaseSplitWidget<LCF>::DatabaseSplitWidget(ProjectData& project, std::
 	ui->splitter->setStretchFactor(1, 4);
 
 	list.setContextMenuPolicy(Qt::CustomContextMenu);
+	// all the lines have the same height (pictures are 48x48): the list does
+	// not ask every line for its size when it scrolls
+	list.setUniformItemSizes(true);
 
 	connect(list.selectionModel(), &QItemSelectionModel::currentChanged, this, [&](const QModelIndex &index) {
 		// Based on the list index update the data of the content widget
@@ -125,6 +130,19 @@ inline DatabaseSplitWidget<LCF>::DatabaseSplitWidget(ProjectData& project, std::
 		menu.exec(mapToGlobal(pos));
 	});
 
+	// The list reads the names and pictures from the data: repaint it after
+	// edits (a new name, a graphic chosen with a button...)
+	for (auto* edit : m_contentWidget->template findChildren<QLineEdit*>()) {
+		connect(edit, &QLineEdit::textEdited, list.viewport(), qOverload<>(&QWidget::update));
+	}
+	for (auto* button : m_contentWidget->template findChildren<QAbstractButton*>()) {
+		connect(button, &QAbstractButton::clicked, list.viewport(), qOverload<>(&QWidget::update));
+	}
+
+	// Show the first entry, like RPG Maker, instead of an empty page
+	if (list.model()->rowCount() > 0) {
+		list.setCurrentIndex(list.model()->index(0, 0));
+	}
 }
 
 template<class LCF>

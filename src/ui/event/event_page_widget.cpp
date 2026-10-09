@@ -19,6 +19,11 @@
 #include "ui_event_page_widget.h"
 #include <QDialogButtonBox>
 #include <QMessageBox>
+#include <QDialogButtonBox>
+#include <QGraphicsScene>
+#include <QMenu>
+#include <QVBoxLayout>
+#include "ui/viewer/rpg_graphics_view.h"
 #include <QScrollBar>
 #include <QSettings>
 #include <QSplitter>
@@ -26,6 +31,7 @@
 #include "defines.h"
 #include "ui/picker/picker_charset_widget.h"
 #include "ui/picker/picker_dialog.h"
+#include "ui/event/move_route_dialog.h"
 #include "stringizer.h"
 #include "ui/commands/all_commands.h"
 #include "common/dbstring.h"
@@ -206,12 +212,22 @@ void EventPageWidget::setEventPage(lcf::rpg::EventPage *eventPage)
 	ui->comboHero->setEnabled(ui->checkHero->isChecked());
 	ui->label->setEnabled(ui->comboMoveType->currentIndex() != lcf::rpg::EventPage::MoveType_stationary);
 	ui->comboMoveFrequency->setEnabled(ui->comboMoveType->currentIndex() != lcf::rpg::EventPage::MoveType_stationary);
+	ui->pushMovePattern->setEnabled(ui->comboMoveType->currentIndex() == lcf::rpg::EventPage::MoveType_custom);
 }
 
 void EventPageWidget::on_comboMoveType_currentIndexChanged(int index)
 {
 	ui->label->setEnabled(index != lcf::rpg::EventPage::MoveType_stationary);
 	ui->comboMoveFrequency->setEnabled(index != lcf::rpg::EventPage::MoveType_stationary);
+	ui->pushMovePattern->setEnabled(index == lcf::rpg::EventPage::MoveType_custom);
+}
+
+void EventPageWidget::on_pushMovePattern_clicked()
+{
+	MoveRouteDialog dialog(m_project, m_eventPage->move_route, this);
+	if (dialog.exec() == QDialog::Accepted) {
+		m_eventPage->move_route = dialog.route();
+	}
 }
 
 void EventPageWidget::on_checkVar_toggled(bool checked)
@@ -256,16 +272,75 @@ void EventPageWidget::on_spinTimerBSec_valueChanged(int arg1)
 
 void EventPageWidget::on_pushSetSprite_clicked()
 {
-	// A character of a charset; the facing and frame are kept
-	auto* widget = new PickerCharsetWidget(m_eventPage->character_index, this);
-	PickerDialog dialog(m_project, FileFinder::FileType::Image, widget, this);
-	QObject::connect(&dialog, &PickerDialog::fileSelected, this, [&](const QString& baseName) {
-		m_eventPage->character_name = ToDBString(baseName);
-		m_eventPage->character_index = widget->index();
+	// A character of a charset, a tile of the upper layer, or nothing
+	QMenu menu(this);
+	menu.addAction(tr("Character..."), this, [this] {
+		auto* widget = new PickerCharsetWidget(m_eventPage->character_name.empty() ? 0 : m_eventPage->character_index, this);
+		PickerDialog dialog(m_project, FileFinder::FileType::Image, widget, this);
+		QObject::connect(&dialog, &PickerDialog::fileSelected, this, [&](const QString& baseName) {
+			m_eventPage->character_name = ToDBString(baseName);
+			m_eventPage->character_index = widget->index();
+			updateGraphic();
+		});
+		dialog.setDirectoryAndFile(CHARSET, ToQString(m_eventPage->character_name));
+		dialog.exec();
+	});
+	menu.addAction(tr("Tile..."), this, [this] {
+		const int tile = pickUpperTile(m_eventPage->character_name.empty() ? m_eventPage->character_index : -1);
+		if (tile >= 0) {
+			m_eventPage->character_name = lcf::DBString();
+			m_eventPage->character_index = tile;
+			updateGraphic();
+		}
+	})->setEnabled(!core().chipsetIsNull());
+	menu.addAction(tr("No Graphic"), this, [this] {
+		m_eventPage->character_name = lcf::DBString();
+		m_eventPage->character_index = 0;
 		updateGraphic();
 	});
-	dialog.setDirectoryAndFile(CHARSET, ToQString(m_eventPage->character_name));
-	dialog.exec();
+	menu.exec(ui->pushSetSprite->mapToGlobal(QPoint(0, ui->pushSetSprite->height())));
+}
+
+int EventPageWidget::pickUpperTile(int current)
+{
+	// The upper layer tiles of the chipset of the map, as in the palette
+	constexpr int columns = 6, count = 144, size = 32;
+	const QPixmap tiles = core().paletteTiles(Core::UPPER, size);
+
+	QDialog dialog(this);
+	dialog.setWindowTitle(tr("Tile"));
+	auto* layout = new QVBoxLayout(&dialog);
+	auto* scene = new QGraphicsScene(&dialog);
+	scene->setBackgroundBrush(QBrush(QPixmap(":/embedded/share/old_grid.png")));
+	scene->addPixmap(tiles);
+	auto* frame = scene->addRect(0, 0, size, size, QPen(Qt::yellow, 2));
+	frame->setVisible(current >= 0);
+	if (current >= 0) {
+		frame->setPos((current % columns) * size, (current / columns) * size);
+	}
+	auto* view = new RpgGraphicsViewBase(&dialog);
+	view->setScene(scene);
+	view->setMinimumSize(columns * size + view->verticalScrollBar()->sizeHint().width() + 4, 6 * size);
+	layout->addWidget(view, 1);
+	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+	layout->addWidget(buttons);
+	connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+	connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+	int chosen = current;
+	connect(view, &RpgGraphicsViewBase::clicked, &dialog, [&](const QPointF& pos) {
+		const int col = static_cast<int>(pos.x()) / size, row = static_cast<int>(pos.y()) / size;
+		if (col < 0 || col >= columns || row < 0 || row * columns + col >= count) {
+			return;
+		}
+		chosen = row * columns + col;
+		frame->setPos(col * size, row * size);
+		frame->setVisible(true);
+	});
+	if (dialog.exec() != QDialog::Accepted || chosen < 0) {
+		return -1;
+	}
+	return chosen;
 }
 
 void EventPageWidget::updateGraphic()

@@ -17,9 +17,11 @@
 
 #include "map_scene.h"
 #include <QAction>
+#include <QKeyEvent>
 #include <QDialogButtonBox>
 #include <QGraphicsBlurEffect>
 #include <QGraphicsOpacityEffect>
+#include <QGraphicsSceneWheelEvent>
 #include <QMessageBox>
 #include <QPainter>
 #include <QScrollBar>
@@ -35,6 +37,7 @@
 #include "ui/main_window.h"
 #include "undo_draw.h"
 #include "undo_event.h"
+#include "map_cursors.h"
 #include <lcf/lmu/reader.h>
 #include <lcf/lmt/reader.h>
 
@@ -44,6 +47,11 @@ MapScene::MapScene(ProjectData& project, int id, QGraphicsView *view, QObject *p
 	m_init = false;
 	m_view = view;
 	m_view->setMouseTracking(true);
+	// for scripts (focus mapView): the view of the tab shown is found first
+	m_view->setObjectName(QStringLiteral("mapView"));
+	m_view->installEventFilter(this);
+	// the mouse leaving the map hides the frame of the tool
+	m_view->viewport()->installEventFilter(this);
 	m_undoStack = new QUndoStack(this);
 	m_selectionTile = new QGraphicsRectItem(QRectF(QRect(0,32,32,32)));
 	m_selecting = false;
@@ -54,50 +62,118 @@ MapScene::MapScene(ProjectData& project, int id, QGraphicsView *view, QObject *p
 			n_mapInfo = treeMap.maps[i];
 			break;
 		}
-	m_eventMenu = new QMenu(m_view);
-	QList<QAction*> actions;
-	actions << new QAction(QIcon(":/icons/share/old_playtest.png"),
-						   tr("Start Game Here"),
-						   this);
-	actions << new QAction(QIcon(":/icons/share/old_edit.png"),
-						   tr("Set Start Position"),
-						   this);
-	actions << new QAction(QIcon(":/icons/share/old_event_layer.png"),
-						   tr("New Event"),
-						   this);
-	actions << new QAction(QIcon(":/icons/share/old_event_layer.png"),
-						   tr("Edit Event"),
-						   this);
-	actions << new QAction(QIcon(":/icons/share/old_event_layer.png"),
-						   tr("Copy Event"),
-						   this);
-	actions << new QAction(QIcon(":/icons/share/old_event_layer.png"),
-						   tr("Cut Event"),
-						   this);
-	actions << new QAction(QIcon(":/icons/share/old_event_layer.png"),
-						   tr("Paste Event"),
-						   this);
-	actions << new QAction(QIcon(":/icons/share/old_event_layer.png"),
-						   tr("Delete Event"),
-						   this);
-	connect(actions[0],SIGNAL(triggered()),this,SLOT(on_actionRunHere()));
-	connect(actions[1],SIGNAL(triggered()),this,SLOT(on_actionSetStartPosition()));
-	connect(actions[2],SIGNAL(triggered()),this,SLOT(on_actionNewEvent()));
-	connect(actions[3],SIGNAL(triggered()),this,SLOT(on_actionEditEvent()));
-	connect(actions[4],SIGNAL(triggered()),this,SLOT(on_actionCopyEvent()));
-	connect(actions[5],SIGNAL(triggered()),this,SLOT(on_actionCutEvent()));
-	connect(actions[6],SIGNAL(triggered()),this,SLOT(on_actionPasteEvent()));
-	connect(actions[7],SIGNAL(triggered()),this,SLOT(on_actionDeleteEvent()));
 
-	m_eventMenu->addActions(actions);
+	// The shortcuts are shown in the menus (as in RPG Maker) and handled by
+	// keyPressEvent: as widget shortcuts they only work while the menu is open.
+	// The names are for scripts (action actionEventCopy...)
+	auto addAction = [this](QMenu* menu, const QString& name, const QString& icon, const QString& text,
+			void (MapScene::*slot)(), const QKeySequence& key = QKeySequence()) {
+		auto* action = new QAction(QIcon(icon), text, this);
+		action->setObjectName(name);
+		action->setShortcut(key);
+		action->setShortcutContext(Qt::WidgetShortcut);
+		action->setShortcutVisibleInContextMenu(true);
+		connect(action, &QAction::triggered, this, slot);
+		menu->addAction(action);
+		return action;
+	};
+	const QString event_icon = QStringLiteral(":/icons/share/old_event_layer.png");
+	m_eventMenu = new QMenu(m_view);
+	m_actionNew = addAction(m_eventMenu, "actionEventNew", event_icon, tr("New Event"),
+		&MapScene::on_actionNewEvent, Qt::Key_Return);
+	m_actionEdit = addAction(m_eventMenu, "actionEventEdit", event_icon, tr("Edit Event"),
+		&MapScene::on_actionEditEvent, Qt::Key_Return);
+	m_eventMenu->addSeparator();
+	m_actionCut = addAction(m_eventMenu, "actionEventCut", event_icon, tr("Cut Event"),
+		&MapScene::on_actionCutEvent, QKeySequence::Cut);
+	m_actionCopy = addAction(m_eventMenu, "actionEventCopy", event_icon, tr("Copy Event"),
+		&MapScene::on_actionCopyEvent, QKeySequence::Copy);
+	m_actionPaste = addAction(m_eventMenu, "actionEventPaste", event_icon, tr("Paste Event"),
+		&MapScene::on_actionPasteEvent, QKeySequence::Paste);
+	m_actionDelete = addAction(m_eventMenu, "actionEventDelete", event_icon, tr("Delete Event"),
+		&MapScene::on_actionDeleteEvent, Qt::Key_Delete);
+	m_eventMenu->addSeparator();
+	addAction(m_eventMenu, "actionPlacePartyStart", QStringLiteral(":/icons/share/old_edit.png"),
+		tr("Place Party Starting Position"), &MapScene::on_actionSetStartPosition);
+	QMenu* vehicles = m_eventMenu->addMenu(tr("Place Vehicle Starting Position"));
+	const QStringList vehicle_names = {tr("Skiff"), tr("Ship"), tr("Airship")};
+	const QStringList vehicle_actions = {"actionPlaceBoatStart", "actionPlaceShipStart", "actionPlaceAirshipStart"};
+	for (int i = 0; i < vehicle_names.size(); i++) {
+		addAction(vehicles, vehicle_actions[i], QString(), vehicle_names[i],
+			&MapScene::on_actionSetVehiclePosition)->setData(i);
+	}
+	m_eventMenu->addSeparator();
+	addAction(m_eventMenu, "actionRunHere", QStringLiteral(":/icons/share/old_playtest.png"),
+		tr("Start Game Here"), &MapScene::on_actionRunHere);
+
+	// RPG Maker's menu of the selection tool
+	m_areaMenu = new QMenu(m_view);
+	m_actionCutArea = addAction(m_areaMenu, "actionAreaCut", QString(), tr("Cut"),
+		&MapScene::on_actionCutArea, QKeySequence::Cut);
+	m_actionCopyArea = addAction(m_areaMenu, "actionAreaCopy", QString(), tr("Copy"),
+		&MapScene::on_actionCopyArea, QKeySequence::Copy);
+	m_actionPasteArea = addAction(m_areaMenu, "actionAreaPaste", QString(), tr("Paste"),
+		&MapScene::on_actionPasteArea, QKeySequence::Paste);
+	m_actionClearArea = addAction(m_areaMenu, "actionAreaClear", QString(), tr("Clear"),
+		&MapScene::on_actionClearArea, Qt::Key_Delete);
+	addAction(m_areaMenu, "actionAreaSelectAll", QString(), tr("Select All"),
+		&MapScene::on_actionSelectAll, QKeySequence::SelectAll);
+
 	m_lowerpix = new QGraphicsPixmapItem();
 	m_upperpix = new QGraphicsPixmapItem();
 	addItem(m_lowerpix);
 	addItem(m_upperpix);
+
+	// The selection of the selection tool: white under black dashes moving
+	// with a timer (RPG Maker's marching ants)
+	QPen white_pen(Qt::white, 1);
+	white_pen.setCosmetic(true);
+	QPen ants_pen(Qt::black, 1, Qt::DashLine);
+	ants_pen.setCosmetic(true);
+	m_selAreaItem = new QGraphicsRectItem();
+	m_selAreaItem->setPen(white_pen);
+	m_selAreaItem->setZValue(3);
+	m_selAreaItem->setVisible(false);
+	m_selAntsItem = new QGraphicsRectItem(m_selAreaItem);
+	m_selAntsItem->setPen(ants_pen);
+	addItem(m_selAreaItem);
+	m_antsTimer.setInterval(150);
+	connect(&m_antsTimer, &QTimer::timeout, this, [this]() {
+		m_antsOffset = (m_antsOffset + 1) % 8;
+		QPen pen = m_selAntsItem->pen();
+		pen.setDashOffset(m_antsOffset);
+		m_selAntsItem->setPen(pen);
+	});
+	// RPG Maker frames the cells the tool draws on, under the mouse
+	QPen brush_outer(Qt::black, 3);
+	brush_outer.setCosmetic(true);
+	QPen brush_inner(Qt::white, 1);
+	brush_inner.setCosmetic(true);
+	m_brushItem = new QGraphicsRectItem();
+	m_brushItem->setPen(brush_outer);
+	m_brushItem->setZValue(3);
+	m_brushItem->setVisible(false);
+	m_brushInner = new QGraphicsRectItem(m_brushItem);
+	m_brushInner->setPen(brush_inner);
+	addItem(m_brushItem);
+	// the boundaries of an area of this map
+	QPen area_pen(Qt::magenta, 2, Qt::DashLine);
+	area_pen.setCosmetic(true);
+	m_areaItem = new QGraphicsRectItem();
+	m_areaItem->setPen(area_pen);
+	m_areaItem->setZValue(4);
+	m_areaItem->setVisible(false);
+	addItem(m_areaItem);
+	m_floatItem = new QGraphicsPixmapItem();
+	m_floatItem->setZValue(2);
+	m_floatItem->setVisible(false);
+	addItem(m_floatItem);
+
 	Load();
 	QPen selPen(Qt::yellow);
 	selPen.setWidth(2);
 	m_selectionTile->setPen(selPen);
+	m_selectionTile->setZValue(3);
 	m_selectionTile->setVisible(false);
 	this->addItem(m_selectionTile);
 	m_drawing = false;
@@ -114,6 +190,9 @@ MapScene::MapScene(ProjectData& project, int id, QGraphicsView *view, QObject *p
 
 MapScene::~MapScene()
 {
+	// Core points to the event list of the map shown
+	if (core().currentMapEvents() == &m_events)
+		core().setCurrentMapEvents(nullptr);
 	delete m_lowerpix;
 	delete m_upperpix;
 	delete m_lines;
@@ -163,8 +242,9 @@ void MapScene::Init()
 			SIGNAL(layerChanged()),
 			this,
 			SLOT(onLayerChanged()));
-	m_view->verticalScrollBar()->setValue(n_mapInfo.scrollbar_y *static_cast<int>(m_scale));
-	m_view->horizontalScrollBar()->setValue(n_mapInfo.scrollbar_x * static_cast<int>(m_scale));
+	// not cast to int: 0 at the scales below 1
+	m_view->verticalScrollBar()->setValue(n_mapInfo.scrollbar_y * static_cast<double>(m_scale));
+	m_view->horizontalScrollBar()->setValue(n_mapInfo.scrollbar_x * static_cast<double>(m_scale));
 	m_init = true;
 	redrawMap();
 }
@@ -181,7 +261,18 @@ QString MapScene::mapName() const
 
 bool MapScene::isModified() const
 {
-	return (m_undoStack->count() > 0);
+	// undoing back to the saved map makes it unmodified again
+	return !m_undoStack->isClean();
+}
+
+bool MapScene::canUndo() const
+{
+	return m_undoStack->canUndo();
+}
+
+bool MapScene::canRedo() const
+{
+	return m_undoStack->canRedo();
 }
 
 int MapScene::id() const
@@ -192,6 +283,11 @@ int MapScene::id() const
 int MapScene::chipsetId() const
 {
 	return m_map->chipset_id;
+}
+
+const std::vector<short>& MapScene::layerData(Core::Layer layer) const
+{
+	return layer == Core::LOWER ? m_map->lower_layer : m_map->upper_layer;
 }
 
 void MapScene::setLayerData(Core::Layer layer, std::vector<short> data)
@@ -209,55 +305,129 @@ void MapScene::setLayerData(Core::Layer layer, std::vector<short> data)
 	redrawLayer(layer);
 }
 
-void MapScene::setEventData(int id, const lcf::rpg::Event &data)
+std::optional<lcf::rpg::Event> MapScene::eventData(int id) const
 {
-	for (unsigned int i = 0; i < m_map->events.size(); i++) {
-		if (m_map->events[i].ID == id) {
-			if (m_map->events[i] == data) {
-				m_map->events.erase(m_map->events.begin() + i);
-				redrawMap();
-				return;
-			} else {
-				m_map->events[i] = data;
-				return;
-			}
-		}
-	}
+	for (const auto& ev : m_map->events)
+		if (ev.ID == id)
+			return ev;
+	return std::nullopt;
+}
 
-	m_map->events.push_back(data);
+void MapScene::setEventData(int id, const std::optional<lcf::rpg::Event> &data)
+{
+	auto& events = m_map->events;
+	auto ev = std::find_if(events.begin(), events.end(), [id](const auto& e) { return e.ID == id; });
+	if (ev != events.end() && data)
+		*ev = *data;
+	else if (ev != events.end())
+		events.erase(ev);
+	else if (data)
+		events.push_back(*data);
+	redrawMap();
+	// the events moved in memory
+	emit mapReloaded();
+}
+
+const lcf::rpg::Map& MapScene::mapData() const
+{
+	return *m_map;
+}
+
+const lcf::rpg::MapInfo& MapScene::mapInfo() const
+{
+	return n_mapInfo;
+}
+
+void MapScene::setMapData(const lcf::rpg::Map &map, const lcf::rpg::MapInfo &info)
+{
+	const bool resized = map.width != m_map->width || map.height != m_map->height;
+	*m_map = map;
+	n_mapInfo = info;
+	m_lower = m_map->lower_layer;
+	m_upper = m_map->upper_layer;
+	if (resized) {
+		redrawGrid();
+		setScale(m_scale);
+	}
+	redrawPanorama();
+	redrawMap();
+	// the events are new objects; the name can have changed
+	emit mapReloaded();
+}
+
+const lcf::rpg::Start& MapScene::startData() const
+{
+	return m_project.treeMap().start;
+}
+
+void MapScene::setStartData(const lcf::rpg::Start &start)
+{
+	m_project.treeMap().start = start;
 	redrawMap();
 }
 
 QMap<int, lcf::rpg::Event*> *MapScene::mapEvents()
 {
-	QMap<int, lcf::rpg::Event*> *events = new QMap<int, lcf::rpg::Event*>();
-	for (unsigned int i = 0; i < m_map->events.size(); i++)
-		events->insert(m_map->events[i].ID, &m_map->events[i]);
-	return events;
+	// rebuilt each time: the events move in memory when one is added or removed
+	m_events.clear();
+	for (auto& ev : m_map->events)
+		m_events.insert(ev.ID, &ev);
+	return &m_events;
+}
+
+int MapScene::tileAt(Core::Layer layer, int x, int y) const
+{
+	if (x < 0 || y < 0 || x >= m_map->width || y >= m_map->height || layer == Core::EVENT)
+		return -1;
+	const size_t i = static_cast<size_t>(x + y * m_map->width);
+	return layer == Core::LOWER ? m_map->lower_layer[i] : m_map->upper_layer[i];
+}
+
+void MapScene::showArea(const QRect &cells)
+{
+	const int ts = core().tileSize();
+	m_areaItem->setRect(QRectF(cells.x() * ts, cells.y() * ts, cells.width() * ts, cells.height() * ts));
+	m_areaItem->setVisible(!cells.isEmpty());
+	if (!cells.isEmpty())
+		m_view->centerOn(m_areaItem->mapToScene(m_areaItem->rect().center()));
+}
+
+int MapScene::eventIdAt(int x, int y) const
+{
+	for (const auto& ev : m_map->events)
+		if (ev.x == x && ev.y == y)
+			return ev.ID;
+	return 0;
 }
 
 void MapScene::editMapProperties(QTreeWidgetItem *item)
 {
-	int old_width = m_map->width;
-	int old_height = m_map->height;
-	lcf::DBString old_name = n_mapInfo.name;
+	commitFloating();
+	const lcf::rpg::Map old_map = *m_map;
+	const lcf::rpg::MapInfo old_info = n_mapInfo;
 
 	MapPropertiesDialog dlg(m_project, n_mapInfo, *m_map, m_view);
-	if (dlg.exec() == QDialog::Accepted) {
-		if (m_map->width != old_width || m_map->height != old_height) {
-			setLayerData(Core::LOWER, m_map->lower_layer);
-			setLayerData(Core::UPPER, m_map->upper_layer);
-			redrawGrid();
-		}
+	if (dlg.exec() != QDialog::Accepted)
+		return;
+	if (*m_map == old_map && n_mapInfo == old_info)
+		return;
 
-		Save(true);
-		redrawPanorama();
-		redrawMap();
-		setScale(m_scale);
+	// Kept in memory with undo and saved with the map, like a drawing:
+	// saving here would also save the drawing and forget its undo
+	m_undoStack->push(new UndoMap(old_map, old_info, this));
+	m_lower = m_map->lower_layer;
+	m_upper = m_map->upper_layer;
+	if (m_map->width != old_map.width || m_map->height != old_map.height) {
+		redrawGrid();
+	}
+	redrawPanorama();
+	setScale(m_scale);
+	// a resize can have removed events
+	emit mapReloaded();
+	emit mapChanged();
 
-		if (n_mapInfo.name != old_name) {
-			item->setData(0, Qt::DisplayRole, ToQString(n_mapInfo.name));
-		}
+	if (item && n_mapInfo.name != old_info.name) {
+		item->setData(0, Qt::DisplayRole, ToQString(n_mapInfo.name));
 	}
 }
 
@@ -265,22 +435,34 @@ void MapScene::redrawMap()
 {
 	if (!m_init)
 		return;
+	s_tileSize = core().tileSize() * static_cast<double>(m_scale);
+	// A hidden tab would load its chipset and events over those of the tab
+	// shown: it is redrawn when shown
+	if (!m_view->isVisible()) {
+		m_needsRedraw = true;
+		return;
+	}
+	m_needsRedraw = false;
 	core().LoadChipset(m_map->chipset_id);
 	core().setCurrentMapEvents(mapEvents());
-	s_tileSize = core().tileSize() * static_cast<double>(m_scale);
 	redrawLayer(Core::LOWER);
 	redrawLayer(Core::UPPER);
 }
 
 void MapScene::setScale(float scale)
 {
-	float old_scale = m_scale;
+	// the first call has no previous scale
+	const float old_scale = m_scale > 0 ? m_scale : scale;
 	int map_x = m_view->horizontalScrollBar()->value();
 	int map_y = m_view->verticalScrollBar()->value();
 
 	m_scale = scale;
 	m_lines->setScale(static_cast<double>(m_scale));
 	m_selectionTile->setScale(static_cast<double>(m_scale));
+	m_selAreaItem->setScale(static_cast<double>(m_scale));
+	m_floatItem->setScale(static_cast<double>(m_scale));
+	m_areaItem->setScale(static_cast<double>(m_scale));
+	m_brushItem->setScale(static_cast<double>(m_scale));
 	this->setSceneRect(0,
 		0,
 		m_map->width * core().tileSize() * static_cast<double>(m_scale),
@@ -305,6 +487,8 @@ void MapScene::onLayerChanged()
 		stopDrawing();
 	if (m_selecting)
 		stopSelecting();
+	m_dragEventId = 0;
+	commitFloating();
 	switch (core().layer())
 	{
 	case Core::LOWER:
@@ -321,10 +505,14 @@ void MapScene::onLayerChanged()
 		m_lowerpix->graphicsEffect()->setEnabled(false);
 		m_upperpix->graphicsEffect()->setEnabled(false);
 		m_lines->setVisible(true);
+		// the selection tool works on the tile layers only
+		clearSelectionArea();
 		break;
 //	  default:
 //		  Q_ASSERT(false);
 	}
+	applyCursor();
+	updateBrush();
 }
 
 void MapScene::onToolChanged()
@@ -333,28 +521,44 @@ void MapScene::onToolChanged()
 		stopDrawing();
 	if (m_selecting)
 		stopSelecting();
-	switch (core().tool())
-	{
-	case (Core::ZOOM):
-		m_lowerpix->setCursor(QCursor(QPixmap(":/icons/share/cur_zoom.png"),1,1));
-		break;
-	case (Core::PENCIL):
-		m_lowerpix->setCursor(QCursor(QPixmap(":/icons/share/cur_pen.png"),1,1));
-		break;
-	case (Core::RECTANGLE):
-		m_lowerpix->setCursor(QCursor(QPixmap(":/icons/share/cur_rectangle.png"),1,1));
-		break;
-	case (Core::CIRCLE):
-		m_lowerpix->setCursor(QCursor(QPixmap(":/icons/share/cur_circle.png"),1,1));
-		break;
-	case (Core::FILL):
-		m_lowerpix->setCursor(QCursor(QPixmap(":/icons/share/cur_fill.png"),1,1));
-		break;
-	}
+	// RPG Maker: another tool ends the selection
+	commitFloating();
+	clearSelectionArea();
+	applyCursor();
+	updateBrush();
+}
+
+void MapScene::applyCursor()
+{
+	// the event layer has the arrow, and the move cursor while an event is dragged
+	if (core().layer() != Core::EVENT)
+		m_lowerpix->setCursor(MapCursors::forTool(core().tool()));
+	else if (m_dragEventId)
+		m_lowerpix->setCursor(MapCursors::move());
+	else
+		m_lowerpix->unsetCursor();
+}
+
+void MapScene::updateBrush()
+{
+	const Core::Tool tool = core().tool();
+	const bool shown = cur_x >= 0 && cur_y >= 0 && core().layer() != Core::EVENT
+		&& tool != Core::ZOOM && tool != Core::SELECT;
+	m_brushItem->setVisible(shown);
+	if (!shown)
+		return;
+	// the pen draws the whole selection of the palette, cut at the edges of the map
+	const int w = tool == Core::PENCIL ? std::min(core().selWidth(), m_map->width - cur_x) : 1;
+	const int h = tool == Core::PENCIL ? std::min(core().selHeight(), m_map->height - cur_y) : 1;
+	const int ts = core().tileSize();
+	const QRectF rect(cur_x * ts, cur_y * ts, w * ts, h * ts);
+	m_brushItem->setRect(rect);
+	m_brushInner->setRect(rect);
 }
 
 void MapScene::Save(bool properties_changed)
 {
+	commitFloating();
 	if (!isModified() && !properties_changed)
 		return;
 
@@ -362,6 +566,10 @@ void MapScene::Save(bool properties_changed)
 	for (unsigned int i = 1; i < treeMap.maps.size(); i++)
 		if (treeMap.maps[i].ID == n_mapInfo.ID)
 		{
+			// the tree owns the hierarchy (it can have changed by drag and drop)
+			n_mapInfo.parent_map = treeMap.maps[i].parent_map;
+			n_mapInfo.indentation = treeMap.maps[i].indentation;
+			n_mapInfo.expanded_node = treeMap.maps[i].expanded_node;
 			treeMap.maps[i] = n_mapInfo; //Apply info changes
 			break;
 		}
@@ -369,10 +577,23 @@ void MapScene::Save(bool properties_changed)
 	treeMap.active_node = n_mapInfo.ID;
 	// FIXME: ProjectData.Project is Const
 	core().project()->saveTreeMap();
-	QString file = QString("Map%1.emu")
-			.arg(QString::number(n_mapInfo.ID), 4, QLatin1Char('0'));
-	lcf::LMU_Reader::PrepareSave(*m_map);
+	// Tiles the Player cannot draw (the old palette eraser wrote 0x7FFD)
+	// become the empty tiles: water below, the transparent tile above
+	auto repair = [](std::vector<short>& lower, std::vector<short>& upper) {
+		for (auto& tile : lower) {
+			const int terrain = core().translate(tile);
+			if (terrain < 0 || core().isFblock(terrain))
+				tile = 0;
+		}
+		for (auto& tile : upper) {
+			if (!core().isFblock(core().translate(tile)))
+				tile = 10000;
+		}
+	};
+	repair(m_map->lower_layer, m_map->upper_layer);
+	repair(m_lower, m_upper);
 	// FIXME: ProjectData.Project is Const
+	// saveMap increases the save count
 	core().project()->saveMap(*m_map, n_mapInfo.ID);
 	m_undoStack->clear();
 	emit mapSaved();
@@ -380,6 +601,12 @@ void MapScene::Save(bool properties_changed)
 
 void MapScene::Load(bool revert)
 {
+	if (revert) {
+		// The start positions are in the map tree, not in the map file
+		cancelFloating();
+		while (m_undoStack->canUndo())
+			m_undoStack->undo();
+	}
 	// FIXME: Many calls to core()
 	const auto& treeMap = m_project.treeMap();
 	for (unsigned int i = 1; i < treeMap.maps.size(); i++)
@@ -389,14 +616,18 @@ void MapScene::Load(bool revert)
 			break;
 		}
 
+	const QSize old_size = m_map ? QSize(m_map->width, m_map->height) : QSize();
 	m_map = m_project.project().loadMap(n_mapInfo.ID);
 	m_lower =  m_map->lower_layer;
 	m_upper =  m_map->upper_layer;
+	clearSelectionArea();
 
 	redrawPanorama();
 
-	if (!revert) {
+	if (!revert || old_size != QSize(m_map->width, m_map->height)) {
 		redrawGrid();
+		if (m_scale > 0)
+			setScale(m_scale);
 	}
 
 	redrawMap();
@@ -407,63 +638,70 @@ void MapScene::Load(bool revert)
 void MapScene::undo()
 {
 	m_undoStack->undo();
-	if (m_undoStack->index() == 0)
-	{
-		m_undoStack->clear();
-		emit mapReverted();
-	}
+	emit mapChanged();
+}
+
+void MapScene::redo()
+{
+	m_undoStack->redo();
+	emit mapChanged();
 }
 
 void MapScene::on_actionNewEvent()
 {
+	if (getEventAt(lst_x, lst_y))
+		return;
 	// Find first free id
 	int id = getFirstFreeId();
 
 	lcf::rpg::Event event;
 	event.ID = id;
 	event.name = ToDBString(QString("EV%1").arg(QString::number(id), 4, QLatin1Char('0')));
-	event.x = cur_x;
-	event.y = cur_y;
+	event.x = lst_x;
+	event.y = lst_y;
 	event.pages.push_back(lcf::rpg::EventPage());
-
-	int result = EventDialog::edit(m_view, event, m_project);
-	if (result != QDialogButtonBox::Cancel)
-	{
-		m_map->events.push_back(event);
-		m_undoStack->push(new UndoEvent(event, this));
-		redrawMap();
-		emit mapChanged();
-	}
+	editEvent(event);
 }
 
 void MapScene::on_actionEditEvent() {
-	if (auto* ev = getEventAt(cur_x, cur_y)) {
-		editEvent(ev->ID);
+	if (auto* ev = getEventAt(lst_x, lst_y)) {
+		editEvent(*ev);
 	}
 }
 
-void MapScene::editEvent(int id) {
-	auto* ev = findEvent(id);
-	if (!ev) {
-		return;
-	}
-
+void MapScene::editEvent(const lcf::rpg::Event& event) {
+	const int id = event.ID;
 	EventDialog dlg(m_project, m_view);
-	dlg.setEvent(*ev);
+	dlg.setEvent(event);
+	connect(&dlg, &EventDialog::applied, this, &MapScene::commitEvent);
 	m_eventDialog = &dlg;
 	m_eventDialogId = id;
 	dlg.exec();
 	m_eventDialog = nullptr;
 
-	// The map can have been reloaded while the dialog was open: look the event up again
-	ev = findEvent(id);
-	if (ev && dlg.editResult() != QDialogButtonBox::Cancel) {
-		lcf::rpg::Event backup = *ev;
-		*ev = dlg.getEvent();
-		m_undoStack->push(new UndoEvent(backup, this));
-		emit mapChanged();
+	if (dlg.editResult() == QDialogButtonBox::Ok) {
+		commitEvent(dlg.getEvent());
 	}
 	redrawMap();
+}
+
+void MapScene::commitEvent(const lcf::rpg::Event& event) {
+	// The map can have been reloaded while the dialog was open: look the event up again
+	if (auto* ev = findEvent(event.ID)) {
+		if (*ev == event) {
+			return;
+		}
+		lcf::rpg::Event backup = *ev;
+		*ev = event;
+		m_undoStack->push(new UndoEvent(event.ID, backup, this));
+	} else {
+		m_map->events.push_back(event);
+		m_undoStack->push(new UndoEvent(event.ID, std::nullopt, this));
+		// the events moved in memory
+		emit mapReloaded();
+	}
+	redrawMap();
+	emit mapChanged();
 }
 
 void MapScene::refreshMapInfo() {
@@ -508,8 +746,10 @@ void MapScene::reloadFromDisk() {
 }
 
 void MapScene::on_actionCopyEvent() {
-	event_clipboard = *getEventAt(cur_x, cur_y);
-	event_clipboard_set = true;
+	if (auto* ev = getEventAt(lst_x, lst_y)) {
+		// in Core: an event can be pasted on another map
+		core().setEventClipboard(*ev);
+	}
 }
 
 void MapScene::on_actionCutEvent() {
@@ -518,17 +758,18 @@ void MapScene::on_actionCutEvent() {
 }
 
 void MapScene::on_actionPasteEvent() {
-	// Find first free id
-	int id = getFirstFreeId();
+	const lcf::rpg::Event* clipboard = core().eventClipboard();
+	if (!clipboard || getEventAt(lst_x, lst_y))
+		return;
 
-	lcf::rpg::Event event = event_clipboard;
-	event.ID = id;
-	event.name = ToDBString(QString("EV%1").arg(QString::number(id), 4, QLatin1Char('0')));
-	event.x = cur_x;
-	event.y = cur_y;
+	// RPG Maker keeps the name, the event gets the first free id
+	lcf::rpg::Event event = *clipboard;
+	event.ID = getFirstFreeId();
+	event.x = lst_x;
+	event.y = lst_y;
 
 	m_map->events.push_back(event);
-	m_undoStack->push(new UndoEvent(event, this));
+	m_undoStack->push(new UndoEvent(event.ID, std::nullopt, this));
 	redrawMap();
 	emit mapChanged();
 }
@@ -537,18 +778,29 @@ void MapScene::on_actionDeleteEvent()
 {
 	std::vector<lcf::rpg::Event>::iterator ev;
 	for (ev = m_map->events.begin(); ev != m_map->events.end(); ++ev)
-		if (_index(cur_x,cur_y) == _index(ev->x,ev->y))
+		if (_index(lst_x,lst_y) == _index(ev->x,ev->y))
 			break;
 
 	if (ev != m_map->events.end())
 	{
 		lcf::rpg::Event backup = *ev;
-		m_undoStack->push(new UndoEvent(backup, this));
-
 		m_map->events.erase(ev);
+		m_undoStack->push(new UndoEvent(backup.ID, backup, this));
 		redrawMap();
 		emit mapChanged();
 	}
+}
+
+void MapScene::moveEvent(int id, int x, int y)
+{
+	auto* ev = findEvent(id);
+	if (!ev || getEventAt(x, y))
+		return;
+	lcf::rpg::Event moved = *ev;
+	moved.x = x;
+	moved.y = y;
+	// pushes the undo of the old position
+	commitEvent(moved);
 }
 
 void MapScene::on_actionRunHere()
@@ -556,12 +808,271 @@ void MapScene::on_actionRunHere()
 	core().runGameHere(id(), lst_x, lst_y);
 }
 
+void MapScene::pushStart(const lcf::rpg::Start &old_start)
+{
+	if (old_start == m_project.treeMap().start)
+		return;
+	// The start is in the map tree, saved with this map
+	m_undoStack->push(new UndoStart(old_start, this));
+	redrawMap();
+	emit mapChanged();
+}
+
 void MapScene::on_actionSetStartPosition()
 {
-	auto& treeMap = m_project.treeMap();
-	treeMap.start.party_map_id = this->id();
-	treeMap.start.party_x = lst_x;
-	treeMap.start.party_y = lst_y;
+	auto& start = m_project.treeMap().start;
+	const lcf::rpg::Start old_start = start;
+	start.party_map_id = this->id();
+	start.party_x = lst_x;
+	start.party_y = lst_y;
+	pushStart(old_start);
+}
+
+void MapScene::on_actionSetVehiclePosition()
+{
+	auto* action = qobject_cast<QAction*>(sender());
+	if (!action)
+		return;
+	auto& start = m_project.treeMap().start;
+	const lcf::rpg::Start old_start = start;
+	switch (action->data().toInt()) {
+	case 0:
+		start.boat_map_id = this->id();
+		start.boat_x = lst_x;
+		start.boat_y = lst_y;
+		break;
+	case 1:
+		start.ship_map_id = this->id();
+		start.ship_x = lst_x;
+		start.ship_y = lst_y;
+		break;
+	default:
+		start.airship_map_id = this->id();
+		start.airship_x = lst_x;
+		start.airship_y = lst_y;
+		break;
+	}
+	pushStart(old_start);
+}
+
+void MapScene::on_actionCopyArea()
+{
+	if (m_floating) {
+		core().setTileClipboard(m_float);
+		return;
+	}
+	if (m_selArea.isEmpty())
+		return;
+	Core::TileClipboard clipboard;
+	clipboard.width = m_selArea.width();
+	clipboard.height = m_selArea.height();
+	// both layers, as RPG Maker; the drawing in progress is not taken
+	for (int y = m_selArea.top(); y <= m_selArea.bottom(); y++)
+		for (int x = m_selArea.left(); x <= m_selArea.right(); x++)
+		{
+			const size_t i = static_cast<size_t>(_index(x, y));
+			clipboard.lower.push_back(m_map->lower_layer[i]);
+			clipboard.upper.push_back(m_map->upper_layer[i]);
+		}
+	core().setTileClipboard(clipboard);
+}
+
+void MapScene::on_actionCutArea()
+{
+	if (m_floating) {
+		core().setTileClipboard(m_float);
+		cancelFloating();
+		return;
+	}
+	on_actionCopyArea();
+	fillArea(m_selArea);
+}
+
+void MapScene::on_actionPasteArea()
+{
+	commitFloating();
+	const Core::TileClipboard& clipboard = core().tileClipboard();
+	if (clipboard.width <= 0 || clipboard.height <= 0)
+		return;
+	m_float = clipboard;
+	// in the middle of the view, moved inside the map when it fits
+	const QPointF center = m_view->mapToScene(m_view->viewport()->rect().center());
+	int x = static_cast<int>(center.x() / s_tileSize) - m_float.width / 2;
+	int y = static_cast<int>(center.y() / s_tileSize) - m_float.height / 2;
+	x = std::max(0, std::min(x, m_map->width - m_float.width));
+	y = std::max(0, std::min(y, m_map->height - m_float.height));
+	m_floatPos = QPoint(x, y);
+	m_floating = true;
+	showFloating();
+}
+
+void MapScene::on_actionClearArea()
+{
+	if (m_floating) {
+		cancelFloating();
+		return;
+	}
+	fillArea(m_selArea);
+}
+
+void MapScene::on_actionSelectAll()
+{
+	commitFloating();
+	m_selArea = QRect(0, 0, m_map->width, m_map->height);
+	updateSelectionArea();
+}
+
+void MapScene::fillArea(const QRect &area)
+{
+	if (area.isEmpty() || core().layer() == Core::EVENT)
+		return;
+	// RPG Maker fills the area of the current layer with the current tiles
+	for (int y = area.top(); y <= area.bottom(); y++)
+		for (int x = area.left(); x <= area.right(); x++)
+		{
+			const size_t i = static_cast<size_t>(_index(x, y));
+			const short tile = core().selection(x - area.left(), y - area.top());
+			if (core().layer() == Core::LOWER)
+				m_lower[i] = tile;
+			else
+				m_upper[i] = tile;
+		}
+	if (core().layer() == Core::LOWER)
+		bindArea(area.left() - 1, area.top() - 1, area.right() + 1, area.bottom() + 1);
+	pushLayers(tr("Clear"));
+}
+
+void MapScene::pushLayers(const QString &text)
+{
+	const bool lower = m_lower != m_map->lower_layer;
+	const bool upper = m_upper != m_map->upper_layer;
+	if (!lower && !upper) {
+		return;
+	}
+	m_undoStack->beginMacro(text);
+	if (lower) {
+		std::vector<short> before = std::exchange(m_map->lower_layer, m_lower);
+		m_undoStack->push(new UndoDraw(Core::LOWER, std::move(before), this));
+	}
+	if (upper) {
+		std::vector<short> before = std::exchange(m_map->upper_layer, m_upper);
+		m_undoStack->push(new UndoDraw(Core::UPPER, std::move(before), this));
+	}
+	m_undoStack->endMacro();
+	redrawLayer(Core::LOWER);
+	redrawLayer(Core::UPPER);
+	emit mapChanged();
+}
+
+void MapScene::updateSelectionArea()
+{
+	const int ts = core().tileSize();
+	const QRectF rect(m_selArea.x() * ts, m_selArea.y() * ts, m_selArea.width() * ts, m_selArea.height() * ts);
+	m_selAreaItem->setRect(rect);
+	m_selAntsItem->setRect(rect);
+	m_selAreaItem->setVisible(!m_selArea.isEmpty());
+	if (m_selArea.isEmpty())
+		m_antsTimer.stop();
+	else if (!m_antsTimer.isActive())
+		m_antsTimer.start();
+}
+
+void MapScene::clearSelectionArea()
+{
+	m_selDragging = false;
+	m_selArea = QRect();
+	updateSelectionArea();
+}
+
+void MapScene::showFloating()
+{
+	const int ts = core().tileSize();
+	QPixmap pix(m_float.width * ts, m_float.height * ts);
+	pix.fill(Qt::transparent);
+	core().setBackground(m_panorama);
+	core().beginPainting(pix);
+	for (int y = 0; y < m_float.height; y++)
+		for (int x = 0; x < m_float.width; x++)
+		{
+			const size_t i = static_cast<size_t>(x + y * m_float.width);
+			const QRect rect(x * ts, y * ts, ts, ts);
+			core().renderTile(m_float.lower[i], rect);
+			core().renderTile(m_float.upper[i], rect);
+		}
+	core().endPainting();
+	m_floatItem->setPixmap(pix);
+	m_floatItem->setOffset(m_floatPos * ts);
+	m_floatItem->setVisible(true);
+	m_selArea = QRect(m_floatPos, QSize(m_float.width, m_float.height));
+	updateSelectionArea();
+}
+
+void MapScene::commitFloating()
+{
+	if (!m_floating)
+		return;
+	m_floating = false;
+	m_floatDragging = false;
+	m_floatItem->setVisible(false);
+	for (int y = 0; y < m_float.height; y++)
+		for (int x = 0; x < m_float.width; x++)
+		{
+			const int map_x = m_floatPos.x() + x;
+			const int map_y = m_floatPos.y() + y;
+			if (map_x < 0 || map_y < 0 || map_x >= m_map->width || map_y >= m_map->height)
+				continue;
+			const size_t i = static_cast<size_t>(_index(map_x, map_y));
+			const size_t j = static_cast<size_t>(x + y * m_float.width);
+			m_lower[i] = m_float.lower[j];
+			m_upper[i] = m_float.upper[j];
+		}
+	// the borders of the autotiles follow their new neighbours
+	bindArea(m_floatPos.x() - 1, m_floatPos.y() - 1,
+		m_floatPos.x() + m_float.width, m_floatPos.y() + m_float.height);
+	// RPG Maker: the dotted line disappears
+	clearSelectionArea();
+	pushLayers(tr("Paste"));
+}
+
+void MapScene::cancelFloating()
+{
+	m_floating = false;
+	m_floatDragging = false;
+	m_floatItem->setVisible(false);
+	clearSelectionArea();
+}
+
+void MapScene::pickTile()
+{
+	// RPG Maker's eyedropper: the tile under the cursor becomes the current tile
+	const size_t i = static_cast<size_t>(_index(cur_x, cur_y));
+	const short tile = core().layer() == Core::LOWER ? m_lower[i] : m_upper[i];
+	const int terrain = core().translate(tile);
+	if (terrain < 0 || core().isFblock(terrain) != (core().layer() == Core::UPPER))
+		return;
+	core().setSelection({core().translate(terrain, SAMPLE)}, 1, 1);
+}
+
+void MapScene::selectCell(int x, int y)
+{
+	lst_x = x;
+	lst_y = y;
+	m_selecting = true;
+	m_selectionTile->setVisible(true);
+	m_selectionTile->setRect(QRectF(QRect(x*core().tileSize(),y*core().tileSize(),
+										  core().tileSize(),core().tileSize())));
+}
+
+bool MapScene::updateCursor(const QPointF &pos)
+{
+	if (!sceneRect().contains(pos) || s_tileSize <= 0) {
+		cur_x = -1;
+		cur_y = -1;
+		return false;
+	}
+	cur_x = std::max(0, std::min(m_map->width - 1, static_cast<int>(pos.x() / s_tileSize)));
+	cur_y = std::max(0, std::min(m_map->height - 1, static_cast<int>(pos.y() / s_tileSize)));
+	return true;
 }
 
 void MapScene::on_user_interaction()
@@ -593,6 +1104,7 @@ void MapScene::on_view_H_Scroll()
 
 void MapScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
+	const bool inside = updateCursor(event->scenePos());
 	if (event->button() == Qt::RightButton)
 	{
 		if (m_drawing)
@@ -600,83 +1112,121 @@ void MapScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 			stopDrawing();
 			return;
 		}
-		if (sceneRect().contains(event->scenePos()) && core().layer() == Core::EVENT)
+		if (core().layer() == Core::EVENT)
 		{
-			m_eventMenu->actions()[2]->setEnabled(!getEventAt(cur_x, cur_y));
-			m_eventMenu->actions()[3]->setEnabled(getEventAt(cur_x, cur_y));
-			m_eventMenu->actions()[4]->setEnabled(getEventAt(cur_x, cur_y));
-			m_eventMenu->actions()[5]->setEnabled(getEventAt(cur_x, cur_y));
-			m_eventMenu->actions()[6]->setEnabled(!getEventAt(cur_x, cur_y) && event_clipboard_set);
-			m_eventMenu->actions()[7]->setEnabled(getEventAt(cur_x, cur_y));
-
-			lst_x = cur_x;
-			lst_y = cur_y;
+			// the tools are not used on the event layer (RPG Maker)
+			m_dragEventId = 0;
+			applyCursor();
+			if (!inside)
+				return;
+			selectCell(cur_x, cur_y);
+			const bool has_event = getEventAt(lst_x, lst_y);
+			m_actionNew->setVisible(!has_event);
+			m_actionEdit->setVisible(has_event);
+			m_actionCopy->setEnabled(has_event);
+			m_actionCut->setEnabled(has_event);
+			m_actionPaste->setEnabled(!has_event && core().eventClipboard());
+			m_actionDelete->setEnabled(has_event);
 			m_eventMenu->popup(event->screenPos());
+			return;
 		}
-		if (core().tool() == Core::ZOOM && static_cast<double>(m_scale) > 0.125)
-			setScale(m_scale/2);
+		if (core().tool() == Core::ZOOM)
+		{
+			if (static_cast<double>(m_scale) > 0.125)
+				setScale(m_scale/2);
+			return;
+		}
+		if (!inside || m_selDragging || m_floatDragging)
+			return;
+		if (core().tool() == Core::SELECT)
+		{
+			const bool has_area = m_floating || !m_selArea.isEmpty();
+			m_actionCutArea->setEnabled(has_area);
+			m_actionCopyArea->setEnabled(has_area);
+			m_actionClearArea->setEnabled(has_area);
+			m_actionPasteArea->setEnabled(core().tileClipboard().width > 0);
+			m_areaMenu->popup(event->screenPos());
+			return;
+		}
+		pickTile();
+		return;
 	}
-	if (event->button() == Qt::LeftButton)
+	if (event->button() != Qt::LeftButton)
+		return;
+
+	if (core().layer() == Core::EVENT) // Select tile, maybe to drag its event
 	{
-		if (core().tool() == Core::ZOOM && static_cast<double>(m_scale) < 8.0) // Zoom
+		// Do not allow selecting the (-1, -1) spot
+		if (!inside)
+			return;
+		selectCell(cur_x, cur_y);
+		m_dragEventId = eventIdAt(cur_x, cur_y);
+		applyCursor();
+		return;
+	}
+	if (core().tool() == Core::ZOOM)
+	{
+		if (static_cast<double>(m_scale) < 8.0)
 			setScale(m_scale*2);
-		else if (core().layer() == Core::EVENT) // Select tile
-		{
-			// Do not allow selecting the (-1, -1) spot
-			if (cur_x == -1 || cur_y == -1) {
-				return;
-			}
+		return;
+	}
+	// Do not draw on invalid coordinates
+	if (!inside)
+		return;
 
-			m_selecting = true;
-			m_selectionTile->setVisible(true);
-			m_selectionTile->setRect(QRectF(QRect(cur_x*core().tileSize(),cur_y*core().tileSize(),
-												  core().tileSize(),core().tileSize())));
-		}
-		else // Start drawing
+	fst_x = cur_x;
+	fst_y = cur_y;
+	switch(core().tool())
+	{
+	case Core::PENCIL:
+		m_drawing = true;
+		drawPen();
+		break;
+	case Core::RECTANGLE:
+		m_drawing = true;
+		drawRect();
+		break;
+	case Core::CIRCLE:
+		m_drawing = true;
+		drawEllipse();
+		break;
+	case Core::FILL:
+		m_drawing = true;
+		drawFill();
+		break;
+	case Core::SELECT:
+		if (m_floating)
 		{
-			// Do not draw on invalid coordinates
-			if (cur_x == -1 || cur_y == -1) {
-				return;
-			}
-
-			fst_x = cur_x;
-			fst_y = cur_y;
-			switch(core().tool())
+			// drag the pasted area, or put it on the map with a click outside
+			if (QRect(m_floatPos, QSize(m_float.width, m_float.height)).contains(cur_x, cur_y))
 			{
-			case Core::PENCIL:
-				m_drawing = true;
-				drawPen();
-				break;
-			case Core::RECTANGLE:
-				m_drawing = true;
-				drawRect();
-				break;
-			case Core::FILL:
-				m_drawing = true;
-				if (core().layer() == Core::LOWER)
-					drawFill(core().translate(m_lower[static_cast<size_t>(_index(fst_x,fst_y))]),fst_x,fst_y);
-				else if (core().layer() == Core::UPPER)
-					drawFill(core().translate(m_upper[static_cast<size_t>(_index(fst_x,fst_y))]),fst_x,fst_y);
-				updateArea(0, 0, m_map->width-1 ,m_map->height-1);
-				break;
-			default:
-				break;
+				m_floatDragging = true;
+				m_floatGrab = QPoint(cur_x, cur_y) - m_floatPos;
 			}
+			else
+				commitFloating();
+			break;
 		}
+		m_selDragging = true;
+		m_selArea = QRect(cur_x, cur_y, 1, 1);
+		updateSelectionArea();
+		break;
+	default:
+		break;
 	}
 }
 
 void MapScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
-	if (!sceneRect().contains(event->scenePos())) {
-		cur_x = -1;
-		cur_y = -1;
+	const int old_x = cur_x;
+	const int old_y = cur_y;
+	if (!updateCursor(event->scenePos())) {
+		m_brushItem->setVisible(false);
 		return;
 	}
-	if (cur_x == static_cast<int>(event->scenePos().x() / s_tileSize) && cur_y == static_cast<int>(event->scenePos().y() / s_tileSize))
+	if (cur_x == old_x && cur_y == old_y)
 		return;
-	cur_x = std::max(0, std::min(m_map->width - 1, static_cast<int>(event->scenePos().x() / s_tileSize)));
-	cur_y = std::max(0, std::min(m_map->height - 1, static_cast<int>(event->scenePos().y() / s_tileSize)));
+	updateBrush();
 	if (m_drawing)
 	{
 		switch (core().tool())
@@ -687,13 +1237,36 @@ void MapScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 		case (Core::RECTANGLE):
 			drawRect();
 			break;
+		case (Core::CIRCLE):
+			drawEllipse();
+			break;
 		default:
 			break;
 		}
 	}
+	if (m_selDragging)
+	{
+		m_selArea = QRect(QPoint(fst_x, fst_y), QPoint(cur_x, cur_y)).normalized();
+		updateSelectionArea();
+	}
+	if (m_floatDragging)
+	{
+		m_floatPos = QPoint(cur_x, cur_y) - m_floatGrab;
+		m_floatItem->setOffset(m_floatPos * core().tileSize());
+		m_selArea = QRect(m_floatPos, QSize(m_float.width, m_float.height));
+		updateSelectionArea();
+	}
+	if (m_dragEventId && (event->buttons() & Qt::LeftButton))
+	{
+		// the cell the event is dragged to
+		m_selectionTile->setRect(QRectF(QRect(cur_x*core().tileSize(),cur_y*core().tileSize(),
+											  core().tileSize(),core().tileSize())));
+	}
 
 	// Update status bar
 	QMainWindow* mw = qobject_cast<QMainWindow*>(parent());
+	if (!mw)
+		return;
 
 	// Show coordinates of current tile
 	QString status_msg = QString("(%0, %1)").arg(cur_x).arg(cur_y);
@@ -720,43 +1293,141 @@ void MapScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 		m_cancelled = false;
 		return;
 	}
+	if (event->button() != Qt::LeftButton)
+		return;
 	if (m_drawing && !m_cancelled)
 	{
 		m_drawing = false;
-		if (core().layer() == Core::LOWER)
+		pushLayers(QString());
+	}
+	m_selDragging = false;
+	m_floatDragging = false;
+	if (m_dragEventId)
+	{
+		const int id = m_dragEventId;
+		m_dragEventId = 0;
+		applyCursor();
+		updateCursor(event->scenePos());
+		if (cur_x >= 0 && (cur_x != lst_x || cur_y != lst_y) && !getEventAt(cur_x, cur_y))
 		{
-			m_undoStack->push(new UndoDraw(Core::LOWER,
-											m_map->lower_layer,
-											this));
-			m_map->lower_layer = m_lower;
+			moveEvent(id, cur_x, cur_y);
+			selectCell(cur_x, cur_y);
 		}
 		else
-		{
-			m_undoStack->push(new UndoDraw(Core::UPPER,
-											m_map->upper_layer,
-											this));
-			m_map->upper_layer = m_upper;
-		}
-		emit mapChanged();
+			selectCell(lst_x, lst_y);
 	}
 }
 
 void MapScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 {
-	Q_UNUSED(event)
 	if (core().layer() != Core::EVENT)
 		return;
 
 	// Do not allow putting events on invalid coordinates
-	if (cur_x == -1 || cur_y == -1) {
+	if (!updateCursor(event->scenePos())) {
 		return;
 	}
 
+	m_dragEventId = 0;
+	applyCursor();
+	selectCell(cur_x, cur_y);
 	if (getEventAt(cur_x, cur_y)) {
 		on_actionEditEvent();
 	} else {
 		on_actionNewEvent();
 	}
+}
+
+void MapScene::wheelEvent(QGraphicsSceneWheelEvent *event)
+{
+	// Ctrl + wheel zooms, by the steps of the zoom tool
+	if (!(event->modifiers() & Qt::ControlModifier) || event->orientation() != Qt::Vertical) {
+		QGraphicsScene::wheelEvent(event);
+		return;
+	}
+	if (event->delta() > 0 && static_cast<double>(m_scale) < 8.0)
+		setScale(m_scale*2);
+	else if (event->delta() < 0 && static_cast<double>(m_scale) > 0.125)
+		setScale(m_scale/2);
+	event->accept();
+}
+
+bool MapScene::handleKey(QKeyEvent *event, bool run)
+{
+	const bool no_modifier = (event->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier;
+	const bool enter = no_modifier && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter);
+	// Backspace: the Delete key of Mac keyboards
+	const bool del = no_modifier && (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace);
+	void (MapScene::*slot)() = nullptr;
+
+	if (core().layer() == Core::EVENT)
+	{
+		// the cell selected with the mouse
+		if (!m_selectionTile->isVisible())
+			return false;
+		const bool has_event = getEventAt(lst_x, lst_y);
+		if (enter)
+			slot = has_event ? &MapScene::on_actionEditEvent : &MapScene::on_actionNewEvent;
+		else if (event->matches(QKeySequence::Cut) && has_event)
+			slot = &MapScene::on_actionCutEvent;
+		else if (event->matches(QKeySequence::Copy) && has_event)
+			slot = &MapScene::on_actionCopyEvent;
+		else if (event->matches(QKeySequence::Paste) && !has_event && core().eventClipboard())
+			slot = &MapScene::on_actionPasteEvent;
+		else if (del && has_event)
+			slot = &MapScene::on_actionDeleteEvent;
+	}
+	else if (core().tool() == Core::SELECT && !m_drawing)
+	{
+		const bool has_area = m_floating || !m_selArea.isEmpty();
+		if (event->matches(QKeySequence::Cut) && has_area)
+			slot = &MapScene::on_actionCutArea;
+		else if (event->matches(QKeySequence::Copy) && has_area)
+			slot = &MapScene::on_actionCopyArea;
+		else if (event->matches(QKeySequence::Paste) && core().tileClipboard().width > 0)
+			slot = &MapScene::on_actionPasteArea;
+		else if (del && has_area)
+			slot = &MapScene::on_actionClearArea;
+		else if (event->matches(QKeySequence::SelectAll))
+			slot = &MapScene::on_actionSelectAll;
+		else if (no_modifier && event->key() == Qt::Key_Escape && has_area)
+			slot = &MapScene::cancelFloating;
+	}
+	if (!slot)
+		return false;
+	if (run)
+		(this->*slot)();
+	return true;
+}
+
+void MapScene::keyPressEvent(QKeyEvent *event)
+{
+	if (handleKey(event, true))
+		event->accept();
+	else
+		QGraphicsScene::keyPressEvent(event);
+}
+
+bool MapScene::event(QEvent *event)
+{
+	// Take the keys of the map before the shortcuts of the window
+	// (Ctrl+X, Del...), as RPG Maker does in its map view
+	if (event->type() == QEvent::ShortcutOverride && handleKey(static_cast<QKeyEvent*>(event), false))
+	{
+		event->accept();
+		return true;
+	}
+	return QGraphicsScene::event(event);
+}
+
+bool MapScene::eventFilter(QObject *watched, QEvent *event)
+{
+	// a tab shown again: its chipset, events and start positions
+	if (watched == m_view && event->type() == QEvent::Show)
+		QTimer::singleShot(0, this, &MapScene::redrawMap);
+	if (watched == m_view->viewport() && event->type() == QEvent::Leave)
+		m_brushItem->setVisible(false);
+	return QGraphicsScene::eventFilter(watched, event);
 }
 
 int MapScene::_x(int index)
@@ -796,7 +1467,6 @@ void MapScene::stopDrawing()
 {
 	m_cancelled = true;
 	m_drawing = false;
-	m_lowerpix->setCursor(QCursor(QPixmap(":/icons/share/cur_cancel.png"),1,1));
 	m_lower = m_map->lower_layer;
 	m_upper = m_map->upper_layer;
 	redrawLayer(Core::LOWER);
@@ -805,14 +1475,19 @@ void MapScene::stopDrawing()
 
 void MapScene::stopSelecting()
 {
-	m_cancelled = true;
+	// no m_cancelled: it would drop the next stroke on another layer
 	m_selecting = false;
-	m_lowerpix->setCursor(QCursor(QPixmap(":/icons/share/cur_cancel.png"),1,1));
 	m_selectionTile->setVisible(false);
-	//cancel selection...
 }
 
 void MapScene::updateArea(int x1, int y1, int x2, int y2)
+{
+	if (core().layer() == Core::LOWER)
+		bindArea(x1, y1, x2, y2);
+	redrawLayer(core().layer());
+}
+
+void MapScene::bindArea(int x1, int y1, int x2, int y2)
 {
 	//Normalize
 	if (x1 < 0)
@@ -827,14 +1502,11 @@ void MapScene::updateArea(int x1, int y1, int x2, int y2)
 	for (int x = x1; x <= x2; x++)
 		for (int y = y1; y <= y2; y++)
 		{
-			if (core().layer() == Core::LOWER)
-			{
-				if (!core().isEblock(core().translate(m_lower[static_cast<size_t>(_index(x, y))])))
-					m_lower[static_cast<size_t>(_index(x,y))] = bind(x, y);
-			}
-
+			// E tiles have no borders; unknown ids are left as they are
+			const int terrain = core().translate(m_lower[static_cast<size_t>(_index(x, y))]);
+			if (terrain >= 0 && !core().isEblock(terrain))
+				m_lower[static_cast<size_t>(_index(x,y))] = bind(x, y);
 		}
-	redrawLayer(core().layer());
 }
 
 void MapScene::redrawLayer(Core::Layer layer)
@@ -854,6 +1526,8 @@ void MapScene::redrawLayer(Core::Layer layer)
 	int end_y = start_y+(size.height()-1)/s_tileSize;
 	QPixmap pix(size);
 	pix.fill(QColor(0,0,0,0));
+	// the panorama of this map, not of the last map loaded
+	core().setBackground(m_panorama);
 	core().beginPainting(pix);
 	for (int x = start_x; x <= end_x; x++)
 		for (int y = start_y; y <= end_y; y++)
@@ -876,6 +1550,32 @@ void MapScene::redrawLayer(Core::Layer layer)
 					   s_tileSize);
 			core().renderEvent(m_map->events[i], rect);
 		}
+
+		// The start positions on this map, as RPG Maker shows them
+		const auto& start = m_project.treeMap().start;
+		const auto& database = m_project.database();
+		auto marker = [&](int map_id, int x, int y, const lcf::DBString& charset, int index, const QString& label) {
+			if (map_id != id())
+				return;
+			QRect rect((x-start_x)* s_tileSize, (y-start_y)* s_tileSize, s_tileSize, s_tileSize);
+			core().renderMarker(ToQString(charset), index, label, rect);
+		};
+		// the party has the graphic of its first hero
+		lcf::DBString hero_charset;
+		int hero_index = 0;
+		const auto& party = database.system.party;
+		if (!party.empty() && party[0] >= 1 && party[0] <= static_cast<int>(database.actors.size())) {
+			hero_charset = database.actors[static_cast<size_t>(party[0] - 1)].character_name;
+			hero_index = database.actors[static_cast<size_t>(party[0] - 1)].character_index;
+		}
+		//: Marker of the party start position on the map (one letter)
+		marker(start.party_map_id, start.party_x, start.party_y, hero_charset, hero_index, tr("P"));
+		//: Marker of the skiff start position on the map (one letter)
+		marker(start.boat_map_id, start.boat_x, start.boat_y, database.system.boat_name, database.system.boat_index, tr("B"));
+		//: Marker of the ship start position on the map (one letter)
+		marker(start.ship_map_id, start.ship_x, start.ship_y, database.system.ship_name, database.system.ship_index, tr("S"));
+		//: Marker of the airship start position on the map (one letter)
+		marker(start.airship_map_id, start.airship_x, start.airship_y, database.system.airship_name, database.system.airship_index, tr("A"));
 	}
 	core().endPainting();
 	if (layer == Core::LOWER)
@@ -895,6 +1595,9 @@ void MapScene::drawPen()
 	for (int x = cur_x; x < cur_x + core().selWidth(); x++)
 		for (int y = cur_y; y < cur_y + core().selHeight(); y++)
 		{
+			// a brush of several tiles stops at the right and bottom edges
+			if (x >= m_map->width || y >= m_map->height)
+				continue;
 			if (core().layer() == Core::LOWER)
 				m_lower[static_cast<size_t>(_index(x,y))] = core().selection(x-fst_x,y-fst_y);
 			else if (core().layer() == Core::UPPER)
@@ -932,31 +1635,81 @@ void MapScene::drawRect()
 	updateArea(x1-2, y1-2, x2+2, y2+2);
 }
 
-void MapScene::drawFill(int terrain_id, int x, int y)
+void MapScene::drawEllipse()
 {
-	if (x < 0 || x >= m_map->width || y < 0 || y >= m_map->height)
-		return;
-	if (terrain_id == core().selection(x-fst_x,y-fst_y))
-		return;
 	switch (core().layer())
 	{
 	case (Core::LOWER):
-		if (core().translate(m_lower[static_cast<size_t>(_index(x,y))]) != terrain_id)
-			return;
-		m_lower[static_cast<size_t>(_index(x,y))] = core().selection(x-fst_x,y-fst_y);
+		m_lower = m_map->lower_layer;
 		break;
 	case (Core::UPPER):
-		if (core().translate(m_upper[static_cast<size_t>(_index(x,y))]) != terrain_id)
-			return;
-		m_upper[static_cast<size_t>(_index(x,y))] = core().selection(x-fst_x,y-fst_y);
+		m_upper = m_map->upper_layer;
 		break;
 	default:
 		break;
 	}
-	drawFill(terrain_id, x, y-1);
-	drawFill(terrain_id, x-1, y);
-	drawFill(terrain_id, x+1, y);
-	drawFill(terrain_id, x, y+1);
+
+	const int x1 = std::min(fst_x, cur_x);
+	const int x2 = std::max(fst_x, cur_x);
+	const int y1 = std::min(fst_y, cur_y);
+	const int y2 = std::max(fst_y, cur_y);
+	// the filled ellipse inscribed in the rectangle dragged, cell by cell
+	const double cx = (x1 + x2 + 1) / 2.0;
+	const double cy = (y1 + y2 + 1) / 2.0;
+	const double rx = (x2 - x1 + 1) / 2.0;
+	const double ry = (y2 - y1 + 1) / 2.0;
+	for (int x = x1; x <= x2; x++)
+		for (int y = y1; y <= y2; y++)
+		{
+			const double dx = (x + 0.5 - cx) / rx;
+			const double dy = (y + 0.5 - cy) / ry;
+			if (dx * dx + dy * dy > 1.0)
+				continue;
+			if (core().layer() == Core::LOWER)
+				m_lower[static_cast<size_t>(_index(x,y))] = core().selection(x-fst_x,y-fst_y);
+			else if (core().layer() == Core::UPPER)
+				m_upper[static_cast<size_t>(_index(x,y))] = core().selection(x-fst_x,y-fst_y);
+		}
+	updateArea(x1-2, y1-2, x2+2, y2+2);
+}
+
+void MapScene::drawFill()
+{
+	if (core().layer() == Core::EVENT)
+		return;
+	const bool lower = core().layer() == Core::LOWER;
+	std::vector<short>& layer = lower ? m_lower : m_upper;
+	const std::vector<short> orig = layer;
+	// lower: the same terrain (autotiles differ by their borders); upper: the same tile
+	auto key = [&](short tile) { return lower ? core().translate(tile) : static_cast<int>(tile); };
+	const int target = key(orig[static_cast<size_t>(_index(fst_x, fst_y))]);
+	// filling with the tile already there would change nothing
+	if (core().selWidth() == 1 && core().selHeight() == 1 && key(core().selection(0, 0)) == target)
+		return;
+
+	// iterative: a recursion overflows the stack on large maps
+	std::vector<bool> seen(orig.size(), false);
+	std::vector<QPoint> todo = {QPoint(fst_x, fst_y)};
+	seen[static_cast<size_t>(_index(fst_x, fst_y))] = true;
+	const QPoint neighbours[] = {QPoint(0, -1), QPoint(-1, 0), QPoint(1, 0), QPoint(0, 1)};
+	while (!todo.empty())
+	{
+		const QPoint p = todo.back();
+		todo.pop_back();
+		layer[static_cast<size_t>(_index(p.x(), p.y()))] = core().selection(p.x()-fst_x, p.y()-fst_y);
+		for (const QPoint& d : neighbours)
+		{
+			const QPoint n = p + d;
+			if (n.x() < 0 || n.y() < 0 || n.x() >= m_map->width || n.y() >= m_map->height)
+				continue;
+			const size_t i = static_cast<size_t>(_index(n.x(), n.y()));
+			if (seen[i] || key(orig[i]) != target)
+				continue;
+			seen[i] = true;
+			todo.push_back(n);
+		}
+	}
+	updateArea(0, 0, m_map->width-1, m_map->height-1);
 }
 
 short MapScene::bind(int x, int y)
@@ -1059,9 +1812,8 @@ void MapScene::selectTile(int x, int y)
 {
 	cur_x = x;
 	cur_y = y;
-	std::unique_ptr<QGraphicsSceneMouseEvent> mpe{new QGraphicsSceneMouseEvent()};
-	mpe->setButton(Qt::LeftButton);
-	mousePressEvent(mpe.get());
+	if (core().layer() == Core::EVENT)
+		selectCell(x, y);
 }
 
 void MapScene::centerOnTile(int x, int y)
@@ -1118,6 +1870,8 @@ void MapScene::redrawPanorama() {
 	} else {
 		core().LoadBackground(QString());
 	}
+	// each map draws its own panorama (Core has one for the map drawn)
+	m_panorama = core().background();
 }
 
 void MapScene::redrawGrid() {

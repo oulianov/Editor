@@ -1,0 +1,15 @@
+# The command picker and the move route window
+open-event 1 1
+focus commands
+key End
+key Space
+check-layout
+type Move Event
+key Return
+click Move Up
+click Face Hero
+check-layout
+click OK
+expect commands "Move Event: Hero, Move Up, Face Hero"
+close
+quit

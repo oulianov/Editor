@@ -21,6 +21,9 @@
 #include <QMainWindow>
 #include <QSettings>
 #include <QTreeWidgetItem>
+#include <memory>
+#include <lcf/rpg/map.h>
+#include <lcf/rpg/mapinfo.h>
 #include "ui/other/resource_manager_dialog.h"
 #include "ui/database/database_dialog.h"
 #include "ui/other/search_dialog.h"
@@ -100,6 +103,7 @@ private slots:
 	void on_actionDrawRectangle_triggered();
 
 	void on_actionDrawCircle_triggered();
+	void on_actionDrawSelect_triggered();
 
 	void on_actionDrawFill_triggered();
 
@@ -116,6 +120,7 @@ private slots:
 	void on_mapUnchanged();
 
 	void on_actionUndo_triggered();
+	void on_actionRedo_triggered();
 
 	void on_actionMapSave_triggered();
 
@@ -132,6 +137,26 @@ private slots:
 	void on_actionMapDelete_triggered();
 
 	void on_actionMapProperties_triggered();
+
+	void on_actionMapShift_triggered();
+
+	void on_actionAreaNew_triggered();
+
+	void on_actionAreaProperties_triggered();
+
+	void on_actionAreaDelete_triggered();
+
+	void on_actionPlayTestOptions_triggered();
+
+	void on_actionPlayerLocation_triggered();
+
+	void on_actionFullScreenToggle_toggled(bool checked);
+
+	void on_actionTitleBackgroundToggle_toggled(bool checked);
+
+	void onMapTreeContextMenu(const QPoint& pos);
+
+	void onMapTreeDropped();
 
 	void on_actionSearch_triggered();
 
@@ -161,6 +186,23 @@ private:
 	MapScene *getTabScene(int index);
 	void removeView(int id);
 	void removeMap(const int id);
+	bool eventFilter(QObject* watched, QEvent* event) override;
+	/** Id of the map tree's current item, -1 without one */
+	int currentMapId() const;
+	/** TreeMap::MapType of a map tree entry, -1 if there is none */
+	int mapType(int id) const;
+	lcf::rpg::MapInfo* mapInfo(int id);
+	int freeMapId() const;
+	QTreeWidgetItem* addTreeItem(const lcf::rpg::MapInfo& info);
+	/** Adds a map or area to the map tree (data, item, order) and saves the tree */
+	QTreeWidgetItem* insertMapInfo(const lcf::rpg::MapInfo& info);
+	/** Copies the tree (parents, depth, order, expanded) into the map tree data, true if it changed */
+	bool syncTreeOrder();
+	/** Width and height of a map, from its file */
+	QSize mapSize(int id);
+	bool saveBeforeTestPlay();
+	MapScene* senderScene();
+	void setTabText(MapScene* scene);
 	bool convertXYZtoPNG(QFile &xyz_file, QString out_path);
 
 	Ui::MainWindow *ui;
@@ -170,8 +212,9 @@ private:
 	PaletteScene *m_paletteScene;
 	QMap<int,QGraphicsView*> m_views;
 	QMap<int,QTreeWidgetItem*> m_treeItems;
-	QString m_copiedMap;
-	int copiedMapId;
+	// Copy Map takes the map when copied: it can be pasted after a deletion
+	std::unique_ptr<lcf::rpg::Map> m_copiedMap;
+	lcf::rpg::MapInfo m_copiedMapInfo;
 	SearchDialog *searchdialog;
 };
 

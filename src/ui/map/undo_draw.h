@@ -21,18 +21,34 @@
 #include "core.h"
 #include "map_scene.h"
 
-class UndoDraw : public QUndoCommand
+/**
+ * A change of the map, pushed once it is made. It keeps the other version of
+ * what it changed: undo and redo both exchange it with the map's.
+ */
+class SwapCommand : public QUndoCommand
 {
 public:
-	explicit UndoDraw(Core::Layer layer,
-					   std::vector<short> data,
-					   MapScene *scene,
-					   QUndoCommand *parent = nullptr);
+	using QUndoCommand::QUndoCommand;
 
-	void undo();
-signals:
+	void undo() override { swap(); }
+	// the push redoes it: the change is already made
+	void redo() override { if (m_pushed) swap(); m_pushed = true; }
 
-public slots:
+protected:
+	virtual void swap() = 0;
+
+private:
+	bool m_pushed = false;
+};
+
+/** A layer of tiles */
+class UndoDraw : public SwapCommand
+{
+public:
+	UndoDraw(Core::Layer layer, std::vector<short> before, MapScene *scene);
+
+protected:
+	void swap() override;
 
 private:
 	Core::Layer m_layer;
@@ -40,3 +56,31 @@ private:
 	MapScene* m_scene;
 };
 
+/** The whole map and its info (Map Properties) */
+class UndoMap : public SwapCommand
+{
+public:
+	UndoMap(const lcf::rpg::Map &before, const lcf::rpg::MapInfo &info_before, MapScene *scene);
+
+protected:
+	void swap() override;
+
+private:
+	lcf::rpg::Map m_map;
+	lcf::rpg::MapInfo m_info;
+	MapScene* m_scene;
+};
+
+/** The start positions of the party and vehicles (they are in the map tree) */
+class UndoStart : public SwapCommand
+{
+public:
+	UndoStart(const lcf::rpg::Start &before, MapScene *scene);
+
+protected:
+	void swap() override;
+
+private:
+	lcf::rpg::Start m_start;
+	MapScene* m_scene;
+};

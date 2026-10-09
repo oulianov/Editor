@@ -30,6 +30,10 @@
  * Dialogs use the small control size on macOS, dense like the windows of
  * RPG Maker; lists, trees and the map keep the normal size.
  * Spacing is left to the platform style, which adapts it to the controls.
+ *
+ * Spin boxes and combo boxes take the mouse wheel only once clicked: a swipe
+ * over a form scrolls the form, as in native forms, instead of changing the
+ * values under the pointer.
  */
 class EditorStyle : public QProxyStyle
 {
@@ -40,6 +44,7 @@ public:
 
 	void polish(QWidget* widget) override;
 	using QProxyStyle::polish;
+	bool eventFilter(QObject* watched, QEvent* event) override;
 
 	void drawComplexControl(ComplexControl control, const QStyleOptionComplex* option,
 		QPainter* painter, const QWidget* widget = nullptr) const override;

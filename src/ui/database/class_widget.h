@@ -18,11 +18,13 @@
 #pragma once
 
 #include <QWidget>
-#include <lcf/rpg/database.h>
+#include <array>
 #include <lcf/rpg/class.h>
 #include "ui/viewer/battle_animation_graphics_item.h"
+#include "ui/viewer/stat_curve_graphics_item.h"
 
 class ProjectData;
+class QGraphicsView;
 
 namespace Ui {
 class ClassWidget;
@@ -36,23 +38,28 @@ public:
 	using value_type = lcf::rpg::Class;
 
 	explicit ClassWidget(ProjectData& project, QWidget *parent = nullptr);
-	~ClassWidget();
+	~ClassWidget() override;
+
 	void setData(lcf::rpg::Class* cls);
 
-	void UpdateModels();
-
-public slots:
-	void on_currentClassChanged(lcf::rpg::Class *_class);
-
-signals:
-	void currentClassChanged(lcf::rpg::Class *_class);
+protected:
+	void resizeEvent(QResizeEvent* event) override;
 
 private:
+	void refreshBattler();
+	void refreshCurves();
+	void refreshSkills();
+	void fillBattleCommands();
+	void writeBattleCommands();
+	void editSkill(int row);
+	std::array<QGraphicsView*, 6> curveViews() const;
+
 	Ui::ClassWidget *ui;
 
-	BattleAnimationItem *m_battlerItem;
+	BattleAnimationItem* m_battlerItem = nullptr;
+	std::array<CurveItem*, 6> m_curves = {};
 
-	lcf::rpg::Class *m_currentClass;
+	lcf::rpg::Class m_dummy;
+	lcf::rpg::Class* m_current = nullptr;
 	ProjectData& m_project;
 };
-

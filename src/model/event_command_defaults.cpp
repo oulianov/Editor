@@ -28,6 +28,10 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 	using Code = EventCommand::Code;
 	static const std::map<Code, std::vector<int32_t>> defaults = {
 		{Code::END, {}},
+		// RPG Maker 2003 battle commands, not in the games looked at
+		{Code::CallCommonEvent, {1}},
+		{Code::ForceFlee, {0, 0, 0}},
+		{Code::EnableCombo, {1, 1, 2}},
 		{Code::ChangeClass, {1, 1, 1, 0, 0, 0, 0}},
 		{Code::ChangeBattleCommands, {1, 1, 2, 1}},
 		{Code::OpenLoadMenu, {}},
@@ -50,7 +54,7 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 		{Code::ChangeLevel, {1, 1, 0, 0, 1, 1}},
 		{Code::ChangeParameters, {1, 1, 0, 0, 1, 1}},
 		{Code::ChangeSkills, {1, 1, 0, 0, 2}},
-		{Code::ChangeEquipment, {1, 0, 0, 0, 0}},
+		{Code::ChangeEquipment, {1, 1, 0, 0, 1}},
 		{Code::ChangeHP, {1, 1, 1, 0, 1, 1}},
 		{Code::ChangeSP, {1, 1, 1, 0, 90}},
 		{Code::ChangeCondition, {1, 1, 0, 2}},
@@ -64,7 +68,7 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 		{Code::ChangeSystemBGM, {0, 0, 100, 100, 50}},
 		{Code::ChangeSystemSFX, {0, 100, 100, 50}},
 		{Code::ChangeSystemGraphics, {0, 0}},
-		{Code::ChangeScreenTransitions, {0, -1}},
+		{Code::ChangeScreenTransitions, {0, 0}},
 		{Code::EnemyEncounter, {0, 1, 0, 0, 0, 0, 0, 1, 0}},
 		{Code::OpenShop, {0, 0, 0, 0}},
 		{Code::ShowInn, {0, 100, 0}},
@@ -86,12 +90,12 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 		{Code::PanScreen, {2, 0, 1, 4, 1}},
 		{Code::WeatherEffects, {0, 1}},
 		{Code::ShowPicture, {1, 0, 160, 120, 0, 100, 0, 1, 100, 100, 100, 100, 0, 60}},
-		{Code::MovePicture, {32, 0, 160, 120, 0, 100, 100, 0, 100, 100, 100, 100, 0, 0, 1, 0, 100}},
+		{Code::MovePicture, {1, 0, 160, 120, 0, 100, 0, 0, 100, 100, 100, 100, 0, 60, 10, 1}},
 		{Code::ErasePicture, {1}},
 		{Code::ShowBattleAnimation, {1, 10001, 1, 0}},
 		{Code::PlayerVisibility, {1}},
 		{Code::FlashSprite, {10001, 31, 31, 31, 31, 30, 0}},
-		{Code::MoveEvent, {10001, 8, 0, 0, 12}},
+		{Code::MoveEvent, {10001, 8, 0, 0}},
 		{Code::ProceedWithMovement, {}},
 		{Code::HaltAllMovement, {}},
 		{Code::Wait, {0, 0}},
@@ -101,14 +105,15 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 		{Code::PlayMemorizedBGM, {}},
 		{Code::PlaySound, {100, 100, 50}},
 		{Code::PlayMovie, {0, 0, 0, 320, 240}},
-		{Code::KeyInputProc, {7, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0}},
-		{Code::ChangeMapTileset, {4}},
+		// The ten-parameter layout is supported by both engines.
+		{Code::KeyInputProc, {1, 0, 0, 1, 1, 0, 1, 1, 1, 1}},
+		{Code::ChangeMapTileset, {1}},
 		{Code::ChangePBG, {1, 1, 0, 5, 0, 0}},
 		{Code::ChangeEncounterSteps, {1}},
 		{Code::TileSubstitution, {0, 115, 1}},
-		{Code::TeleportTargets, {0, 55, 13, 6, 0, 1}},
+		{Code::TeleportTargets, {0, 1, 0, 0, 0, 1}},
 		{Code::ChangeTeleportAccess, {1}},
-		{Code::EscapeTarget, {5, 3, 8, 0, 6}},
+		{Code::EscapeTarget, {1, 0, 0, 0, 1}},
 		{Code::ChangeEscapeAccess, {1}},
 		{Code::OpenSaveMenu, {5, 0}},
 		{Code::ChangeSaveAccess, {1}},
@@ -131,7 +136,7 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 		{Code::ShowHiddenMonster, {0}},
 		{Code::ChangeBattleBG, {}},
 		{Code::ShowBattleAnimation_B, {1, -1, 1}},
-		{Code::ConditionalBranch_B, {1, 1, 0, 0, 0, 0}},
+		{Code::ConditionalBranch_B, {1, 1, 0, 0, 0, 1}},
 		{Code::TerminateBattle, {}},
 		{Code::ShowMessage_2, {}},
 		{Code::ShowChoiceOption, {0}},
@@ -240,12 +245,14 @@ std::pair<int, int> EventCommandDefaults::range(const std::vector<EventCommand>&
 	}
 
 	int last = index + 1;
-	auto closes = [](Code c) {
-		return c == Code::EndBranch || c == Code::EndBranch_B || c == Code::EndLoop || c == Code::ShowChoiceEnd
-			|| c == Code::EndBattle || c == Code::EndShop || c == Code::EndInn;
-	};
+	const Code closing = code == Code::ConditionalBranch ? Code::EndBranch
+		: code == Code::ConditionalBranch_B ? Code::EndBranch_B
+		: code == Code::Loop ? Code::EndLoop
+		: code == Code::ShowChoice ? Code::ShowChoiceEnd
+		: code == Code::EnemyEncounter ? Code::EndBattle
+		: code == Code::OpenShop ? Code::EndShop : Code::EndInn;
 	auto block_until_end = [&] {
-		while (last < size && !(commands[last].indent == cmd.indent && closes(static_cast<Code>(commands[last].code)))) {
+		while (last < size && !(commands[last].indent == cmd.indent && commands[last].code == static_cast<int>(closing))) {
 			++last;
 		}
 		return std::make_pair(index, std::min(last + 1, size));
@@ -271,7 +278,13 @@ std::pair<int, int> EventCommandDefaults::range(const std::vector<EventCommand>&
 		case Code::OpenShop:
 		case Code::ShowInn:
 			// a block only with its handlers
-			if (last < size && commands[last].indent == cmd.indent && isStructural(static_cast<Code>(commands[last].code))) {
+			if (last < size && commands[last].indent == cmd.indent
+				&& ((code == Code::EnemyEncounter && (commands[last].code == static_cast<int>(Code::VictoryHandler)
+					|| commands[last].code == static_cast<int>(Code::EscapeHandler) || commands[last].code == static_cast<int>(Code::DefeatHandler)))
+					|| (code == Code::OpenShop && (commands[last].code == static_cast<int>(Code::Transaction)
+						|| commands[last].code == static_cast<int>(Code::NoTransaction)))
+					|| (code == Code::ShowInn && (commands[last].code == static_cast<int>(Code::Stay)
+						|| commands[last].code == static_cast<int>(Code::NoStay))))) {
 				return block_until_end();
 			}
 			return {index, last};

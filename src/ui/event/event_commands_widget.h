@@ -18,11 +18,14 @@
 #pragma once
 
 #include <QTreeWidget>
+#include <optional>
+#include <vector>
 #include <lcf/rpg/commonevent.h>
 #include <lcf/rpg/trooppage.h>
 #include <lcf/rpg/eventpage.h>
 
 class ProjectData;
+class QUndoStack;
 
 class EventCommandsWidget : public QTreeWidget
 {
@@ -64,6 +67,14 @@ private:
 	static std::vector<lcf::rpg::EventCommand> s_clipboard;
 	/** Lines drawn selected: the command of the current line */
 	std::pair<int, int> m_highlight = {-1, -1};
+
+	/** Changes of the list (inserting, editing, pasting...). Every change of
+	 *  the list ends with refreshList(), which records it here. */
+	QUndoStack* m_undoStack = nullptr;
+	/** The list as last shown, to know what a change replaced */
+	std::optional<std::vector<lcf::rpg::EventCommand>> m_shown;
+	/** Shows the list as it was (undo / redo) */
+	void showCommands(const std::vector<lcf::rpg::EventCommand>& commands);
 
 protected:
 	void keyPressEvent(QKeyEvent* event) override;

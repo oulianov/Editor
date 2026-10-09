@@ -36,6 +36,8 @@ signals:
 public slots:
 	void onLayerChange();
 	void onChipsetChange();
+	/** Show the selection of the current layer (picked here or on the map) */
+	void onSelectionChanged();
 protected:
 
 	void updateSelectionRect();
@@ -48,6 +50,7 @@ protected:
 
 	bool m_cancel;
 	bool m_pressed;
+	bool m_settingSelection = false;
 	QGraphicsPixmapItem* m_tiles;
 	QGraphicsRectItem* m_selectionItem;
 	QPixmap m_lowerTiles;

@@ -96,8 +96,6 @@ private:
 	SystemWidget* pageSystem;
 	System2Widget* pageSystem2;
 	DatabaseSplitWidget<lcf::rpg::CommonEvent>* pageCommonevents;
-	DatabaseSplitWidget<lcf::rpg::Switch>* pageSwitches;
-	DatabaseSplitWidget<lcf::rpg::Variable>* pageVariables;
 	ProjectData& m_project;
 	ProjectData m_projectDataCopy;
 };

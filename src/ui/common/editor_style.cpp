@@ -17,6 +17,9 @@
 
 #include "editor_style.h"
 #include <QAbstractItemView>
+#include <QAbstractSpinBox>
+#include <QComboBox>
+#include <QWheelEvent>
 #include <QDialog>
 #include <QGraphicsView>
 #include <QGroupBox>
@@ -57,6 +60,23 @@ int titleHeight(const QStyleOptionGroupBox* box, const QWidget* widget) {
 void EditorStyle::polish(QWidget* widget) {
 	QProxyStyle::polish(widget);
 
+	if (widget->isWindow()) {
+		// Windows add widgets after setupUi (database pages...). A hidden
+		// widget keeps its old size hints until it is shown, so the window
+		// would open with a stale minimum and be resized just after: macOS
+		// can keep the first size, below the minimum. Refresh them now,
+		// before the size of the window is chosen.
+		for (auto* child : widget->findChildren<QWidget*>()) {
+			child->updateGeometry();
+		}
+	}
+
+	if (qobject_cast<QAbstractSpinBox*>(widget) || qobject_cast<QComboBox*>(widget)) {
+		// the wheel neither changes them nor gives them the focus
+		widget->setFocusPolicy(Qt::StrongFocus);
+		widget->installEventFilter(this);
+	}
+
 	if (auto* group = qobject_cast<QGroupBox*>(widget)) {
 		// the padding comes from the style, the same in every dialog
 		if (group->layout()) {
@@ -72,6 +92,15 @@ void EditorStyle::polish(QWidget* widget) {
 		widget->setAttribute(Qt::WA_MacSmallSize);
 	}
 #endif
+}
+
+bool EditorStyle::eventFilter(QObject* watched, QEvent* event) {
+	if (event->type() == QEvent::Wheel && !static_cast<QWidget*>(watched)->hasFocus()) {
+		// ignored: the scroll area around gets it
+		event->ignore();
+		return true;
+	}
+	return QProxyStyle::eventFilter(watched, event);
 }
 
 QRect EditorStyle::subControlRect(ComplexControl control, const QStyleOptionComplex* option,

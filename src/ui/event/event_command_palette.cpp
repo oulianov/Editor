@@ -16,6 +16,7 @@
  */
 
 #include "event_command_palette.h"
+#include "ui/common/help.h"
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -267,8 +268,9 @@ EventCommandPalette::EventCommandPalette(bool rpg2k3, bool battle, QWidget* pare
 		add_page(page, number++);
 	}
 
-	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, this);
+	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Help, this);
 	connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+	connect(buttons, &QDialogButtonBox::helpRequested, this, [this] { Help::open(this, QStringLiteral("command-palette")); });
 	layout->addWidget(buttons);
 
 	connect(m_search, &QLineEdit::textChanged, this, &EventCommandPalette::filter);

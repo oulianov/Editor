@@ -89,9 +89,12 @@
      <string>Game</string>
     </property>
     <addaction name="actionPlayTest"/>
+    <addaction name="actionPlayTestOptions"/>
     <addaction name="separator"/>
     <addaction name="actionFullScreenToggle"/>
     <addaction name="actionTitleBackgroundToggle"/>
+    <addaction name="separator"/>
+    <addaction name="actionPlayerLocation"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -327,7 +330,9 @@
     <bool>true</bool>
    </attribute>
    <addaction name="actionUndo"/>
+   <addaction name="actionRedo"/>
    <addaction name="separator"/>
+   <addaction name="actionDrawSelect"/>
    <addaction name="actionZoom"/>
    <addaction name="actionDrawPen"/>
    <addaction name="actionDrawRectangle"/>
@@ -382,9 +387,6 @@
    </property>
    <property name="statusTip">
     <string>Close current opened Game Project</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+X</string>
    </property>
   </action>
   <action name="actionGameDiskCreate">
@@ -549,13 +551,13 @@
   </action>
   <action name="actionPlayTest">
    <property name="text">
-    <string>&amp;Play Test</string>
+    <string>&amp;Test Play</string>
    </property>
    <property name="statusTip">
     <string>Test your Game</string>
    </property>
    <property name="shortcut">
-    <string>F4</string>
+    <string>F9</string>
    </property>
   </action>
   <action name="actionFullScreenToggle">
@@ -656,6 +658,31 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Z</string>
+   </property>
+  </action>
+  <action name="actionRedo">
+   <property name="text">
+    <string>Redo</string>
+   </property>
+   <property name="toolTip">
+    <string>Redo the last action undone</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+Z</string>
+   </property>
+  </action>
+  <action name="actionDrawSelect">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Select</string>
+   </property>
+   <property name="toolTip">
+    <string>Select map elements</string>
+   </property>
+   <property name="shortcut">
+    <string>6</string>
    </property>
   </action>
   <action name="actionZoom">
@@ -799,6 +826,12 @@
    <property name="toolTip">
     <string>Copy selected map.</string>
    </property>
+     <property name="shortcut">
+    <string>Ctrl+C</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::WidgetWithChildrenShortcut</enum>
+   </property>
   </action>
   <action name="actionMapPaste">
    <property name="icon">
@@ -811,6 +844,12 @@
    <property name="toolTip">
     <string>Paste current copied map as children of the selected map.</string>
    </property>
+     <property name="shortcut">
+    <string>Ctrl+V</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::WidgetWithChildrenShortcut</enum>
+   </property>
   </action>
   <action name="actionMapDelete">
    <property name="icon">
@@ -822,6 +861,12 @@
    </property>
    <property name="toolTip">
     <string>Delete selected map.</string>
+   </property>
+     <property name="shortcut">
+    <string>Del</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::WidgetWithChildrenShortcut</enum>
    </property>
   </action>
   <action name="actionDebugEnableCaching">
@@ -855,6 +900,60 @@
   <action name="actionDatabaseNew">
    <property name="text">
     <string>Database (New)</string>
+   </property>
+  </action>
+  <action name="actionAreaNew">
+   <property name="text">
+    <string>Create Area</string>
+   </property>
+   <property name="toolTip">
+    <string>Create an area (a region with its own encounters) on the selected map.</string>
+   </property>
+  </action>
+  <action name="actionAreaProperties">
+   <property name="text">
+    <string>Area Properties</string>
+   </property>
+  </action>
+  <action name="actionAreaDelete">
+   <property name="text">
+    <string>Delete Area</string>
+   </property>
+   <property name="shortcut">
+    <string>Del</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::WidgetWithChildrenShortcut</enum>
+   </property>
+  </action>
+  <action name="actionMapShift">
+   <property name="text">
+    <string>Shift Map</string>
+   </property>
+   <property name="toolTip">
+    <string>Move all the tiles and events of the selected map.</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+H</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::WidgetWithChildrenShortcut</enum>
+   </property>
+  </action>
+  <action name="actionPlayTestOptions">
+   <property name="text">
+    <string>Test Play &amp;Options...</string>
+   </property>
+   <property name="toolTip">
+    <string>Test the game with a play mode, start position or party</string>
+   </property>
+  </action>
+  <action name="actionPlayerLocation">
+   <property name="text">
+    <string>Player &amp;Location...</string>
+   </property>
+   <property name="toolTip">
+    <string>Choose the EasyRPG Player used for test play</string>
    </property>
   </action>
  </widget>

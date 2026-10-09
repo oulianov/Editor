@@ -18,8 +18,7 @@
 #pragma once
 
 #include <QDialog>
-#include <QTableWidgetItem>
-#include <lcf/rpg/testbattler.h>
+#include <functional>
 
 class ProjectData;
 
@@ -27,6 +26,15 @@ namespace Ui {
 class RunGameDialog;
 }
 
+// Settings of the test play
+#define PLAYER_PATH_KEY "player_path"
+#define TESTPLAY_FULLSCREEN_KEY "testplay_fullscreen"
+#define TESTPLAY_SHOW_TITLE_KEY "testplay_show_title"
+
+/**
+ * Starts the EasyRPG Player on the open project. The dialog itself is the
+ * "Test Play Options": play mode, start position, party, battle test.
+ */
 class RunGameDialog : public QDialog
 {
 	Q_OBJECT
@@ -36,20 +44,34 @@ public:
 	explicit RunGameDialog(ProjectData& project, QWidget *parent = nullptr);
 	~RunGameDialog();
 
+	/** Test play from a map position (Start Game Here) */
 	void runHere(int map_id, int x, int y);
 
+	/** Battle test against a monster group */
 	void runBattle(int troop_id);
+
+	/**
+	 * Starts the Player in test play on the open project, with the Full
+	 * Screen and Show Title settings unless the options decide them.
+	 */
+	static bool launch(QWidget* parent, const QStringList& options, bool use_settings = true);
+
+	/** Asks for the Player program and remembers it, empty when cancelled */
+	static QString choosePlayer(QWidget* parent);
+
+	/** Called before the Player starts (to save the maps): false cancels */
+	static void setBeforeLaunch(std::function<bool()> callback);
+
+public slots:
+	void accept() override;
 
 private slots:
 	void on_comboMode_currentIndexChanged(int index);
 
-	void on_tableInitialParty_itemChanged(QTableWidgetItem *item);
-
 private:
 	void UpdateModels();
+	static QString findPlayer();
 
 	Ui::RunGameDialog *ui;
-	std::vector<lcf::rpg::TestBattler> battletest_data;
 	ProjectData& m_project;
 };
-

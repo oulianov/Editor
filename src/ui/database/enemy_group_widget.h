@@ -18,9 +18,11 @@
 #pragma once
 
 #include <QWidget>
+#include <optional>
 #include <lcf/rpg/troop.h>
 
 class ProjectData;
+class QButtonGroup;
 
 namespace Ui {
 class EnemyGroupWidget;
@@ -39,9 +41,30 @@ public:
 	void setData(lcf::rpg::Troop* troop);
 
 private:
+	void autoName();
+	void addMember();
+	void removeMember();
+	void removeAllMembers();
+	void autoAlign();
+	void changeBackdrop();
+	void terrainChanged(int row, bool checked);
+
+	/** Shows the battle event pages again (their widgets keep pointers into the list) */
+	void refreshPages(int current);
+	/** The conditions name the monsters of the group */
+	void updateTriggers();
+	void newPage();
+	void copyPage();
+	void pastePage();
+	void deletePage();
+
 	Ui::EnemyGroupWidget *ui;
 	ProjectData& m_project;
 	lcf::rpg::Troop m_dummy;
 	lcf::rpg::Troop* m_current = nullptr;
-};
+	QButtonGroup* m_alignment = nullptr;
+	/** Background of the battle screen preview, not saved */
+	QString m_backdrop;
 
+	static std::optional<lcf::rpg::TroopPage> s_pageClipboard;
+};
