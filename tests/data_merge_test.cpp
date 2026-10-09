@@ -20,6 +20,8 @@
 // (rpgsync) changed since the Editor read the data
 
 #include "model/data_merge.h"
+#include <lcf/ldb/reader.h>
+#include <lcf/lmu/reader.h>
 #include <QCoreApplication>
 #include <cstdio>
 
@@ -225,8 +227,50 @@ void treeMaps() {
 }
 }
 
+/** The end-to-end test edits the files of a game as another program would,
+ *  and reads them back:
+ *  rename-common-event LDB ID NAME, rename-event LMU ID NAME,
+ *  common-event LDB ID, event LMU ID, tile LMU INDEX (print the name / tile) */
+int tool(const QStringList& args) {
+	const std::string file = args.value(1).toStdString();
+	const int id = args.value(2).toInt();
+	const std::string name = args.value(3).toStdString();
+	const QString command = args.value(0);
+	if (command == QLatin1String("rename-common-event") || command == QLatin1String("common-event")) {
+		auto db = lcf::LDB_Reader::Load(file, "");
+		if (!db || id < 1 || id > static_cast<int>(db->commonevents.size())) return 2;
+		auto& event = db->commonevents[id - 1];
+		if (command == QLatin1String("common-event")) {
+			std::printf("%s\n", std::string(event.name).c_str());
+			return 0;
+		}
+		event.name = lcf::DBString(name);
+		return lcf::LDB_Reader::Save(file, *db, "") ? 0 : 3;
+	}
+	auto map = lcf::LMU_Reader::Load(file, "");
+	if (!map) return 2;
+	if (command == QLatin1String("tile")) {
+		if (id < 0 || id >= static_cast<int>(map->lower_layer.size())) return 2;
+		std::printf("%d\n", map->lower_layer[id]);
+		return 0;
+	}
+	for (auto& event : map->events) {
+		if (event.ID != id) continue;
+		if (command == QLatin1String("event")) {
+			std::printf("%s\n", std::string(event.name).c_str());
+			return 0;
+		}
+		event.name = lcf::DBString(name);
+		return lcf::LMU_Reader::Save(file, *map, lcf::EngineVersion::e2k3, "") ? 0 : 3;
+	}
+	return 2;
+}
+
 int main(int argc, char* argv[]) {
 	QCoreApplication app(argc, argv);
+	if (argc > 1) {
+		return tool(app.arguments().mid(1));
+	}
 	databases();
 	maps();
 	treeMaps();

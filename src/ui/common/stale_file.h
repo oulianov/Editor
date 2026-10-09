@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "common/logging.h"
 #include <QCoreApplication>
 #include <QMessageBox>
 #include <QPushButton>
@@ -39,6 +40,7 @@ inline StaleChoice askStale(QWidget* parent, const QString& what, bool can_reloa
 		}
 		text += QLatin1Char('\n') + tr("Changed on both sides: %1.").arg(names.join(QStringLiteral(", ")));
 	}
+	qCWarning(lcReload).noquote() << "asking about a change on disk:" << what << conflicts.join(QStringLiteral(", "));
 	QMessageBox box(QMessageBox::Warning, tr("Changed on Disk"), text, QMessageBox::NoButton, parent);
 	QPushButton* reload = can_reload ? box.addButton(tr("Reload (Discard Mine)"), QMessageBox::DestructiveRole) : nullptr;
 	QPushButton* overwrite = box.addButton(tr("Save Mine"), QMessageBox::AcceptRole);

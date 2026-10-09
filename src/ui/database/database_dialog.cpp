@@ -19,6 +19,8 @@
 #include "database_list_data.h"
 #include "ui/common/page_scroll_area.h"
 #include "ui/common/stale_file.h"
+#include "model/data_merge.h"
+#include "common/logging.h"
 #include "common/editor_settings.h"
 #include "ui/common/help.h"
 #include "ui/common/view_state.h"
@@ -46,6 +48,7 @@ DatabaseDialog::DatabaseDialog(ProjectData& project, QWidget *parent) :
 	on_currentActorChanged(nullptr);
 
 	m_projectDataCopy = project;
+	m_base = project.database();
 
 	pageActors = new DatabaseSplitWidget<lcf::rpg::Actor>(m_projectDataCopy, this);
 	pageClasses = new DatabaseSplitWidget<lcf::rpg::Class>(m_projectDataCopy, this);
@@ -231,6 +234,27 @@ void DatabaseDialog::on_toolSwitchStyle_clicked(bool checked)
 	ui->stackedStyle->setCurrentIndex(static_cast<int>(checked));
 }
 
+bool DatabaseDialog::mergeFromDisk(QStringList* conflicts)
+{
+	auto theirs = core().project()->readDatabase();
+	if (!theirs) {
+		return false;
+	}
+	lcf::rpg::Database merged;
+	const auto result = DataMerge::database(m_base, m_projectDataCopy.database(), *theirs, merged);
+	if (!result.ok()) {
+		*conflicts = result.conflicts;
+		return false;
+	}
+	qCInfo(lcReload) << "database merged with the changes on disk";
+	// the pages show the merge: their lists are told what changed
+	ProjectData copy = m_projectDataCopy;
+	copy.database() = std::move(merged);
+	DatabaseListNotifier::assign(m_projectDataCopy, copy, this);
+	m_base = std::move(*theirs);
+	return true;
+}
+
 void DatabaseDialog::on_buttonBox_clicked(QAbstractButton *button)
 {
 	switch(ui->buttonBox->standardButton(button))
@@ -240,9 +264,13 @@ void DatabaseDialog::on_buttonBox_clicked(QAbstractButton *button)
 		case QDialogButtonBox::Ok: {
 			// Another program (rpgsync...) changed the database since it was
 			// read: never replace its changes without asking
+			// Another program (rpgsync...) changed the database since it was
+			// read: what it changed is merged entry by entry; an entry both
+			// sides changed is asked, never replaced silently
 			auto& watcher = core().watcher();
-			if (watcher.isStale(core().project()->databaseFile())) {
-				switch (askStale(this, tr("The database"))) {
+			QStringList conflicts;
+			if (watcher.isStale(core().project()->databaseFile()) && !mergeFromDisk(&conflicts)) {
+				switch (askStale(this, tr("The database"), true, conflicts)) {
 				case StaleChoice::Cancel:
 					return;
 				case StaleChoice::Reload:
@@ -260,6 +288,7 @@ void DatabaseDialog::on_buttonBox_clicked(QAbstractButton *button)
 				QMessageBox::critical(this, tr("Database"), tr("The database could not be written."));
 				return;
 			}
+			m_base = m_project.database();
 			if (ui->buttonBox->standardButton(button) == QDialogButtonBox::Ok) {
 				accept();
 			}

@@ -712,6 +712,12 @@ if(EDITOR_SCRIPTS)
 		target_link_libraries(editor_data_merge_test PRIVATE liblcf::liblcf Qt6::Core)
 	endif()
 	add_test(NAME data_merge COMMAND editor_data_merge_test)
+	if(EDITOR_TEST_PROJECT)
+		# the Editor and another program change the game at once
+		add_test(NAME merge_with_other_program COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/merge_test.sh
+			$<TARGET_FILE:${EXE_NAME}> $<TARGET_FILE:editor_data_merge_test> ${EDITOR_TEST_PROJECT}
+			${CMAKE_CURRENT_SOURCE_DIR}/tests/merge)
+	endif()
 	target_sources(${EXE_NAME} PRIVATE src/ui/tools/automation.cpp src/ui/tools/automation.h)
 	target_compile_definitions(${EXE_NAME} PRIVATE EDITOR_SCRIPTS=1)
 	# wheel: trackpad events injected like the platform's

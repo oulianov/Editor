@@ -80,6 +80,9 @@ private slots:
 	void on_listNew_Character_currentRowChanged(int currentRow);
 
 private:
+	/** Merges what another program changed in the database file since
+	 *  it was read; false when both sides changed an entry (conflicts) */
+	bool mergeFromDisk(QStringList* conflicts);
 	Ui::DatabaseDialog *ui;
 
 	DatabaseSplitWidget<lcf::rpg::Actor>* pageActors;
@@ -101,6 +104,8 @@ private:
 	DatabaseSplitWidget<lcf::rpg::CommonEvent>* pageCommonevents;
 	ProjectData& m_project;
 	ProjectData m_projectDataCopy;
+	/** The database as read (or last saved): the base of a merge with the file */
+	lcf::rpg::Database m_base;
 	QString m_viewStateKey;
 	QVariantMap m_viewStates;
 	int m_activePage = -1;

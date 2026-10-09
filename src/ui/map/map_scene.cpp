@@ -44,6 +44,7 @@
 #include "ui/common/theme_icon.h"
 #include "ui/common/stale_file.h"
 #include "model/data_merge.h"
+#include "common/logging.h"
 #include <lcf/lmu/reader.h>
 #include <lcf/lmt/reader.h>
 
@@ -823,6 +824,7 @@ bool MapScene::mergeFromDisk(QStringList* conflicts) {
 		*conflicts = result.conflicts;
 		return false;
 	}
+	qCInfo(lcReload) << "map" << n_mapInfo.ID << "merged with the changes on disk";
 	// the map shows both sides: what the other program changed is drawn
 	const QSize old_size(m_map->width, m_map->height);
 	*m_map = std::move(merged);

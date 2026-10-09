@@ -21,6 +21,7 @@
 #include "common/scope_guard.h"
 #include "core.h"
 #include "data_merge.h"
+#include "common/logging.h"
 #include <lcf/inireader.h>
 #include <lcf/reader_util.h>
 #include <lcf/ldb/reader.h>
@@ -552,6 +553,7 @@ bool Project::mergeTreeMap(QStringList* conflicts) {
 		}
 		return false;
 	}
+	qCInfo(lcReload) << "map tree merged with the changes on disk";
 	m_data.treeMap() = std::move(merged);
 	m_savedTreeMap = std::move(*theirs);
 	return true;
