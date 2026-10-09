@@ -37,5 +37,7 @@ public slots:
 	void onParameterChanged(int index, int new_value) override;
 
 private:
+	/** The hero whose name the field may show, to tell a typed text */
+	int m_shownActor = 0;
 	Ui::ChangeActorNameWidget *ui;
 };

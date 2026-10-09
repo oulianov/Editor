@@ -21,6 +21,8 @@
 #include <functional>
 
 class ProjectData;
+class QGroupBox;
+class TestBattlePartyWidget;
 
 namespace Ui {
 class RunGameDialog;
@@ -47,8 +49,13 @@ public:
 	/** Test play from a map position (Start Game Here) */
 	void runHere(int map_id, int x, int y);
 
-	/** Battle test against a monster group */
-	void runBattle(int troop_id);
+	/**
+	 * Battle test against a monster group. The party and the background are
+	 * those saved in the database (System); the RPG Maker 2003 formation
+	 * (lcf::rpg::System::BattleFormation, -1: only the group is given),
+	 * condition and terrain are given to the Player (--battle-test).
+	 */
+	static bool runBattle(int troop_id, int formation = -1, int condition = 0, int terrain_id = 1);
 
 	/**
 	 * Starts the Player in test play on the open project, with the Full
@@ -77,4 +84,7 @@ private:
 
 	Ui::RunGameDialog *ui;
 	ProjectData& m_project;
+	/** The party of the battle test, shown instead of the initial party */
+	QGroupBox* m_groupBattleParty = nullptr;
+	TestBattlePartyWidget* m_battleParty = nullptr;
 };

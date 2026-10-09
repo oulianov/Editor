@@ -73,6 +73,12 @@ set(EDITOR_SOURCES
 	src/model/move_route_codec.cpp
 	src/model/move_route_codec.h
 	src/model/event_command_list.h
+	src/model/export_files.cpp
+	src/model/export_files.h
+	src/model/export_references.cpp
+	src/model/export_references.h
+	src/model/game_export.cpp
+	src/model/game_export.h
 	src/model/item.cpp
 	src/model/item.h
 	src/model/map_tools.cpp
@@ -81,6 +87,10 @@ set(EDITOR_SOURCES
 	src/model/maniac_expression.h
 	src/model/dungeon_generator.cpp
 	src/model/dungeon_generator.h
+	src/model/data_merge.cpp
+	src/model/data_merge.h
+	src/model/project_convert.cpp
+	src/model/project_convert.h
 	src/model/project.cpp
 	src/model/project.h
 	src/model/project_data.cpp
@@ -189,6 +199,10 @@ set(EDITOR_SOURCES
 	src/ui/commands/weather_effects_widget.h
 	src/ui/commands/weather_effects_widget.ui
 	src/ui/common/edit_dialog.cpp
+	src/ui/common/color_sample.h
+	src/ui/common/page_scroll_area.h
+	src/ui/common/path_field.h
+	src/ui/common/stale_file.h
 	src/ui/common/toolbar_overflow.cpp
 	src/ui/common/toolbar_overflow.h
 	src/ui/common/editor_style.cpp
@@ -231,6 +245,8 @@ set(EDITOR_SOURCES
 	src/ui/database/actor_widget.cpp
 	src/ui/database/actor_widget.h
 	src/ui/database/actor_widget.ui
+	src/ui/database/animation_tools.cpp
+	src/ui/database/animation_tools.h
 	src/ui/database/attribute_widget.cpp
 	src/ui/database/attribute_widget.h
 	src/ui/database/attribute_widget.ui
@@ -248,9 +264,15 @@ set(EDITOR_SOURCES
 	src/ui/database/class_widget.cpp
 	src/ui/database/class_widget.h
 	src/ui/database/class_widget.ui
+	src/ui/database/curve_dialog.cpp
+	src/ui/database/curve_dialog.h
+	src/ui/database/curve_editor.cpp
+	src/ui/database/curve_editor.h
 	src/ui/database/common_event_widget.cpp
 	src/ui/database/common_event_widget.h
 	src/ui/database/common_event_widget.ui
+	src/ui/database/database_list_data.cpp
+	src/ui/database/database_list_data.h
 	src/ui/database/database_dialog.cpp
 	src/ui/database/database_dialog.h
 	src/ui/database/database_dialog.ui
@@ -271,6 +293,8 @@ set(EDITOR_SOURCES
 	src/ui/database/enemy_widget.cpp
 	src/ui/database/enemy_widget.h
 	src/ui/database/enemy_widget.ui
+	src/ui/database/experience_dialog.cpp
+	src/ui/database/experience_dialog.h
 	src/ui/database/item_widget.cpp
 	src/ui/database/item_widget.h
 	src/ui/database/skill_item_common.cpp
@@ -289,6 +313,10 @@ set(EDITOR_SOURCES
 	src/ui/database/system_fields.h
 	src/ui/database/system_widget.cpp
 	src/ui/database/system_widget.h
+	src/ui/database/test_battle_dialog.cpp
+	src/ui/database/test_battle_dialog.h
+	src/ui/database/test_battle_party_widget.cpp
+	src/ui/database/test_battle_party_widget.h
 	src/ui/database/terrain_widget.cpp
 	src/ui/database/terrain_widget.h
 	src/ui/database/terrain_widget.ui
@@ -351,9 +379,15 @@ set(EDITOR_SOURCES
 	src/ui/maptree/map_properties_dialog.cpp
 	src/ui/maptree/map_properties_dialog.h
 	src/ui/maptree/map_properties_dialog.ui
+	src/ui/other/convert_project_dialog.cpp
+	src/ui/other/convert_project_dialog.h
 	src/ui/other/import_project_dialog.cpp
 	src/ui/other/import_project_dialog.h
 	src/ui/other/import_project_dialog.ui
+	src/ui/other/export_dialog.cpp
+	src/ui/other/export_dialog.h
+	src/ui/other/launcher_download.cpp
+	src/ui/other/launcher_download.h
 	src/ui/other/new_project_dialog.cpp
 	src/ui/other/new_project_dialog.h
 	src/ui/other/new_project_dialog.ui
@@ -365,6 +399,8 @@ set(EDITOR_SOURCES
 	src/ui/other/resource_manager_dialog.ui
 	src/ui/other/jukebox_dialog.cpp
 	src/ui/other/jukebox_dialog.h
+	src/ui/other/rename_project_dialog.cpp
+	src/ui/other/rename_project_dialog.h
 	src/ui/other/settings_dialog.cpp
 	src/ui/other/settings_dialog.h
 	src/ui/other/run_game_dialog.cpp
@@ -461,7 +497,7 @@ set(EDITOR_QML_INTERFACE
 # Dependencies
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
 find_package(Qt6 ${REQUIRED_QT_VERSION} CONFIG REQUIRED COMPONENTS
-	Widgets Core Concurrent Multimedia Gui Svg
+	Widgets Core Concurrent Multimedia Gui Svg Network
 	GuiPrivate QuickPrivate QuickControls2 WidgetsPrivate)
 find_package(Qt6LinguistTools CONFIG QUIET)
 find_package(ZLIB REQUIRED)
@@ -599,6 +635,8 @@ else()
 endif()
 
 # Libraries
+# shown in About
+target_compile_definitions(${EXE_NAME} PRIVATE EDITOR_VERSION="${PROJECT_VERSION}")
 target_link_libraries(${EXE_NAME} PRIVATE
 	ZLIB::ZLIB
 	glaze::glaze
@@ -608,6 +646,7 @@ target_link_libraries(${EXE_NAME} PRIVATE
 	Qt6::Core
 	Qt6::Concurrent
 	Qt6::Multimedia
+	Qt6::Network
 	Qt6::Svg
 	Qt6::QuickControls2
 )
@@ -655,6 +694,24 @@ target_sources(${EXE_NAME} PRIVATE "resources/Resources.qrc")
 option(EDITOR_SCRIPTS "Build the script runner (--script) used by the tests and for screenshots" OFF)
 set(EDITOR_TEST_PROJECT "" CACHE PATH "Game the script tests run on (TestGame-2003 of https://github.com/EasyRPG/TestGame)")
 if(EDITOR_SCRIPTS)
+	enable_testing()
+	add_executable(editor_view_state_test tests/view_state_test.cpp src/ui/common/view_state.cpp
+		src/common/editor_settings.cpp src/common/editor_settings.h)
+	set_target_properties(editor_view_state_test PROPERTIES AUTOMOC ON)
+	target_include_directories(editor_view_state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+	target_link_libraries(editor_view_state_test PRIVATE Qt6::Widgets)
+	add_test(NAME view_state_restart COMMAND ${CMAKE_COMMAND}
+		-DTEST_PROGRAM=$<TARGET_FILE:editor_view_state_test> -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/run_view_state_test.cmake)
+	set_tests_properties(view_state_restart PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+	# the three-way merges with the data another program changed (rpgsync)
+	add_executable(editor_data_merge_test tests/data_merge_test.cpp src/model/data_merge.cpp)
+	target_include_directories(editor_data_merge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+	if(EDITOR_BUILD_LIBLCF)
+		target_link_libraries(editor_data_merge_test PRIVATE lcf Qt6::Core)
+	else()
+		target_link_libraries(editor_data_merge_test PRIVATE liblcf::liblcf Qt6::Core)
+	endif()
+	add_test(NAME data_merge COMMAND editor_data_merge_test)
 	target_sources(${EXE_NAME} PRIVATE src/ui/tools/automation.cpp src/ui/tools/automation.h)
 	target_compile_definitions(${EXE_NAME} PRIVATE EDITOR_SCRIPTS=1)
 	# wheel: trackpad events injected like the platform's
@@ -668,6 +725,14 @@ if(EDITOR_SCRIPTS)
 				COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${script} ${EDITOR_TEST_PROJECT}
 				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 			set_tests_properties(script_${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+		endforeach()
+		# the real style of the system: its windows show on screen while they run
+		file(GLOB EDITOR_NATIVE_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/scripts/native/*.txt")
+		foreach(script ${EDITOR_NATIVE_SCRIPTS})
+			get_filename_component(name ${script} NAME_WE)
+			add_test(NAME native_${name}
+				COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${script} ${EDITOR_TEST_PROJECT}
+				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 		endforeach()
 	endif()
 endif()

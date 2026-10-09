@@ -10,9 +10,6 @@
     <height>232</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>Change item</string>
-  </property>
   <layout class="QHBoxLayout" name="horizontalLayout">
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_2">

@@ -48,6 +48,9 @@ public:
 
 	void Init();
 	float scale() const;
+	/** Presentation state of this map, independent of its game data. */
+	QVariantMap viewState() const;
+	void restoreViewState(const QVariantMap& state);
 	void selectTile(int x, int y);
 	void centerOnTile(int x, int y);
 	/** Shown at this scale, rounded by snapScale */
@@ -84,8 +87,9 @@ public:
 	void editMapProperties(QTreeWidgetItem *item);
 	/** Take the map info (name...) from the map tree again, unless edited */
 	void refreshMapInfo();
-	/** The map file was changed by another program: read it again */
-	void reloadFromDisk();
+	/** The map file was changed by another program: read it again (asking
+	 *  first when the map has unsaved changes and ask is set) */
+	void reloadFromDisk(bool ask = true);
 	/** Open the event dialog of a new or existing event (modal) */
 	void editEvent(const lcf::rpg::Event& event);
 	/** Put an edited event on the map (replacing the one with its id), with undo */
@@ -93,6 +97,8 @@ public:
 	lcf::rpg::Event* findEvent(int id);
 	/** The texts of the menus, in the current language */
 	void retranslate();
+	/** Shift Map: everything moves, wrapping round, with undo */
+	void shiftMap(int dx, int dy);
 
 signals:
 
@@ -219,6 +225,14 @@ private:
 	int getFirstFreeId();
 	void redrawPanorama();
 	void redrawGrid();
+	/** Shows map (read from its file); keep_view keeps the grid and the
+	 *  scale unless the size changed */
+	void setMap(std::unique_ptr<lcf::rpg::Map> map, bool keep_view);
+	/** Merges what another program changed in the map file since it was
+	 *  read; false when both sides changed the same thing (conflicts) */
+	bool mergeFromDisk(QStringList* conflicts);
+	/** The map as last read or written: the base of a merge */
+	std::optional<lcf::rpg::Map> m_savedMap;
 
 
 	QMenu *m_eventMenu;
@@ -251,8 +265,8 @@ private:
 	int cur_y;
 	int fst_x;
 	int fst_y;
-	int lst_x;
-	int lst_y;
+	int lst_x = 0;
+	int lst_y = 0;
 	QGraphicsView* m_view;
 	bool m_drawing;
 	bool m_cancelled;
@@ -275,6 +289,11 @@ private:
 	// selection tool: the selected cells, the dashed rectangle around them
 	QRect m_selArea;
 	bool m_selDragging = false;
+	bool m_selMoving = false;
+	QPoint m_selGrab;
+	Core::TileClipboard m_selContents;
+	// Both layers beneath a movable selection, restored as it crosses them.
+	Core::TileClipboard m_selBackground;
 	QGraphicsRectItem *m_selAreaItem;
 	QGraphicsRectItem *m_selAntsItem;
 	QTimer m_antsTimer;
@@ -294,4 +313,3 @@ private:
 	QPointer<EventDialog> m_eventDialog;
 	int m_eventDialogId = 0;
 };
-

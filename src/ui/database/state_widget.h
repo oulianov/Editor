@@ -47,6 +47,10 @@ signals:
 	void currentStateChanged(lcf::rpg::State *state);
 
 private:
+	/** The poses of the battle graphics, for the Animation of the condition */
+	void fillPoses();
+	void updatePosePreview();
+
 	Ui::StateWidget *ui;
 
 	lcf::rpg::State dummy;

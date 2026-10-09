@@ -18,19 +18,16 @@
 #include "class_widget.h"
 #include "ui_class_widget.h"
 
-#include <QAction>
+#include <QEvent>
 #include <QGraphicsScene>
 #include <QTimer>
 
 #include "class_editors.h"
+#include "curve_dialog.h"
+#include "experience_dialog.h"
 #include "common/dbstring.h"
 #include "common/lcf_widget_binding.h"
 #include "model/project_data.h"
-
-namespace {
-// RPG Maker 2003 shows six commands, then the Row command
-constexpr int kCommandSlots = 6;
-}
 
 ClassWidget::ClassWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
@@ -51,7 +48,6 @@ ClassWidget::ClassWidget(ProjectData& project, QWidget *parent) :
 	connect(timer, &QTimer::timeout, ui->graphicsBattler->scene(), &QGraphicsScene::advance);
 	timer->start(200);
 
-	const std::array<QColor, 6> colors = {Qt::red, Qt::magenta, Qt::yellow, Qt::green, Qt::darkBlue, Qt::blue};
 	std::vector<int16_t> no_values;
 	const auto views = curveViews();
 	for (size_t i = 0; i < views.size(); ++i) {
@@ -63,14 +59,25 @@ ClassWidget::ClassWidget(ProjectData& project, QWidget *parent) :
 		views[i]->setScene(new QGraphicsScene(this));
 		// CurveItem fills the scene rect: it must be set (resizeEvent updates it)
 		views[i]->scene()->setSceneRect(0, 0, 60, 36);
-		m_curves[i] = new CurveItem(colors[i], no_values);
+		m_curves[i] = new CurveItem(CurveDialog::color(static_cast<int>(i)), no_values);
 		m_curves[i]->setMaxLevel(max_level);
 		m_curves[i]->setMaxValue(i == 0 ? max_hp : 999);
 		views[i]->scene()->addItem(m_curves[i]);
+		// like RPG Maker, a double-click on a graph edits its curve
+		views[i]->viewport()->setToolTip(tr("Double-click to edit the curve"));
+		ClassEditors::filterEvents(views[i]->viewport(), [this, i](QEvent* event) {
+			if (event->type() != QEvent::MouseButtonDblClick) {
+				return false;
+			}
+			editCurves(static_cast<int>(i));
+			return true;
+		});
 	}
-	connect(ui->pushEditCurves, &QPushButton::clicked, this, [this, max_level, max_hp] {
-		if (ClassEditors::editParameters(this, m_current->parameters, max_level, max_hp)) {
-			refreshCurves();
+	connect(ui->pushEditCurves, &QPushButton::clicked, this, [this] { editCurves(0); });
+	connect(ui->pushExpCurveEdit, &QPushButton::clicked, this, [this] {
+		if (ExperienceDialog::edit(this, m_project, m_current->exp_base, m_current->exp_inflation,
+				m_current->exp_correction)) {
+			refreshExperience();
 		}
 	});
 
@@ -78,31 +85,17 @@ ClassWidget::ClassWidget(ProjectData& project, QWidget *parent) :
 	for (auto* check : {ui->checkAutoBattle, ui->checkTwoWeapons, ui->checkLockEquipment, ui->checkMightyGuard}) {
 		LcfWidgetBinding::connect<bool>(this, check);
 	}
-	for (auto* spin : {ui->spinExpBase, ui->spinExpInflation, ui->spinExpCorrection}) {
-		LcfWidgetBinding::connect<int32_t>(this, spin);
-	}
 	LcfWidgetBinding::connect<int32_t>(this, ui->comboBattler);
 	connect(ui->comboBattler, &QComboBox::currentIndexChanged, this, &ClassWidget::refreshBattler);
 
-	for (auto* combo : {ui->comboBattleCommand1, ui->comboBattleCommand2, ui->comboBattleCommand3,
-			ui->comboBattleCommand4, ui->comboBattleCommand5, ui->comboBattleCommand6}) {
-		connect(combo, &QComboBox::currentIndexChanged, this, &ClassWidget::writeBattleCommands);
+	for (auto* combo : commandCombos()) {
+		connect(combo, &QComboBox::currentIndexChanged, this, [this] {
+			m_current->battle_commands = ClassEditors::battleCommands(commandCombos());
+		});
 	}
 
 	ui->tableSkills->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-	connect(ui->tableSkills, &QTableWidget::cellDoubleClicked, this, [this](int row) { editSkill(row); });
-	auto* edit_skill = new QAction(tr("Edit..."), ui->tableSkills);
-	edit_skill->setShortcut(Qt::Key_Return);
-	edit_skill->setShortcutContext(Qt::WidgetShortcut);
-	connect(edit_skill, &QAction::triggered, this, [this] { editSkill(ui->tableSkills->currentRow()); });
-	auto* delete_skill = new QAction(tr("Delete"), ui->tableSkills);
-	delete_skill->setShortcut(QKeySequence::Delete);
-	delete_skill->setShortcutContext(Qt::WidgetShortcut);
-	connect(delete_skill, &QAction::triggered, this, [this] {
-		ClassEditors::removeSkill(m_current->skills, ui->tableSkills->currentRow());
-		refreshSkills();
-	});
-	ui->tableSkills->addActions({edit_skill, delete_skill});
+	ClassEditors::connectSkillTable(ui->tableSkills, m_project, [this]() -> auto& { return m_current->skills; });
 
 	connect(ui->listStates, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
 		ClassEditors::cycleRank(ui->listStates, m_current->state_ranks, ui->listStates->row(item));
@@ -142,16 +135,14 @@ void ClassWidget::setData(lcf::rpg::Class* cls)
 	LcfWidgetBinding::bind(ui->checkTwoWeapons, cls->two_weapon);
 	LcfWidgetBinding::bind(ui->checkLockEquipment, cls->lock_equipment);
 	LcfWidgetBinding::bind(ui->checkMightyGuard, cls->super_guard);
-	LcfWidgetBinding::bind(ui->spinExpBase, cls->exp_base);
-	LcfWidgetBinding::bind(ui->spinExpInflation, cls->exp_inflation);
-	LcfWidgetBinding::bind(ui->spinExpCorrection, cls->exp_correction);
 	LcfWidgetBinding::bind(ui->comboBattler, cls->battler_animation);
 
-	fillBattleCommands();
+	ClassEditors::fillBattleCommands(commandCombos(), cls->battle_commands, m_project);
 	ClassEditors::fillRanks(ui->listStates, database.states, cls->state_ranks);
 	ClassEditors::fillRanks(ui->listAttributes, database.attributes, cls->attribute_ranks);
 	refreshSkills();
 	refreshCurves();
+	refreshExperience();
 	refreshBattler();
 
 	setEnabled(cls != &m_dummy);
@@ -197,56 +188,22 @@ void ClassWidget::refreshSkills()
 	ClassEditors::fillSkills(ui->tableSkills, m_current->skills, m_project);
 }
 
-void ClassWidget::editSkill(int row)
+void ClassWidget::refreshExperience()
 {
-	const int max_level = m_project.database().system.ldb_id == 2003 ? 99 : 50;
-	if (ClassEditors::editSkill(this, m_project, m_current->skills, row, max_level)) {
-		refreshSkills();
+	ui->labelExpCurve->setText(ExperienceDialog::summary(m_project, m_current->exp_base, m_current->exp_inflation,
+		m_current->exp_correction));
+}
+
+void ClassWidget::editCurves(int tab)
+{
+	const bool is2k3 = m_project.database().system.ldb_id == 2003;
+	if (ClassEditors::editParameters(this, m_current->parameters, is2k3 ? 99 : 50, is2k3 ? 9999 : 999, tab)) {
+		refreshCurves();
 	}
 }
 
-void ClassWidget::fillBattleCommands()
+ClassEditors::CommandCombos ClassWidget::commandCombos() const
 {
-	const auto& commands = m_project.database().battlecommands.commands;
-	// The commands before the Row command (0); -1 pads the list
-	std::vector<int32_t> ids;
-	for (int32_t id : m_current->battle_commands) {
-		if (id > 0) {
-			ids.push_back(id);
-		}
-	}
-
-	int slot = 0;
-	for (auto* combo : {ui->comboBattleCommand1, ui->comboBattleCommand2, ui->comboBattleCommand3,
-			ui->comboBattleCommand4, ui->comboBattleCommand5, ui->comboBattleCommand6}) {
-		SignalBlocker blocker(combo);
-		combo->clear();
-		combo->addItem(tr("<none>"), 0);
-		for (const auto& command : commands) {
-			combo->addItem(QString("%1: %2").arg(command.ID, 4, 10, QChar('0')).arg(ToQString(command.name)), command.ID);
-		}
-		const int id = slot < static_cast<int>(ids.size()) ? ids[static_cast<size_t>(slot)] : 0;
-		if (combo->findData(id) < 0) {
-			combo->addItem(tr("<%1?>").arg(id), id);
-		}
-		combo->setCurrentIndex(combo->findData(id));
-		++slot;
-	}
-	Q_ASSERT(slot == kCommandSlots);
-}
-
-void ClassWidget::writeBattleCommands()
-{
-	std::vector<int32_t> ids;
-	for (auto* combo : {ui->comboBattleCommand1, ui->comboBattleCommand2, ui->comboBattleCommand3,
-			ui->comboBattleCommand4, ui->comboBattleCommand5, ui->comboBattleCommand6}) {
-		const int id = combo->currentData().toInt();
-		if (id > 0) {
-			ids.push_back(id);
-		}
-	}
-	// Like RPG Maker: the Row command (0) ends the list, padded to 7 entries with -1
-	ids.push_back(0);
-	ids.resize(std::max<size_t>(ids.size(), kCommandSlots + 1), -1);
-	m_current->battle_commands = ids;
+	return {ui->comboBattleCommand1, ui->comboBattleCommand2, ui->comboBattleCommand3,
+		ui->comboBattleCommand4, ui->comboBattleCommand5, ui->comboBattleCommand6};
 }

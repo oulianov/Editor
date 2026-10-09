@@ -23,12 +23,15 @@
 #include "ui/common/rpg_combobox.h"
 #include "ui/picker/picker_dialog.h"
 #include <QButtonGroup>
+#include <QComboBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMouseEvent>
+#include <QPainter>
 #include <QRadioButton>
 #include <QSpinBox>
 #include <QTabWidget>
@@ -43,6 +46,10 @@ constexpr int battler_size = 48;
 constexpr int weapon_size = 64;
 // RPG Maker 2003 has 32 poses and 32 weapons in each battler animation
 constexpr size_t slot_count = 32;
+// the poses the Player uses (idle to item), named by RPG Maker
+constexpr int fixed_poses = 12;
+// the rows of a BattleCharSet or BattleWeapon graphic
+constexpr int sheet_rows = 8;
 
 QTreeWidget* makeList(const QStringList& headers, QWidget* parent) {
 	auto* list = new QTreeWidget(parent);
@@ -70,9 +77,36 @@ QLabel* makePreview(int size, QWidget* parent) {
 	auto* label = new QLabel(parent);
 	label->setAlignment(Qt::AlignCenter);
 	label->setFrameShape(QFrame::StyledPanel);
-	label->setMinimumSize(2 * size, 2 * size);
+	// the picture at twice its size, inside the frame
+	const int frame = 2 * label->frameWidth();
+	label->setMinimumSize(2 * size + frame, 2 * size + frame);
 	label->setWordWrap(true);
 	return label;
+}
+
+/** Where the rows of the graphic are shown, 4 by 2: a click picks one */
+QLabel* makeRows(int size, QWidget* parent) {
+	auto* label = new QLabel(parent);
+	label->setFixedSize(4 * size, 2 * size);
+	label->setCursor(Qt::PointingHandCursor);
+	label->setToolTip(QCoreApplication::translate("BattleAnimation2Widget", "Click a row of the graphic to use it"));
+	return label;
+}
+
+/** The middle frame of each row of a graphic, the selected row framed */
+QPixmap rowsPicture(const QPixmap& sheet, int size, int selected, const QColor& highlight) {
+	QPixmap picture(4 * size, 2 * size);
+	picture.fill(Qt::transparent);
+	if (sheet.isNull()) {
+		return picture;
+	}
+	QPainter painter(&picture);
+	for (int row = 0; row < sheet_rows; ++row) {
+		painter.drawPixmap((row % 4) * size, (row / 4) * size, sheet, size, row * size, size, size);
+	}
+	painter.setPen(QPen(highlight, 2));
+	painter.drawRect(QRect((selected % 4) * size, (selected / 4) * size, size, size).adjusted(1, 1, -1, -1));
+	return picture;
 }
 }
 
@@ -116,6 +150,7 @@ BattleAnimation2Widget::BattleAnimation2Widget(ProjectData& project, QWidget *pa
 	auto* pose_edit = new QVBoxLayout();
 	auto* pose_form = new QFormLayout();
 	m_poseName = new QLineEdit(poses_page);
+	m_poseName->setObjectName(QStringLiteral("editPoseName"));
 	pose_form->addRow(tr("Pose Label"), m_poseName);
 	auto* type_row = new QVBoxLayout();
 	m_poseType = new QButtonGroup(this);
@@ -130,6 +165,7 @@ BattleAnimation2Widget::BattleAnimation2Widget(ProjectData& project, QWidget *pa
 	m_poseFileRow = makeFileRow(m_poseFile, pose_pick, poses_page);
 	pose_form->addRow(tr("Graphic"), m_poseFileRow);
 	m_poseIndex = new QSpinBox(poses_page);
+	m_poseIndex->setObjectName(QStringLiteral("spinPoseIndex"));
 	m_poseIndex->setRange(1, 8);
 	m_poseIndex->setToolTip(tr("The row of the graphic"));
 	pose_form->addRow(tr("Index"), m_poseIndex);
@@ -139,7 +175,14 @@ BattleAnimation2Widget::BattleAnimation2Widget(ProjectData& project, QWidget *pa
 	pose_form->addRow(tr("Battle Animation"), m_poseAnimation);
 	pose_edit->addLayout(pose_form);
 	m_posePreview = makePreview(battler_size, poses_page);
-	pose_edit->addWidget(m_posePreview, 0, Qt::AlignHCenter);
+	m_poseRows = makeRows(battler_size, poses_page);
+	m_poseRows->setObjectName(QStringLiteral("picturePoseRows"));
+	m_poseRows->installEventFilter(this);
+	auto* pose_pictures = new QHBoxLayout();
+	pose_pictures->addWidget(m_posePreview);
+	pose_pictures->addWidget(m_poseRows);
+	pose_pictures->addStretch(1);
+	pose_edit->addLayout(pose_pictures);
 	pose_edit->addStretch(1);
 	poses_layout->addLayout(pose_edit);
 	m_tabs->addTab(poses_page, tr("Poses"));
@@ -157,12 +200,25 @@ BattleAnimation2Widget::BattleAnimation2Widget(ProjectData& project, QWidget *pa
 	QToolButton* weapon_pick;
 	weapon_form->addRow(tr("Graphic"), makeFileRow(m_weaponFile, weapon_pick, weapons_page));
 	m_weaponIndex = new QSpinBox(weapons_page);
+	m_weaponIndex->setObjectName(QStringLiteral("spinWeaponIndex"));
 	m_weaponIndex->setRange(1, 8);
 	m_weaponIndex->setToolTip(tr("The row of the graphic"));
 	weapon_form->addRow(tr("Index"), m_weaponIndex);
+	// RPG Maker shows the weapon in the hands of the hero (poses 2 and 3)
+	m_hand = new QComboBox(weapons_page);
+	m_hand->setObjectName(QStringLiteral("comboWeaponPreview"));
+	m_hand->addItems({tr("Right Hand"), tr("Left Hand"), tr("Both Hands"), tr("Weapon Only")});
+	weapon_form->addRow(tr("Preview"), m_hand);
 	weapon_edit->addLayout(weapon_form);
 	m_weaponPreview = makePreview(weapon_size, weapons_page);
-	weapon_edit->addWidget(m_weaponPreview, 0, Qt::AlignHCenter);
+	m_weaponRows = makeRows(weapon_size, weapons_page);
+	m_weaponRows->setObjectName(QStringLiteral("pictureWeaponRows"));
+	m_weaponRows->installEventFilter(this);
+	auto* weapon_pictures = new QHBoxLayout();
+	weapon_pictures->addWidget(m_weaponPreview);
+	weapon_pictures->addWidget(m_weaponRows);
+	weapon_pictures->addStretch(1);
+	weapon_edit->addLayout(weapon_pictures);
 	weapon_edit->addStretch(1);
 	weapons_layout->addLayout(weapon_edit);
 	m_tabs->addTab(weapons_page, tr("Weapons"));
@@ -183,10 +239,12 @@ BattleAnimation2Widget::BattleAnimation2Widget(ProjectData& project, QWidget *pa
 		m_timer->setInterval(id * 1000 / 60);
 	});
 	connect(m_tabs, &QTabWidget::currentChanged, this, &BattleAnimation2Widget::loadPreview);
+	connect(m_hand, qOverload<int>(&QComboBox::currentIndexChanged), this, &BattleAnimation2Widget::loadPreview);
 
 	connect(m_poses, &QTreeWidget::currentItemChanged, this, &BattleAnimation2Widget::poseChanged);
 	connect(m_poseName, &QLineEdit::textEdited, this, [this](const QString& text) {
-		if (auto* pose = currentPose()) {
+		auto* pose = currentPose();
+		if (pose && !m_poseName->isReadOnly()) {
 			pose->name = ToDBString(text);
 			refreshPoseItem(m_poses->indexOfTopLevelItem(m_poses->currentItem()));
 		}
@@ -364,6 +422,10 @@ void BattleAnimation2Widget::poseChanged() {
 	for (QWidget* widget : {static_cast<QWidget*>(m_poseName), static_cast<QWidget*>(m_poseType->button(0)), static_cast<QWidget*>(m_poseType->button(1))}) {
 		widget->setEnabled(pose != nullptr);
 	}
+	// the poses the Player uses keep the names RPG Maker gives them
+	const bool fixed = m_poses->indexOfTopLevelItem(m_poses->currentItem()) < fixed_poses;
+	m_poseName->setReadOnly(fixed);
+	m_poseName->setToolTip(fixed ? tr("The first %1 poses are named by RPG Maker").arg(fixed_poses) : QString());
 	// the graphic is used by character poses, the animation by the others
 	m_poseFileRow->setEnabled(pose && !battle);
 	m_poseIndex->setEnabled(pose && !battle);
@@ -390,6 +452,7 @@ void BattleAnimation2Widget::weaponChanged() {
 void BattleAnimation2Widget::loadPreview() {
 	m_sheet = QPixmap();
 	m_step = 0;
+	for (auto& sheet : m_handSheets) sheet = QPixmap();
 	const bool weapons = m_tabs->currentIndex() == 1;
 	if (weapons) {
 		if (auto* weapon = currentWeapon()) {
@@ -397,6 +460,17 @@ void BattleAnimation2Widget::loadPreview() {
 			m_sheetSize = weapon_size;
 			m_sheetRow = weapon->weapon_index;
 		}
+		// the attack poses of the right and left hands
+		const int poses[] = {lcf::rpg::BattlerAnimation::Pose_AttackRight, lcf::rpg::BattlerAnimation::Pose_AttackLeft};
+		for (int hand = 0; hand < 2; ++hand) {
+			if (!m_anim || poses[hand] >= static_cast<int>(m_anim->poses.size())) continue;
+			const auto& pose = m_anim->poses[poses[hand]];
+			if (pose.animation_type == lcf::rpg::BattlerAnimationPose::AnimType_character) {
+				m_handSheets[hand] = BattleAnimationWidget::loadGraphic(m_project, BATTLECHARSET, ToQString(pose.battler_name));
+				m_handRows[hand] = pose.battler_index;
+			}
+		}
+		m_weaponRows->setPixmap(rowsPicture(m_sheet, weapon_size, m_sheetRow, palette().color(QPalette::Highlight)));
 	} else if (auto* pose = currentPose()) {
 		if (pose->animation_type == lcf::rpg::BattlerAnimationPose::AnimType_character) {
 			m_sheet = BattleAnimationWidget::loadGraphic(m_project, BATTLECHARSET, ToQString(pose->battler_name));
@@ -404,19 +478,74 @@ void BattleAnimation2Widget::loadPreview() {
 			m_sheetRow = pose->battler_index;
 		}
 	}
+	if (!weapons) {
+		m_poseRows->setPixmap(rowsPicture(m_sheet, battler_size, m_sheetRow, palette().color(QPalette::Highlight)));
+	}
 	updatePreview();
 }
 
 void BattleAnimation2Widget::updatePreview() {
-	QLabel* label = m_tabs->currentIndex() == 1 ? m_weaponPreview : m_posePreview;
+	// the three frames of a row, as the Player plays them
+	static const int pattern[] = {0, 1, 2, 1};
+	const int column = pattern[m_step % 4];
+	if (m_tabs->currentIndex() == 1) {
+		// both hands: a cycle with each hand
+		const int choice = m_hand->currentIndex();
+		const int hand = choice == 2 ? (m_step / 4) % 2 : choice;
+		const bool with_hero = hand < 2 && !m_handSheets[hand].isNull();
+		if (m_sheet.isNull() && !with_hero) {
+			m_weaponPreview->clear();
+			return;
+		}
+		QPixmap frame(weapon_size, weapon_size);
+		frame.fill(Qt::transparent);
+		QPainter painter(&frame);
+		auto draw_hero = [&] {
+			if (!with_hero) return;
+			// both centered at the same place, as in the Player
+			const int offset = (weapon_size - battler_size) / 2;
+			painter.drawPixmap(offset, offset, m_handSheets[hand], column * battler_size, m_handRows[hand] * battler_size, battler_size, battler_size);
+		};
+		auto draw_weapon = [&] {
+			if (!m_sheet.isNull()) {
+				painter.drawPixmap(0, 0, m_sheet, column * weapon_size, m_sheetRow * weapon_size, weapon_size, weapon_size);
+			}
+		};
+		// the weapon of the left hand is behind the hero, the other in front
+		if (hand == 1) {
+			draw_weapon();
+			draw_hero();
+		} else {
+			draw_hero();
+			draw_weapon();
+		}
+		painter.end();
+		m_weaponPreview->setPixmap(frame.scaled(2 * weapon_size, 2 * weapon_size));
+		return;
+	}
+	QLabel* label = m_posePreview;
 	if (m_sheet.isNull()) {
 		auto* pose = currentPose();
 		label->setText(label == m_posePreview && pose && pose->animation_type == lcf::rpg::BattlerAnimationPose::AnimType_battle
 			? tr("Battle animation") : QString());
 		return;
 	}
-	// the three frames of a row, as the Player plays them
-	static const int pattern[] = {0, 1, 2, 1};
-	const QPixmap frame = m_sheet.copy(pattern[m_step % 4] * m_sheetSize, m_sheetRow * m_sheetSize, m_sheetSize, m_sheetSize);
+	const QPixmap frame = m_sheet.copy(column * m_sheetSize, m_sheetRow * m_sheetSize, m_sheetSize, m_sheetSize);
 	label->setPixmap(frame.scaled(2 * m_sheetSize, 2 * m_sheetSize));
+}
+
+bool BattleAnimation2Widget::eventFilter(QObject* watched, QEvent* event) {
+	if (event->type() == QEvent::MouseButtonPress && (watched == m_poseRows || watched == m_weaponRows)) {
+		// the row clicked, through the index field (it saves and shows it)
+		const auto* mouse = static_cast<QMouseEvent*>(event);
+		const int size = watched == m_poseRows ? battler_size : weapon_size;
+		const QPoint pos = mouse->position().toPoint();
+		const int row = (pos.y() / size) * 4 + pos.x() / size;
+		QSpinBox* index = watched == m_poseRows ? m_poseIndex : m_weaponIndex;
+		if (index->isEnabled() && pos.x() >= 0 && pos.y() >= 0 && row < sheet_rows) {
+			index->setValue(row + 1);
+		}
+		return true;
+	}
+	return QWidget::eventFilter(watched, event);
 }

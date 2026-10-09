@@ -26,6 +26,7 @@ class QButtonGroup;
 class QGraphicsScene;
 class QGraphicsView;
 class QLineEdit;
+class QPushButton;
 class QTabBar;
 class QGroupBox;
 class RpgComboBoxBase;
@@ -59,7 +60,12 @@ private:
 	static QPoint tilePosition(bool lower, int index);
 	void loadGraphic();
 	void redraw();
+	/** The tile under a position of the scene, -1 when none */
+	int tileAt(const QPointF& pos) const;
 	void tileClicked(const QPointF& pos, bool right_button);
+	void tileDragged(const QPointF& pos);
+	/** RPG Maker's "Set Uniform Terrain": one terrain on all lower tiles */
+	void setUniformTerrain();
 
 	ProjectData& m_project;
 	lcf::rpg::Chipset* m_chipset = nullptr;
@@ -75,4 +81,13 @@ private:
 	QButtonGroup* m_sequence = nullptr;
 	QButtonGroup* m_speed = nullptr;
 	QGroupBox* m_water = nullptr;
+	QPushButton* m_uniformTerrain = nullptr;
+
+	/** The click being dragged: its last tile (-1: none), the flags it gave
+	 *  and the side in the Directions mode */
+	struct Stroke {
+		int tile = -1;
+		uint8_t flags = 0;
+		int side = 0;
+	} m_stroke;
 };

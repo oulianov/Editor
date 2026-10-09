@@ -31,6 +31,9 @@ class OpenProjectDialog : public QDialog
 	Q_OBJECT
 
 public:
+	/** The result of exec() when Import... was chosen */
+	static constexpr int ImportRequested = 2;
+
 	explicit OpenProjectDialog(QWidget *parent = nullptr);
 	~OpenProjectDialog();
 
@@ -46,10 +49,17 @@ private slots:
 
 	void on_tableProjects_itemSelectionChanged();
 
+	void on_pushRename_clicked();
+
+	void on_pushDelete_clicked();
+
+	void on_pushImport_clicked();
+
 private:
 	Ui::OpenProjectDialog *ui;
 	QString m_defaultDir;
-	bool removeDir(const QString &dirName);
+	/** The project selected, unless it is the one open in the Editor (it cannot be renamed or deleted here) */
+	std::shared_ptr<Project> closedProject();
 	void refreshProjectList();
 	Project::ProjectList prjList;
 	QFutureWatcher<Project::ProjectList>* m_projectScan = nullptr;

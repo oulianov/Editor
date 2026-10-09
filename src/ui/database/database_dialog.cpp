@@ -16,8 +16,13 @@
  */
 
 #include "core.h"
+#include "database_list_data.h"
+#include "ui/common/page_scroll_area.h"
+#include "ui/common/stale_file.h"
+#include "common/editor_settings.h"
 #include "ui/common/help.h"
 #include "ui/common/view_state.h"
+#include "ui/event/event_commands_widget.h"
 #include "database_dialog.h"
 #include "ui_database_dialog.h"
 #include "ui/common/theme_icon.h"
@@ -26,6 +31,8 @@
 #include <QSettings>
 #include <QCryptographicHash>
 #include <QDialogButtonBox>
+#include <QTimer>
+#include <QTreeWidgetItemIterator>
 #include <lcf/ldb/reader.h>
 #include "database_split_widget.h"
 
@@ -35,6 +42,7 @@ DatabaseDialog::DatabaseDialog(ProjectData& project, QWidget *parent) :
 	m_project(project)
 {
 	ui->setupUi(this);
+	setProperty("view_state_contextual", true); // Pages and entries belong to this project.
 	on_currentActorChanged(nullptr);
 
 	m_projectDataCopy = project;
@@ -67,13 +75,18 @@ DatabaseDialog::DatabaseDialog(ProjectData& project, QWidget *parent) :
 	ui->tabOld_Pages->insertTab(7, pageStates, tr("Hero Status"));
 	ui->tabOld_Pages->insertTab(8, pageBattleAnimations, tr("Battle Animation"));
 	ui->tabOld_Pages->insertTab(9, pageBattleAnimations2, tr("Battle Animation 2"));
-	ui->tabOld_Pages->insertTab(10, pageBattleScreen, tr("Battle screen"));
+	ui->tabOld_Pages->insertTab(10, new PageScrollArea(pageBattleScreen), tr("Battle screen"));
 	ui->tabOld_Pages->insertTab(11, pageTerrain, tr("Terrain"));
 	ui->tabOld_Pages->insertTab(12, pageChipset, tr("Chipset"));
+	// these scroll their own contents
 	ui->tabOld_Pages->insertTab(13, pageVocabulary, tr("Vocabulary"));
 	ui->tabOld_Pages->insertTab(14, pageSystem, tr("System"));
 	ui->tabOld_Pages->insertTab(15, pageSystem2, tr("System 2"));
 	ui->tabOld_Pages->insertTab(16, pageCommonevents, tr("Common events"));
+	// the tabs at the edge are cut: their full name on hover
+	for (int i = 0; i < ui->tabOld_Pages->count(); ++i) {
+		ui->tabOld_Pages->setTabToolTip(i, ui->tabOld_Pages->tabText(i));
+	}
 
 	// the "new style" page is an unfinished experiment: one database window
 	ui->toolSwitchStyle->hide();
@@ -96,11 +109,45 @@ DatabaseDialog::DatabaseDialog(ProjectData& project, QWidget *parent) :
 		QSettings().setValue(QStringLiteral("database_page"), ui->tabOld_Pages->currentIndex());
 	});
 	ui->stackedStyle->setCurrentWidget(ui->pageOld);
+	connect(&EditorSettings::instance(), &EditorSettings::localStateReset, this, [this] {
+		m_viewStates.clear();
+		m_activePage = -1;
+		ui->tabOld_Pages->setCurrentIndex(0);
+		m_activePage = 0;
+		ViewState::reset(this);
+	});
 }
 
 DatabaseDialog::~DatabaseDialog()
 {
 	delete ui;
+}
+
+void DatabaseDialog::selectCommonEvent(int eventID, int line)
+{
+	ui->tabOld_Pages->setCurrentWidget(pageCommonevents);
+	// The saved view restores on the next event-loop turn; explicit navigation follows it.
+	QTimer::singleShot(0, this, [this, eventID, line] {
+		auto* list = pageCommonevents->listWidget();
+		for (int row = 0; row < list->model()->rowCount(); ++row) {
+			const QModelIndex index = list->model()->index(row, 0);
+			if (index.data(ModelDataId).toInt() != eventID) continue;
+			list->setCurrentIndex(index);
+			list->scrollTo(index);
+			if (line > 0) {
+				auto* commands = pageCommonevents->contentWidget()->findChild<EventCommandsWidget*>(QStringLiteral("commands"));
+				for (QTreeWidgetItemIterator item(commands); *item; ++item) {
+					if ((*item)->text(1).toInt() == line - 1) {
+						commands->setCurrentItem(*item);
+						commands->scrollToItem(*item);
+						commands->setFocus();
+						break;
+					}
+				}
+			}
+			break;
+		}
+	});
 }
 
 void DatabaseDialog::on_currentActorChanged(lcf::rpg::Actor */* actor */)
@@ -191,9 +238,31 @@ void DatabaseDialog::on_buttonBox_clicked(QAbstractButton *button)
 		// Standard buttons:
 		case QDialogButtonBox::Apply:
 		case QDialogButtonBox::Ok: {
-			m_project = m_projectDataCopy;
+			// Another program (rpgsync...) changed the database since it was
+			// read: never replace its changes without asking
+			auto& watcher = core().watcher();
+			if (watcher.isStale(core().project()->databaseFile())) {
+				switch (askStale(this, tr("The database"))) {
+				case StaleChoice::Cancel:
+					return;
+				case StaleChoice::Reload:
+					reject();
+					watcher.requestReload(ProjectWatcher::Database);
+					return;
+				case StaleChoice::Overwrite:
+					break;
+				}
+			}
+			// the windows showing the project list what changed again
+			DatabaseListNotifier::assign(m_project, m_projectDataCopy, this);
 			lcf::LDB_Reader::PrepareSave(m_project.database());
-			core().project()->saveDatabase();
+			if (!core().project()->saveDatabase()) {
+				QMessageBox::critical(this, tr("Database"), tr("The database could not be written."));
+				return;
+			}
+			if (ui->buttonBox->standardButton(button) == QDialogButtonBox::Ok) {
+				accept();
+			}
 		}
 		break;
 		case QDialogButtonBox::Help: {
@@ -209,7 +278,8 @@ void DatabaseDialog::on_buttonBox_clicked(QAbstractButton *button)
 			};
 			QString topic = QStringLiteral("database");
 			for (const auto& [widget, name] : topics) {
-				if (widget == page) {
+				// the page, or the scroll area showing it
+				if (widget == page || page->isAncestorOf(widget)) {
 					topic = QString::fromLatin1(name);
 				}
 			}

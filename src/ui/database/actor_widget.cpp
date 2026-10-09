@@ -16,9 +16,20 @@
  */
 
 #include "actor_widget.h"
+#include "database_list_data.h"
+#include "common/signal_blocker.h"
 #include "ui_actor_widget.h"
+#include <QCheckBox>
+#include <QDialogButtonBox>
+#include <QEvent>
+#include <QFormLayout>
 #include <QGraphicsOpacityEffect>
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QLabel>
 #include <QSortFilterProxyModel>
+#include <QSpinBox>
+#include <QVBoxLayout>
 
 #include "common/dbstring.h"
 #include "common/lcf_widget_binding.h"
@@ -26,6 +37,8 @@
 #include "ui/picker/picker_dialog.h"
 #include "ui/picker/picker_charset_widget.h"
 #include "ui/picker/picker_faceset_widget.h"
+#include "curve_dialog.h"
+#include "experience_dialog.h"
 
 ActorWidget::ActorWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
@@ -49,24 +62,25 @@ ActorWidget::ActorWidget(ProjectData& project, QWidget *parent) :
 
 	for (int i = 0; i < kMaxLevel; i++)
 		m_dummyCurve.push_back(0);
-	m_hpItem = new CurveItem(Qt::red, m_dummyCurve);
+	m_hpItem = new CurveItem(CurveDialog::color(0), m_dummyCurve);
 	m_hpItem->setMaxValue(kMaxHp);
 	m_hpItem->setMaxLevel(kMaxLevel);
-	m_mpItem = new CurveItem(Qt::magenta, m_dummyCurve);
+	m_mpItem = new CurveItem(CurveDialog::color(1), m_dummyCurve);
 	m_mpItem->setMaxLevel(kMaxLevel);
-	m_attItem = new CurveItem(Qt::yellow, m_dummyCurve);
+	m_attItem = new CurveItem(CurveDialog::color(2), m_dummyCurve);
 	m_attItem->setMaxLevel(kMaxLevel);
-	m_defItem = new CurveItem(Qt::green, m_dummyCurve);
+	m_defItem = new CurveItem(CurveDialog::color(3), m_dummyCurve);
 	m_defItem->setMaxLevel(kMaxLevel);
-	m_intItem = new CurveItem(Qt::darkBlue, m_dummyCurve);
+	m_intItem = new CurveItem(CurveDialog::color(4), m_dummyCurve);
 	m_intItem->setMaxLevel(kMaxLevel);
-	m_agyItem = new CurveItem(Qt::blue, m_dummyCurve);
+	m_agyItem = new CurveItem(CurveDialog::color(5), m_dummyCurve);
 	m_agyItem->setMaxLevel(kMaxLevel);
 
 	ui->graphicsBattleset->setScene(new QGraphicsScene(this));
 	ui->graphicsBattleset->scene()->addItem(m_battlerItem);
 	ui->graphicsBattleset->scene()->setSceneRect(0,0,48,48);
 
+	int curve = 0;
 	for (auto& uis : {
 			ui->graphicsHp,
 			ui->graphicsMp,
@@ -76,6 +90,16 @@ ActorWidget::ActorWidget(ProjectData& project, QWidget *parent) :
 			ui->graphicsAgy }) {
 		uis->setScene(new QGraphicsScene(this));
 		uis->scene()->setSceneRect(QRectF(QPointF(0, 0), QSize(uis->size().width() - 4, uis->size().height() - 4)));
+		// like RPG Maker, a double-click on a graph edits its curve
+		uis->viewport()->setToolTip(tr("Double-click to edit the curve"));
+		ClassEditors::filterEvents(uis->viewport(), [this, curve](QEvent* event) {
+			if (event->type() != QEvent::MouseButtonDblClick) {
+				return false;
+			}
+			editCurves(curve);
+			return true;
+		});
+		++curve;
 	}
 	ui->graphicsHp->scene()->addItem(m_hpItem);
 	ui->graphicsMp->scene()->addItem(m_mpItem);
@@ -86,13 +110,39 @@ ActorWidget::ActorWidget(ProjectData& project, QWidget *parent) :
 
 	UpdateModels();
 
-	// Classes and battle sets only exist in RPG Maker 2003
+	// Classes, battle sets and battle commands only exist in RPG Maker 2003
 	if (database.system.ldb_id != 2003) {
 		for (QWidget* widget : {static_cast<QWidget*>(ui->label_48), static_cast<QWidget*>(ui->graphicsBattleset),
-				static_cast<QWidget*>(ui->comboBattleset), static_cast<QWidget*>(ui->groupBoxClass)}) {
-			widget->hide();
+				static_cast<QWidget*>(ui->comboBattleset), static_cast<QWidget*>(ui->groupBoxClass),
+				static_cast<QWidget*>(ui->groupBattleCommands)}) {
+			widget->setEnabled(false);
 		}
 	}
+
+	// The class is saved when chosen; Apply also copies its settings
+	LcfWidgetBinding::connect<int32_t>(this, ui->comboProfession);
+	connect(ui->comboProfession, &QComboBox::currentIndexChanged, this, [this] {
+		ui->pushApplyProfession->setEnabled(ui->comboProfession->currentData().toInt() > 0);
+	});
+
+	for (auto* combo : commandCombos()) {
+		combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+		combo->setMinimumContentsLength(10);
+		connect(combo, &QComboBox::currentIndexChanged, this, [this] {
+			m_current->battle_commands = ClassEditors::battleCommands(commandCombos());
+		});
+	}
+
+	ui->tableSkills->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+	ClassEditors::connectSkillTable(ui->tableSkills, project, [this]() -> auto& { return m_current->skills; });
+
+	connect(ui->pushExpCurveEdit, &QPushButton::clicked, this, [this] {
+		if (ExperienceDialog::edit(this, m_project, m_current->exp_base, m_current->exp_inflation,
+				m_current->exp_correction)) {
+			ResetExpText(m_current);
+		}
+	});
+	connect(ui->pushEditCustom, &QPushButton::clicked, this, &ActorWidget::editEasyRpgProperties);
 
 	for (auto& uis : { ui->lineName, ui->lineTitle }) {
 		LcfWidgetBinding::connect(this, uis);
@@ -143,6 +193,23 @@ ActorWidget::ActorWidget(ProjectData& project, QWidget *parent) :
 	ui->graphicsFaceset->scale(2.0, 2.0);
 	ui->graphicsFaceset->setItem(m_faceItem);
 	QObject::connect(ui->graphicsFaceset, &RpgGraphicsViewBase::clicked, this, &ActorWidget::faceSetClicked);
+
+	on_currentActorChanged(nullptr);
+
+	// Array Size, a paste or a rename in another tab: list them again
+	connect(&DatabaseListNotifier::instance(), &DatabaseListNotifier::listChanged, this, [this](const void* list) {
+		const auto& database = m_project.database();
+		if (list != &database.battleranimations && list != &database.classes
+				&& list != &database.attributes && list != &database.states) {
+			return;
+		}
+		{
+			// the hero's battler animation must not follow the rebuilt combo box
+			SignalBlocker blocker(ui->comboBattleset);
+			UpdateModels();
+		}
+		setData(m_current); // the classes and the ranks again
+	});
 }
 
 void ActorWidget::setData(lcf::rpg::Actor* actor) {
@@ -166,9 +233,6 @@ void ActorWidget::UpdateModels()
 	ui->comboBattleset->addItem(tr("<none>"));
 	for (unsigned int i = 0; i < database.battleranimations.size(); i++)
 		ui->comboBattleset->addItem(database.battleranimations[i].name.c_str());
-	ui->comboProfession->addItem(tr("<none>"));
-	for (unsigned int i = 0; i < database.classes.size(); i++)
-		ui->comboProfession->addItem(database.classes[i].name.c_str());
 	for (unsigned int i = 0; i < database.attributes.size(); i++)
 		ui->listAttributeRanks->addItem(database.attributes[i].name.c_str());
 	for (unsigned int i = 0; i < database.states.size(); i++)
@@ -203,17 +267,34 @@ void ActorWidget::on_comboBattleset_currentIndexChanged(int index)
 }
 
 void ActorWidget::ResetExpText(lcf::rpg::Actor* actor) {
-	int base = 0;
-	int inflation = 0;
-	int correction = 0;
-	if (actor != nullptr) {
-		base = actor->exp_base;
-		inflation = actor->exp_inflation;
-		correction = actor->exp_correction;
+	ui->labelExpCurve->setText(ExperienceDialog::summary(m_project, actor->exp_base, actor->exp_inflation,
+		actor->exp_correction));
+}
+
+void ActorWidget::fillClasses() {
+	// The class page can rename or add classes: list them again
+	SignalBlocker blocker(ui->comboProfession);
+	ui->comboProfession->clear();
+	ui->comboProfession->addItem(tr("<none>"), 0);
+	for (const auto& cls : m_project.database().classes) {
+		ui->comboProfession->addItem(QString("%1: %2").arg(cls.ID, 4, 10, QChar('0')).arg(ToQString(cls.name)), cls.ID);
 	}
-	ui->labelExpCurve->setText(QString(tr(
-		"Initial = %1; Increment = %2; Correction = %3"
-		)).arg(base).arg(inflation).arg(correction));
+	const int id = m_current->class_id;
+	if (ui->comboProfession->findData(id) < 0) {
+		ui->comboProfession->addItem(tr("<%1?>").arg(id), id);
+	}
+}
+
+ClassEditors::CommandCombos ActorWidget::commandCombos() const {
+	return {ui->comboBattleCommand1, ui->comboBattleCommand2, ui->comboBattleCommand3,
+		ui->comboBattleCommand4, ui->comboBattleCommand5, ui->comboBattleCommand6};
+}
+
+void ActorWidget::editCurves(int tab) {
+	const bool is2k3 = m_project.database().system.ldb_id == 2003;
+	if (ClassEditors::editParameters(this, m_current->parameters, is2k3 ? 99 : 50, is2k3 ? 9999 : 999, tab)) {
+		on_currentActorChanged(m_current);
+	}
 }
 
 void ActorWidget::on_currentActorChanged(lcf::rpg::Actor *actor)
@@ -259,22 +340,11 @@ void ActorWidget::on_currentActorChanged(lcf::rpg::Actor *actor)
 
 	ui->comboBattleset->setCurrentIndex(actor->battler_animation);
 
-	ui->comboProfession->setCurrentIndex(actor->class_id);
-	ui->tableSkills->setRowCount(0);
-	for (int i = 0; i < static_cast<int>(actor->skills.size()); i++){
-		ui->tableSkills->insertRow(i);
-		ui->tableSkills->setItem(i,0,new QTableWidgetItem());
-		ui->tableSkills->setItem(i,1,new QTableWidgetItem());
-		ui->tableSkills->item(i, 0)->setText(QString::number(actor->skills[static_cast<size_t>(i)].level));
-		// TODO: move getSkillName to Core
-		QString name = QString("<%1?>").arg(actor->skills[static_cast<size_t>(i)].skill_id);
-		const int skill_id = actor->skills[static_cast<size_t>(i)].skill_id;
-		if (skill_id > 0 && skill_id <= static_cast<int>(database.skills.size()))
-			name = database.skills[static_cast<size_t>(actor->skills[static_cast<size_t>(i)].skill_id)-1].name.c_str();
-		// TODO/
-		ui->tableSkills->item(i, 1)->setText(name);
-	}
-	ui->tableSkills->insertRow(static_cast<int>(actor->skills.size()));
+	fillClasses();
+	LcfWidgetBinding::bind(ui->comboProfession, actor->class_id);
+	ui->pushApplyProfession->setEnabled(actor->class_id > 0);
+	ClassEditors::fillBattleCommands(commandCombos(), actor->battle_commands, m_project);
+	ClassEditors::fillSkills(ui->tableSkills, actor->skills, m_project);
 	for (int i = 0; i < ui->listAttributeRanks->count(); i++)
 	{
 		if (i >= static_cast<int>(actor->attribute_ranks.size()))
@@ -313,32 +383,91 @@ void ActorWidget::on_currentActorChanged(lcf::rpg::Actor *actor)
 
 void ActorWidget::on_pushApplyProfession_clicked()
 {
-	if (!m_current)
+	const auto& classes = m_project.database().classes;
+	const int id = ui->comboProfession->currentData().toInt();
+	if (m_current == &dummy || id < 1 || id > static_cast<int>(classes.size())) {
 		return;
+	}
 
-	const lcf::rpg::Class &n_class = m_project.database().classes[static_cast<size_t>(ui->comboProfession->currentIndex())];
-	/* Disconnect widgets */
-	lcf::rpg::Actor *actor = m_current;
-	m_current = nullptr;
-	/* /Disconnect widgets */
-	actor->class_id = ui->comboProfession->currentIndex();
-	actor->attribute_ranks = n_class.attribute_ranks;
-	actor->auto_battle = n_class.auto_battle;
-	actor->battle_commands = n_class.battle_commands;
-	actor->exp_base = n_class.exp_base;
-	actor->exp_correction = n_class.exp_correction;
-	actor->exp_inflation = n_class.exp_inflation;
-	actor->lock_equipment = n_class.lock_equipment;
-	actor->parameters = n_class.parameters;
-	actor->skills = n_class.skills;
-	actor->state_ranks = n_class.state_ranks;
-	actor->super_guard = n_class.super_guard;
-	actor->two_weapon = n_class.two_weapon;
-	actor->battler_animation = n_class.battler_animation;
-	/* /TODO */
+	// What RPG Maker's help says Apply copies: the basic statistics, the
+	// experience curve, the skills, the resistances and the battle commands
+	const lcf::rpg::Class& cls = classes[static_cast<size_t>(id) - 1];
+	m_current->class_id = id;
+	m_current->parameters = cls.parameters;
+	m_current->exp_base = cls.exp_base;
+	m_current->exp_inflation = cls.exp_inflation;
+	m_current->exp_correction = cls.exp_correction;
+	m_current->skills = cls.skills;
+	m_current->state_ranks = cls.state_ranks;
+	m_current->attribute_ranks = cls.attribute_ranks;
+	m_current->battle_commands = cls.battle_commands;
 
-	/* ConnectWidgets */
-	on_currentActorChanged(actor);
+	on_currentActorChanged(m_current);
+}
+
+void ActorWidget::editEasyRpgProperties()
+{
+	// Settings of the actor that only EasyRPG Player reads (liblcf's
+	// easyrpg_* fields of the hero), shown as checkboxes and numbers
+	auto& actor = *m_current;
+	QDialog dialog(this);
+	dialog.setWindowTitle(tr("EasyRPG Properties"));
+	auto* layout = new QVBoxLayout(&dialog);
+	auto* info = new QLabel(tr("EasyRPG Player reads these settings; RPG Maker ignores them."), &dialog);
+	info->setWordWrap(true);
+	layout->addWidget(info);
+
+	struct Flag {
+		QString text;
+		const char* name;
+		bool& value;
+		QCheckBox* check = nullptr;
+	};
+	std::array<Flag, 6> flags = {{
+		{tr("Prevent critical hits"), "checkPreventCritical", actor.easyrpg_prevent_critical},
+		{tr("Raise evasion"), "checkRaiseEvasion", actor.easyrpg_raise_evasion},
+		{tr("Immune to attribute reductions"), "checkImmuneAttributeDownshifts", actor.easyrpg_immune_to_attribute_downshifts},
+		{tr("Ignore evasion"), "checkIgnoreEvasion", actor.easyrpg_ignore_evasion},
+		{tr("Attack twice"), "checkDualAttack", actor.easyrpg_dual_attack},
+		{tr("Attack all enemies"), "checkAttackAll", actor.easyrpg_attack_all},
+	}};
+	auto* defense = new QGroupBox(tr("Defense"), &dialog);
+	auto* defense_layout = new QVBoxLayout(defense);
+	auto* unarmed = new QGroupBox(tr("Unarmed Attacks"), &dialog);
+	auto* unarmed_layout = new QFormLayout(unarmed);
+	for (size_t i = 0; i < flags.size(); ++i) {
+		auto& flag = flags[i];
+		flag.check = new QCheckBox(flag.text, &dialog);
+		flag.check->setObjectName(QString::fromLatin1(flag.name));
+		flag.check->setChecked(flag.value);
+		if (i < 3) {
+			defense_layout->addWidget(flag.check);
+		} else {
+			unarmed_layout->addRow(flag.check);
+		}
+	}
+	auto* hit = new QSpinBox(unarmed);
+	hit->setObjectName(QStringLiteral("spinUnarmedHit"));
+	// -1: the hit rate of RPG Maker, 90%
+	hit->setRange(-1, 100);
+	hit->setSuffix(tr("%"));
+	hit->setSpecialValueText(tr("Default (90%)"));
+	hit->setValue(actor.easyrpg_unarmed_hit);
+	unarmed_layout->addRow(tr("Hit rate"), hit);
+	layout->addWidget(defense);
+	layout->addWidget(unarmed);
+
+	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+	layout->addWidget(buttons);
+	connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+	connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+	if (dialog.exec() != QDialog::Accepted) {
+		return;
+	}
+	for (auto& flag : flags) {
+		flag.value = flag.check->isChecked();
+	}
+	actor.easyrpg_unarmed_hit = hit->value();
 }
 
 void ActorWidget::on_listStatusRanks_clicked() {

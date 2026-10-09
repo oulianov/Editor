@@ -16,6 +16,7 @@
  */
 
 #include "battle_animation_widget.h"
+#include "animation_tools.h"
 #include "defines.h"
 #include "common/dbstring.h"
 #include "common/image_loader.h"
@@ -23,8 +24,11 @@
 #include "model/project_data.h"
 #include "ui/common/rpg_audio_lineedit.h"
 #include "ui/picker/picker_dialog.h"
+#include <QAction>
 #include <QButtonGroup>
+#include <QCheckBox>
 #include <QComboBox>
+#include <QContextMenuEvent>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -37,6 +41,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
@@ -50,6 +55,7 @@
 #include <QResizeEvent>
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace {
 // the battle screen
@@ -59,6 +65,22 @@ constexpr int screen_height = 240;
 constexpr int pattern_columns = 5;
 // size of the patterns in the list under the preview
 constexpr int thumb = 48;
+// the step of Use Grid
+constexpr int grid_step = 8;
+
+// what Cut and Copy keep, from one animation to another
+std::optional<lcf::rpg::AnimationCellData> cell_clipboard;
+std::optional<std::vector<lcf::rpg::AnimationCellData>> frame_clipboard;
+std::optional<lcf::rpg::AnimationTiming> timing_clipboard;
+
+/** An action of a widget, its shortcut working while the widget has the focus */
+QAction* widgetAction(QWidget* widget, const QString& text, const QList<QKeySequence>& keys) {
+	auto* action = new QAction(text, widget);
+	action->setShortcuts(keys);
+	action->setShortcutContext(Qt::WidgetShortcut);
+	widget->addAction(action);
+	return action;
+}
 
 /** IDs are written to the file: they follow the positions */
 template <class T>
@@ -97,6 +119,9 @@ QPixmap BattleAnimationWidget::loadGraphic(const ProjectData& project, const QSt
 		return QPixmap();
 	}
 	const QString path = project.project().findFile(dir, name, FileFinder::FileType::Image);
+	if (path.isEmpty()) {
+		return QPixmap(); // not in the game nor the RTP
+	}
 	QImage image(path);
 	if (image.isNull()) {
 		// XYZ pictures: the loader keeps no palette
@@ -123,9 +148,15 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 	m_file->setReadOnly(true);
 	auto* pick = new QToolButton(this);
 	pick->setText(QStringLiteral("..."));
+	// RPG Maker 2003 picks it in the Large Animations tab of its file chooser
+	m_large = new QCheckBox(tr("Large"), this);
+	m_large->setObjectName(QStringLiteral("checkLarge"));
+	m_large->setToolTip(tr("A large animation: cels of 128x128 pixels, from the Battle2 folder (RPG Maker 2003)"));
+	m_large->setEnabled(m_rpg2k3);
 	auto* file_row = new QHBoxLayout();
 	file_row->addWidget(m_file, 1);
 	file_row->addWidget(pick);
+	file_row->addWidget(m_large);
 	m_scope = new QComboBox(this);
 	m_scope->addItem(tr("Local"), static_cast<int>(lcf::rpg::Animation::Scope_target));
 	m_scope->addItem(tr("Global"), static_cast<int>(lcf::rpg::Animation::Scope_screen));
@@ -175,9 +206,18 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 	m_frameCount = new QPushButton(tr("Number of Frames..."), frames_box);
 	m_clone = new QPushButton(tr("Clone Previous"), frames_box);
 	m_clone->setToolTip(tr("Replaces the cels of this frame by the ones of the previous frame"));
+	auto* mass_copy = new QPushButton(tr("Mass Copy/Clear..."), frames_box);
+	mass_copy->setToolTip(tr("Copies the cels of a range of frames to other frames, or removes them"));
+	auto* autocomplete = new QPushButton(tr("Autocomplete..."), frames_box);
+	autocomplete->setToolTip(tr("Places the cels between two frames, moving from the first frame to the last"));
+	auto* mass_modify = new QPushButton(tr("Mass Modify..."), frames_box);
+	mass_modify->setToolTip(tr("Gives a pattern, zoom, transparency or color to cels of a range of frames"));
 	frames_layout->addWidget(m_frames, 1);
 	frames_layout->addWidget(m_frameCount);
 	frames_layout->addWidget(m_clone);
+	frames_layout->addWidget(mass_copy);
+	frames_layout->addWidget(autocomplete);
+	frames_layout->addWidget(mass_modify);
 	frames_box->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
 	middle->addWidget(frames_box);
 
@@ -186,6 +226,9 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 	m_scene = new QGraphicsScene(this);
 	m_scene->setSceneRect(0, 0, screen_width, screen_height);
 	m_view = new QGraphicsView(m_scene, this);
+	m_view->setObjectName(QStringLiteral("viewAnimation"));
+	// the keys of the cel menu and the arrows act on the preview
+	m_view->setFocusPolicy(Qt::StrongFocus);
 	m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	m_view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	m_view->viewport()->installEventFilter(this);
@@ -194,11 +237,16 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 	m_back = new QPushButton(tr("&Back"), this);
 	m_next = new QPushButton(tr("&Next"), this);
 	m_frameLabel = new QLabel(this);
+	m_frameLabel->setObjectName(QStringLiteral("labelFrame"));
 	m_frameLabel->setAlignment(Qt::AlignCenter);
 	m_play = new QPushButton(tr("Play"), this);
+	m_grid = new QCheckBox(tr("Use Grid"), this);
+	m_grid->setObjectName(QStringLiteral("checkGrid"));
+	m_grid->setToolTip(tr("Cels are placed and moved by steps of %1 pixels").arg(grid_step));
 	nav->addWidget(m_back);
 	nav->addWidget(m_frameLabel, 1);
 	nav->addWidget(m_next);
+	nav->addWidget(m_grid);
 	nav->addWidget(m_play);
 	center->addLayout(nav);
 	m_patternScene = new QGraphicsScene(this);
@@ -211,7 +259,8 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 	m_patternView->setFixedHeight(thumb + m_patternView->horizontalScrollBar()->sizeHint().height() + 2 * m_patternView->frameWidth());
 	m_patternView->viewport()->installEventFilter(this);
 	center->addWidget(m_patternView);
-	auto* hint = new QLabel(tr("Click the preview to place a cel of the selected pattern, drag a cel to move it."), this);
+	auto* hint = new QLabel(tr("Click the preview to place a cel of the selected pattern, drag a cel to move it "
+		"(with Shift: all the cels), right-click it for its menu. The arrow keys move it."), this);
 	hint->setWordWrap(true);
 	hint->setForegroundRole(QPalette::PlaceholderText);
 	center->addWidget(hint);
@@ -244,6 +293,12 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 	m_cellGreen = spin(0, 200, percent);
 	m_cellBlue = spin(0, 200, percent);
 	m_cellSaturation = spin(0, 200, percent);
+	// named for scripts
+	m_cellPattern->setObjectName(QStringLiteral("spinCelPattern"));
+	m_cellX->setObjectName(QStringLiteral("spinCelX"));
+	m_cellY->setObjectName(QStringLiteral("spinCelY"));
+	m_cellZoom->setObjectName(QStringLiteral("spinCelZoom"));
+	m_cellTransparency->setObjectName(QStringLiteral("spinCelTransparency"));
 	const std::vector<std::pair<QString, QSpinBox*>> fields = {
 		{tr("Pattern"), m_cellPattern}, {tr("Zoom"), m_cellZoom},
 		{tr("X"), m_cellX}, {tr("Y"), m_cellY},
@@ -319,7 +374,7 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 		if (!m_anim) return;
 		bool ok = false;
 		const int count = QInputDialog::getInt(this, tr("Number of Frames"), tr("Frames"),
-			static_cast<int>(m_anim->frames.size()), 1, 999, 1, &ok);
+			static_cast<int>(m_anim->frames.size()), 1, AnimationTools::kMaxFrames, 1, &ok);
 		if (ok) resizeFrames(count);
 	});
 	connect(m_clone, &QPushButton::clicked, this, [this] {
@@ -385,12 +440,156 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 		m_editTiming->setEnabled(item != nullptr);
 		m_deleteTiming->setEnabled(item != nullptr);
 	});
-	connect(m_deleteTiming, &QPushButton::clicked, this, [this] {
-		const int index = m_timings->indexOfTopLevelItem(m_timings->currentItem());
-		if (!m_anim || index < 0) return;
-		m_anim->timings.erase(m_anim->timings.begin() + index);
-		renumber(m_anim->timings);
-		refreshTimings(index);
+	connect(m_deleteTiming, &QPushButton::clicked, this, &BattleAnimationWidget::deleteTiming);
+
+	connect(m_large, &QCheckBox::toggled, this, [this](bool large) {
+		if (!m_anim || m_anim->large == large) return;
+		m_anim->large = large;
+		// the same file name, looked for in the other folder
+		loadAnimationGraphic();
+		redrawPatterns();
+		redraw();
+	});
+	connect(m_grid, &QCheckBox::toggled, this, [this](bool on) {
+		m_cellX->setSingleStep(on ? grid_step : 1);
+		m_cellY->setSingleStep(on ? grid_step : 1);
+	});
+	connect(mass_copy, &QPushButton::clicked, this, [this] {
+		if (m_anim && AnimationTools::massCopyClear(this, *m_anim, std::max(0, m_frames->currentRow()))) framesEdited();
+	});
+	connect(autocomplete, &QPushButton::clicked, this, [this] {
+		if (m_anim && AnimationTools::autocomplete(this, *m_anim, std::max(0, m_frames->currentRow()))) framesEdited();
+	});
+	connect(mass_modify, &QPushButton::clicked, this, [this] {
+		// without the graphic, any pattern
+		const int patterns = patternCount() > 0 ? patternCount() : m_cellPattern->maximum();
+		if (m_anim && AnimationTools::massModify(this, *m_anim, std::max(0, m_frames->currentRow()), patterns)) framesEdited();
+	});
+
+	// the cel menu of RPG Maker, on the preview
+	m_cellMenu = new QMenu(this);
+	auto* cel_properties = m_cellMenu->addAction(tr("Cel Properties"));
+	connect(cel_properties, &QAction::triggered, this, [this] {
+		m_cellPattern->setFocus(Qt::OtherFocusReason);
+		m_cellPattern->selectAll();
+	});
+	m_cellMenu->addSeparator();
+	auto* cel_cut = widgetAction(m_view, tr("Cut"), {QKeySequence::Cut});
+	auto* cel_copy = widgetAction(m_view, tr("Copy"), {QKeySequence::Copy});
+	auto* cel_paste = widgetAction(m_view, tr("Paste"), {QKeySequence::Paste});
+	auto* cel_delete = widgetAction(m_view, tr("Delete"), {QKeySequence::Delete});
+	auto* cel_up = widgetAction(m_view, tr("Increment Image ID"), {QKeySequence(Qt::Key_Plus), QKeySequence(Qt::Key_PageUp)});
+	auto* cel_down = widgetAction(m_view, tr("Decrement Image ID"), {QKeySequence(Qt::Key_Minus), QKeySequence(Qt::Key_PageDown)});
+	m_cellMenu->addActions({cel_cut, cel_copy, cel_paste, cel_delete});
+	m_cellMenu->addSeparator();
+	m_cellMenu->addActions({cel_up, cel_down});
+	auto copy_cell = [this] {
+		auto* cell = currentCell();
+		if (cell && cell->valid) cell_clipboard = *cell;
+	};
+	connect(cel_cut, &QAction::triggered, this, [this, copy_cell] {
+		copy_cell();
+		deleteCell();
+	});
+	connect(cel_copy, &QAction::triggered, this, copy_cell);
+	connect(cel_paste, &QAction::triggered, this, [this] {
+		if (cell_clipboard && !m_playTimer->isActive()) addCell(*cell_clipboard);
+	});
+	connect(cel_delete, &QAction::triggered, this, &BattleAnimationWidget::deleteCell);
+	connect(cel_up, &QAction::triggered, this, [this] { changePattern(1); });
+	connect(cel_down, &QAction::triggered, this, [this] { changePattern(-1); });
+	connect(m_cellMenu, &QMenu::aboutToShow, this, [this, cel_properties, cel_cut, cel_copy, cel_delete, cel_up, cel_down, cel_paste] {
+		auto* cell = currentCell();
+		const bool on_cell = cell && cell->valid;
+		for (auto* action : {cel_properties, cel_cut, cel_copy, cel_delete, cel_up, cel_down}) {
+			action->setEnabled(on_cell);
+		}
+		cel_paste->setEnabled(cell_clipboard.has_value() && currentFrame());
+	});
+	// the shortcuts work whatever the menu showed
+	connect(m_cellMenu, &QMenu::aboutToHide, this, [this] {
+		for (auto* action : m_cellMenu->actions()) action->setEnabled(true);
+	});
+	// the arrows move the cel by a pixel (a step of the grid), with Shift all the cels
+	const std::pair<Qt::Key, QPoint> arrows[] = {
+		{Qt::Key_Left, QPoint(-1, 0)}, {Qt::Key_Right, QPoint(1, 0)}, {Qt::Key_Up, QPoint(0, -1)}, {Qt::Key_Down, QPoint(0, 1)},
+	};
+	for (const auto& [key, direction] : arrows) {
+		for (bool all : {false, true}) {
+			auto* move = widgetAction(m_view, QString(), {QKeySequence(all ? (Qt::ShiftModifier | key) : QKeyCombination(key))});
+			connect(move, &QAction::triggered, this, [this, direction, all] {
+				const int step = m_grid->isChecked() ? grid_step : 1;
+				moveCells(direction.x() * step, direction.y() * step, all);
+			});
+		}
+	}
+
+	// the frame menu of RPG Maker
+	m_frames->setContextMenuPolicy(Qt::CustomContextMenu);
+	auto* frame_menu = new QMenu(this);
+	auto* frame_copy = widgetAction(m_frames, tr("Copy"), {QKeySequence::Copy});
+	auto* frame_paste = widgetAction(m_frames, tr("Paste"), {QKeySequence::Paste});
+	auto* frame_clear = widgetAction(m_frames, tr("Clear"), {QKeySequence::Delete});
+	auto* frame_cut = widgetAction(m_frames, tr("Cut"), {QKeySequence::Cut});
+	auto* frame_insert = widgetAction(m_frames, tr("Insert"), {QKeySequence(Qt::Key_Insert)});
+	auto* frame_delete = widgetAction(m_frames, tr("Delete"), {QKeySequence(Qt::ShiftModifier | Qt::Key_Delete)});
+	frame_menu->addActions({frame_copy, frame_paste, frame_clear, frame_cut, frame_insert, frame_delete});
+	connect(frame_copy, &QAction::triggered, this, [this] {
+		if (auto* frame = currentFrame()) frame_clipboard = frame->cells;
+	});
+	connect(frame_paste, &QAction::triggered, this, [this] {
+		auto* frame = currentFrame();
+		if (!frame || !frame_clipboard) return;
+		frame->cells = *frame_clipboard;
+		framesEdited();
+	});
+	connect(frame_clear, &QAction::triggered, this, [this] {
+		auto* frame = currentFrame();
+		if (!frame) return;
+		frame->cells.clear();
+		framesEdited();
+	});
+	connect(frame_cut, &QAction::triggered, this, [frame_copy, frame_clear] {
+		frame_copy->trigger();
+		frame_clear->trigger();
+	});
+	connect(frame_insert, &QAction::triggered, this, &BattleAnimationWidget::insertFrame);
+	connect(frame_delete, &QAction::triggered, this, &BattleAnimationWidget::deleteFrame);
+	connect(m_frames, &QWidget::customContextMenuRequested, this, [this, frame_menu, frame_paste, frame_insert, frame_delete](const QPoint& pos) {
+		const int count = m_anim ? static_cast<int>(m_anim->frames.size()) : 0;
+		frame_paste->setEnabled(frame_clipboard.has_value());
+		frame_insert->setEnabled(count < AnimationTools::kMaxFrames);
+		frame_delete->setEnabled(count > 1);
+		frame_menu->exec(m_frames->viewport()->mapToGlobal(pos));
+		for (auto* action : frame_menu->actions()) action->setEnabled(true);
+	});
+
+	// the effect timing menu of RPG Maker
+	m_timings->setContextMenuPolicy(Qt::CustomContextMenu);
+	auto* timing_menu = new QMenu(this);
+	auto* timing_edit = widgetAction(m_timings, tr("Edit..."), {QKeySequence(Qt::Key_Return)});
+	auto* timing_cut = widgetAction(m_timings, tr("Cut"), {QKeySequence::Cut});
+	auto* timing_copy = widgetAction(m_timings, tr("Copy"), {QKeySequence::Copy});
+	auto* timing_paste = widgetAction(m_timings, tr("Paste"), {QKeySequence::Paste});
+	auto* timing_delete = widgetAction(m_timings, tr("Delete"), {QKeySequence::Delete});
+	timing_menu->addActions({timing_edit, timing_cut, timing_copy, timing_paste, timing_delete});
+	connect(timing_edit, &QAction::triggered, this, [this] { editTiming(currentTiming()); });
+	connect(timing_copy, &QAction::triggered, this, [this] {
+		const int index = currentTiming();
+		if (m_anim && index >= 0) timing_clipboard = m_anim->timings[index];
+	});
+	connect(timing_cut, &QAction::triggered, this, [this, timing_copy] {
+		timing_copy->trigger();
+		deleteTiming();
+	});
+	connect(timing_paste, &QAction::triggered, this, &BattleAnimationWidget::pasteTiming);
+	connect(timing_delete, &QAction::triggered, this, &BattleAnimationWidget::deleteTiming);
+	connect(m_timings, &QWidget::customContextMenuRequested, this, [this, timing_menu, timing_cut, timing_copy, timing_paste, timing_delete](const QPoint& pos) {
+		const bool on_timing = currentTiming() >= 0;
+		for (auto* action : {timing_cut, timing_copy, timing_delete}) action->setEnabled(on_timing);
+		timing_paste->setEnabled(timing_clipboard.has_value());
+		timing_menu->exec(m_timings->viewport()->mapToGlobal(pos));
+		for (auto* action : timing_menu->actions()) action->setEnabled(true);
 	});
 
 	loadTarget();
@@ -410,8 +609,10 @@ void BattleAnimationWidget::setData(lcf::rpg::Animation* anim) {
 	{
 		const QSignalBlocker block_scope(m_scope);
 		const QSignalBlocker block_position(m_position);
+		const QSignalBlocker block_large(m_large);
 		m_scope->setCurrentIndex(anim ? m_scope->findData(anim->scope) : -1);
 		m_position->setCurrentIndex(anim ? m_position->findData(anim->position) : -1);
+		m_large->setChecked(anim && anim->large);
 	}
 	loadAnimationGraphic();
 	refreshFrames(0);
@@ -590,6 +791,131 @@ void BattleAnimationWidget::deleteCell() {
 	redraw();
 }
 
+void BattleAnimationWidget::addCell(const lcf::rpg::AnimationCellData& data) {
+	auto* frame = currentFrame();
+	if (!frame) return;
+	auto& cells = frame->cells;
+	size_t slot = 0;
+	while (slot < cells.size() && cells[slot].valid) {
+		++slot;
+	}
+	if (slot == cells.size()) {
+		cells.emplace_back();
+	}
+	cells[slot] = data;
+	cells[slot].ID = static_cast<int>(slot) + 1;
+	cells[slot].valid = 1;
+	refreshCells(static_cast<int>(slot));
+	redraw();
+}
+
+void BattleAnimationWidget::changePattern(int step) {
+	auto* cell = currentCell();
+	if (!cell || !cell->valid) return;
+	const int last = patternCount() > 0 ? patternCount() : m_cellPattern->maximum();
+	// through the field: it updates the list, the patterns and the preview
+	m_cellPattern->setValue(std::clamp(cell->cell_id + 1 + step, 1, last));
+}
+
+void BattleAnimationWidget::moveCells(int dx, int dy, bool all) {
+	auto* frame = currentFrame();
+	auto* current = currentCell();
+	if (!frame || m_playTimer->isActive() || (!all && (!current || !current->valid))) return;
+	// with the grid, to its next line in the direction of the move
+	auto step = [this](int value, int delta) {
+		if (!m_grid->isChecked() || delta == 0) return value + delta;
+		const double target = double(value + delta) / grid_step;
+		return static_cast<int>(delta > 0 ? std::floor(target) : std::ceil(target)) * grid_step;
+	};
+	for (auto& cell : frame->cells) {
+		if (cell.valid && (all || &cell == current)) {
+			cell.x = step(cell.x, dx);
+			cell.y = step(cell.y, dy);
+		}
+	}
+	refreshCellFields();
+	redraw();
+}
+
+int BattleAnimationWidget::cellAt(const QPointF& pos, bool behind) const {
+	const int row = m_frames->currentRow();
+	if (!m_anim || row < 0 || row >= static_cast<int>(m_anim->frames.size())) {
+		return -1;
+	}
+	// the cels under the point, the last drawn (on top) first
+	const auto& cells = m_anim->frames[row].cells;
+	std::vector<int> hits;
+	for (int i = static_cast<int>(cells.size()) - 1; i >= 0; --i) {
+		if (cells[i].valid && cellRect(cells[i]).contains(pos)) hits.push_back(i);
+	}
+	if (hits.empty()) {
+		return -1;
+	}
+	auto current = std::find(hits.begin(), hits.end(), m_cell->currentIndex());
+	if (behind && current != hits.end()) {
+		++current;
+		return current == hits.end() ? hits.front() : *current;
+	}
+	return hits.front();
+}
+
+int BattleAnimationWidget::snap(double value) const {
+	if (m_grid->isChecked()) {
+		return static_cast<int>(std::lround(value / grid_step)) * grid_step;
+	}
+	return static_cast<int>(std::lround(value));
+}
+
+void BattleAnimationWidget::insertFrame() {
+	if (!m_anim || static_cast<int>(m_anim->frames.size()) >= AnimationTools::kMaxFrames) return;
+	const int row = std::max(0, m_frames->currentRow());
+	m_anim->frames.insert(m_anim->frames.begin() + row, lcf::rpg::AnimationFrame());
+	renumber(m_anim->frames);
+	// the effects stay on their frames, now one further
+	for (auto& timing : m_anim->timings) {
+		if (timing.frame > row) ++timing.frame;
+	}
+	refreshFrames(row);
+	refreshTimings(currentTiming());
+}
+
+void BattleAnimationWidget::deleteFrame() {
+	const int row = m_frames->currentRow();
+	if (!m_anim || m_anim->frames.size() <= 1 || row < 0) return;
+	m_anim->frames.erase(m_anim->frames.begin() + row);
+	renumber(m_anim->frames);
+	// the effects of the next frames stay on them
+	for (auto& timing : m_anim->timings) {
+		if (timing.frame > row + 1) --timing.frame;
+	}
+	refreshFrames(row);
+	refreshTimings(currentTiming());
+}
+
+void BattleAnimationWidget::framesEdited() {
+	refreshFrames(m_frames->currentRow());
+}
+
+int BattleAnimationWidget::currentTiming() const {
+	return m_timings->indexOfTopLevelItem(m_timings->currentItem());
+}
+
+void BattleAnimationWidget::pasteTiming() {
+	if (!m_anim || !timing_clipboard) return;
+	auto timing = *timing_clipboard;
+	// on the frame shown, like a new effect
+	timing.frame = std::max(1, m_frames->currentRow() + 1);
+	putTiming(timing, -1);
+}
+
+void BattleAnimationWidget::deleteTiming() {
+	const int index = currentTiming();
+	if (!m_anim || index < 0) return;
+	m_anim->timings.erase(m_anim->timings.begin() + index);
+	renumber(m_anim->timings);
+	refreshTimings(index);
+}
+
 void BattleAnimationWidget::refreshTimings(int select) {
 	const QSignalBlocker block(m_timings);
 	m_timings->clear();
@@ -628,19 +954,28 @@ void BattleAnimationWidget::editTiming(int index) {
 		index = -1;
 		timing.frame = std::max(1, m_frames->currentRow() + 1);
 	}
-	if (!timingDialog(timing)) return;
+	if (timingDialog(timing)) {
+		putTiming(timing, index);
+	}
+}
+
+void BattleAnimationWidget::putTiming(const lcf::rpg::AnimationTiming& timing, int index) {
+	auto& timings = m_anim->timings;
 	if (index < 0) {
 		timings.push_back(timing);
+		index = static_cast<int>(timings.size()) - 1;
 	} else {
 		timings[index] = timing;
 	}
+	// marked to be selected again once sorted (the IDs are renumbered)
+	timings[index].ID = -1;
 	// listed by frame, like RPG Maker does
 	std::stable_sort(timings.begin(), timings.end(), [](const auto& a, const auto& b) { return a.frame < b.frame; });
-	renumber(timings);
 	int select = 0;
 	for (size_t i = 0; i < timings.size(); ++i) {
-		if (timings[i] == timing) select = static_cast<int>(i);
+		if (timings[i].ID == -1) select = static_cast<int>(i);
 	}
+	renumber(timings);
 	refreshTimings(select);
 }
 
@@ -831,14 +1166,34 @@ bool BattleAnimationWidget::eventFilter(QObject* watched, QEvent* event) {
 		scale = scale >= 1.0 ? std::floor(scale) : std::max(scale, 0.1);
 		m_view->setTransform(QTransform::fromScale(scale, scale));
 	}
-	if (type != QEvent::MouseButtonPress && type != QEvent::MouseMove && type != QEvent::MouseButtonRelease) {
+	if (type == QEvent::ContextMenu && watched == m_view->viewport()) {
+		// the menu of the cel under the mouse
+		const auto* menu = static_cast<QContextMenuEvent*>(event);
+		const int index = cellAt(m_view->mapToScene(menu->pos()), false);
+		if (index >= 0 && !m_playTimer->isActive()) {
+			m_cell->setCurrentIndex(index);
+		}
+		m_view->setFocus(Qt::MouseFocusReason);
+		m_cellMenu->exec(menu->globalPos());
+		return true;
+	}
+	if (type != QEvent::MouseButtonPress && type != QEvent::MouseMove && type != QEvent::MouseButtonRelease
+		&& type != QEvent::MouseButtonDblClick) {
 		return QWidget::eventFilter(watched, event);
 	}
 	auto* mouse = static_cast<QMouseEvent*>(event);
 	if (watched == m_view->viewport()) {
 		const QPointF pos = m_view->mapToScene(mouse->position().toPoint());
 		if (type == QEvent::MouseButtonPress && mouse->button() == Qt::LeftButton) {
-			canvasPressed(pos);
+			canvasPressed(pos, mouse->modifiers());
+			return true;
+		}
+		if (type == QEvent::MouseButtonDblClick && mouse->button() == Qt::LeftButton) {
+			// RPG Maker opens the cel properties: here the fields beside
+			if (cellAt(pos, false) >= 0) {
+				m_cellPattern->setFocus(Qt::MouseFocusReason);
+				m_cellPattern->selectAll();
+			}
 			return true;
 		}
 		if (type == QEvent::MouseMove && m_dragging) {
@@ -855,48 +1210,53 @@ bool BattleAnimationWidget::eventFilter(QObject* watched, QEvent* event) {
 	return QWidget::eventFilter(watched, event);
 }
 
-void BattleAnimationWidget::canvasPressed(const QPointF& pos) {
+void BattleAnimationWidget::canvasPressed(const QPointF& pos, Qt::KeyboardModifiers modifiers) {
 	auto* frame = currentFrame();
+	m_view->setFocus(Qt::MouseFocusReason);
 	if (!frame || m_playTimer->isActive()) return;
-	auto& cells = frame->cells;
 	const QPointF o = origin();
 
-	// the cel under the mouse (the last drawn is on top) is selected and dragged
-	for (int i = static_cast<int>(cells.size()) - 1; i >= 0; --i) {
-		if (cells[i].valid && cellRect(cells[i]).contains(pos)) {
-			m_cell->setCurrentIndex(i);
-			m_dragOffset = pos - (o + QPointF(cells[i].x, cells[i].y));
-			m_dragging = true;
-			return;
-		}
+	// the cel under the mouse is selected and dragged; with Ctrl the one
+	// behind the selected cel, with Shift all the cels move
+	const int index = cellAt(pos, modifiers & Qt::ControlModifier);
+	if (index >= 0) {
+		const auto& cell = frame->cells[index];
+		m_cell->setCurrentIndex(index);
+		m_dragOffset = pos - (o + QPointF(cell.x, cell.y));
+		m_dragging = true;
+		m_dragAll = modifiers & Qt::ShiftModifier;
+		m_dragStart = pos;
+		m_dragCells = frame->cells;
+		return;
 	}
 
-	// elsewhere a new cel of the selected pattern, in the first unused slot
-	size_t slot = 0;
-	while (slot < cells.size() && cells[slot].valid) {
-		++slot;
-	}
-	if (slot == cells.size()) {
-		cells.emplace_back();
-	}
-	auto& cell = cells[slot];
-	cell = lcf::rpg::AnimationCellData();
-	cell.ID = static_cast<int>(slot) + 1;
+	// elsewhere a new cel of the selected pattern
+	lcf::rpg::AnimationCellData cell;
 	cell.cell_id = m_pattern;
-	cell.x = qRound(pos.x() - o.x());
-	cell.y = qRound(pos.y() - o.y());
-	refreshCells(static_cast<int>(slot));
-	redraw();
+	cell.x = snap(pos.x() - o.x());
+	cell.y = snap(pos.y() - o.y());
+	addCell(cell);
 	m_dragOffset = QPointF();
 	m_dragging = true;
+	m_dragAll = false;
 }
 
 void BattleAnimationWidget::canvasDragged(const QPointF& pos) {
+	auto* frame = currentFrame();
 	auto* cell = currentCell();
-	if (!cell || !cell->valid) return;
-	const QPointF moved = pos - origin() - m_dragOffset;
-	cell->x = qRound(moved.x());
-	cell->y = qRound(moved.y());
+	if (!frame || !cell || !cell->valid) return;
+	if (m_dragAll && m_dragCells.size() == frame->cells.size()) {
+		const int dx = snap(pos.x() - m_dragStart.x());
+		const int dy = snap(pos.y() - m_dragStart.y());
+		for (size_t i = 0; i < m_dragCells.size(); ++i) {
+			frame->cells[i].x = m_dragCells[i].x + dx;
+			frame->cells[i].y = m_dragCells[i].y + dy;
+		}
+	} else {
+		const QPointF moved = pos - origin() - m_dragOffset;
+		cell->x = snap(moved.x());
+		cell->y = snap(moved.y());
+	}
 	refreshCellFields();
 	redraw();
 }

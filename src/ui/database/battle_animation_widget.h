@@ -24,12 +24,14 @@
 #include <lcf/rpg/animation.h>
 
 class ProjectData;
+class QCheckBox;
 class QComboBox;
 class QGraphicsScene;
 class QGraphicsView;
 class QLabel;
 class QLineEdit;
 class QListWidget;
+class QMenu;
 class QPushButton;
 class QSpinBox;
 class QTimer;
@@ -40,7 +42,9 @@ class QTreeWidget;
  * the scope and the Y axis line, the frames with their cels (a pattern of the
  * graphic placed, zoomed, faded and tinted around the target) and the effect
  * timings (sound effect, flash and shake on a frame). The preview shows the
- * current frame over a monster of the database.
+ * current frame over a monster of the database. As in RPG Maker, the cels,
+ * frames and timings have Cut/Copy/Paste menus, and the frame tools (Mass
+ * Copy/Clear, Autocomplete, Mass Modify) are in AnimationTools.
  */
 class BattleAnimationWidget : public QWidget
 {
@@ -77,13 +81,31 @@ private:
 	void refreshCells(int select);
 	void refreshCellFields();
 	void deleteCell();
+	/** In the first unused slot of the current frame */
+	void addCell(const lcf::rpg::AnimationCellData& cell);
+	void changePattern(int step);
+	/** Moves the current cel, or all the cels of the frame */
+	void moveCells(int dx, int dy, bool all);
+	/** The cel under a point of the preview: the top one, or with behind the one below the current cel */
+	int cellAt(const QPointF& pos, bool behind) const;
+	/** A coordinate on the grid of 8 pixels when Use Grid is checked */
+	int snap(double value) const;
+	void insertFrame();
+	void deleteFrame();
+	/** After a tool changed the frames */
+	void framesEdited();
 	void refreshTimings(int select);
+	int currentTiming() const;
 	void editTiming(int index);
+	/** Replaces the timing at index (added when negative), keeping them sorted by frame */
+	void putTiming(const lcf::rpg::AnimationTiming& timing, int index);
+	void pasteTiming();
+	void deleteTiming();
 	bool timingDialog(lcf::rpg::AnimationTiming& timing);
 	void togglePlay();
 	void redraw();
 	void redrawPatterns();
-	void canvasPressed(const QPointF& pos);
+	void canvasPressed(const QPointF& pos, Qt::KeyboardModifiers modifiers);
 	void canvasDragged(const QPointF& pos);
 	void patternClicked(const QPointF& pos);
 
@@ -94,10 +116,16 @@ private:
 	QPixmap m_battler;
 	int m_pattern = 0;
 	bool m_dragging = false;
+	/** Shift when the drag started: all the cels move, like in RPG Maker */
+	bool m_dragAll = false;
+	QPointF m_dragStart;
+	std::vector<lcf::rpg::AnimationCellData> m_dragCells;
 	QPointF m_dragOffset;
 
 	QLineEdit* m_name = nullptr;
 	QLineEdit* m_file = nullptr;
+	QCheckBox* m_large = nullptr;
+	QCheckBox* m_grid = nullptr;
 	QComboBox* m_scope = nullptr;
 	QComboBox* m_position = nullptr;
 	QComboBox* m_target = nullptr;
@@ -106,6 +134,7 @@ private:
 	QPushButton* m_clone = nullptr;
 	QGraphicsScene* m_scene = nullptr;
 	QGraphicsView* m_view = nullptr;
+	QMenu* m_cellMenu = nullptr;
 	QPushButton* m_back = nullptr;
 	QPushButton* m_next = nullptr;
 	QLabel* m_frameLabel = nullptr;

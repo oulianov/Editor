@@ -98,9 +98,13 @@ EventCommandsWidget::EventCommandsWidget(QWidget* parent) :
 	setContextMenuPolicy(Qt::CustomContextMenu);
 
 	connect(this, &QTreeWidget::itemDoubleClicked, this, &EventCommandsWidget::editEvent);
-	// One line is selected, as usual; the other lines of its command (the
-	// lines of a message, a whole branch...) are drawn selected with it
+	// One line is current, as usual; the other lines of its command (the
+	// lines of a message, a whole branch...) are drawn selected with it, and
+	// with Shift the commands up to the line where the selection started
 	connect(this, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current) {
+		if (!m_extending) {
+			m_anchor = indexOf(current);
+		}
 		highlightCommand(current);
 	});
 	connect(this, &QTreeWidget::customContextMenuRequested, this, &EventCommandsWidget::showContextMenu);
@@ -385,6 +389,10 @@ bool EventCommandsWidget::editCommand(int index, bool is_new) {
 
 	if (auto* wrapper = qobject_cast<WidgetAsDialogWrapperBase*>(evt_dialog.get())) {
 		wrapper->setHelpTopic(Help::commandTopic(cmd.code));
+		// editors without a title of their own: the command name, as on its button
+		if (wrapper->windowTitle().isEmpty()) {
+			wrapper->setWindowTitle(EventCommandPalette::commandName(static_cast<Cmd>(cmd.code)));
+		}
 	}
 	return evt_dialog->exec() == QDialog::Accepted;
 }
@@ -423,12 +431,12 @@ void EventCommandsWidget::editRawEvent(QTreeWidgetItem *item, int column, bool s
 	selectIndex(index);
 }
 
-void EventCommandsWidget::deleteEvent(QTreeWidgetItem *item) {
-	auto range = commandRange(item);
-	if (range.first == range.second) {
+void EventCommandsWidget::deleteLines(std::pair<int, int> range) {
+	if (range.first >= range.second) {
 		// a line of the structure of a block: remove the block instead
 		return;
 	}
+	// one change of the list: one undo step
 	m_commands->erase(m_commands->begin() + range.first, m_commands->begin() + range.second);
 	refreshList();
 	selectIndex(range.first);
@@ -465,24 +473,23 @@ void EventCommandsWidget::insertCommand(int index) {
 	selectIndex(index);
 }
 
-void EventCommandsWidget::copyCommands(QTreeWidgetItem* item, bool cut) {
-	auto range = commandRange(item);
-	if (range.first == range.second) {
+void EventCommandsWidget::copyLines(std::pair<int, int> range, bool cut) {
+	if (range.first >= range.second) {
 		return;
 	}
 	s_clipboard.assign(m_commands->begin() + range.first, m_commands->begin() + range.second);
 	if (cut) {
-		m_commands->erase(m_commands->begin() + range.first, m_commands->begin() + range.second);
-		refreshList();
-		selectIndex(range.first);
+		deleteLines(range);
 	}
 }
 
-void EventCommandsWidget::pasteCommands(QTreeWidgetItem* item) {
+void EventCommandsWidget::pasteCommands(int index) {
 	if (s_clipboard.empty()) {
 		return;
 	}
-	int index = item ? indexOf(item) : static_cast<int>(m_commands->size());
+	if (index < 0 || index > static_cast<int>(m_commands->size())) {
+		index = static_cast<int>(m_commands->size());
+	}
 	m_commands->insert(m_commands->begin() + index, s_clipboard.begin(), s_clipboard.end());
 	refreshList();
 	selectIndex(index);
@@ -505,14 +512,99 @@ std::pair<int, int> EventCommandsWidget::commandRange(QTreeWidgetItem* item) con
 }
 
 void EventCommandsWidget::highlightCommand(QTreeWidgetItem* current) {
-	m_highlight = {-1, -1};
-	if (current && (current->flags() & Qt::ItemIsSelectable)) {
-		m_highlight = commandRange(current);
+	m_highlight = m_selection = {-1, -1};
+	if (current && m_commands && multiSelection()) {
+		const int line = indexOf(current);
+		m_selection = wholeCommands(std::min(m_anchor, line), std::max(m_anchor, line) + 1);
+		m_highlight = m_selection.first < m_selection.second ? m_selection : std::make_pair(line, line + 1);
+	} else if (current && (current->flags() & Qt::ItemIsSelectable)) {
+		m_highlight = m_selection = commandRange(current);
 		if (m_highlight.first == m_highlight.second) {
 			m_highlight = {indexOf(current), indexOf(current) + 1};
 		}
 	}
 	viewport()->update();
+}
+
+std::pair<int, int> EventCommandsWidget::wholeCommands(int first, int last) const {
+	using Cmd = lcf::rpg::EventCommand::Code;
+	const auto& commands = *m_commands;
+	first = std::max(first, 0);
+	last = std::min(last, static_cast<int>(commands.size()));
+	auto is_end = [&](int i) { return static_cast<Cmd>(commands[i].code) == Cmd::END; };
+
+	// Grow until every line goes with its whole command, like RPG Maker:
+	// a line of the structure of a block (else, an option, its end) takes
+	// the block with it. The empty lines of a block are left for the end.
+	for (bool grown = true; grown;) {
+		grown = false;
+		for (int i = first; i < last && !grown; ++i) {
+			if (is_end(i)) {
+				continue;
+			}
+			auto range = EventCommandDefaults::range(commands, commandStart(i));
+			if (range.first == range.second) {
+				// the nearest command before it whose block goes past it
+				for (int k = i - 1; k >= 0; --k) {
+					if (commands[k].indent > commands[i].indent) {
+						continue;
+					}
+					auto block = EventCommandDefaults::range(commands, k);
+					if (block.first < block.second && block.second > i) {
+						range = block;
+						break;
+					}
+				}
+			}
+			if (range.first < range.second && (range.first < first || range.second > last)) {
+				first = std::min(first, range.first);
+				last = std::max(last, range.second);
+				grown = true;
+			}
+		}
+	}
+	// An empty line at an edge is outside of the blocks selected: not taken
+	while (first < last && is_end(first)) {
+		++first;
+	}
+	while (first < last && is_end(last - 1)) {
+		--last;
+	}
+	return {first, last};
+}
+
+bool EventCommandsWidget::multiSelection() const {
+	return m_anchor >= 0 && currentItem() && m_anchor != indexOf(currentItem());
+}
+
+std::pair<int, int> EventCommandsWidget::rangeFor(QTreeWidgetItem* item) const {
+	const int line = indexOf(item);
+	if (item && (item == currentItem() || (multiSelection() && line >= m_highlight.first && line < m_highlight.second))) {
+		return m_selection;
+	}
+	return commandRange(item);
+}
+
+int EventCommandsWidget::insertionIndexFor(QTreeWidgetItem* item) const {
+	// before the selection, as RPG Maker does (-1: at the end)
+	const int line = indexOf(item);
+	if (item && multiSelection() && line >= m_highlight.first && line < m_highlight.second) {
+		return m_highlight.first;
+	}
+	return line;
+}
+
+void EventCommandsWidget::selectAllCommands() {
+	if (!m_commands || m_commands->empty()) {
+		return;
+	}
+	// From the first line to the empty line ending the page, the current
+	// line on the first one: the selection is every command
+	m_extending = true;
+	setCurrentItem(topLevelItem(0));
+	m_extending = false;
+	m_anchor = static_cast<int>(m_commands->size());
+	highlightCommand(currentItem());
 }
 
 void EventCommandsWidget::updateLook() {
@@ -619,7 +711,30 @@ void EventCommandsWidget::mousePressEvent(QMouseEvent* event) {
 		event->accept();
 		return;
 	}
+	// A right click in the selection keeps it, for its menu
+	const int line = indexOf(item);
+	if (event->button() == Qt::RightButton && item && multiSelection()
+			&& line >= m_highlight.first && line < m_highlight.second) {
+		event->accept();
+		return;
+	}
+	// Shift+click selects the commands from the current line to this one
+	const bool shift = event->modifiers() & Qt::ShiftModifier;
+	m_extending = shift && event->button() == Qt::LeftButton;
 	QTreeWidget::mousePressEvent(event);
+	m_extending = false;
+	// A click on the current line itself (no change) ends a selection too
+	if (item && !shift && m_anchor != indexOf(currentItem())) {
+		m_anchor = indexOf(currentItem());
+		highlightCommand(currentItem());
+	}
+}
+
+void EventCommandsWidget::mouseMoveEvent(QMouseEvent* event) {
+	// Dragging selects from the line pressed, like Shift+click
+	m_extending = event->buttons() & Qt::LeftButton;
+	QTreeWidget::mouseMoveEvent(event);
+	m_extending = false;
 }
 
 QModelIndex EventCommandsWidget::moveCursor(CursorAction action, Qt::KeyboardModifiers modifiers) {
@@ -630,7 +745,25 @@ QModelIndex EventCommandsWidget::moveCursor(CursorAction action, Qt::KeyboardMod
 	QTreeWidgetItemIterator it(itemFromIndex(next));
 	const bool backwards = action == MoveUp || action == MovePrevious || action == MovePageUp
 		|| action == MoveLeft || action == MoveEnd;
-	while (*it && !((*it)->flags() & Qt::ItemIsSelectable)) {
+	const bool by_command = m_commands && (action == MoveUp || action == MoveDown);
+	const int current_start = by_command ? commandStart(indexOf(currentItem())) : -1;
+	while (*it) {
+		bool selectable = (*it)->flags() & Qt::ItemIsSelectable;
+		if (by_command) {
+			// Messages and comments highlight as a whole, so arrow keys must
+			// leave the whole command, even after clicking a continuation line.
+			const int index = indexOf(*it);
+			if (index == current_start) {
+				selectable = false;
+			} else if (index > 0 && index < static_cast<int>(m_commands->size())) {
+				using Cmd = lcf::rpg::EventCommand::Code;
+				const auto code = static_cast<Cmd>((*m_commands)[index].code);
+				if (code == Cmd::ShowMessage_2 || code == Cmd::Comment_2) {
+					selectable = false;
+				}
+			}
+		}
+		if (selectable) break;
 		if (backwards) --it;
 		else ++it;
 	}
@@ -643,27 +776,36 @@ void EventCommandsWidget::keyPressEvent(QKeyEvent* event) {
 		m_undoStack->undo();
 	} else if (event->matches(QKeySequence::Redo)) {
 		m_undoStack->redo();
+	} else if (event->matches(QKeySequence::SelectAll)) {
+		selectAllCommands();
 	} else if (event->matches(QKeySequence::Copy) && item) {
-		copyCommands(item, false);
+		copyLines(rangeFor(item), false);
 	} else if (event->matches(QKeySequence::Cut) && item) {
-		copyCommands(item, true);
+		copyLines(rangeFor(item), true);
 	} else if (event->matches(QKeySequence::Paste)) {
-		pasteCommands(item);
+		pasteCommands(insertionIndexFor(item));
 	} else if ((event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) && item) {
-		deleteEvent(item);
-	} else if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && item) {
+		deleteLines(rangeFor(item));
+	} else if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter || event->key() == Qt::Key_Insert) {
+		// Enter inserts and Space edits, as in RPG Maker
+		insertCommand(insertionIndexFor(item));
+	} else if (event->key() == Qt::Key_Space && item) {
 		editEvent(item, 0);
-	} else if (event->key() == Qt::Key_Insert || event->key() == Qt::Key_Space) {
-		insertCommand(item ? indexOf(item) : -1);
 	} else {
+		// Shift with the arrow keys selects several commands
+		m_extending = event->modifiers() & Qt::ShiftModifier;
 		QTreeWidget::keyPressEvent(event);
+		m_extending = false;
 	}
 }
 
 void EventCommandsWidget::showContextMenu(const QPoint& pos) {
 	auto* item = this->itemAt(pos);
 	using Cmd = lcf::rpg::EventCommand::Code;
-	bool removable = item && commandRange(item).first != commandRange(item).second;
+	// a line of the selection acts on the whole selection
+	const auto range = rangeFor(item);
+	const int insert_at = insertionIndexFor(item);
+	bool removable = item && range.first < range.second;
 	bool editable = item && indexOf(item) < static_cast<int>(m_commands->size())
 		&& hasEditor(static_cast<Cmd>((*m_commands)[commandStart(indexOf(item))].code));
 
@@ -671,20 +813,22 @@ void EventCommandsWidget::showContextMenu(const QPoint& pos) {
 	menu.addAction(m_undoStack->createUndoAction(&menu));
 	menu.addAction(m_undoStack->createRedoAction(&menu));
 	menu.addSeparator();
-	menu.addAction(tr("Insert") + "...", QKeySequence(Qt::Key_Space), this, [=, this] { insertCommand(item ? indexOf(item) : -1); });
+	menu.addAction(tr("Insert") + "...", QKeySequence(Qt::Key_Return), this, [=, this] { insertCommand(insert_at); });
 	if (editable) {
-		menu.addAction(tr("Edit") + "...", QKeySequence(Qt::Key_Return), this, [=, this] { editEvent(item, 0); });
+		menu.addAction(tr("Edit") + "...", QKeySequence(Qt::Key_Space), this, [=, this] { editEvent(item, 0); });
 	}
 	menu.addSeparator();
 	if (removable) {
-		menu.addAction(tr("Cut"), QKeySequence::Cut, this, [=, this] { copyCommands(item, true); });
-		menu.addAction(tr("Copy"), QKeySequence::Copy, this, [=, this] { copyCommands(item, false); });
+		menu.addAction(tr("Cut"), QKeySequence::Cut, this, [=, this] { copyLines(range, true); });
+		menu.addAction(tr("Copy"), QKeySequence::Copy, this, [=, this] { copyLines(range, false); });
 	}
-	auto* paste = menu.addAction(tr("Paste"), QKeySequence::Paste, this, [=, this] { pasteCommands(item); });
+	auto* paste = menu.addAction(tr("Paste"), QKeySequence::Paste, this, [=, this] { pasteCommands(insert_at); });
 	paste->setEnabled(!s_clipboard.empty());
 	if (removable) {
-		menu.addAction(tr("Delete"), QKeySequence::Delete, this, [=, this] { deleteEvent(item); });
+		menu.addAction(tr("Delete"), QKeySequence::Delete, this, [=, this] { deleteLines(range); });
 	}
+	menu.addAction(tr("Select All"), QKeySequence::SelectAll, this, [this] { selectAllCommands(); })
+		->setEnabled(m_commands && !m_commands->empty());
 	menu.addSeparator();
 	menu.addAction(tr("Add raw") + "...", this, [=, this] { addRawEvent(item); });
 	if (item && indexOf(item) < static_cast<int>(m_commands->size())) {
@@ -698,6 +842,9 @@ void EventCommandsWidget::refreshList() {
 	using Cmd = lcf::rpg::EventCommand::Code;
 
 	clear();
+	// the lines change: no selection until one is chosen again
+	m_anchor = -1;
+	highlightCommand(nullptr);
 
 	// Populate event command list
 	int32_t prev_indent = -1;

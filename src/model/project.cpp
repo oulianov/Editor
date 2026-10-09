@@ -20,6 +20,7 @@
 #include "common/filefinder.h"
 #include "common/scope_guard.h"
 #include "core.h"
+#include "data_merge.h"
 #include <lcf/inireader.h>
 #include <lcf/reader_util.h>
 #include <lcf/ldb/reader.h>
@@ -29,10 +30,68 @@
 #include <QDir>
 #include <QFile>
 #include <QSettings>
+#include <QTemporaryFile>
+#include <filesystem>
+#include <functional>
 #include <sstream>
 #include "common/dbstring.h"
 #include <memory>
 #include <fstream>
+
+namespace {
+/** The bytes of a file, read at once and checked to be one version (another
+ *  program can replace it meanwhile). std::ifstream would keep the file open
+ *  while parsing, which blocks a rename over it on Windows. */
+std::optional<std::istringstream> readFile(const QString& path, ProjectWatcher::Stamp* stamp = nullptr) {
+	for (int attempt = 0; attempt < 3; ++attempt) {
+		const auto before = ProjectWatcher::stampOf(path);
+		QFile file(path);
+		if (path.isEmpty() || !file.open(QIODevice::ReadOnly)) {
+			return std::nullopt;
+		}
+		QByteArray bytes = file.readAll();
+		file.close();
+		if (ProjectWatcher::stampOf(path) == before || attempt == 2) {
+			if (stamp) {
+				*stamp = before;
+			}
+			return std::istringstream(bytes.toStdString());
+		}
+	}
+	return std::nullopt;
+}
+
+/** Writes what write makes into path at once: a file written next to it is
+ *  renamed over it, so another program never reads half a file. Only a
+ *  written version is the Editor's (acknowledged to the watcher). */
+bool writeFile(const QString& path, const std::function<bool(std::ostream&)>& write) {
+	std::ostringstream out;
+	if (!write(out)) {
+		return false;
+	}
+	const std::string bytes = out.str();
+	const QFileInfo info(path);
+	QTemporaryFile file(info.dir().filePath(QStringLiteral(".%1.XXXXXX").arg(info.fileName())));
+	if (!file.open() || file.write(bytes.data(), static_cast<qint64>(bytes.size())) != static_cast<qint64>(bytes.size())
+			|| !file.flush()) {
+		return false;
+	}
+	file.setPermissions(info.exists() ? info.permissions()
+		: QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther);
+	file.close();
+	// the version written: a rename keeps it, whoever writes the file next
+	const auto stamp = ProjectWatcher::stampOf(file.fileName());
+	std::error_code error;
+	std::filesystem::rename(std::filesystem::path(file.fileName().toStdU16String()),
+		std::filesystem::path(info.absoluteFilePath().toStdU16String()), error);
+	if (error) {
+		return false;
+	}
+	file.setAutoRemove(false);
+	core().watcher().acknowledge(info.absoluteFilePath(), stamp);
+	return true;
+}
+}
 
 Project::ProjectList Project::enumerate(const QDir& path) {
 	ProjectList prj_list;
@@ -152,96 +211,107 @@ QString Project::create(const QDir& dir, const QString& title, Format format) {
 bool Project::loadDatabaseAndMapTree() {
 	if (projectType() == FileFinder::ProjectType::Legacy) {
 		detectEncoding();
-		auto db = lcf::LDB_Reader::Load(findFile(RM_DB).toStdString(), encoding().toStdString());
-		if (db == nullptr) {
-			return false;
-		}
-		auto treemap = lcf::LMT_Reader::Load(findFile(RM_MT).toStdString(), encoding().toStdString());
-		if (treemap == nullptr) {
-			return false;
-		}
-		m_data = { *this, *db, *treemap };
-	} else {
-		auto db = lcf::LDB_Reader::LoadXml(findFile(EASY_DB).toStdString());
-		if (db == nullptr) {
-			return false;
-		}
-		auto treemap = lcf::LMT_Reader::LoadXml(findFile(EASY_MT).toStdString());
-		if (treemap == nullptr) {
-			return false;
-		}
-		m_data = { *this, *db, *treemap };
 	}
-
+	auto db = std::make_unique<lcf::rpg::Database>();
+	if (!reloadDatabase(db.get())) {
+		return false;
+	}
+	auto treemap = std::make_unique<lcf::rpg::TreeMap>();
+	if (!reloadTreeMap(treemap.get())) {
+		return false;
+	}
+	m_data = { *this, *db, *treemap };
+	m_savedTreeMap = *treemap;
 	return true;
 }
 
 bool Project::reloadDatabase() {
-	std::unique_ptr<lcf::rpg::Database> db;
-	if (projectType() == FileFinder::ProjectType::Legacy) {
-		db = lcf::LDB_Reader::Load(findFile(RM_DB).toStdString(), encoding().toStdString());
-	} else {
-		db = lcf::LDB_Reader::LoadXml(findFile(EASY_DB).toStdString());
+	return reloadDatabase(&m_data.database());
+}
+
+bool Project::reloadDatabase(lcf::rpg::Database* target) {
+	const QString file = databaseFile();
+	ProjectWatcher::Stamp stamp;
+	auto in = readFile(file, &stamp);
+	if (!in) {
+		return false;
 	}
+	auto db = projectType() == FileFinder::ProjectType::Legacy
+		? lcf::LDB_Reader::Load(*in, encoding().toStdString())
+		: lcf::LDB_Reader::LoadXml(*in);
 	if (db == nullptr) {
 		return false;
 	}
-	m_data.database() = std::move(*db);
+	*target = std::move(*db);
+	core().watcher().acknowledge(file, stamp);
 	return true;
 }
 
 bool Project::reloadTreeMap() {
-	std::unique_ptr<lcf::rpg::TreeMap> treemap;
-	if (projectType() == FileFinder::ProjectType::Legacy) {
-		treemap = lcf::LMT_Reader::Load(findFile(RM_MT).toStdString(), encoding().toStdString());
-	} else {
-		treemap = lcf::LMT_Reader::LoadXml(findFile(EASY_MT).toStdString());
-	}
-	if (treemap == nullptr) {
+	if (!reloadTreeMap(&m_data.treeMap())) {
 		return false;
 	}
-	m_data.treeMap() = std::move(*treemap);
+	m_savedTreeMap = m_data.treeMap();
 	return true;
 }
 
-std::unique_ptr<lcf::rpg::Map> Project::loadMap(int index) const {
-	QString ext = projectType() == FileFinder::ProjectType::EasyRpg ? "emu" : "lmu";
+bool Project::reloadTreeMap(lcf::rpg::TreeMap* target) {
+	const QString file = treeMapFile();
+	ProjectWatcher::Stamp stamp;
+	auto in = readFile(file, &stamp);
+	if (!in) {
+		return false;
+	}
+	auto treemap = projectType() == FileFinder::ProjectType::Legacy
+		? lcf::LMT_Reader::Load(*in, encoding().toStdString())
+		: lcf::LMT_Reader::LoadXml(*in);
+	if (treemap == nullptr) {
+		return false;
+	}
+	*target = std::move(*treemap);
+	core().watcher().acknowledge(file, stamp);
+	return true;
+}
 
-	QString file = QString("Map%1.%2")
-			.arg(QString::number(index), 4, QLatin1Char('0')).arg(ext);
-	QString mapFile = findFile(file);
+QString Project::mapFile(int index) const {
+	const QString ext = projectType() == FileFinder::ProjectType::EasyRpg ? "emu" : "lmu";
+	return findFileOrDefault(QString("Map%1.%2").arg(QString::number(index), 4, QLatin1Char('0')).arg(ext));
+}
 
-	if (mapFile.isNull()) {
+QString Project::databaseFile() const {
+	return findFileOrDefault(projectType() == FileFinder::ProjectType::Legacy ? RM_DB : EASY_DB);
+}
+
+QString Project::treeMapFile() const {
+	return findFileOrDefault(projectType() == FileFinder::ProjectType::Legacy ? RM_MT : EASY_MT);
+}
+
+std::unique_ptr<lcf::rpg::Map> Project::loadMap(int index, bool remember) const {
+	const QString file = mapFile(index);
+	ProjectWatcher::Stamp stamp;
+	auto in = readFile(file, &stamp);
+	if (!in) {
 		return nullptr;
 	}
-
-	if (projectType() == FileFinder::ProjectType::EasyRpg) {
-		return lcf::LMU_Reader::LoadXml(mapFile.toStdString());
-	} else {
-		return lcf::LMU_Reader::Load(mapFile.toStdString(), encoding().toStdString());
+	auto map = projectType() == FileFinder::ProjectType::EasyRpg
+		? lcf::LMU_Reader::LoadXml(*in)
+		: lcf::LMU_Reader::Load(*in, encoding().toStdString());
+	if (map && remember) {
+		core().watcher().acknowledge(file, stamp);
 	}
+	return map;
 }
 
 bool Project::saveMap(lcf::rpg::Map& map, int index, bool incSavecount) {
 	auto lcf_engine = lcf::GetEngineVersion(m_data.database());
-	QString ext = projectType() == FileFinder::ProjectType::EasyRpg ? "emu" : "lmu";
-
-	QString file = QString("Map%1.%2")
-			.arg(QString::number(index), 4, QLatin1Char('0')).arg(ext);
-	QString mapFile = findFileOrDefault(file);
-
 	if (incSavecount) {
 		lcf::LMU_Reader::PrepareSave(map);
 	}
-
-	bool saved;
-	if (projectType() == FileFinder::ProjectType::EasyRpg) {
-		saved = lcf::LMU_Reader::SaveXml(mapFile.toStdString(), map, lcf_engine);
-	} else {
-		saved = lcf::LMU_Reader::Save(mapFile.toStdString(), map, lcf_engine, encoding().toStdString());
-	}
-	core().watcher().acknowledge(mapFile);
-	return saved;
+	return writeFile(mapFile(index), [&](std::ostream& out) {
+		return projectType() == FileFinder::ProjectType::EasyRpg
+			? lcf::LMU_Reader::SaveXml(out, map, lcf_engine)
+			: lcf::LMU_Reader::Save(out, map, lcf_engine, encoding().toStdString());
+	});
 }
 
 void Project::relocate(const QDir& newDir, FileFinder::ProjectType newProjectType) {
@@ -331,6 +401,63 @@ QString Project::gameTitle() const {
 	return m_gameTitle;
 }
 
+bool Project::saveGameTitle(const QString& gameTitle) {
+	if (projectType() == FileFinder::ProjectType::EasyRpg) {
+		QSettings ini(projectDir().filePath(EASY_CFG), QSettings::IniFormat);
+		ini.setValue(QStringLiteral("RPG_RT/" GAMETITLE), gameTitle);
+		ini.sync();
+		if (ini.status() != QSettings::NoError) {
+			return false;
+		}
+		setGameTitle(gameTitle);
+		return true;
+	}
+
+	// RPG_RT.ini is in the code page of the game and RPG Maker's line ends:
+	// only the GameTitle line of [RPG_RT] is replaced (or added)
+	std::string title = gameTitle.toStdString();
+	lcf::Encoder encoder(encoding().toStdString());
+	if (encoder.IsOk()) {
+		encoder.Encode(title);
+	}
+	const QString path = findFileOrDefault(RM_INI);
+	QFile file(path);
+	QByteArray content;
+	if (file.exists()) {
+		if (!file.open(QIODevice::ReadOnly)) {
+			return false;
+		}
+		content = file.readAll();
+		file.close();
+	}
+	QList<QByteArray> lines = content.split('\n');
+	const QByteArray entry = QByteArray(GAMETITLE "=") + QByteArray::fromStdString(title);
+	bool in_section = false, done = false;
+	int section_line = -1;
+	for (int i = 0; i < lines.size() && !done; ++i) {
+		const QByteArray line = lines[i].trimmed();
+		if (line.startsWith('[')) {
+			in_section = line.compare("[RPG_RT]", Qt::CaseInsensitive) == 0;
+			section_line = in_section ? i : section_line;
+		} else if (in_section && line.toLower().startsWith(QByteArray(GAMETITLE "=").toLower())) {
+			lines[i] = entry + (lines[i].endsWith('\r') ? "\r" : "");
+			done = true;
+		}
+	}
+	if (!done) {
+		if (section_line < 0) {
+			lines.prepend("[RPG_RT]\r");
+			section_line = 0;
+		}
+		lines.insert(section_line + 1, entry + "\r");
+	}
+	if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(lines.join('\n')) < 0) {
+		return false;
+	}
+	setGameTitle(gameTitle);
+	return true;
+}
+
 void Project::setGameTitle(const QString& gameTitle) {
 	m_gameTitle = gameTitle;
 }
@@ -372,30 +499,66 @@ bool Project::saveDatabase(bool inc_savecount) {
 		lcf::LDB_Reader::PrepareSave(m_data.database());
 	}
 
-	bool saved;
-	QString file;
-	if (projectType() == FileFinder::ProjectType::Legacy) {
-		file = findFileOrDefault(RM_DB);
-		saved = lcf::LDB_Reader::Save(file.toStdString(), m_data.database(), encoding().toStdString());
-	} else {
-		file = findFileOrDefault(EASY_DB);
-		saved = lcf::LDB_Reader::SaveXml(file.toStdString(), m_data.database());
-	}
-	core().watcher().acknowledge(file);
-	return saved;
+	return writeFile(databaseFile(), [&](std::ostream& out) {
+		return projectType() == FileFinder::ProjectType::Legacy
+			? lcf::LDB_Reader::Save(out, m_data.database(), encoding().toStdString())
+			: lcf::LDB_Reader::SaveXml(out, m_data.database());
+	});
 }
 
 bool Project::saveTreeMap() {
 	auto lcf_engine = lcf::GetEngineVersion(m_data.database());
-	bool saved;
-	QString file;
-	if (projectType() == FileFinder::ProjectType::Legacy) {
-		file = findFileOrDefault(RM_MT);
-		saved = lcf::LMT_Reader::Save(file.toStdString(), m_data.treeMap(), lcf_engine, encoding().toStdString());
-	} else {
-		file = findFileOrDefault(EASY_MT);
-		saved = lcf::LMT_Reader::SaveXml(file.toStdString(), m_data.treeMap(), lcf_engine);
+	const bool saved = writeFile(treeMapFile(), [&](std::ostream& out) {
+		return projectType() == FileFinder::ProjectType::Legacy
+			? lcf::LMT_Reader::Save(out, m_data.treeMap(), lcf_engine, encoding().toStdString())
+			: lcf::LMT_Reader::SaveXml(out, m_data.treeMap(), lcf_engine);
+	});
+	if (saved) {
+		m_savedTreeMap = m_data.treeMap();
 	}
-	core().watcher().acknowledge(file);
 	return saved;
+}
+
+std::unique_ptr<lcf::rpg::Database> Project::readDatabase() const {
+	auto in = readFile(databaseFile());
+	if (!in) {
+		return nullptr;
+	}
+	return projectType() == FileFinder::ProjectType::Legacy
+		? lcf::LDB_Reader::Load(*in, encoding().toStdString())
+		: lcf::LDB_Reader::LoadXml(*in);
+}
+
+std::unique_ptr<lcf::rpg::TreeMap> Project::readTreeMap() const {
+	auto in = readFile(treeMapFile());
+	if (!in) {
+		return nullptr;
+	}
+	return projectType() == FileFinder::ProjectType::Legacy
+		? lcf::LMT_Reader::Load(*in, encoding().toStdString())
+		: lcf::LMT_Reader::LoadXml(*in);
+}
+
+bool Project::mergeTreeMap(QStringList* conflicts) {
+	auto theirs = readTreeMap();
+	if (!theirs) {
+		return false;
+	}
+	lcf::rpg::TreeMap merged;
+	const auto result = DataMerge::treeMap(m_savedTreeMap, m_data.treeMap(), *theirs, merged);
+	if (!result.ok()) {
+		if (conflicts) {
+			*conflicts = result.conflicts;
+		}
+		return false;
+	}
+	m_data.treeMap() = std::move(merged);
+	m_savedTreeMap = std::move(*theirs);
+	return true;
+}
+
+bool Project::treeMapModified() const {
+	lcf::rpg::TreeMap tree = m_data.treeMap();
+	tree.active_node = m_savedTreeMap.active_node;
+	return !(tree == m_savedTreeMap);
 }

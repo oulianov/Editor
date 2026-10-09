@@ -23,6 +23,7 @@
 
 class ProjectData;
 class QButtonGroup;
+class QComboBox;
 class QLabel;
 class QLineEdit;
 class QSpinBox;
@@ -36,7 +37,8 @@ class RpgComboBoxBase;
  * hero is drawn in battle. Each pose (idle, attacks, damage...) is a row of a
  * BattleCharSet graphic or a battle animation; each weapon a row of a
  * BattleWeapon graphic. The previews play the three frames of the row at the
- * display speed.
+ * display speed; the weapon is shown in the attack pose of a hand, as in RPG
+ * Maker. A click on the rows of the graphic picks the row.
  */
 class BattleAnimation2Widget : public QWidget
 {
@@ -48,6 +50,9 @@ public:
 	explicit BattleAnimation2Widget(ProjectData& project, QWidget *parent = nullptr);
 
 	void setData(lcf::rpg::BattlerAnimation* battler_anim);
+
+protected:
+	bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
 	lcf::rpg::BattlerAnimationPose* currentPose();
@@ -68,6 +73,9 @@ private:
 	int m_sheetSize = 0;
 	int m_sheetRow = 0;
 	int m_step = 0;
+	/** The right and left hand attack poses, under the weapon */
+	QPixmap m_handSheets[2];
+	int m_handRows[2] = {0, 0};
 
 	QLineEdit* m_name = nullptr;
 	QButtonGroup* m_speed = nullptr;
@@ -82,10 +90,13 @@ private:
 	QSpinBox* m_poseIndex = nullptr;
 	RpgComboBoxBase* m_poseAnimation = nullptr;
 	QLabel* m_posePreview = nullptr;
+	QLabel* m_poseRows = nullptr;
 
 	QTreeWidget* m_weapons = nullptr;
 	QLineEdit* m_weaponName = nullptr;
 	QLineEdit* m_weaponFile = nullptr;
 	QSpinBox* m_weaponIndex = nullptr;
+	QComboBox* m_hand = nullptr;
 	QLabel* m_weaponPreview = nullptr;
+	QLabel* m_weaponRows = nullptr;
 };

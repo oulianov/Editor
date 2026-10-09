@@ -97,6 +97,17 @@ public:
 		m_helpTopic = topic;
 	}
 
+	/** The dialog shows the title of the widget, also when it changes (some editors name the command they edit) */
+	void followTitle(QWidget* widget) {
+		auto update = [this, widget] {
+			if (!widget->windowTitle().isEmpty()) {
+				setWindowTitle(widget->windowTitle());
+			}
+		};
+		update();
+		QObject::connect(widget, &QWidget::windowTitleChanged, this, update);
+	}
+
 signals:
 	void valueSelected(int newValue);
 
@@ -131,6 +142,7 @@ public:
 
 		wrappedWidget = new WIDGET(project, this);
 		wrappedWidget->setData(&dataCopy);
+		followTitle(wrappedWidget);
 
 		auto* verticalLayout = new QVBoxLayout(this);
 		verticalLayout->addWidget(wrappedWidget);

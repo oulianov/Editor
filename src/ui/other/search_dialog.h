@@ -44,11 +44,12 @@ public:
 private slots:
 	void on_button_search_clicked();
 
-	void on_list_result_doubleClicked(const QModelIndex &index);
+	void openResult(const QModelIndex &index);
 
 private:
 	std::shared_ptr<lcf::rpg::Map> loadMap(int mapID);
-	void addResult(int mapID, int eventID, int pageID, int line, const QString& description);
+	void addResult(int mapID, int eventID, int pageID, int line, const QString& description,
+		const QString& type = QString(), const lcf::rpg::Event* event = nullptr);
 
 	Ui::SearchDialog *ui;
 	using command_info = std::tuple<int, int, int, int>; // map id, event id, page id, line

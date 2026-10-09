@@ -24,6 +24,7 @@
 #include <QCompleter>
 #include <QToolButton>
 #include <functional>
+#include <vector>
 #include <QHBoxLayout>
 #include <QMessageBox>
 #include "rpg_model.h"
@@ -40,13 +41,6 @@ public:
 
 	QComboBox* comboBox() {
 		return m_comboBox;
-	}
-
-public slots:
-	virtual void indexChanged(int) {};
-
-	void connect(QDialog* diag) {
-		QObject::connect(diag, SIGNAL(valueSelected(int)), this, SLOT(indexChanged(int)));
 	}
 
 protected:
@@ -79,9 +73,10 @@ public:
 
 	void makeModel(ProjectData& project) {
 		m_project = &project;
-		m_model = new RpgModel<LCF>(project);
+		m_model = new RpgModel<LCF>(project, this);
 
 		m_comboBox->setModel(m_model);
+		watchModel();
 		m_comboBox->setEditable(true);
 
 		QCompleter *comp = new QCompleter(m_model, this);
@@ -95,19 +90,48 @@ public:
 		filter->setParent(this);
 		filter->setSourceModel(m_model);
 		m_comboBox->setModel(filter);
+		watchModel();
 		filter->invalidate();
-		m_filter = filter;
 	}
 
-	void indexChanged(int index) override {
-		m_comboBox->setCurrentIndex(index);
-	};
-
 private:
+	// Another tab resizes the list (Array Size, a picker's OK): Qt moves the
+	// current row and the binding would write it into the data. The entry
+	// shown stays (none when it was removed) and nothing is written.
+	void watchModel() {
+		for (const auto& connection : m_watch) {
+			QObject::disconnect(connection);
+		}
+		auto hold = [this] {
+			if (m_held++ == 0) {
+				m_heldId = m_comboBox->currentData();
+				m_heldBlocked = m_comboBox->blockSignals(true);
+			}
+		};
+		auto release = [this] {
+			if (--m_held == 0) {
+				m_comboBox->setCurrentIndex(m_heldId.isValid() ? m_comboBox->findData(m_heldId) : -1);
+				m_comboBox->blockSignals(m_heldBlocked);
+			}
+		};
+		auto* model = m_comboBox->model();
+		m_watch = {
+			QObject::connect(model, &QAbstractItemModel::rowsAboutToBeInserted, this, hold),
+			QObject::connect(model, &QAbstractItemModel::rowsInserted, this, release),
+			QObject::connect(model, &QAbstractItemModel::rowsAboutToBeRemoved, this, hold),
+			QObject::connect(model, &QAbstractItemModel::rowsRemoved, this, release),
+			QObject::connect(model, &QAbstractItemModel::modelAboutToBeReset, this, hold),
+			QObject::connect(model, &QAbstractItemModel::modelReset, this, release),
+		};
+	}
+
 	QToolButton* m_editButton;
 	ProjectData* m_project = nullptr;
 	RpgModel<LCF>* m_model = nullptr;
-	QSortFilterProxyModel* m_filter = nullptr;
+	std::vector<QMetaObject::Connection> m_watch;
+	int m_held = 0;
+	bool m_heldBlocked = false;
+	QVariant m_heldId;
 };
 
 template <class LCF>
@@ -118,6 +142,7 @@ RpgComboBox<LCF>::RpgComboBox(QWidget *parent, QAbstractItemModel *model) :
 	// a tool button: as tall as the combo box in every style (a push button
 	// has a large bezel on macOS)
 	m_editButton = new QToolButton(this);
+	m_editButton->setObjectName(QStringLiteral("editButton"));
 	m_editButton->setText(QStringLiteral("..."));
 	m_editButton->setToolTip(QObject::tr("Edit in the database"));
 
@@ -137,22 +162,24 @@ RpgComboBox<LCF>::RpgComboBox(QWidget *parent, QAbstractItemModel *model) :
 
 	if (model) {
 		m_comboBox->setModel(model);
+		watchModel();
 	}
 
-	QObject::connect(m_editButton, &QToolButton::pressed, [&] {
-		int id = m_comboBox->currentData().toInt();
-		if (id == 0) {
+	QObject::connect(m_editButton, &QToolButton::clicked, this, [this] {
+		if (!m_project) {
 			return;
 		}
-
+		// "none" (0) opens the list on its first entry.
 		// FIXME: This copies the entire project, kinda slow
-		// The reassigning of the model alters the index, remember it
-		auto idx = m_comboBox->currentIndex();
-		auto* dialog = new WidgetAsDialogModelWrapper<LCF>(
-				*m_project, m_filter, m_comboBox->currentIndex(), this);
-		m_comboBox->setCurrentIndex(idx);
-		connect(dialog);
-		dialog->exec();
+		WidgetAsDialogModelWrapper<LCF> dialog(*m_project, m_comboBox->currentData().toInt(), this);
+		QObject::connect(&dialog, &WidgetAsDialogWrapperBase::valueSelected, this, [this](int id) {
+			// a filtered combo box (equipment) keeps its entry when the one chosen does not fit
+			const int index = m_comboBox->findData(id);
+			if (index >= 0) {
+				m_comboBox->setCurrentIndex(index);
+			}
+		});
+		dialog.exec();
 	});
 }
 

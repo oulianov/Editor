@@ -55,13 +55,13 @@
          <property name="minimumSize">
           <size>
            <width>150</width>
-           <height>568</height>
+           <height>0</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>150</width>
-           <height>568</height>
+           <height>16777215</height>
           </size>
          </property>
          <property name="font">
@@ -1771,22 +1771,6 @@
   <include location="Resources.qrc"/>
  </resources>
  <connections>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>DatabaseDialog</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>502</x>
-     <y>622</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>

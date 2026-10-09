@@ -16,6 +16,10 @@
  */
 
 #include "core.h"
+
+#ifndef EDITOR_VERSION
+#define EDITOR_VERSION "dev"
+#endif
 #include "common/translations.h"
 #include "ui/main_window.h"
 #include "ui/common/editor_style.h"
@@ -44,6 +48,7 @@ int main(int argc, char *argv[]) {
 	app.setApplicationName("EasyRPG Editor");
 	app.setOrganizationName("EasyRPG");
 	app.setOrganizationDomain("easyrpg.org");
+	app.setApplicationVersion(QStringLiteral(EDITOR_VERSION));
 
 	// a project folder on the command line, else the last opened project
 	QCommandLineParser parser;

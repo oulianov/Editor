@@ -38,7 +38,7 @@
        <item>
         <widget class="QPushButton" name="pushMax">
          <property name="text">
-          <string>Set Maximum number ...</string>
+          <string>Array Size...</string>
          </property>
         </widget>
        </item>

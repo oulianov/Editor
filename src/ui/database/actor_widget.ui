@@ -362,7 +362,7 @@
    <item row="2" column="1" rowspan="2" colspan="2">
     <widget class="QGroupBox" name="groupBoxClass">
      <property name="title">
-      <string>Profession</string>
+      <string>Class</string>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_35">
       <property name="spacing">
@@ -381,18 +381,19 @@
        <number>5</number>
       </property>
       <item>
-       <widget class="ClassRpgComboBox" name="comboProfession">
+       <widget class="QComboBox" name="comboProfession">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
           <horstretch>1</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
-        <item>
-         <property name="text">
-          <string>&lt;none&gt;</string>
-         </property>
-        </item>
+        <property name="sizeAdjustPolicy">
+         <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
+        </property>
+        <property name="minimumContentsLength">
+         <number>10</number>
+        </property>
        </widget>
       </item>
       <item>
@@ -405,7 +406,7 @@
      </layout>
     </widget>
    </item>
-   <item row="3" column="0" rowspan="4">
+   <item row="3" column="0" rowspan="3">
     <widget class="QGroupBox" name="groupBox_372">
      <property name="title">
       <string>Hero Graphics</string>
@@ -565,7 +566,7 @@
      </layout>
     </widget>
    </item>
-   <item row="4" column="1" rowspan="3" colspan="2">
+   <item row="4" column="1" rowspan="2" colspan="2">
     <widget class="QGroupBox" name="groupBox_242">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
@@ -772,7 +773,7 @@
    <item row="5" column="3" colspan="2">
     <widget class="QGroupBox" name="groupBox_375">
      <property name="title">
-      <string>Skills</string>
+      <string>Skill Progression</string>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_37">
       <property name="spacing">
@@ -795,8 +796,11 @@
         <property name="horizontalScrollBarPolicy">
          <enum>Qt::ScrollBarAlwaysOff</enum>
         </property>
+        <property name="contextMenuPolicy">
+         <enum>Qt::ActionsContextMenu</enum>
+        </property>
         <property name="editTriggers">
-         <set>QAbstractItemView::DoubleClicked</set>
+         <set>QAbstractItemView::NoEditTriggers</set>
         </property>
         <property name="showDropIndicator" stdset="0">
          <bool>false</bool>
@@ -814,7 +818,7 @@
          <enum>QAbstractItemView::SelectRows</enum>
         </property>
         <property name="sortingEnabled">
-         <bool>true</bool>
+         <bool>false</bool>
         </property>
         <property name="wordWrap">
          <bool>false</bool>
@@ -840,19 +844,14 @@
         <attribute name="verticalHeaderDefaultSectionSize">
          <number>36</number>
         </attribute>
-        <row>
-         <property name="text">
-          <string/>
-         </property>
-        </row>
         <column>
          <property name="text">
-          <string>Lv</string>
+          <string>Level</string>
          </property>
         </column>
         <column>
          <property name="text">
-          <string>Skill</string>
+          <string>Skill Learned</string>
          </property>
         </column>
        </widget>
@@ -860,7 +859,7 @@
      </layout>
     </widget>
    </item>
-   <item row="6" column="3" rowspan="3">
+   <item row="6" column="3" rowspan="2">
     <widget class="QGroupBox" name="groupBox_376">
      <property name="title">
       <string>Status Ranks</string>
@@ -872,7 +871,7 @@
      </layout>
     </widget>
    </item>
-   <item row="6" column="4" rowspan="3">
+   <item row="6" column="4" rowspan="2">
     <widget class="QGroupBox" name="groupBox_377">
      <property name="title">
       <string>Attribute Ranks</string>
@@ -884,7 +883,7 @@
      </layout>
     </widget>
    </item>
-   <item row="7" column="0" colspan="3">
+   <item row="6" column="0" colspan="3">
     <widget class="QGroupBox" name="groupBox_378">
      <property name="title">
       <string>Experience Curve</string>
@@ -919,34 +918,84 @@
         <property name="frameShadow">
          <enum>QFrame::Sunken</enum>
         </property>
-        <property name="text">
-         <string>Initial = X ; Increment = Y ; Correction = Z</string>
-        </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QPushButton" name="pushExpCurveEdit">
         <property name="text">
-         <string>Edit</string>
+         <string>Edit...</string>
         </property>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
-   <item row="8" column="0" colspan="3">
+   <item row="7" column="0" colspan="3">
     <widget class="QGroupBox" name="groupBox_379">
      <property name="title">
-      <string>Custom Properties</string>
+      <string>EasyRPG Properties</string>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_42">
       <item>
+       <widget class="QLabel" name="labelEasyRpg">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>1</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Settings only EasyRPG Player reads</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="pushEditCustom">
         <property name="text">
-         <string>Edit</string>
+         <string>Edit...</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="8" column="0" colspan="5">
+    <widget class="QGroupBox" name="groupBattleCommands">
+     <property name="title">
+      <string>Battle Commands</string>
+     </property>
+     <layout class="QGridLayout" name="layoutBattleCommands">
+      <item row="0" column="0">
+       <widget class="QComboBox" name="comboBattleCommand1"/>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboBattleCommand2"/>
+      </item>
+      <item row="0" column="2">
+       <widget class="QComboBox" name="comboBattleCommand3"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QComboBox" name="comboBattleCommand4"/>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="comboBattleCommand5"/>
+      </item>
+      <item row="1" column="2">
+       <widget class="QComboBox" name="comboBattleCommand6"/>
+      </item>
+      <item row="1" column="3">
+       <widget class="QLabel" name="labelRow">
+        <property name="text">
+         <string>Row</string>
         </property>
        </widget>
       </item>
@@ -963,11 +1012,6 @@
   </customwidget>
   <customwidget>
    <class>AnimationRpgComboBox</class>
-   <extends>QComboBox</extends>
-   <header>ui/common/rpg_combobox.h</header>
-  </customwidget>
-  <customwidget>
-   <class>ClassRpgComboBox</class>
    <extends>QComboBox</extends>
    <header>ui/common/rpg_combobox.h</header>
   </customwidget>

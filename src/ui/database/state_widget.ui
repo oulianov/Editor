@@ -976,53 +976,35 @@
    <item row="3" column="4">
     <widget class="QGroupBox" name="groupBox_304">
      <property name="title">
-      <string>Battler Animation</string>
+      <string>Animation</string>
      </property>
-     <layout class="QHBoxLayout" name="horizontalLayout_304">
-      <property name="spacing">
-       <number>3</number>
-      </property>
-      <property name="leftMargin">
-       <number>5</number>
-      </property>
-      <property name="topMargin">
-       <number>5</number>
-      </property>
-      <property name="rightMargin">
-       <number>5</number>
-      </property>
-      <property name="bottomMargin">
-       <number>5</number>
-      </property>
+     <property name="toolTip">
+      <string>The battle pose of the heroes who have this condition (RPG Maker 2003)</string>
+     </property>
+     <layout class="QVBoxLayout" name="layoutBattlerPose">
       <item>
-       <widget class="QGraphicsView" name="graphicsBattlerAnimation">
-        <property name="minimumSize">
-         <size>
-          <width>52</width>
-          <height>52</height>
-         </size>
+       <widget class="QComboBox" name="comboBattlerPose">
+        <property name="sizeAdjustPolicy">
+         <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
         </property>
-        <property name="maximumSize">
-         <size>
-          <width>52</width>
-          <height>52</height>
-         </size>
-        </property>
-        <property name="verticalScrollBarPolicy">
-         <enum>Qt::ScrollBarAlwaysOff</enum>
-        </property>
-        <property name="horizontalScrollBarPolicy">
-         <enum>Qt::ScrollBarAlwaysOff</enum>
+        <property name="minimumContentsLength">
+         <number>10</number>
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QSpinBox" name="spinBattlerAnimationId">
-        <property name="minimum">
-         <number>0</number>
+      <item alignment="Qt::AlignHCenter">
+       <widget class="QLabel" name="labelBattlerPose">
+        <property name="toolTip">
+         <string>The pose in the battle graphics of the first hero</string>
         </property>
-        <property name="maximum">
-         <number>999</number>
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
         </property>
        </widget>
       </item>

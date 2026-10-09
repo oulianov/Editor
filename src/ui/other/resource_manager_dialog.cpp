@@ -138,9 +138,8 @@ ResourceManagerDialog::ResourceManagerDialog(QWidget *parent) :
 	});
 
 	QSettings settings;
-	if (!restoreGeometry(settings.value(GEOMETRY_KEY).toByteArray())) {
-		resize(860, 540);
-	}
+	resize(860, 540);
+	setProperty("dialog_geometry_key", QString::fromLatin1(GEOMETRY_KEY));
 	if (const QScreen* screen = parent ? parent->screen() : this->screen()) {
 		resize(size().boundedTo(screen->availableGeometry().size() * 0.95));
 	}

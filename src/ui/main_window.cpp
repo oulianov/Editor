@@ -19,6 +19,11 @@
 #include "ui/other/open_project_dialog.h"
 #include "ui/other/import_project_dialog.h"
 #include "ui/other/settings_dialog.h"
+#include "ui/other/rename_project_dialog.h"
+#include "ui/other/convert_project_dialog.h"
+#include "ui/other/export_dialog.h"
+#include "ui/common/stale_file.h"
+#include "model/project_convert.h"
 #include "ui/other/jukebox_dialog.h"
 #include "common/editor_settings.h"
 #include "common/translations.h"
@@ -30,6 +35,8 @@
 #include "ui/other/run_game_dialog.h"
 #include "model/map_tools.h"
 #include "main_window.h"
+#include "ui/common/help.h"
+#include "ui/common/view_state.h"
 #include "ui/common/theme_icon.h"
 #include "ui/common/toolbar_overflow.h"
 #include "ui_main_window.h"
@@ -47,6 +54,7 @@
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QScrollBar>
+#include <QScreen>
 #include <QSignalBlocker>
 #include <QStringList>
 #include <QDir>
@@ -77,7 +85,7 @@ Q_DECLARE_METATYPE(QList<float>)
 
 const std::vector<QString> resource_dirs =
 	{BACKDROP, BATTLE, BATTLE2, BATTLECHARSET, BATTLEWEAPON, CHARSET, CHIPSET, FACESET,
-	GAMEOVER, MONSTER, MOVIE, MUSIC, PANORAMA, PICTURE, SOUND, SYSTEM, SYSTEM2, TITLE};
+	FRAME, GAMEOVER, MONSTER, MOVIE, MUSIC, PANORAMA, PICTURE, SOUND, SYSTEM, SYSTEM2, TITLE};
 
 static void recurseAddDir(QDir d, QStringList & list) {
 
@@ -144,20 +152,28 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui(new Ui::MainWindow)
 {
 	ui->setupUi(this);
+	setProperty("view_state_contextual", true); // Map tabs are restored by map id.
+	m_defaultWindowSize = size();
 	// Panels have their View menu actions; the fixed toolbars are always shown.
 	setContextMenuPolicy(Qt::PreventContextMenu);
 #ifdef Q_OS_MACOS
-	for (auto* button : ui->mainToolBar->findChildren<QToolButton*>())
-		button->setAttribute(Qt::WA_MacSmallSize);
+	for (auto* toolbar : findChildren<QToolBar*>())
+		for (auto* button : toolbar->findChildren<QToolButton*>())
+			button->setAttribute(Qt::WA_MacSmallSize);
 #endif
 	refreshIcons();
+	connect(ui->actionContents, &QAction::triggered, this, [this] {
+		Help::open(this, QStringLiteral("top"));
+	});
 	connect(ui->actionAbout, &QAction::triggered, this, [this] {
 		QMessageBox::about(this, tr("About EasyRPG Editor"),
-			tr("<h3>EasyRPG Editor</h3>"
+			tr("<h3>EasyRPG Editor %1</h3>"
 				"<p>A game editor for EasyRPG and RPG Maker 2000/2003 projects.</p>"
+				"<p>Built with Qt %2.</p>"
 				"<p>Free software, licensed under the GNU General Public License "
 				"(version 3 or later).</p>"
-				"<p><a href=\"https://easyrpg.org/\">EasyRPG website</a></p>"));
+				"<p><a href=\"https://easyrpg.org/\">EasyRPG website</a></p>")
+				.arg(QCoreApplication::applicationVersion(), QString::fromLatin1(qVersion())));
 	});
 
 	// Hide map ids
@@ -170,7 +186,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	//Create dialogs
 	dlg_resource = new ResourceManagerDialog(this);
 	dlg_resource->setModal(true);
-	dlg_db = nullptr;
 	m_paletteScene = new PaletteScene(ui->graphicsPalette);
 	ui->graphicsPalette->setScene(m_paletteScene);
 	ui->graphicsPalette->verticalScrollBar()->setSliderPosition(1);
@@ -267,17 +282,15 @@ MainWindow::MainWindow(QWidget *parent) :
 										qApp->applicationDirPath()).toString());
 	updateLayerActions();
 	updateToolActions();
-	restoreGeometry(m_settings.value(QStringLiteral("main_window_geometry")).toByteArray());
+	m_defaultLayoutState = ViewState::captureLayout(this);
+	connect(&EditorSettings::instance(), &EditorSettings::localStateReset, this, &MainWindow::resetLocalState);
 	connect(qApp, &QCoreApplication::aboutToQuit, this, &MainWindow::saveWorkspace);
 }
 
 MainWindow::~MainWindow()
 {
 	delete ui;
-	if (core().project())
-		delete searchdialog;
 	delete dlg_resource;
-	delete dlg_db;
 }
 
 void MainWindow::LoadLastProject()
@@ -307,6 +320,8 @@ void MainWindow::LoadProject(QString foldername)
 
 	core().project() = prj;
 
+	// the search reads the data of one project
+	delete searchdialog;
 	searchdialog = new SearchDialog(core().project()->projectData(), this);
 	searchdialog->enableCache(EditorSettings::instance().searchCache());
 
@@ -484,21 +499,8 @@ void MainWindow::ImportProject(const QDir& src_dir, QDir& target_dir, bool conve
 	}
 	progress.setValue(entries.count());
 
-	core().project() = prj;
-	populateMapTree(false);
-
-	/*m_projSett = new QSettings(core().project()->findFile(ROOT, EASY_CFG),
-							   QSettings::IniFormat,
-							   this);
-	m_projSett->setValue(GAMETITLE, title);
-	m_projSett->setValue(LAYER, core().layer());
-	m_projSett->setValue(MAPS, m_mapList);
-	m_projSett->setValue(SCALES, m_scaleList);
-	m_projSett->setValue(TILESIZE, 16);
-	this->on_treeMap_itemDoubleClicked(m_treeItems[m_mapList[0].toInt()], 0);*/
-
-	setWindowTitle(tr("EasyRPG Editor") + " - " +  core().project()->gameTitle());
-	m_settings.setValue(CURRENT_PROJECT_KEY, core().project()->projectDir().absolutePath());
+	// opened like any project (map tree, search, watcher, workspace)
+	LoadProject(prj->projectDir().absolutePath());
 }
 
 bool MainWindow::convertXYZtoPNG(QFile &xyz_file, QString out_path)
@@ -517,10 +519,13 @@ bool MainWindow::convertXYZtoPNG(QFile &xyz_file, QString out_path)
 	if (xyz_data.isEmpty())
 		return false;
 
-	QImage image(reinterpret_cast<uchar*>(xyz_data.data()) + 768, width, height, QImage::Format_Indexed8);
-	// Add color table
+	// the rows are "width" bytes apart, not aligned on 4 bytes like a QImage's
+	const auto* pixels = reinterpret_cast<const uchar*>(xyz_data.constData());
+	QImage image(pixels + 768, width, height, width, QImage::Format_Indexed8);
+	image = image.copy();
+	// Add color table (unsigned bytes: colors above 127)
 	for (int i = 0; i < 256; ++i)
-		image.setColor(i, qRgb(xyz_data[i * 3], xyz_data[i * 3 + 1], xyz_data[i * 3 + 2]));
+		image.setColor(i, qRgb(pixels[i * 3], pixels[i * 3 + 1], pixels[i * 3 + 2]));
 
 	return image.save(out_path, "PNG");
 }
@@ -528,7 +533,6 @@ bool MainWindow::convertXYZtoPNG(QFile &xyz_file, QString out_path)
 void MainWindow::on_actionQuit_triggered()
 {
 	if (saveAll()) {
-		//this->on_actionJukebox_triggered(true);
 		qApp->quit();
 	}
 }
@@ -556,11 +560,16 @@ void MainWindow::on_actionResourceManager_triggered()
 
 void MainWindow::on_actionDatabase_triggered()
 {
-	if (dlg_db)
-		delete dlg_db;
-	dlg_db = new DatabaseDialog(core().project()->projectData(), this);
-	dlg_db->setModal(true);
-	dlg_db->exec();
+	// One database window. Asked again while it is open (from a window over
+	// it), it comes to the front: deleting it would delete the window that
+	// is still running below
+	if (auto* open = findChild<DatabaseDialog*>(QString(), Qt::FindDirectChildrenOnly)) {
+		open->raise();
+		open->activateWindow();
+		return;
+	}
+	DatabaseDialog dialog(core().project()->projectData(), this);
+	dialog.exec();
 }
 
 void MainWindow::update_actions()
@@ -579,7 +588,6 @@ void MainWindow::update_actions()
 	ui->actionDatabase->setEnabled(has_project);
 	ui->actionDrawPen->setEnabled(has_project);
 	ui->actionDrawFill->setEnabled(has_project);
-	ui->actionProjectImport->setEnabled(!has_project);
 	ui->actionDrawRectangle->setEnabled(has_project);
 	ui->actionResourceManager->setEnabled(has_project);
 	// zooming needs a map
@@ -592,6 +600,9 @@ void MainWindow::update_actions()
 	ui->actionMapRevert->setEnabled(scene && scene->isModified());
 	ui->actionSearch->setEnabled(has_project);
 	ui->actionJukebox->setEnabled(has_project);
+	ui->actionProjectRename->setEnabled(has_project);
+	ui->actionProjectConvert2003->setEnabled(has_project && ProjectConvert::canConvert(*core().project()));
+	ui->actionMapSaveAll->setEnabled(has_project);
 	ui->actionUndo->setEnabled(scene && scene->canUndo());
 	ui->actionRedo->setEnabled(scene && scene->canRedo());
 	ui->actionZoom->setEnabled(has_project);
@@ -630,22 +641,15 @@ void MainWindow::on_actionProjectNew_triggered() {
 		if (dlg.getProjectFolder() == QString())
 			return;
 		QDir d_gamepath(core().defDir()+dlg.getProjectFolder());
+		// as RPG Maker: a folder that exists is refused, never emptied
 		if (d_gamepath.exists())
 		{
-			int response = QMessageBox::warning(this,
-							tr("Game folder exist"),
-							QString(tr("The folder %1 where you want to place your new game already exist.\n"
-									"Do you want to delete this folder and all it's content?")
-									).arg(core().defDir()+dlg.getProjectFolder()),
-							QMessageBox::Ok,
-							QMessageBox::Cancel);
-			if (response == QMessageBox::Cancel)
-				return;
-			removeDir(core().defDir()+dlg.getProjectFolder(),
-					  core().defDir()+dlg.getProjectFolder());
+			QMessageBox::warning(this, tr("New Project"),
+				tr("The folder %1 already exists. Choose another folder name.")
+					.arg(QDir::toNativeSeparators(d_gamepath.absolutePath())));
+			return;
 		}
-		else
-			d_gamepath.mkpath(".");
+		d_gamepath.mkpath(".");
 		core().setTileSize(dlg.getTileSize());
 		core().setDefDir(dlg.getDefDir());
 		for (const QString& dir : resource_dirs)
@@ -659,34 +663,6 @@ void MainWindow::on_actionProjectNew_triggered() {
 		}
 		LoadProject(d_gamepath.absolutePath());
 	}
-}
-
-bool MainWindow::removeDir(const QString & dirName, const QString &root)
-{
-	bool result = true;
-	QDir dir(dirName);
-
-	if (dir.exists(dirName)) {
-		Q_FOREACH(QFileInfo info, dir.entryInfoList(QDir::NoDotAndDotDot | QDir::System | QDir::Hidden	| QDir::AllDirs | QDir::Files, QDir::DirsFirst))
-		{
-			if (info.isDir())
-				result = removeDir(info.absoluteFilePath(),root);
-			else
-				result = QFile::remove(info.absoluteFilePath());
-
-			if (!result)
-			{
-				QMessageBox::warning(this,
-									 tr("An error ocurred"),
-									 QString(tr("Could't delete %1")).arg(info.absoluteFilePath()),
-									 QMessageBox::Ok);
-				return false;
-			}
-		}
-		if (root != dirName)
-			result = dir.rmdir(dirName);
-	}
-	return result;
 }
 
 QGraphicsView *MainWindow::getView(int id)
@@ -864,6 +840,8 @@ void MainWindow::on_actionProjectClose_triggered()
 		// its files are the project's
 		if (auto* jukebox = findChild<JukeboxDialog*>(QString(), Qt::FindDirectChildrenOnly))
 			jukebox->close();
+		delete searchdialog;
+		searchdialog = nullptr;
 		core().project().reset();
 		updateWatcher();
 
@@ -878,10 +856,13 @@ void MainWindow::on_actionProjectOpen_triggered()
 {
 	OpenProjectDialog dlg(this);
 	dlg.setDefaultDir(core().defDir());
-	if (dlg.exec() == QDialog::Accepted)
-		LoadProject(dlg.getProject()->projectDir().absolutePath());
+	const int result = dlg.exec();
 	core().setDefDir(dlg.getDefaultDir());
 	m_settings.setValue(DEFAULT_DIR_KEY,dlg.getDefaultDir());
+	if (result == OpenProjectDialog::ImportRequested)
+		on_actionProjectImport_triggered();
+	else if (result == QDialog::Accepted)
+		LoadProject(dlg.getProject()->projectDir().absolutePath());
 }
 
 void MainWindow::on_actionJukebox_triggered(bool)
@@ -1017,7 +998,7 @@ void MainWindow::on_tabMap_currentChanged(int index)
 		if (QTreeWidgetItem* item = m_treeItems.value(currentScene()->id()))
 			ui->treeMap->setCurrentItem(item);
 	}
-	if (QGraphicsView* view = getTabView(index); view && view->property("workspace_scroll").isValid()) {
+	if (QGraphicsView* view = getTabView(index); view && m_pendingWorkspace.isEmpty() && view->property("workspace_scroll").isValid()) {
 		// Hidden tabs receive their final viewport size only when selected.
 		QTimer::singleShot(0, view, [view] {
 			if (!view->isVisible() || !view->property("workspace_scroll").isValid())
@@ -1041,27 +1022,103 @@ void MainWindow::on_actionProjectImport_triggered()
 		if (dlg.getProjectFolder() == QString())
 			return;
 		QDir d_gamepath(dlg.getDefDir()+dlg.getProjectFolder());
-			if (d_gamepath.exists())
-			{
-				int response = QMessageBox::warning(this,
-								tr("Game folder exist"),
-								QString(tr("The folder %1 where you want to place your new game already exist.\n"
-										"Do you want to delete this folder and all it's content?")
-										).arg(dlg.getDefDir()+dlg.getProjectFolder()),
-								QMessageBox::Ok,
-								QMessageBox::Cancel);
-				if (response == QMessageBox::Cancel)
-					return;
-				removeDir(dlg.getDefDir()+dlg.getProjectFolder(),
-						  dlg.getDefDir()+dlg.getProjectFolder());
-			}
-			else
-				d_gamepath.mkpath(".");
+		// as RPG Maker: a folder that exists is refused, never emptied
+		if (d_gamepath.exists())
+		{
+			QMessageBox::warning(this, tr("Import Project"),
+				tr("The folder %1 already exists. Choose another folder name.")
+					.arg(QDir::toNativeSeparators(d_gamepath.absolutePath())));
+			return;
+		}
+		// the imported game is opened: the project open is closed first
+		if (core().project()) {
+			on_actionProjectClose_triggered();
+			if (core().project())
+				return;
+		}
+		d_gamepath.mkpath(".");
 		core().setTileSize(16);
 		ImportProject(dlg.getSourceFolder(), d_gamepath, dlg.getConvertXYZ());
 	}
 	m_settings.setValue(DEFAULT_DIR_KEY, dlg.getDefDir());
 	update_actions();
+}
+
+void MainWindow::on_actionMapSaveAll_triggered()
+{
+	for (int id : m_views.keys())
+		if (MapScene* scene = getScene(id); scene && scene->isModified())
+			scene->Save();
+}
+
+void MainWindow::on_actionProjectRename_triggered()
+{
+	auto project = core().project();
+	if (!project)
+		return;
+	const QDir folder = project->projectDir();
+	RenameProjectDialog dialog(folder, project->gameTitle(), this);
+	if (dialog.exec() != QDialog::Accepted)
+		return;
+	if (dialog.gameTitle() != project->gameTitle()) {
+		if (!project->saveGameTitle(dialog.gameTitle())) {
+			QMessageBox::warning(this, tr("Rename Project"), tr("The game title could not be written."));
+			return;
+		}
+		setWindowTitle(tr("EasyRPG Editor") + " - " + project->gameTitle());
+	}
+	if (dialog.folderName() == folder.dirName())
+		return;
+	// the folder of the open project: closed (asking to save), renamed, opened again
+	const QString old_path = folder.absolutePath();
+	on_actionProjectClose_triggered();
+	if (core().project())
+		return;
+	QDir parent(old_path);
+	parent.cdUp();
+	if (!parent.rename(folder.dirName(), dialog.folderName())) {
+		QMessageBox::warning(this, tr("Rename Project"), tr("The folder could not be renamed."));
+		LoadProject(old_path);
+		return;
+	}
+	LoadProject(parent.filePath(dialog.folderName()));
+}
+
+void MainWindow::on_actionProjectConvert2003_triggered()
+{
+	auto project = core().project();
+	if (!project || !ProjectConvert::canConvert(*project))
+		return;
+	ConvertProjectDialog dialog(*project, false, this);
+	if (dialog.exec() != QDialog::Accepted)
+		return;
+	// every file is rewritten: the project is closed (asking to save the maps),
+	// converted from its files, and opened again
+	const QString path = project->projectDir().absolutePath();
+	project.reset();
+	on_actionProjectClose_triggered();
+	if (core().project())
+		return;
+	QString error, backup;
+	auto converted = Project::load(path);
+	if (!converted || !converted->loadDatabaseAndMapTree())
+		error = tr("The project cannot be read.");
+	else
+		error = ProjectConvert::to2003(*converted, dialog.options(), &backup);
+	converted.reset();
+	LoadProject(path);
+	ConvertProjectDialog::showResult(this, error, backup);
+}
+
+void MainWindow::on_actionGameDiskCreate_triggered()
+{
+	if (!core().project())
+		return;
+	// the export reads the files: unsaved maps would not be in it
+	if (!saveModifiedMaps(tr("Export Game"), tr("Some maps have unsaved changes.\nSave them before the export?")))
+		return;
+	ExportDialog dialog(this);
+	dialog.exec();
 }
 
 void MainWindow::on_actionSettings_triggered()
@@ -1076,6 +1133,7 @@ void MainWindow::setPlatformShortcuts()
 	// retranslateUi, which resets the shortcuts of the .ui)
 	ui->actionQuit->setShortcuts(QKeySequence::Quit);
 	ui->actionSettings->setShortcut(QKeySequence::Preferences);
+	ui->actionContents->setShortcut(QKeySequence::HelpContents);
 #ifdef Q_OS_MACOS
 	// the Delete key of Mac keyboards is Backspace
 	for (QAction* action : {ui->actionMapDelete, ui->actionAreaDelete})
@@ -1168,14 +1226,18 @@ void MainWindow::on_actionTitleBackgroundToggle_toggled(bool checked)
 
 bool MainWindow::saveBeforeTestPlay()
 {
+	// The Player reads the files: what is not saved is not tested
+	return saveModifiedMaps(tr("Test Play"), tr("Some maps have unsaved changes.\nSave them before the test play?"));
+}
+
+bool MainWindow::saveModifiedMaps(const QString& title, const QString& question)
+{
 	bool modified = false;
 	for (int i = 0; i < ui->tabMap->count(); i++)
 		modified = modified || getTabScene(i)->isModified();
 	if (!modified)
 		return true;
-	// The Player reads the files: what is not saved is not tested
-	int result = QMessageBox::question(this, tr("Test Play"),
-		tr("Some maps have unsaved changes.\nSave them before the test play?"),
+	int result = QMessageBox::question(this, title, question,
 		QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 	if (result == QMessageBox::Cancel)
 		return false;
@@ -1212,8 +1274,22 @@ void MainWindow::on_mapUnchanged()
 		setTabText(scene);
 	// A saved map writes its copy of its tree entry: keep the tree's
 	// parents and order, which can have changed since it was opened
-	if (core().project() && syncTreeOrder())
+	if (core().project() && syncTreeOrder()) {
+		const bool stale = core().watcher().isStale(core().project()->treeMapFile());
+		if (stale && !core().project()->mergeTreeMap(nullptr)) {
+			onTreeMapFileChanged(); // its order is the one of the file
+			return;
+		}
 		core().project()->saveTreeMap();
+		if (stale)
+			onTreeMapFileChanged();
+	}
+}
+
+void MainWindow::refreshTreeMap()
+{
+	if (core().project() && core().watcher().isStale(core().project()->treeMapFile()))
+		onTreeMapFileChanged();
 }
 
 void MainWindow::on_actionUndo_triggered()
@@ -1228,6 +1304,19 @@ void MainWindow::on_actionRedo_triggered()
 		currentScene()->redo();
 }
 
+void MainWindow::showEvent(QShowEvent* event)
+{
+	QMainWindow::showEvent(event);
+	if (!m_windowGeometryRestored) {
+		m_windowGeometryRestored = true;
+		// On macOS, the initial native resize can arrive while the project
+		// loads. Restore after it, when the window is first shown.
+		restoreGeometry(m_settings.value(QStringLiteral("main_window_geometry")).toByteArray());
+		if (!core().project()) m_pendingWorkspace = {{"layout", m_settings.value(QStringLiteral("main_window_layout"))}};
+	}
+	if (!m_pendingWorkspace.isEmpty()) restoreWorkspaceLayout();
+}
+
 void MainWindow::closeEvent(QCloseEvent *event)
 {
 	if (!saveAll())
@@ -1240,37 +1329,27 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void MainWindow::saveWorkspace()
 {
+	if (qApp->property("local_state_resetting").toBool()) return;
 	m_settings.setValue(QStringLiteral("main_window_geometry"), saveGeometry());
+	m_settings.setValue(QStringLiteral("main_window_layout"), ViewState::captureLayout(this));
 	if (!core().project()) {
 		m_settings.sync();
 		return;
 	}
 	QVariantList maps;
-	for (int i = 0; i < ui->tabMap->count(); ++i) {
-		QGraphicsView* view = getTabView(i);
-		MapScene* scene = getTabScene(i);
-		QVariantMap scroll = view->property("workspace_scroll").toMap();
-		if (scroll.isEmpty())
-			scroll = {{"x", view->horizontalScrollBar()->value()}, {"y", view->verticalScrollBar()->value()}};
-		maps.append(QVariantMap{{"id", scene->id()}, {"zoom", scene->scale()}, {"scroll", scroll}});
-	}
+	for (int i = 0; i < ui->tabMap->count(); ++i) maps.append(getTabScene(i)->viewState());
 	QVariantList expanded;
 	for (auto it = m_treeItems.cbegin(); it != m_treeItems.cend(); ++it)
 		if (it.value()->isExpanded())
 			expanded.append(it.key());
-	QVariantList tiles;
-	for (int y = 0; y < core().selHeight(); ++y)
-		for (int x = 0; x < core().selWidth(); ++x)
-			tiles.append(core().selection(x, y));
 	const QVariantMap workspace = {
 		{"maps", maps}, {"active_map", currentScene() ? currentScene()->id() : -1},
 		{"selected_map", currentMapId()}, {"expanded", expanded},
 		{"tree_scroll", ui->treeMap->verticalScrollBar()->value()},
-		{"layer", core().layer()}, {"tool", core().tool()},
-		{"tiles", tiles}, {"tile_width", core().selWidth()}, {"tile_height", core().selHeight()},
+		{"editing", core().editingState()},
 		{"palette_x", ui->graphicsPalette->horizontalScrollBar()->value()},
 		{"palette_y", ui->graphicsPalette->verticalScrollBar()->value()},
-		{"panels", saveState()}
+		{"layout", m_settings.value(QStringLiteral("main_window_layout"))}
 	};
 	const QString key = "project_workspace/" + QString::fromLatin1(QCryptographicHash::hash(
 		core().project()->projectDir().absolutePath().toUtf8(), QCryptographicHash::Sha256).toHex());
@@ -1278,59 +1357,106 @@ void MainWindow::saveWorkspace()
 	m_settings.sync();
 }
 
+void MainWindow::resetLocalState()
+{
+	m_pendingWorkspace.clear();
+	showNormal();
+	resize(m_defaultWindowSize);
+	ViewState::restoreLayout(this, m_defaultLayoutState);
+	if (const QScreen* display = screen())
+		move(display->availableGeometry().center() - QPoint(frameGeometry().width() / 2, frameGeometry().height() / 2));
+	ui->mainToolBar->show();
+	ui->dockPalette->show();
+	ui->dockMapTree->show();
+	ui->actionPaletteToggle->setChecked(true);
+	ui->actionMapTreeToggle->setChecked(true);
+	if (core().project()) {
+		// Keep unsaved maps available; closing clean tabs only changes the view.
+		for (int i = ui->tabMap->count() - 1; i >= 0; --i)
+			if (!getTabScene(i)->isModified() && getTabView(i)->findChildren<QDialog*>().isEmpty())
+				removeView(getTabScene(i)->id());
+		populateMapTree(true);
+		for (auto it = m_treeItems.cbegin(); it != m_treeItems.cend(); ++it)
+			it.value()->setExpanded(it.key() == 0);
+		for (auto* view : m_views) {
+			view->setProperty("workspace_scroll", QVariant());
+			auto* scene = static_cast<MapScene*>(view->scene());
+			scene->setScale(default_map_scale);
+			scene->selectTile(0, 0);
+			view->horizontalScrollBar()->setValue(0);
+			view->verticalScrollBar()->setValue(0);
+		}
+		core().setCurrentMapEvents(currentScene() ? currentScene()->mapEvents() : nullptr);
+	}
+	core().restoreEditingState({});
+	ui->treeMap->verticalScrollBar()->setValue(0);
+	ui->graphicsPalette->horizontalScrollBar()->setValue(0);
+	ui->graphicsPalette->verticalScrollBar()->setValue(0);
+	update_actions();
+}
+
 void MainWindow::restoreWorkspace()
 {
 	const QString key = "project_workspace/" + QString::fromLatin1(QCryptographicHash::hash(
 		core().project()->projectDir().absolutePath().toUtf8(), QCryptographicHash::Sha256).toHex());
 	const QVariantMap workspace = m_settings.value(key).toMap();
+	m_pendingWorkspace = workspace;
+	if (!workspace.contains("layout"))
+		m_pendingWorkspace.insert("layout", workspace.contains("panels")
+			? QVariantMap{{"docks", workspace.value("panels")}} : m_settings.value(QStringLiteral("main_window_layout")).toMap());
 	populateMapTree(!workspace.contains("maps"));
-	core().setLayer(static_cast<Core::Layer>(std::clamp(workspace.value("layer", Core::LOWER).toInt(),
-		static_cast<int>(Core::LOWER), static_cast<int>(Core::EVENT))));
-	core().setTool(static_cast<Core::Tool>(std::clamp(workspace.value("tool", Core::PENCIL).toInt(),
-		static_cast<int>(Core::ZOOM), static_cast<int>(Core::SELECT))));
-	if (workspace.isEmpty())
-		return;
-	restoreState(workspace.value("panels").toByteArray());
-	// Older workspaces may have hidden it through Qt's toolbar context menu.
-	ui->mainToolBar->show();
-	ui->actionPaletteToggle->setChecked(!ui->dockPalette->isHidden());
-	ui->actionMapTreeToggle->setChecked(!ui->dockMapTree->isHidden());
+	core().restoreEditingState(workspace.contains("editing") ? workspace.value("editing").toMap() : workspace);
 	for (const QVariant& entry : workspace.value("maps").toList()) {
 		const QVariantMap map = entry.toMap();
 		const int id = map.value("id", -1).toInt();
 		// Removed maps, areas and unreadable files cannot be restored as tabs.
 		if (mapType(id) != lcf::rpg::TreeMap::MapType_map || getScene(id) || !core().project()->loadMap(id))
 			continue;
-		QGraphicsView* view = getView(id);
-		getScene(id)->setScale(map.value("zoom", default_map_scale).toFloat());
-		view->setProperty("workspace_scroll", map.value("scroll"));
+		getView(id);
+		getScene(id)->restoreViewState(map);
 	}
 	if (QGraphicsView* view = m_views.value(workspace.value("active_map", -1).toInt()))
 		ui->tabMap->setCurrentWidget(view);
 	on_tabMap_currentChanged(ui->tabMap->currentIndex());
 	{
 		QSignalBlocker blocker(ui->treeMap);
-		const QVariantList expanded = workspace.value("expanded").toList();
-		for (auto it = m_treeItems.cbegin(); it != m_treeItems.cend(); ++it)
-			it.value()->setExpanded(expanded.contains(QVariant(it.key())));
+		if (workspace.contains("expanded")) {
+			const QVariantList expanded = workspace.value("expanded").toList();
+			for (auto it = m_treeItems.cbegin(); it != m_treeItems.cend(); ++it)
+				it.value()->setExpanded(expanded.contains(QVariant(it.key())));
+		}
 		if (QTreeWidgetItem* item = m_treeItems.value(workspace.value("selected_map", -1).toInt()))
 			ui->treeMap->setCurrentItem(item);
 	}
-	const int width = workspace.value("tile_width").toInt();
-	const int height = workspace.value("tile_height").toInt();
-	const QVariantList tiles = workspace.value("tiles").toList();
-	if (width > 0 && width <= 6 && height > 0 && height <= 30 && tiles.size() == width * height) {
-		std::vector<short> selection;
-		for (const QVariant& tile : tiles)
-			selection.push_back(static_cast<short>(tile.toInt()));
-		core().setSelection(std::move(selection), width, height);
-	}
-	QTimer::singleShot(0, this, [this, workspace, project = core().project()] {
-		if (core().project() != project)
-			return;
-		ui->treeMap->verticalScrollBar()->setValue(workspace.value("tree_scroll").toInt());
-		ui->graphicsPalette->horizontalScrollBar()->setValue(workspace.value("palette_x").toInt());
-		ui->graphicsPalette->verticalScrollBar()->setValue(workspace.value("palette_y").toInt());
+	if (isVisible()) restoreWorkspaceLayout();
+}
+
+void MainWindow::restoreWorkspaceLayout()
+{
+	const QVariantMap workspace = m_pendingWorkspace;
+	const int revision = qApp->property("local_state_revision").toInt();
+	QTimer::singleShot(0, this, [this, workspace, project = core().project(), revision] {
+		if (revision != qApp->property("local_state_revision").toInt()) return;
+		if (core().project() != project || m_pendingWorkspace != workspace) return;
+		ViewState::restoreLayout(this, workspace.value("layout").toMap());
+		ui->mainToolBar->show();
+		ui->actionPaletteToggle->setChecked(!ui->dockPalette->isHidden());
+		ui->actionMapTreeToggle->setChecked(!ui->dockMapTree->isHidden());
+		m_pendingWorkspace.clear();
+		// Dock restoration resizes the map viewport and its scroll ranges.
+		// Apply scrolling after that resize, rather than before it.
+		QTimer::singleShot(0, this, [this, workspace, project, revision] {
+			if (revision != qApp->property("local_state_revision").toInt() || core().project() != project) return;
+			if (auto* view = getTabView(ui->tabMap->currentIndex()); view && view->property("workspace_scroll").isValid()) {
+				const QVariantMap scroll = view->property("workspace_scroll").toMap();
+				view->horizontalScrollBar()->setValue(scroll.value("x").toInt());
+				view->verticalScrollBar()->setValue(scroll.value("y").toInt());
+				view->setProperty("workspace_scroll", QVariant());
+			}
+			ui->treeMap->verticalScrollBar()->setValue(workspace.value("tree_scroll").toInt());
+			ui->graphicsPalette->horizontalScrollBar()->setValue(workspace.value("palette_x").toInt());
+			ui->graphicsPalette->verticalScrollBar()->setValue(workspace.value("palette_y").toInt());
+		});
 	});
 }
 
@@ -1570,7 +1696,18 @@ void MainWindow::onMapTreeDropped()
 		return;
 	if (syncTreeOrder())
 	{
+		// another program changed the tree meanwhile: what it changed is
+		// merged, and a conflict asked, never replaced silently
+		QStringList conflicts;
+		const bool stale = core().watcher().isStale(core().project()->treeMapFile());
+		const bool merged = stale && core().project()->mergeTreeMap(&conflicts);
+		if (stale && !merged && askStale(this, tr("The map tree"), true, conflicts) != StaleChoice::Overwrite) {
+			onTreeMapFileChanged(); // the tree of the file, without the move
+			return;
+		}
 		core().project()->saveTreeMap();
+		if (merged)
+			onTreeMapFileChanged(); // the tree shown takes the other program's changes
 		// the open maps keep a copy of their tree entry
 		for (int i = 0; i < ui->tabMap->count(); i++)
 			getTabScene(i)->refreshMapInfo();
@@ -1608,6 +1745,8 @@ void MainWindow::on_actionMapCopy_triggered()
 
 void MainWindow::on_actionMapNew_triggered()
 {
+	// the map tree as another program left it: these write it at once
+	refreshTreeMap();
 	const int current = currentMapId();
 	lcf::rpg::MapInfo info;
 	info.ID = freeMapId();
@@ -1641,6 +1780,8 @@ void MainWindow::on_actionMapNew_triggered()
 
 void MainWindow::on_actionMapPaste_triggered()
 {
+	// the map tree as another program left it: these write it at once
+	refreshTreeMap();
 	const int current = currentMapId();
 	const int type = mapType(current);
 	if (!m_copiedMap || type == lcf::rpg::TreeMap::MapType_area)
@@ -1681,6 +1822,8 @@ void MainWindow::on_actionMapPaste_triggered()
 
 void MainWindow::on_actionMapDelete_triggered()
 {
+	// the map tree as another program left it: these write it at once
+	refreshTreeMap();
 	const int id = currentMapId();
 	if (mapType(id) != lcf::rpg::TreeMap::MapType_map)
 		return;
@@ -1737,6 +1880,8 @@ void MainWindow::removeMap(const int id)
 
 void MainWindow::on_actionMapProperties_triggered()
 {
+	// the map tree as another program left it: these write it at once
+	refreshTreeMap();
 	// the map selected in the tree, else the map shown
 	int id = currentMapId();
 	const int type = mapType(id);
@@ -1779,6 +1924,8 @@ void MainWindow::on_actionMapProperties_triggered()
 
 void MainWindow::on_actionMapGenerateDungeon_triggered()
 {
+	// the map tree as another program left it: these write it at once
+	refreshTreeMap();
 	const int id = currentMapId();
 	if (mapType(id) != lcf::rpg::TreeMap::MapType_map)
 		return;
@@ -1822,6 +1969,8 @@ void MainWindow::on_actionMapGenerateDungeon_triggered()
 
 void MainWindow::on_actionMapShift_triggered()
 {
+	// the map tree as another program left it: these write it at once
+	refreshTreeMap();
 	const int id = currentMapId();
 	if (mapType(id) != lcf::rpg::TreeMap::MapType_map)
 		return;
@@ -1829,16 +1978,13 @@ void MainWindow::on_actionMapShift_triggered()
 	if (dlg.exec() != QDialog::Accepted)
 		return;
 
-	// The map is shifted on disk, then the open tab reads it again
-	MapScene* scene = getScene(id);
-	if (scene && scene->isModified())
+	// An open map is shifted in its tab, with undo, and saved with it
+	if (MapScene* scene = m_views.value(id) ? getScene(id) : nullptr)
 	{
-		if (QMessageBox::question(this, tr("Shift Map"),
-				tr("%1 has unsaved changes. They are saved before the map is shifted. Proceed?").arg(scene->mapName()))
-				!= QMessageBox::Yes)
-			return;
-		scene->Save();
+		scene->shiftMap(dlg.dx(), dlg.dy());
+		return;
 	}
+	// another map: on disk
 	auto map = core().project()->loadMap(id);
 	if (!map)
 	{
@@ -1871,13 +2017,12 @@ void MainWindow::on_actionMapShift_triggered()
 	shiftStart(start.airship_map_id, start.airship_x, start.airship_y);
 	if (start_moved)
 		core().project()->saveTreeMap();
-
-	if (scene)
-		scene->reloadFromDisk();
 }
 
 void MainWindow::on_actionAreaNew_triggered()
 {
+	// the map tree as another program left it: these write it at once
+	refreshTreeMap();
 	const int parent_id = currentMapId();
 	if (mapType(parent_id) != lcf::rpg::TreeMap::MapType_map)
 		return;
@@ -1903,6 +2048,8 @@ void MainWindow::on_actionAreaNew_triggered()
 
 void MainWindow::on_actionAreaProperties_triggered()
 {
+	// the map tree as another program left it: these write it at once
+	refreshTreeMap();
 	const int id = currentMapId();
 	lcf::rpg::MapInfo* stored = mapInfo(id);
 	if (!stored || stored->type != lcf::rpg::TreeMap::MapType_area)
@@ -1925,6 +2072,8 @@ void MainWindow::on_actionAreaProperties_triggered()
 
 void MainWindow::on_actionAreaDelete_triggered()
 {
+	// the map tree as another program left it: these write it at once
+	refreshTreeMap();
 	const int id = currentMapId();
 	if (mapType(id) != lcf::rpg::TreeMap::MapType_area)
 		return;
@@ -1939,13 +2088,16 @@ void MainWindow::on_actionAreaDelete_triggered()
 
 void MainWindow::on_actionSearch_triggered()
 {
+	if (!searchdialog)
+		return;
 	searchdialog->updateUI();
 	searchdialog->setVisible(true);
 }
 
 void MainWindow::updateSearchUI()
 {
-	searchdialog->updateUI();
+	if (searchdialog)
+		searchdialog->updateUI();
 }
 
 void MainWindow::openScene(int mapID)
@@ -2066,17 +2218,20 @@ void MainWindow::onDatabaseFileChanged()
 	if (!core().project()) {
 		return;
 	}
+	const auto chipsets = core().project()->database().chipsets;
 	if (!core().project()->reloadDatabase()) {
 		statusBar()->showMessage(tr("The database changed on disk but could not be read"), 5000);
 		return;
 	}
-	// Chipsets can have changed
-	if (currentScene()) {
-		core().LoadChipset(currentScene()->chipsetId());
-		m_paletteScene->onChipsetChange();
-	}
-	for (int i = 0; i < ui->tabMap->count(); i++) {
-		getTabScene(i)->redrawMap();
+	// The maps are drawn again only when a chipset changed
+	if (!(core().project()->database().chipsets == chipsets)) {
+		if (currentScene()) {
+			core().LoadChipset(currentScene()->chipsetId());
+			m_paletteScene->onChipsetChange();
+		}
+		for (int i = 0; i < ui->tabMap->count(); i++) {
+			getTabScene(i)->redrawMap();
+		}
 	}
 	statusBar()->showMessage(tr("Database reloaded"), 3000);
 	qCInfo(lcReload) << "database reloaded";

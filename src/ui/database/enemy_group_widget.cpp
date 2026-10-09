@@ -16,6 +16,7 @@
  */
 
 #include "enemy_group_widget.h"
+#include "database_list_data.h"
 #include "ui_enemy_group_widget.h"
 
 #include <QButtonGroup>
@@ -30,6 +31,7 @@
 #include "ui/event/battle_page_widget.h"
 #include "ui/picker/picker_backdrop_widget.h"
 #include "ui/picker/picker_dialog.h"
+#include "test_battle_dialog.h"
 
 std::optional<lcf::rpg::TroopPage> EnemyGroupWidget::s_pageClipboard;
 
@@ -57,14 +59,15 @@ EnemyGroupWidget::EnemyGroupWidget(ProjectData& project, QWidget *parent) :
 	auto& database = project.database();
 	const bool isRPG2k3 = database.system.ldb_id == 2003;
 
-	for (const auto& enemy : database.enemies) {
-		ui->listEnemies->addItem(QStringLiteral("%1: %2").arg(enemy.ID, 4, 10, QChar('0')).arg(ToQString(enemy.name)));
-	}
-	for (const auto& terrain : database.terrains) {
-		auto* item = new QListWidgetItem(ToQString(terrain.name), ui->listTerrains);
-		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-		item->setCheckState(Qt::Checked);
-	}
+	fillLists();
+	// Array Size, a paste or a rename in another tab: list them again
+	connect(&DatabaseListNotifier::instance(), &DatabaseListNotifier::listChanged, this, [this](const void* list) {
+		const auto& database = m_project.database();
+		if (list == &database.enemies || list == &database.terrains) {
+			fillLists();
+			setData(m_current == &m_dummy ? nullptr : m_current);
+		}
+	});
 
 	LcfWidgetBinding::connect(this, ui->lineName);
 
@@ -84,6 +87,10 @@ EnemyGroupWidget::EnemyGroupWidget(ProjectData& project, QWidget *parent) :
 	connect(ui->pushRemoveAll, &QPushButton::clicked, this, &EnemyGroupWidget::removeAllMembers);
 	connect(ui->pushAutoAlign, &QPushButton::clicked, this, &EnemyGroupWidget::autoAlign);
 	connect(ui->pushChangeBackdrop, &QPushButton::clicked, this, &EnemyGroupWidget::changeBackdrop);
+	connect(ui->pushTestBattle, &QPushButton::clicked, this, [this] {
+		TestBattleDialog dialog(m_project, m_current->ID, this);
+		dialog.exec();
+	});
 	connect(ui->listTerrains, &QListWidget::itemChanged, this, [this](QListWidgetItem* item) {
 		terrainChanged(ui->listTerrains->row(item), item->checkState() == Qt::Checked);
 	});
@@ -101,6 +108,22 @@ EnemyGroupWidget::EnemyGroupWidget(ProjectData& project, QWidget *parent) :
 
 EnemyGroupWidget::~EnemyGroupWidget() {
 	delete ui;
+}
+
+void EnemyGroupWidget::fillLists() {
+	const auto& database = m_project.database();
+	// itemChanged writes the terrains of the group
+	SignalBlocker blocker(ui->listTerrains);
+	ui->listEnemies->clear();
+	ui->listTerrains->clear();
+	for (const auto& enemy : database.enemies) {
+		ui->listEnemies->addItem(QStringLiteral("%1: %2").arg(enemy.ID, 4, 10, QChar('0')).arg(ToQString(enemy.name)));
+	}
+	for (const auto& terrain : database.terrains) {
+		auto* item = new QListWidgetItem(ToQString(terrain.name), ui->listTerrains);
+		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+		item->setCheckState(Qt::Checked);
+	}
 }
 
 void EnemyGroupWidget::setData(lcf::rpg::Troop* troop) {
@@ -124,6 +147,8 @@ void EnemyGroupWidget::setData(lcf::rpg::Troop* troop) {
 	refreshPages(0);
 
 	setEnabled(m_current != &m_dummy);
+	// the background can have changed on another page
+	showBackdrop();
 }
 
 void EnemyGroupWidget::autoName() {
@@ -205,15 +230,25 @@ void EnemyGroupWidget::autoAlign() {
 }
 
 void EnemyGroupWidget::changeBackdrop() {
+	// RPG Maker keeps it in the database: the background of the test battles
+	auto& background = m_project.database().system.battletest_background;
 	auto* widget = new PickerBackdropWidget(this);
 	PickerDialog dialog(m_project, FileFinder::FileType::Image, widget, this);
-	connect(&dialog, &PickerDialog::fileSelected, this, [this](const QString& baseName) {
-		m_backdrop = baseName;
-		QString path = m_project.project().findFile(BACKDROP, baseName, FileFinder::FileType::Image);
-		ui->graphicsTroop->setBackdrop(ImageLoader::Load(path));
+	connect(&dialog, &PickerDialog::fileSelected, this, [this, &background](const QString& baseName) {
+		background = ToDBString(baseName);
+		showBackdrop();
 	});
-	dialog.setDirectoryAndFile(BACKDROP, m_backdrop);
+	dialog.setDirectoryAndFile(BACKDROP, ToQString(background));
 	dialog.exec();
+}
+
+void EnemyGroupWidget::showBackdrop() {
+	const QString name = ToQString(m_project.database().system.battletest_background);
+	QPixmap backdrop;
+	if (!name.isEmpty()) {
+		backdrop = ImageLoader::Load(m_project.project().findFile(BACKDROP, name, FileFinder::FileType::Image));
+	}
+	ui->graphicsTroop->setBackdrop(backdrop);
 }
 
 void EnemyGroupWidget::terrainChanged(int row, bool checked) {

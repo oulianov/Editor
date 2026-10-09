@@ -34,6 +34,178 @@
       <item>
        <layout class="QVBoxLayout" name="layoutLeft">
         <item>
+         <widget class="QGroupBox" name="groupCharacter">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>2</horstretch>
+            <verstretch>1</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="title">
+           <string>Character</string>
+          </property>
+          <layout class="QGridLayout" name="layoutCharacter">
+           <item row="0" column="0">
+            <widget class="QListWidget" name="listHeroes">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+               <horstretch>1</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>The hero shown in the battle screen</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="EnemyGroupView" name="graphicsLayout">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>2</horstretch>
+               <verstretch>1</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>Drag the hero to place them in battle (Manual placement)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0" colspan="2">
+            <layout class="QHBoxLayout" name="layoutPreviewOptions">
+             <item>
+              <widget class="QLabel" name="labelTroopShown">
+               <property name="text">
+                <string>Monster Group Shown</string>
+               </property>
+               <property name="buddy">
+                <cstring>comboTroopShown</cstring>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="comboTroopShown">
+               <property name="toolTip">
+                <string>Shown here only, to place the heroes</string>
+               </property>
+               <property name="sizeAdjustPolicy">
+                <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
+               </property>
+               <property name="minimumContentsLength">
+                <number>10</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushChangeBackdrop">
+               <property name="toolTip">
+                <string>Background shown here only, to place the heroes</string>
+               </property>
+               <property name="text">
+                <string>Change BG</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="2" column="0" colspan="2">
+            <layout class="QHBoxLayout" name="layoutHeroOptions">
+             <item>
+              <widget class="QGroupBox" name="groupRow">
+               <property name="title">
+                <string>Row Shown</string>
+               </property>
+               <layout class="QVBoxLayout" name="layoutRow">
+                <item>
+                 <widget class="QRadioButton" name="radioRowFront">
+                  <property name="text">
+                   <string>Front</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QRadioButton" name="radioRowBack">
+                  <property name="text">
+                   <string>Back</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item>
+              <widget class="QGroupBox" name="groupHeroCommands">
+               <property name="toolTip">
+                <string>The battle commands of the hero (a class gives its own)</string>
+               </property>
+               <property name="title">
+                <string>Default Battle Commands</string>
+               </property>
+               <layout class="QGridLayout" name="layoutHeroCommands">
+                <item row="0" column="0">
+                 <widget class="QComboBox" name="comboHeroCommand1" />
+                </item>
+                <item row="0" column="1">
+                 <widget class="QComboBox" name="comboHeroCommand2" />
+                </item>
+                <item row="1" column="0">
+                 <widget class="QComboBox" name="comboHeroCommand3" />
+                </item>
+                <item row="1" column="1">
+                 <widget class="QComboBox" name="comboHeroCommand4" />
+                </item>
+                <item row="2" column="0">
+                 <widget class="QComboBox" name="comboHeroCommand5" />
+                </item>
+                <item row="2" column="1">
+                 <widget class="QComboBox" name="comboHeroCommand6" />
+                </item>
+                <item row="3" column="0">
+                 <widget class="QLabel" name="labelHeroRowCommand">
+                  <property name="toolTip">
+                   <string>The last command is always Row</string>
+                  </property>
+                  <property name="text">
+                   <string>Row</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="groupPlacement">
+          <property name="title">
+           <string>Character Placement</string>
+          </property>
+          <layout class="QVBoxLayout" name="layoutPlacement">
+           <item>
+            <widget class="QRadioButton" name="radioPlacementManual">
+             <property name="text">
+              <string>Manual</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="radioPlacementAutomatic">
+             <property name="text">
+              <string>Automatic</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="layoutMiddle">
+        <item>
          <widget class="QGroupBox" name="groupBattleType">
           <property name="title">
            <string>Battle Type</string>
@@ -94,62 +266,72 @@
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupPlacement">
+         <widget class="QGroupBox" name="groupCommands">
           <property name="title">
-           <string>Character Placement</string>
+           <string>Battle Commands</string>
           </property>
-          <layout class="QVBoxLayout" name="layoutPlacement">
+          <layout class="QVBoxLayout" name="layoutCommands">
            <item>
-            <widget class="QRadioButton" name="radioPlacementManual">
-             <property name="text">
-              <string>Manual</string>
-             </property>
-            </widget>
+            <widget class="QListWidget" name="listCommands" />
            </item>
            <item>
-            <widget class="QRadioButton" name="radioPlacementAutomatic">
-             <property name="text">
-              <string>Automatic</string>
-             </property>
-            </widget>
+            <layout class="QHBoxLayout" name="layoutCommandButtons">
+             <item>
+              <widget class="QPushButton" name="pushAddCommand">
+               <property name="text">
+                <string>Add</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushRemoveCommand">
+               <property name="toolTip">
+                <string>Removes the last command</string>
+               </property>
+               <property name="text">
+                <string>Remove</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QFormLayout" name="layoutCommand">
+             <item row="0" column="0">
+              <widget class="QLabel" name="labelCommandName">
+               <property name="text">
+                <string>Name</string>
+               </property>
+               <property name="buddy">
+                <cstring>lineCommandName</cstring>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="lineCommandName" />
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="labelCommandType">
+               <property name="text">
+                <string>Archetype</string>
+               </property>
+               <property name="buddy">
+                <cstring>comboCommandType</cstring>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="comboCommandType" />
+             </item>
+            </layout>
            </item>
           </layout>
          </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="groupRow">
-          <property name="title">
-           <string>Row Shown</string>
-          </property>
-          <layout class="QHBoxLayout" name="layoutRow">
-           <item>
-            <widget class="QRadioButton" name="radioRowFront">
-             <property name="text">
-              <string>Front</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="radioRowBack">
-             <property name="text">
-              <string>Back</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <spacer name="spacerLeft">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-         </spacer>
         </item>
        </layout>
       </item>
       <item>
-       <layout class="QVBoxLayout" name="layoutMiddle">
+       <layout class="QVBoxLayout" name="layoutRight">
         <item>
          <widget class="QGroupBox" name="groupDeathHandler">
           <property name="title">
@@ -171,7 +353,7 @@
             </widget>
            </item>
            <item>
-            <widget class="CommonEventRpgComboBox" name="comboDeathEvent"/>
+            <widget class="CommonEventRpgComboBox" name="comboDeathEvent" />
            </item>
            <item>
             <widget class="QGroupBox" name="groupDeathTeleport">
@@ -251,7 +433,7 @@
                </widget>
               </item>
               <item row="4" column="1">
-               <widget class="QComboBox" name="comboDeathFacing"/>
+               <widget class="QComboBox" name="comboDeathFacing" />
               </item>
              </layout>
             </widget>
@@ -260,76 +442,13 @@
          </widget>
         </item>
         <item>
-         <spacer name="spacerMiddle">
+         <spacer name="spacerRight">
           <property name="orientation">
            <enum>Qt::Vertical</enum>
           </property>
          </spacer>
         </item>
        </layout>
-      </item>
-      <item>
-       <widget class="QGroupBox" name="groupCommands">
-        <property name="title">
-         <string>Battle Commands</string>
-        </property>
-        <layout class="QVBoxLayout" name="layoutCommands">
-         <item>
-          <widget class="QListWidget" name="listCommands"/>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="layoutCommandButtons">
-           <item>
-            <widget class="QPushButton" name="pushAddCommand">
-             <property name="text">
-              <string>Add</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pushRemoveCommand">
-             <property name="toolTip">
-              <string>Removes the last command</string>
-             </property>
-             <property name="text">
-              <string>Remove</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QFormLayout" name="layoutCommand">
-           <item row="0" column="0">
-            <widget class="QLabel" name="labelCommandName">
-             <property name="text">
-              <string>Name</string>
-             </property>
-             <property name="buddy">
-              <cstring>lineCommandName</cstring>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLineEdit" name="lineCommandName"/>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="labelCommandType">
-             <property name="text">
-              <string>Archetype</string>
-             </property>
-             <property name="buddy">
-              <cstring>comboCommandType</cstring>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QComboBox" name="comboCommandType"/>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </widget>
       </item>
      </layout>
     </widget>
@@ -338,11 +457,16 @@
  </widget>
  <customwidgets>
   <customwidget>
+   <class>EnemyGroupView</class>
+   <extends>QGraphicsView</extends>
+   <header>ui/database/enemy_group_view.h</header>
+  </customwidget>
+  <customwidget>
    <class>CommonEventRpgComboBox</class>
    <extends>QComboBox</extends>
    <header>ui/common/rpg_combobox.h</header>
   </customwidget>
  </customwidgets>
- <resources/>
- <connections/>
+ <resources />
+ <connections />
 </ui>

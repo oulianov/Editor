@@ -39,6 +39,9 @@
 #include <QSpinBox>
 #include <QPlainTextEdit>
 #include <QGroupBox>
+#include <QRadioButton>
+#include <QCheckBox>
+#include <QStyleOptionButton>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -49,11 +52,12 @@
 #include <QFile>
 #include <QHeaderView>
 #include <QTabBar>
-#include <QProcess>
 #include <QTabWidget>
 #include <QTimer>
 #include <QAbstractSlider>
 #include <qpa/qwindowsysteminterface.h>
+#include <QtGui/private/qguiapplication_p.h>
+#include <QtGui/private/qshortcutmap_p.h>
 #include <QWindow>
 #include <QPaintEvent>
 #include <QScrollBar>
@@ -61,7 +65,10 @@
 #include <QWheelEvent>
 #include <QElapsedTimer>
 #include <QGraphicsView>
+#include <QMenu>
+#include <QAbstractItemView>
 #include <array>
+#include <optional>
 
 namespace {
 // Time for layouts and paints to settle between two commands
@@ -69,11 +76,13 @@ constexpr int step_delay = 100;
 
 QString describe(const QWidget* widget) {
 	QString name = widget->objectName();
-	// unnamed widgets (inside custom widgets): name the closest named parent
+	// unnamed widgets and Qt's inner ones (qt_...): name the closest parent
+	// named in the Editor, which tells where it is
 	const QWidget* parent = widget->parentWidget();
-	while (name.isEmpty() && parent) {
-		if (!parent->objectName().isEmpty()) {
-			name = parent->objectName() + "/…";
+	while ((name.isEmpty() || name.startsWith(QLatin1String("qt_"))) && parent) {
+		if (!parent->objectName().isEmpty() && !parent->objectName().startsWith(QLatin1String("qt_"))) {
+			name = parent->objectName() + "/" + (name.isEmpty() ? QStringLiteral("…") : name);
+			break;
 		}
 		parent = parent->parentWidget();
 	}
@@ -121,6 +130,75 @@ void previewMouse(MapPreview* preview, QEvent::Type type, int x, int y, Qt::Mous
 	const QPoint pos = preview->cellPosition(x, y);
 	QWidget* viewport = preview->viewport();
 	// sent at once: the position is only right until the view scrolls for the next cell
+	QMouseEvent event(type, pos, viewport->mapToGlobal(pos), button, buttons, Qt::NoModifier);
+	QApplication::sendEvent(viewport, &event);
+}
+
+// The words of a script line; "a b" is one word and "" an empty one
+// (to clear a field), which QProcess::splitCommand would drop
+QStringList splitLine(const QString& line) {
+	QStringList words;
+	QString word;
+	bool quoted = false;
+	bool started = false;
+	for (const QChar c : line) {
+		if (c == '"') {
+			quoted = !quoted;
+			started = true;
+		} else if (c.isSpace() && !quoted) {
+			if (started) {
+				words << word;
+			}
+			word.clear();
+			started = false;
+		} else {
+			word += c;
+			started = true;
+		}
+	}
+	if (started) {
+		words << word;
+	}
+	return words;
+}
+
+// The check boxes and radio buttons of window with what they draw: their box
+// can lie outside the widget
+QList<std::pair<QAbstractButton*, QRect>> optionBounds(QWidget* window) {
+	QList<std::pair<QAbstractButton*, QRect>> options;
+	for (auto* button : window->findChildren<QAbstractButton*>()) {
+		const bool checkbox = qobject_cast<QCheckBox*>(button);
+		if ((!checkbox && !qobject_cast<QRadioButton*>(button)) || !button->isVisibleTo(window)) continue;
+		QStyleOptionButton option;
+		option.initFrom(button);
+		if (button->testAttribute(Qt::WA_MacSmallSize)) option.state |= QStyle::State_Small;
+		if (button->testAttribute(Qt::WA_MacMiniSize)) option.state |= QStyle::State_Mini;
+		option.text = button->text();
+		const QRect indicator = button->style()->subElementRect(checkbox ? QStyle::SE_CheckBoxIndicator :
+			QStyle::SE_RadioButtonIndicator, &option, button);
+		options.append({button, button->rect().united(indicator).translated(button->pos())});
+	}
+	return options;
+}
+
+/** The space between two options of one column (negative: they overlap); none when side by side */
+std::optional<int> optionClearance(const std::pair<QAbstractButton*, QRect>& first, const std::pair<QAbstractButton*, QRect>& second) {
+	const auto& [a, bounds_a] = first;
+	const auto& [b, bounds_b] = second;
+	if (a->parentWidget() != b->parentWidget() || bounds_a.left() > bounds_b.right() || bounds_b.left() > bounds_a.right()) {
+		return std::nullopt;
+	}
+	return std::max(bounds_a.top(), bounds_b.top()) - std::min(bounds_a.bottom(), bounds_b.bottom()) - 1;
+}
+
+QString rectText(const QRect& rect) {
+	return QString("%1,%2 %3x%4").arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
+}
+
+// A mouse event on a graphics view, at a point of its scene
+void viewMouse(QGraphicsView* view, QEvent::Type type, QPointF scene_pos, Qt::MouseButton button, Qt::MouseButtons buttons) {
+	const QPoint pos = view->mapFromScene(scene_pos);
+	QWidget* viewport = view->viewport();
 	QMouseEvent event(type, pos, viewport->mapToGlobal(pos), button, buttons, Qt::NoModifier);
 	QApplication::sendEvent(viewport, &event);
 }
@@ -193,7 +271,7 @@ void Automation::step() {
 		if (line.isEmpty() || line.startsWith('#')) {
 			continue;
 		}
-		QStringList args = QProcess::splitCommand(line);
+		QStringList args = splitLine(line);
 		qCInfo(lcAutomation).noquote() << QString("%1:%2: %3").arg(m_file).arg(m_line).arg(line);
 
 		if (args[0] == "quit") {
@@ -257,9 +335,20 @@ bool Automation::run(const QStringList& args) {
 		return true;
 	}
 	if (cmd == "action" && (args.size() == 2 || args.size() == 3)) {
-		// the map shown first: each open map has its own menu actions
+		// a dialog's own action first (the one of the page shown), then the
+		// map shown: each open map has its own menu actions
 		MapScene* scene = m_window.currentScene();
-		auto* action = scene ? scene->findChild<QAction*>(args[1]) : nullptr;
+		QAction* action = nullptr;
+		if (QWidget* window = Screenshot::activeWindow(); window && window != &m_window) {
+			for (auto* candidate : window->findChildren<QAction*>(args[1])) {
+				auto* owner = qobject_cast<QWidget*>(candidate->parent());
+				if (owner && owner->isVisibleTo(window)) {
+					action = candidate;
+					break;
+				}
+			}
+		}
+		action = action ? action : (scene ? scene->findChild<QAction*>(args[1]) : nullptr);
 		action = action ? action : m_window.findChild<QAction*>(args[1]);
 		if (!action) {
 			fail("no action " + args[1]);
@@ -320,6 +409,20 @@ bool Automation::run(const QStringList& args) {
 			.arg(window->width()).arg(window->height()).arg(window->minimumWidth()).arg(window->minimumHeight()).arg(problems);
 		return true;
 	}
+	if (cmd == "check-option-spacing" && args.size() == 2 && toInt(args[1], a) && a >= 0) {
+		QWidget* window = Screenshot::activeWindow();
+		if (!window) return false;
+		const auto options = optionBounds(window);
+		for (qsizetype i = 0; i < options.size(); ++i) {
+			for (qsizetype j = i + 1; j < options.size(); ++j) {
+				const auto gap = optionClearance(options[i], options[j]);
+				if (gap && *gap < a) fail(QString("options %1 and %2 have %3px clearance, require %4px (%5 and %6)")
+					.arg(describe(options[i].first), describe(options[j].first)).arg(*gap).arg(a)
+					.arg(rectText(options[i].second), rectText(options[j].second)));
+			}
+		}
+		return true;
+	}
 	if (cmd == "focus" && args.size() == 2) {
 		QWidget* widget = findWidget(args[1]);
 		if (!widget) {
@@ -332,7 +435,11 @@ bool Automation::run(const QStringList& args) {
 	}
 	if (cmd == "select-command" && args.size() == 2 && toInt(args[1], a)) {
 		auto* tree = qobject_cast<QTreeWidget*>(findWidget(QStringLiteral("commands")));
-		for (QTreeWidgetItemIterator it(tree); tree && *it; ++it) {
+		if (!tree) {
+			fail("no event command list");
+			return false;
+		}
+		for (QTreeWidgetItemIterator it(tree); *it; ++it) {
 			if ((*it)->text(1).toInt() == a) {
 				tree->setCurrentItem(*it);
 				tree->scrollToItem(*it);
@@ -351,9 +458,22 @@ bool Automation::run(const QStringList& args) {
 		}
 		const QKeyCombination combination = sequence[0];
 		qCDebug(lcAutomation) << "key" << sequence << "to" << target;
-		// posted: a key opening a dialog must not block the script
-		QApplication::postEvent(target, new QKeyEvent(QEvent::KeyPress, combination.key(), combination.keyboardModifiers()));
-		QApplication::postEvent(target, new QKeyEvent(QEvent::KeyRelease, combination.key(), combination.keyboardModifiers()));
+		// queued: a key opening a dialog must not block the script
+		QMetaObject::invokeMethod(target, [target, combination] {
+			// as when typed: the shortcuts first (QShortcut, menu actions),
+			// unless the widget with the focus takes the key
+			// a key goes to the active window: the one of the target
+			if (QWindow* window = target->window()->windowHandle(); window && QGuiApplication::focusWindow() != window) {
+				QWindowSystemInterface::handleFocusWindowChanged<QWindowSystemInterface::SynchronousDelivery>(window);
+			}
+			QKeyEvent press(QEvent::KeyPress, combination.key(), combination.keyboardModifiers());
+			if (QGuiApplicationPrivate::instance()->shortcutMap.tryShortcut(&press)) {
+				return;
+			}
+			QApplication::sendEvent(target, &press);
+			QKeyEvent release(QEvent::KeyRelease, combination.key(), combination.keyboardModifiers());
+			QApplication::sendEvent(target, &release);
+		}, Qt::QueuedConnection);
 		return true;
 	}
 	if (cmd == "type" && args.size() >= 2) {
@@ -387,18 +507,58 @@ bool Automation::run(const QStringList& args) {
 		QMetaObject::invokeMethod(found, &QAbstractButton::click, Qt::QueuedConnection);
 		return true;
 	}
+	if (cmd == "menu" && args.size() >= 2) {
+		// an item of the pop-up menu shown (the menu of a button, a context menu), by its text
+		auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+		const QString text = args.mid(1).join(' ');
+		for (QAction* action : menu ? menu->actions() : QList<QAction*>()) {
+			const QString label = action->text().remove('&');
+			if (action->isEnabled() && (label == text || label == text + "...")) {
+				// chosen like with the keyboard: the menu closes, then the item runs
+				menu->setActiveAction(action);
+				QApplication::postEvent(menu, new QKeyEvent(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier));
+				return true;
+			}
+		}
+		fail("no menu item " + text);
+		return false;
+	}
 	if (cmd == "click-item" && args.size() >= 3) {
+		// a list view (database lists): the lines of its model
+		if (auto* view = qobject_cast<QAbstractItemView*>(findWidget(args[1]));
+				view && !qobject_cast<QTreeWidget*>(view) && view->model()) {
+			const QString text = args.mid(2).join(' ');
+			QAbstractItemModel* model = view->model();
+			QModelIndexList found = model->match(model->index(0, 0), Qt::DisplayRole, text, 1, Qt::MatchExactly);
+			if (found.isEmpty()) {
+				found = model->match(model->index(0, 0), Qt::DisplayRole, text, 1, Qt::MatchContains);
+			}
+			if (found.isEmpty()) {
+				fail(QString("no line \"%1\" in %2").arg(text, args[1]));
+				return false;
+			}
+			view->scrollTo(found.first());
+			const QPoint pos = view->visualRect(found.first()).center();
+			const QPoint global = view->viewport()->mapToGlobal(pos);
+			QApplication::postEvent(view->viewport(), new QMouseEvent(QEvent::MouseButtonPress, pos, global, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier));
+			QApplication::postEvent(view->viewport(), new QMouseEvent(QEvent::MouseButtonRelease, pos, global, Qt::LeftButton, Qt::NoButton, Qt::NoModifier));
+			return true;
+		}
 		// a mouse click on the line showing exactly the text, else on the
 		// first line containing it
 		auto* tree = qobject_cast<QTreeWidget*>(findWidget(args[1]));
+		if (!tree) {
+			fail("no list " + args[1]);
+			return false;
+		}
 		const QString text = args.mid(2).join(' ');
 		QTreeWidgetItem* found = nullptr;
-		for (QTreeWidgetItemIterator it(tree); tree && *it && !found; ++it) {
+		for (QTreeWidgetItemIterator it(tree); *it && !found; ++it) {
 			if ((*it)->text(0) == text) {
 				found = *it;
 			}
 		}
-		for (QTreeWidgetItemIterator it(tree); tree && *it && !found; ++it) {
+		for (QTreeWidgetItemIterator it(tree); *it && !found; ++it) {
 			if ((*it)->text(0).contains(text)) {
 				found = *it;
 			}
@@ -565,7 +725,9 @@ bool Automation::run(const QStringList& args) {
 			}
 			// what makes a window wider than wanted
 			control.insert("x", widget->mapTo(window, QPoint()).x());
+			control.insert("y", widget->mapTo(window, QPoint()).y());
 			control.insert("width", widget->width());
+			control.insert("height", widget->height());
 			control.insert("minimumWidth", widget->minimumSizeHint().width());
 			controls.append(control);
 		}
@@ -575,7 +737,11 @@ bool Automation::run(const QStringList& args) {
 	if (cmd == "select-map" && args.size() == 2 && toInt(args[1], a)) {
 		// by id: map names can repeat; 0 is the project
 		auto* tree = m_window.findChild<QTreeWidget*>(QStringLiteral("treeMap"));
-		for (QTreeWidgetItemIterator it(tree); tree && *it; ++it) {
+		if (!tree) {
+			fail("no map tree");
+			return false;
+		}
+		for (QTreeWidgetItemIterator it(tree); *it; ++it) {
 			if ((*it)->data(1, Qt::DisplayRole).toInt() == a) {
 				tree->setCurrentItem(*it);
 				tree->scrollToItem(*it);
@@ -646,6 +812,39 @@ bool Automation::run(const QStringList& args) {
 		previewMouse(preview, QEvent::MouseButtonPress, a, b, Qt::LeftButton, Qt::LeftButton);
 		previewMouse(preview, QEvent::MouseMove, x2, y2, Qt::NoButton, Qt::LeftButton);
 		previewMouse(preview, QEvent::MouseButtonRelease, x2, y2, Qt::LeftButton, Qt::NoButton);
+		return true;
+	}
+	if (cmd == "view-click" || cmd == "view-drag") {
+		// a QGraphicsView by object name, in the coordinates of its scene
+		const bool drag = cmd == "view-drag";
+		const int count = drag ? 4 : 2;
+		std::vector<int> v(static_cast<size_t>(count));
+		auto* view = qobject_cast<QGraphicsView*>(findWidget(args.value(1)));
+		// a click can be a right click or (view-click only) a double-click
+		const QString option = args.size() == count + 3 ? args.last() : QString();
+		bool ok = view && (args.size() == count + 2 || option == "right" || (!drag && option == "double"));
+		for (int i = 0; ok && i < count; i++) {
+			ok = toInt(args[i + 2], v[static_cast<size_t>(i)]);
+		}
+		if (!ok) {
+			fail("no graphics view " + args.value(1));
+			return false;
+		}
+		const Qt::MouseButton button = option == "right" ? Qt::RightButton : Qt::LeftButton;
+		const QPointF from(v[0], v[1]);
+		const QPointF to = drag ? QPointF(v[2], v[3]) : from;
+		viewMouse(view, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
+		viewMouse(view, QEvent::MouseButtonPress, from, button, button);
+		// small steps, as a hand would: a drag paints every tile on the way
+		const int steps = drag ? std::max(1, qRound(QLineF(from, to).length() / 4)) : 0;
+		for (int i = 1; i <= steps; i++) {
+			viewMouse(view, QEvent::MouseMove, from + (to - from) * i / steps, Qt::NoButton, button);
+		}
+		viewMouse(view, QEvent::MouseButtonRelease, to, button, Qt::NoButton);
+		if (option == "double") {
+			viewMouse(view, QEvent::MouseButtonDblClick, to, button, button);
+			viewMouse(view, QEvent::MouseButtonRelease, to, button, Qt::NoButton);
+		}
 		return true;
 	}
 	if (cmd == "palette" && (args.size() == 2 || args.size() == 4) && toInt(args[1], a)) {
@@ -871,7 +1070,8 @@ bool Automation::run(const QStringList& args) {
 		return true;
 	}
 	if (cmd == "close" && args.size() == 1) {
-		auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+		// the modal dialog, else the window in front (the search window...)
+		auto* dialog = qobject_cast<QDialog*>(Screenshot::activeWindow());
 		if (!dialog) {
 			fail("no dialog to close");
 			return false;
@@ -932,6 +1132,22 @@ QString Automation::widgetText(QWidget* widget) {
 		}
 		return lines.join('\n');
 	}
+	if (auto* view = qobject_cast<QAbstractItemView*>(widget); view && view->model()) {
+		// a list or a table: its lines, the cells of a line separated by " | "
+		QStringList lines;
+		const auto* model = view->model();
+		for (int row = 0; row < model->rowCount(); ++row) {
+			QStringList cells;
+			for (int column = 0; column < model->columnCount(); ++column) {
+				cells << model->index(row, column).data().toString();
+			}
+			lines << (row == view->currentIndex().row() ? "> " : "  ") + cells.join(" | ");
+		}
+		return lines.join('\n');
+	}
+	if (auto* text = qobject_cast<QPlainTextEdit*>(widget)) {
+		return text->toPlainText();
+	}
 	if (auto* edit = qobject_cast<QLineEdit*>(widget)) {
 		return edit->text();
 	}
@@ -958,8 +1174,12 @@ int Automation::checkLayout(QWidget* window) {
 		if (widget->isWindow() || !widget->isVisibleTo(window)
 				|| qobject_cast<QHeaderView*>(widget) || qobject_cast<QTabBar*>(widget)
 				|| qobject_cast<QTabBar*>(widget->parentWidget())
-				// the clear button Qt puts in a line edit sizes itself
-				|| qobject_cast<QLineEdit*>(widget->parentWidget())) {
+				// the clear button Qt puts in a line edit sizes itself, and
+				// the field of a spin box or an editable combo box fills
+				// what its arrows leave
+				|| qobject_cast<QLineEdit*>(widget->parentWidget())
+				|| qobject_cast<QAbstractSpinBox*>(widget->parentWidget())
+				|| qobject_cast<QComboBox*>(widget->parentWidget())) {
 			continue;
 		}
 		QSize minimum = widget->minimumSizeHint().expandedTo(widget->minimumSize());
@@ -980,6 +1200,19 @@ int Automation::checkLayout(QWidget* window) {
 			qCWarning(lcAutomation).noquote() << QString("squeezed: %1 is %2x%3, needs %4x%5")
 				.arg(describe(widget)).arg(widget->width()).arg(widget->height())
 				.arg(minimum.width()).arg(minimum.height());
+		}
+	}
+	// Check boxes and radio buttons, with the box they draw, never touch:
+	// the box of the native style can lie outside the widget
+	const auto options = optionBounds(window);
+	for (qsizetype i = 0; i < options.size(); ++i) {
+		for (qsizetype j = i + 1; j < options.size(); ++j) {
+			const auto gap = optionClearance(options[i], options[j]);
+			if (gap && *gap < 1) {
+				problems++;
+				qCWarning(lcAutomation).noquote() << QString("overlapping options: %1 and %2 (%3px apart)")
+					.arg(describe(options[i].first), describe(options[j].first)).arg(*gap);
+			}
 		}
 	}
 	return problems;

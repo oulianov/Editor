@@ -66,6 +66,8 @@
         <file alias="map-shift">icons/bright/map-shift.svg</file>
         <file alias="select-all">icons/bright/select-all.svg</file>
         <file alias="help-contents">icons/bright/help-contents.svg</file>
+        <file alias="variable">icons/bright/variable.svg</file>
+        <file alias="switch">icons/bright/switch.svg</file>
     </qresource>
     <qresource prefix="/dark">
         <file alias="audio">icons/dark/audio.svg</file>
@@ -118,6 +120,8 @@
         <file alias="map-shift">icons/dark/map-shift.svg</file>
         <file alias="select-all">icons/dark/select-all.svg</file>
         <file alias="help-contents">icons/dark/help-contents.svg</file>
+        <file alias="variable">icons/dark/variable.svg</file>
+        <file alias="switch">icons/dark/switch.svg</file>
     </qresource>
     <qresource prefix="/ranks">
         <file alias="rank0">icons/ranks/rank0.svg</file>

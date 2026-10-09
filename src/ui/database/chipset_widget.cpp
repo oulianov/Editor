@@ -25,6 +25,8 @@
 #include "ui/common/rpg_combobox.h"
 #include "ui/picker/picker_dialog.h"
 #include <QButtonGroup>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
@@ -34,13 +36,17 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMouseEvent>
 #include <QPainter>
+#include <QPushButton>
 #include <QPainterPath>
 #include <QRadioButton>
 #include <QScrollBar>
 #include <QTabBar>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <algorithm>
+#include <cmath>
 
 namespace {
 constexpr int columns = 6;
@@ -67,6 +73,7 @@ ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
 	tiles->addWidget(m_layer);
 	m_scene = new QGraphicsScene(this);
 	m_view = new QGraphicsView(m_scene, this);
+	m_view->setObjectName(QStringLiteral("viewTiles"));
 	m_view->setFixedWidth(columns * cell + m_view->verticalScrollBar()->sizeHint().width() + 4);
 	m_view->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 	m_view->viewport()->installEventFilter(this);
@@ -93,6 +100,7 @@ ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
 	auto* modes = new QGroupBox(tr("Editing Mode"), this);
 	auto* modes_layout = new QVBoxLayout(modes);
 	m_mode = new QButtonGroup(this);
+	m_mode->setObjectName(QStringLiteral("editingMode"));
 	const std::vector<std::pair<Mode, QString>> mode_names = {
 		{Mode::Terrain, tr("Terrain")},
 		{Mode::Passability, tr("Passability")},
@@ -112,6 +120,10 @@ ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
 	terrain_row->addSpacing(20);
 	terrain_row->addWidget(m_terrain, 1);
 	modes_layout->insertLayout(1, terrain_row);
+	m_uniformTerrain = new QPushButton(tr("Set Uniform Terrain"), modes);
+	m_uniformTerrain->setObjectName(QStringLiteral("pushUniformTerrain"));
+	m_uniformTerrain->setToolTip(tr("Gives one terrain to all the tiles of the lower layer"));
+	modes_layout->insertWidget(2, m_uniformTerrain, 0, Qt::AlignLeft);
 	// what a click does in the current mode
 	auto* hint = new QLabel(modes);
 	hint->setWordWrap(true);
@@ -119,10 +131,10 @@ ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
 	modes_layout->addWidget(hint);
 	auto update_hint = [this, hint] {
 		switch (static_cast<Mode>(m_mode->checkedId())) {
-			case Mode::Terrain: hint->setText(tr("Click a tile to give it the terrain above.")); break;
-			case Mode::Passability: hint->setText(tr("Click a tile: passable (○), blocked (×), above the hero (☆). Right click goes back.")); break;
-			case Mode::Directions: hint->setText(tr("Click a side of a tile to let the hero walk through it or not.")); break;
-			case Mode::Counter: hint->setText(tr("Click a tile to make it a counter: events can be talked to across it (□).")); break;
+			case Mode::Terrain: hint->setText(tr("Click or drag over tiles to give them the terrain above.")); break;
+			case Mode::Passability: hint->setText(tr("Click a tile: passable (○), blocked (×), above the hero (☆). Right click goes back. Drag to paint the same.")); break;
+			case Mode::Directions: hint->setText(tr("Click a side of a tile to let the hero walk through it or not. Drag to do the same on other tiles.")); break;
+			case Mode::Counter: hint->setText(tr("Click a tile to make it a counter: events can be talked to across it (□). Drag to paint the same.")); break;
 		}
 	};
 	update_hint();
@@ -170,8 +182,10 @@ ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
 	});
 	connect(m_layer, &QTabBar::currentChanged, this, [this] {
 		m_water->setEnabled(lowerLayer());
+		m_uniformTerrain->setEnabled(lowerLayer());
 		redraw();
 	});
+	connect(m_uniformTerrain, &QPushButton::clicked, this, &ChipsetWidget::setUniformTerrain);
 	connect(m_mode, &QButtonGroup::idClicked, this, [this] {
 		m_terrain->setEnabled(m_mode->checkedId() == static_cast<int>(Mode::Terrain));
 		redraw();
@@ -325,24 +339,51 @@ void ChipsetWidget::redraw() {
 }
 
 bool ChipsetWidget::eventFilter(QObject* watched, QEvent* event) {
-	if (watched == m_view->viewport() && event->type() == QEvent::MouseButtonPress) {
-		auto* mouse = static_cast<QMouseEvent*>(event);
-		tileClicked(m_view->mapToScene(mouse->position().toPoint()), mouse->button() == Qt::RightButton);
-		return true;
+	if (watched != m_view->viewport()) {
+		return QWidget::eventFilter(watched, event);
+	}
+	auto* mouse = static_cast<QMouseEvent*>(event);
+	switch (event->type()) {
+		case QEvent::MouseButtonPress:
+			tileClicked(m_view->mapToScene(mouse->position().toPoint()), mouse->button() == Qt::RightButton);
+			return true;
+		case QEvent::MouseMove:
+			// dragging paints what the click did on the other tiles
+			if (m_stroke.tile >= 0 && (mouse->buttons() & (Qt::LeftButton | Qt::RightButton))) {
+				tileDragged(m_view->mapToScene(mouse->position().toPoint()));
+				return true;
+			}
+			break;
+		case QEvent::MouseButtonRelease:
+			m_stroke.tile = -1;
+			break;
+		default:
+			break;
 	}
 	return QWidget::eventFilter(watched, event);
 }
 
+int ChipsetWidget::tileAt(const QPointF& pos) const {
+	const int col = static_cast<int>(std::floor(pos.x() / cell));
+	const int row = static_cast<int>(std::floor(pos.y() / cell));
+	const int index = row * columns + col;
+	if (col < 0 || col >= columns || row < 0 || index >= tileCount()) {
+		return -1;
+	}
+	return index;
+}
+
 void ChipsetWidget::tileClicked(const QPointF& pos, bool right_button) {
+	m_stroke.tile = -1;
 	if (!m_chipset) {
 		return;
 	}
-	const int col = static_cast<int>(pos.x()) / cell;
-	const int row = static_cast<int>(pos.y()) / cell;
-	const int index = row * columns + col;
-	if (col < 0 || col >= columns || index < 0 || index >= tileCount()) {
+	const int index = tileAt(pos);
+	if (index < 0) {
 		return;
 	}
+	const int col = index % columns;
+	const int row = index / columns;
 	const bool lower = lowerLayer();
 	auto& passable = lower ? m_chipset->passable_data_lower : m_chipset->passable_data_upper;
 	uint8_t& flags = passable[index];
@@ -365,18 +406,76 @@ void ChipsetWidget::tileClicked(const QPointF& pos, bool right_button) {
 		case Mode::Directions: {
 			// the side of the tile that was clicked
 			const QPointF offset = pos - QPointF(col * cell + cell / 2.0, row * cell + cell / 2.0);
-			int side;
 			if (std::abs(offset.x()) > std::abs(offset.y())) {
-				side = offset.x() < 0 ? Left : Right;
+				m_stroke.side = offset.x() < 0 ? Left : Right;
 			} else {
-				side = offset.y() < 0 ? Up : Down;
+				m_stroke.side = offset.y() < 0 ? Up : Down;
 			}
-			flags ^= side;
+			flags ^= m_stroke.side;
 			break;
 		}
 		case Mode::Counter:
 			flags ^= Counter;
 			break;
 	}
+	// what the drag that may follow gives to the other tiles
+	m_stroke.tile = index;
+	m_stroke.flags = flags;
+	redraw();
+}
+
+void ChipsetWidget::tileDragged(const QPointF& pos) {
+	const int index = tileAt(pos);
+	if (!m_chipset || index < 0 || index == m_stroke.tile) {
+		return;
+	}
+	m_stroke.tile = index;
+	const bool lower = lowerLayer();
+	uint8_t& flags = (lower ? m_chipset->passable_data_lower : m_chipset->passable_data_upper)[index];
+	switch (static_cast<Mode>(m_mode->checkedId())) {
+		case Mode::Terrain:
+			if (lower) {
+				m_chipset->terrain_data[index] = m_terrain->comboBox()->currentIndex() + 1;
+			}
+			break;
+		case Mode::Passability: {
+			const uint8_t mask = AllDirections | Above;
+			flags = (flags & ~mask) | (m_stroke.flags & mask);
+			break;
+		}
+		case Mode::Directions:
+			flags = (flags & ~m_stroke.side) | (m_stroke.flags & m_stroke.side);
+			break;
+		case Mode::Counter:
+			flags = (flags & ~Counter) | (m_stroke.flags & Counter);
+			break;
+	}
+	redraw();
+}
+
+void ChipsetWidget::setUniformTerrain() {
+	if (!m_chipset) {
+		return;
+	}
+	QDialog dialog(this);
+	dialog.setObjectName(QStringLiteral("SetUniformTerrainDialog"));
+	dialog.setWindowTitle(tr("Set Uniform Terrain"));
+	auto* layout = new QVBoxLayout(&dialog);
+	auto* group = new QGroupBox(tr("Select Terrain"), &dialog);
+	auto* group_layout = new QVBoxLayout(group);
+	auto* terrain = new TerrainRpgComboBox(group);
+	terrain->makeModel(m_project);
+	terrain->comboBox()->setObjectName(QStringLiteral("comboUniformTerrain"));
+	terrain->setCurrentIndex(m_terrain->comboBox()->currentIndex());
+	group_layout->addWidget(terrain);
+	layout->addWidget(group);
+	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+	connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+	connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+	layout->addWidget(buttons);
+	if (dialog.exec() != QDialog::Accepted || terrain->currentIndex() < 0) {
+		return;
+	}
+	std::fill(m_chipset->terrain_data.begin(), m_chipset->terrain_data.end(), terrain->currentIndex() + 1);
 	redraw();
 }

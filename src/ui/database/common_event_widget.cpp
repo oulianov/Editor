@@ -26,9 +26,10 @@ CommonEventWidget::CommonEventWidget(ProjectData& project, QWidget *parent) :
 {
 	ui->setupUi(this);
 
-	ui->comboTrigger->addItem(tr("Disabled"), lcf::rpg::CommonEvent::Trigger_call);
-	ui->comboTrigger->addItem(tr("Foreground"), lcf::rpg::CommonEvent::Trigger_automatic);
-	ui->comboTrigger->addItem(tr("Background"), lcf::rpg::CommonEvent::Trigger_parallel);
+	// RPG Maker's names: a called event runs only from Call Event
+	ui->comboTrigger->addItem(tr("Call"), lcf::rpg::CommonEvent::Trigger_call);
+	ui->comboTrigger->addItem(tr("Auto Start"), lcf::rpg::CommonEvent::Trigger_automatic);
+	ui->comboTrigger->addItem(tr("Parallel Process"), lcf::rpg::CommonEvent::Trigger_parallel);
 
 	LcfWidgetBinding::connect(this, ui->lineName);
 	LcfWidgetBinding::connect<int32_t>(this, ui->comboTrigger);

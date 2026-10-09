@@ -20,6 +20,7 @@
 #include <QWidget>
 #include <array>
 #include <lcf/rpg/class.h>
+#include "class_editors.h"
 #include "ui/viewer/battle_animation_graphics_item.h"
 #include "ui/viewer/stat_curve_graphics_item.h"
 
@@ -49,9 +50,9 @@ private:
 	void refreshBattler();
 	void refreshCurves();
 	void refreshSkills();
-	void fillBattleCommands();
-	void writeBattleCommands();
-	void editSkill(int row);
+	void refreshExperience();
+	void editCurves(int tab);
+	ClassEditors::CommandCombos commandCombos() const;
 	std::array<QGraphicsView*, 6> curveViews() const;
 
 	Ui::ClassWidget *ui;

@@ -31,6 +31,8 @@
 #include <QPainter>
 #include <QListWidget>
 #include <QTimer>
+#include <optional>
+#include <QVariantMap>
 #include <QQmlApplicationEngine>
 #include <lcf/rpg/map.h>
 #include <lcf/rpg/chipset.h>
@@ -140,10 +142,13 @@ public:
 
 	void setRtpDir(const QString &n_path);
 
-	short selection(int off_x, int off_y);
+	short selection(int off_x, int off_y, std::optional<Layer> layer = std::nullopt);
 	int selWidth();
 	int selHeight();
 	void setSelection(std::vector<short> n_sel, int n_w, int n_h);
+	/** All drawing controls, including the inactive layers' brushes. */
+	QVariantMap editingState() const;
+	void restoreEditingState(const QVariantMap& state);
 
 	/** The map region copied by the selection tool, shared by all maps */
 	const TileClipboard& tileClipboard() const;

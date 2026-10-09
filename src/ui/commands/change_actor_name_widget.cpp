@@ -41,10 +41,19 @@ void ChangeActorNameWidget::setData(lcf::rpg::EventCommand* cmd_) {
 }
 
 void ChangeActorNameWidget::onParameterChanged(int index, int new_value) {
-	if (index == 0) {
-		const auto& actor = lcf::ReaderUtil::GetElement(m_project.database().actors, new_value);
-
-		ui->lineName_argX->setText(ToQString(actor->name));
-		m_cmd->string = actor->title;
+	if (index != 0) {
+		return;
 	}
+	// A new hero suggests its name, unless a name was typed: the text is
+	// kept when the command is opened, and is never another hero's name
+	const auto& actors = m_project.database().actors;
+	const auto* actor = lcf::ReaderUtil::GetElement(actors, new_value);
+	const auto* previous = lcf::ReaderUtil::GetElement(actors, m_shownActor);
+	m_shownActor = new_value;
+	const QString text = ui->lineName_argX->text();
+	if (!actor || !(text.isEmpty() || (previous && text == ToQString(previous->name)))) {
+		return;
+	}
+	ui->lineName_argX->setText(ToQString(actor->name));
+	m_cmd->string = actor->name;
 }

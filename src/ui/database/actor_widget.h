@@ -25,6 +25,7 @@
 #include "ui/viewer/battle_animation_graphics_item.h"
 #include "ui/viewer/stat_curve_graphics_item.h"
 #include "model/actor.h"
+#include "class_editors.h"
 
 class ProjectData;
 
@@ -68,6 +69,10 @@ private:
 
 	void UpdateModels();
 	void ResetExpText(lcf::rpg::Actor* actor);
+	void fillClasses();
+	void editCurves(int tab);
+	void editEasyRpgProperties();
+	ClassEditors::CommandCombos commandCombos() const;
 
 	CharSetGraphicsItem *m_charsetItem = nullptr;
 	FaceSetGraphicsItem *m_faceItem = nullptr;

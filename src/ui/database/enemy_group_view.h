@@ -38,6 +38,8 @@ public:
 	/** Draws the members again, after the list of members changed */
 	void refresh();
 	void setBackdrop(const QPixmap& backdrop);
+	/** Shows the members without moving or hiding them (Battle Layout) */
+	void setReadOnly(bool read_only);
 
 	/** Index of the selected member, -1 when none */
 	int selectedMember() const;
@@ -51,4 +53,5 @@ private:
 	const ProjectData* m_project = nullptr;
 	lcf::rpg::Troop* m_troop = nullptr;
 	QGraphicsPixmapItem* m_backdrop = nullptr;
+	bool m_readOnly = false;
 };

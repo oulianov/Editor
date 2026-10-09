@@ -1,0 +1,13 @@
+# Settings toggles have clear space between their rendered bounds, including
+# the native indicators. Check initial layout and narrower window sizes.
+action actionSettings
+check-layout
+check-option-spacing 8
+resize 640 620
+check-layout
+check-option-spacing 8
+resize 520 420
+check-layout
+check-option-spacing 8
+close
+quit

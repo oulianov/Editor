@@ -33,6 +33,9 @@ public:
 
 	void accept() override;
 
+protected:
+	void resizeEvent(QResizeEvent* event) override;
+
 private:
 	QComboBox* m_language;
 	QCheckBox* m_reloadExternal;

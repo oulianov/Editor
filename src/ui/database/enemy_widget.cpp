@@ -16,6 +16,8 @@
  */
 
 #include "enemy_widget.h"
+#include "database_list_data.h"
+#include "common/signal_blocker.h"
 #include "ui_enemy_widget.h"
 
 #include <QAction>
@@ -53,16 +55,15 @@ EnemyWidget::EnemyWidget(ProjectData& project, QWidget *parent) :
 	ui->spinExp->setRange(0, 999999);
 	ui->spinGold->setRange(0, 999999);
 
-	ui->comboDropItem->addItem(tr("(None)"), 0);
-	for (const auto& item : database.items) {
-		ui->comboDropItem->addItem(QStringLiteral("%1: %2").arg(item.ID, 4, 10, QChar('0')).arg(ToQString(item.name)), item.ID);
-	}
-	for (const auto& attribute : database.attributes) {
-		ui->listAttributeRanks->addItem(ToQString(attribute.name));
-	}
-	for (const auto& state : database.states) {
-		ui->listStateRanks->addItem(ToQString(state.name));
-	}
+	fillLists();
+	// Array Size, a paste or a rename in another tab: list them again
+	connect(&DatabaseListNotifier::instance(), &DatabaseListNotifier::listChanged, this, [this](const void* list) {
+		const auto& database = m_project.database();
+		if (list == &database.items || list == &database.attributes || list == &database.states) {
+			fillLists();
+			setData(m_current == &m_dummy ? nullptr : m_current);
+		}
+	});
 
 	LcfWidgetBinding::connect(this, ui->lineName);
 	for (auto* spin : {
@@ -133,6 +134,24 @@ EnemyWidget::EnemyWidget(ProjectData& project, QWidget *parent) :
 EnemyWidget::~EnemyWidget()
 {
 	delete ui;
+}
+
+void EnemyWidget::fillLists() {
+	const auto& database = m_project.database();
+	SignalBlocker blocker(ui->comboDropItem);
+	ui->comboDropItem->clear();
+	ui->listAttributeRanks->clear();
+	ui->listStateRanks->clear();
+	ui->comboDropItem->addItem(tr("(None)"), 0);
+	for (const auto& item : database.items) {
+		ui->comboDropItem->addItem(QStringLiteral("%1: %2").arg(item.ID, 4, 10, QChar('0')).arg(ToQString(item.name)), item.ID);
+	}
+	for (const auto& attribute : database.attributes) {
+		ui->listAttributeRanks->addItem(ToQString(attribute.name));
+	}
+	for (const auto& state : database.states) {
+		ui->listStateRanks->addItem(ToQString(state.name));
+	}
 }
 
 void EnemyWidget::setData(lcf::rpg::Enemy* enemy)

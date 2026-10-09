@@ -66,7 +66,8 @@ quit
 == Commands
 
 One command per line. Empty lines and lines starting with `#` are skipped.
-Arguments with spaces are written between quotes.
+Arguments with spaces are written between quotes; `""` is an empty argument
+(`set-control listFilter ""` clears a field).
 
 Commands that open a dialog (`open-event`, `action`, `click`, `key`) return
 at once: the next commands act on the dialog, until `close`.
@@ -79,15 +80,15 @@ at once: the next commands act on the dialog, until `close`.
 | `open-map ID` | Opens a map in a tab.
 | `select-map ID` | Selects a map, an area or the project (0) in the map tree.
 | `open-event MAP EVENT` | Opens the event dialog of an event.
-| `action NAME` | Triggers a menu action, by its object name (`actionDatabase`...).
+| `action NAME` | Triggers an action by its object name: one of the dialog in front first (`actionDataCopy` of a database list...), else of the map shown, else a menu action (`actionDatabase`...).
 | `action NAME on\|off` | Checks or unchecks a menu option (`actionZoom1_2`...).
 | `tab NAME INDEX` | Shows a page of a tab widget, by its object name.
 | `focus NAME` | Gives the focus to a widget, by its object name (`commands` is the command list of the event page shown).
 | `select-command INDEX` | Selects and focuses an event command by its zero-based list index.
-| `key SEQUENCE` | Presses a key (`Return`, `Space`, `Del`, `Ctrl+C`...) in the focused widget.
+| `key SEQUENCE` | Presses a key (`Return`, `Space`, `Del`, `Ctrl+C`...) as when typed: in the window of the focused widget, the shortcuts first (menu actions, PgUp/PgDn of the event window...), else the focused widget.
 | `type TEXT` | Types text in the focused widget.
 | `click TEXT` | Clicks the button with this text or object name.
-| `click-item NAME TEXT` | Clicks the line of a list (by object name) showing exactly the text, else the first line containing it.
+| `click-item NAME TEXT` | Clicks the line of a list or tree (by object name) showing exactly the text, else the first line containing it.
 | `expect NAME TEXT` | Fails unless the widget shows the text (for a list: one of its lines; the current line starts with `>`).
 | `expect-not NAME TEXT` | Fails if the widget shows the text.
 | `set-control NAME VALUE` | Sets a control: index of a combo box, number of a spin box, `on`/`off` for a check box, radio button or checkable group box, text of a field, value of a slider, button id of a button group.
@@ -95,6 +96,7 @@ at once: the next commands act on the dialog, until `close`.
 | `expect-checked NAME on\|off` | Fails unless the check box, radio button or menu option (object name or text) is checked (`on`) or not (`off`).
 | `expect-option-enabled NAME INDEX on\|off` | The same for one item of a combo box.
 | `inspect-controls FILE` | Writes the controls and group boxes of the dialog to a JSON file: values, choices, enabled states, position and widths (to find what makes a window too wide).
+| `check-option-spacing PIXELS` | Checks the vertical clearance between sibling check boxes and radio buttons, including their rendered indicators.
 | `map-click X Y [left\|right]` | Clicks a cell of the map shown.
 | `map-double-click X Y` | Double-clicks a cell of the map shown.
 | `map-drag X1 Y1 X2 Y2` | Drags on the map with the left button, through every cell.
@@ -108,12 +110,15 @@ at once: the next commands act on the dialog, until `close`.
 | `expect-dungeons-valid SEEDS` | Generates every mode and option at 3 sizes for seeds 0 to SEEDS-1, twice each; fails if one is not connected or not the same twice.
 | `preview-click NAME X Y` | Clicks a cell of a map preview or tile chooser (`mapPreview`, `chipSelector`); `preview-double-click` double-clicks it.
 | `preview-drag NAME X1 Y1 X2 Y2` | Drags a rectangle on a map preview or tile chooser.
+| `view-click NAME X Y [right\|double]` | Clicks a point of a graphics view's scene (`double`: a double-click, which opens a hero's curve).
+| `view-drag NAME X1 Y1 X2 Y2 [right]` | Drags between two points of a graphics view's scene, in small steps.
+| `menu TEXT` | Chooses an item of the pop-up menu shown, by its text (with or without "...").
 | `resize WIDTH HEIGHT` | Resizes the dialog or window.
 | `screenshot [FILE]` | Saves the dialog or window as a PNG (default: Pictures/EasyRPG Editor).
-| `check-layout` | Fails for every control smaller than it needs to be (clipped text...).
+| `check-layout` | Fails for every control smaller than it needs to be (clipped text...) and for overlapping radio options.
 | `wait MILLISECONDS` | Waits, for example for a file change.
 | `log TEXT` | Writes the text in the log.
-| `close` | Closes the dialog (like Cancel).
+| `close` | Closes the dialog (like Cancel): the modal one, else the window in front (the search window).
 | `quit` | Quits, ignoring the rest of the script.
 |===
 

@@ -151,6 +151,10 @@ private slots:
 	void on_actionMapShift_triggered();
 	void on_actionMapGenerateDungeon_triggered();
 	void on_actionSettings_triggered();
+	void on_actionProjectRename_triggered();
+	void on_actionProjectConvert2003_triggered();
+	void on_actionGameDiskCreate_triggered();
+	void on_actionMapSaveAll_triggered();
 	/** Applies the options of the Settings window */
 	void applySettings();
 	void setPlatformShortcuts();
@@ -192,11 +196,13 @@ private:
 	void populateMapTree(bool open_active_map);
 	void refreshIcons();
 	void closeEvent(QCloseEvent *event) override;
+	void showEvent(QShowEvent* event) override;
 	void changeEvent(QEvent* event) override;
 	bool saveAll();
 	void saveWorkspace();
 	void restoreWorkspace();
-	bool removeDir(const QString & dirName, const QString &root);
+	void restoreWorkspaceLayout();
+	void resetLocalState();
 	QGraphicsView *getView(int id);
 	QGraphicsView *getTabView(int index);
 	MapScene *getTabScene(int index);
@@ -217,13 +223,17 @@ private:
 	/** Width and height of a map, from its file */
 	QSize mapSize(int id);
 	bool saveBeforeTestPlay();
+	/** Reads the map tree again when another program changed it, before an
+	 *  action that changes and writes it */
+	void refreshTreeMap();
+	/** Asks to save the modified maps; false when cancelled */
+	bool saveModifiedMaps(const QString& title, const QString& question);
 	MapScene* senderScene();
 	void setTabText(MapScene* scene);
 	bool convertXYZtoPNG(QFile &xyz_file, QString out_path);
 
 	Ui::MainWindow *ui;
 	ResourceManagerDialog *dlg_resource;
-	DatabaseDialog *dlg_db;
 	QSettings m_settings;
 	PaletteScene *m_paletteScene;
 	QMap<int,QGraphicsView*> m_views;
@@ -236,6 +246,10 @@ private:
 	std::optional<QString> m_languageSetting;
 	/** openTreeItem is running (opening an area selects items again) */
 	bool m_openingTreeItem = false;
+	bool m_windowGeometryRestored = false;
+	QSize m_defaultWindowSize;
+	QVariantMap m_defaultLayoutState;
+	QVariantMap m_pendingWorkspace;
 	QActionGroup *m_zoomGroup;
 	QLabel *m_editModeLabel;
 	QLabel *m_mapLabel;

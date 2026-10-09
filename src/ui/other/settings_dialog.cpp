@@ -28,6 +28,8 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include "ui/common/path_field.h"
+#include <QPushButton>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -35,14 +37,10 @@ namespace {
 	// A path field with a button to choose it
 	QWidget* pathRow(QWidget* parent, QLineEdit* field, const std::function<void()>& browse) {
 		auto* row = new QWidget(parent);
-		auto* layout = new QHBoxLayout(row);
-		layout->setContentsMargins(0, 0, 0, 0);
-		layout->addWidget(field, 1);
 		auto* button = new QToolButton(row);
 		button->setObjectName(field->objectName() + QStringLiteral("Browse"));
-		button->setText(QStringLiteral("..."));
 		QObject::connect(button, &QToolButton::clicked, row, browse);
-		layout->addWidget(button);
+		row->setLayout(pathFieldLayout(field, button));
 		return row;
 	}
 }
@@ -69,6 +67,8 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent)
 
 	auto* project = new QGroupBox(tr("Project"), this);
 	auto* project_layout = new QVBoxLayout(project);
+	project_layout->setSpacing(12);
+	project_layout->setSizeConstraint(QLayout::SetMinimumSize);
 	m_reloadExternal = new QCheckBox(tr("Reload files changed by other programs (rpgsync...)"), project);
 	m_reloadExternal->setObjectName(QStringLiteral("checkReloadExternal"));
 	m_reloadExternal->setChecked(settings.reloadExternalChanges());
@@ -102,6 +102,8 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent)
 
 	auto* appearance = new QGroupBox(tr("Appearance"), this);
 	auto* appearance_layout = new QVBoxLayout(appearance);
+	appearance_layout->setSpacing(12);
+	appearance_layout->setSizeConstraint(QLayout::SetMinimumSize);
 	m_animateTiles = new QCheckBox(tr("Animate water and animated tiles in the map"), appearance);
 	m_animateTiles->setObjectName(QStringLiteral("checkAnimateTiles"));
 	m_animateTiles->setChecked(settings.animateTiles());
@@ -115,12 +117,34 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent)
 	m_commandStripes->setChecked(settings.commandStripes());
 	appearance_layout->addWidget(m_commandStripes);
 	layout->addWidget(appearance);
+	// Native checkbox layout margins can put their painted indicators into
+	// the next row. Reserve the complete widget bounds for these toggles.
+	for (auto* toggle : findChildren<QCheckBox*>()) toggle->setAttribute(Qt::WA_LayoutUsesWidgetRect);
+
+	auto* reset = new QPushButton(tr("Reset local state"), this);
+	reset->setObjectName(QStringLiteral("buttonResetLocalState"));
+	reset->setAutoDefault(false);
+	auto* resetNote = new QLabel(tr("Reset window sizes, tabs, selections and scroll positions to their defaults. Game data and preferences are kept."), this);
+	resetNote->setWordWrap(true);
+	layout->addWidget(reset, 0, Qt::AlignLeft);
+	layout->addWidget(resetNote);
+	connect(reset, &QPushButton::clicked, this, [resetNote] {
+		EditorSettings::instance().resetLocalState();
+		resetNote->setText(tr("Local state reset to defaults."));
+	});
 
 	layout->addStretch();
 	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
 	connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
 	connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 	layout->addWidget(buttons);
+}
+
+void SettingsDialog::resizeEvent(QResizeEvent* event)
+{
+	QDialog::resizeEvent(event);
+	const int height = layout()->totalHeightForWidth(width());
+	if (height > 0) setMinimumHeight(height);
 }
 
 void SettingsDialog::accept()

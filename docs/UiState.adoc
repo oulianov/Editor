@@ -1,0 +1,31 @@
+= Editor presentation state
+
+Editor dialogs use the shared `ViewState` lifecycle installed by `EditorStyle`.
+Their geometry and standard Qt layout controls are saved automatically: splitters,
+table/tree headers and ordinary tabs. `QMainWindow` dock state includes panel
+sizes, placement, visibility and floating windows. New controls of these types
+do not need a separate settings key or close handler.
+
+Controls are identified by their object hierarchy and logical tab/splitter index,
+not translated text or Qt's child stacking order. Give new controls stable object
+names. Restoration happens after the outer window has its saved geometry; hidden
+splitters retain pending state until their page is shown. Closing without visiting
+a page must preserve its pending state.
+
+Project-specific selection belongs to the corresponding model. The main workspace
+stores map IDs and tab order; `MapScene::viewState()` owns each map's zoom, selected
+cell and scrolling, and `Core::editingState()` owns the drawing controls and both
+tile brushes. Database and event pages use `ViewState::capture()` in their project
+or event context. These windows set `view_state_contextual` so generic tab restoration
+does not override an explicit navigation target.
+
+Presentation state must never serialize edited game values, undo history or
+clipboard contents. `Reset local state` clears the stored presentation state,
+restores open windows immediately and invalidates pending restores through the
+local state revision. Unsaved game edits and preferences remain intact.
+
+The `view_state_restart` CTest runs separate write, partial reopen and read processes.
+It verifies dock sizes, distinct splitter sizes on repeated tabs, column widths and
+order, last tabs, unvisited pages and immediate reset, while checking that edited
+values are untouched. It runs without a game fixture and is enabled with
+`EDITOR_SCRIPTS`.

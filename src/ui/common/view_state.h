@@ -20,6 +20,7 @@
 #include <QVariantMap>
 
 class QWidget;
+class QDialog;
 
 namespace ViewState {
 
@@ -27,5 +28,15 @@ namespace ViewState {
 QVariantMap capture(QWidget* page);
 /** Restore after the page's layout has settled. Does not change any game data. */
 void restore(QWidget* page, const QVariantMap& state);
+
+/** Structural layout of a window: docks, splitters, tabs and table/tree headers.
+ * Widgets are discovered automatically; edited values are never included. */
+QVariantMap captureLayout(QWidget* window);
+void restoreLayout(QWidget* window, const QVariantMap& state);
+
+/** Remember Editor dialog geometry and layout after the first show. */
+void rememberDialog(QDialog* dialog);
+/** Reset tabs, selections and scrolling without changing the edited data. */
+void reset(QWidget* page);
 
 }

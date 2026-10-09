@@ -41,6 +41,11 @@ public:
 	void setData(ProjectData& project, lcf::rpg::TroopPage* event);
 	void setData(ProjectData& project, lcf::rpg::EventPage* event);
 
+	/** Selects the first line from index that can be selected */
+	void selectIndex(int index);
+	/** Selects every command of the list, like Ctrl+A */
+	void selectAllCommands();
+
 private:
 	template<typename T>
 	void setDataInternal(ProjectData& project, T* event);
@@ -48,7 +53,6 @@ private:
 
 	void addRawEvent(QTreeWidgetItem* item);
 	void editRawEvent(QTreeWidgetItem* item, int column, bool show_warning);
-	void deleteEvent(QTreeWidgetItem* item);
 	void refreshList();
 
 	/** Pick a command and insert it before line index (-1: at the end) */
@@ -56,21 +60,36 @@ private:
 	/** Opens the editor of the command; false when cancelled */
 	bool editCommand(int index, bool is_new);
 	static bool hasEditor(lcf::rpg::EventCommand::Code code);
-	void copyCommands(QTreeWidgetItem* item, bool cut);
-	void pasteCommands(QTreeWidgetItem* item);
+	/** Cut, Copy and Delete act on these lines (first == second: nothing) */
+	void copyLines(std::pair<int, int> range, bool cut);
+	void deleteLines(std::pair<int, int> range);
+	void pasteCommands(int index);
 	int indexOf(QTreeWidgetItem* item) const;
 	/** The first line of the command at index (a message starts before its next lines) */
 	int commandStart(int index) const;
 	/** The lines of the command of item, with its block */
 	std::pair<int, int> commandRange(QTreeWidgetItem* item) const;
 	void highlightCommand(QTreeWidgetItem* current);
-	void selectIndex(int index);
+	/** The lines from first to last (excluded) grown to whole commands and blocks */
+	std::pair<int, int> wholeCommands(int first, int last) const;
+	/** Several lines are selected (Shift+click, Shift+arrows, Select All) */
+	bool multiSelection() const;
+	/** The lines Cut, Copy and Delete act on, for the line item */
+	std::pair<int, int> rangeFor(QTreeWidgetItem* item) const;
+	/** Where Insert and Paste put commands, for the line item */
+	int insertionIndexFor(QTreeWidgetItem* item) const;
 
 	ProjectData* m_project = nullptr;
 	bool m_battle = false;
 	static std::vector<lcf::rpg::EventCommand> s_clipboard;
-	/** Lines drawn selected: the command of the current line */
+	/** Lines drawn selected: the commands from the anchor to the current line */
 	std::pair<int, int> m_highlight = {-1, -1};
+	/** The lines Cut, Copy and Delete act on (first == second: none) */
+	std::pair<int, int> m_selection = {-1, -1};
+	/** The line where a selection with Shift started */
+	int m_anchor = -1;
+	/** While the current line moves with Shift: the anchor stays */
+	bool m_extending = false;
 
 	/** Changes of the list (inserting, editing, pasting...). Every change of
 	 *  the list ends with refreshList(), which records it here. */
@@ -92,6 +111,7 @@ private:
 protected:
 	void keyPressEvent(QKeyEvent* event) override;
 	void mousePressEvent(QMouseEvent* event) override;
+	void mouseMoveEvent(QMouseEvent* event) override;
 	QModelIndex moveCursor(CursorAction action, Qt::KeyboardModifiers modifiers) override;
 	void drawRow(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
 	void drawBranches(QPainter* painter, const QRect& rect, const QModelIndex& index) const override;

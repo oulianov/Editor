@@ -933,10 +933,10 @@ void Core::setRtpDir(const QString &n_path)
 	m_rtpDir = n_path;
 }
 
-short Core::selection(int off_x, int off_y)
+short Core::selection(int off_x, int off_y, std::optional<Layer> layer)
 {
 	short result = 0;
-	switch(m_layer)
+	switch(layer.value_or(m_layer))
 	{
 	case LOWER:
 		off_x %= m_lowerSelW;
@@ -1003,6 +1003,46 @@ void Core::setSelection(std::vector<short> n_sel, int n_w, int n_h)
 		m_eventSel = n_sel[0];
 		break;
 	}
+	emit selectionChanged();
+}
+
+QVariantMap Core::editingState() const
+{
+	QVariantMap state{{"layer", m_layer}, {"tool", m_tool}, {"event_tile", m_eventSel}};
+	for (const auto layer : {LOWER, UPPER}) {
+		const auto& selection = layer == LOWER ? m_lowerSel : m_upperSel;
+		QVariantList tiles;
+		for (short tile : selection) tiles.append(tile);
+		state.insert(layer == LOWER ? "lower" : "upper", QVariantMap{{"tiles", tiles},
+			{"width", layer == LOWER ? m_lowerSelW : m_upperSelW}, {"height", layer == LOWER ? m_lowerSelH : m_upperSelH}});
+	}
+	return state;
+}
+
+void Core::restoreEditingState(const QVariantMap& state)
+{
+	m_lowerSel = {0};
+	m_upperSel = {10000};
+	m_lowerSelW = m_lowerSelH = m_upperSelW = m_upperSelH = 1;
+	m_eventSel = static_cast<short>(state.value("event_tile", 10000).toInt());
+	m_layer = static_cast<Layer>(std::clamp(state.value("layer", LOWER).toInt(), static_cast<int>(LOWER), static_cast<int>(EVENT)));
+	m_tool = static_cast<Tool>(std::clamp(state.value("tool", PENCIL).toInt(), static_cast<int>(ZOOM), static_cast<int>(SELECT)));
+	for (const auto layer : {LOWER, UPPER}) {
+		QVariantMap brush = state.value(layer == LOWER ? "lower" : "upper").toMap();
+		// Migrate workspaces that remembered only the active layer's brush.
+		if (brush.isEmpty() && m_layer == layer && state.contains("tiles"))
+			brush = {{"tiles", state.value("tiles")}, {"width", state.value("tile_width")}, {"height", state.value("tile_height")}};
+		const int width = brush.value("width").toInt(), height = brush.value("height").toInt();
+		const QVariantList tiles = brush.value("tiles").toList();
+		if (width <= 0 || width > 6 || height <= 0 || height > 30 || tiles.size() != width * height) continue;
+		auto& selection = layer == LOWER ? m_lowerSel : m_upperSel;
+		selection.clear();
+		for (const auto& tile : tiles) selection.push_back(static_cast<short>(tile.toInt()));
+		(layer == LOWER ? m_lowerSelW : m_upperSelW) = width;
+		(layer == LOWER ? m_lowerSelH : m_upperSelH) = height;
+	}
+	emit layerChanged();
+	emit toolChanged();
 	emit selectionChanged();
 }
 

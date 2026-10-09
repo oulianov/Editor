@@ -21,7 +21,7 @@ expect commands "], Face Hero"
 # and Conditional Branch, whatever page is shown
 focus commands
 key End
-key Space
+key Return
 type cond
 expect-enabled Change Condition on
 click Conditional Branch

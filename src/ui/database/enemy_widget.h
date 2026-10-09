@@ -45,6 +45,8 @@ protected:
 	bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
+	/** The items, attributes and conditions, listed again when they change */
+	void fillLists();
 	void chooseGraphic();
 	void refreshGraphic();
 	void fitGraphic();

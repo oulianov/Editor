@@ -19,6 +19,7 @@
 #include "defines.h"
 #include "ui/other/run_game_dialog.h"
 #include <QSettings>
+#include <QApplication>
 
 namespace {
 	constexpr const char* ANIMATE_TILES_KEY = "animate_tiles";
@@ -68,3 +69,20 @@ void EditorSettings::setCommandStripes(bool on) { setValue(COMMAND_STRIPES_KEY, 
 
 bool EditorSettings::searchCache() const { return value(SEARCH_CACHE_KEY, false).toBool(); }
 void EditorSettings::setSearchCache(bool on) { setValue(SEARCH_CACHE_KEY, on); }
+
+void EditorSettings::resetLocalState() {
+	qApp->setProperty("local_state_resetting", true);
+	qApp->setProperty("local_state_revision", qApp->property("local_state_revision").toInt() + 1);
+	QSettings settings;
+	for (const QString& key : {QStringLiteral("window_states"), QStringLiteral("main_window_layout"),
+		QStringLiteral("dialog_sizes"), QStringLiteral("project_workspace"),
+		QStringLiteral("database_views"), QStringLiteral("event_views"), QStringLiteral("main_window_geometry"),
+		QStringLiteral("database_page"), QStringLiteral("event_dialog_geometry"), QStringLiteral("event_page_settings_width"),
+		QStringLiteral("jukebox_geometry"), QStringLiteral("jukebox_tab"), QStringLiteral("resource_manager/geometry"),
+		QStringLiteral("resource_manager/folder"), QStringLiteral("resource_manager/import_dir"),
+		QStringLiteral("resource_manager/export_dir"), QStringLiteral("current_project"), QStringLiteral("default_dir")})
+		settings.remove(key);
+	settings.sync();
+	emit localStateReset();
+	qApp->setProperty("local_state_resetting", false);
+}

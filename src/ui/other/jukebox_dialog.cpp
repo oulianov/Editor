@@ -285,10 +285,10 @@ JukeboxDialog::JukeboxDialog(QWidget* parent) : QDialog(parent) {
 	m_player->setLooping(m_loop->isChecked());
 
 	// Open as last time
+	setProperty("view_state_contextual", true); // The jukebox already owns its tab preference.
 	QSettings stored;
-	if (!restoreGeometry(stored.value(GEOMETRY_KEY).toByteArray())) {
-		resize(820, 540);
-	}
+	resize(820, 540);
+	setProperty("dialog_geometry_key", QString::fromLatin1(GEOMETRY_KEY));
 	if (const QScreen* screen = parent ? parent->screen() : this->screen()) {
 		resize(size().boundedTo(screen->availableGeometry().size() * 0.95));
 	}

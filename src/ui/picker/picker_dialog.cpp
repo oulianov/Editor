@@ -76,7 +76,7 @@ void PickerDialog::buttonClicked(QAbstractButton* button) {
 			emit fileSelected(m_currentFile.baseName());
 			break;
 		case QDialogButtonBox::Help:
-			Help::open(this);
+			Help::open(this, QStringLiteral("resource-picker"));
 			break;
 		default:
 			break;

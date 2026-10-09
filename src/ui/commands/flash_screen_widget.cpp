@@ -18,6 +18,8 @@
 #include "flash_screen_widget.h"
 #include "ui_flash_screen_widget.h"
 
+#include "ui/common/color_sample.h"
+#include <QGridLayout>
 #include <QSlider>
 #include <QSpinBox>
 
@@ -41,6 +43,20 @@ FlashScreenWidget::FlashScreenWidget(ProjectData& project, QWidget *parent) :
 	connect(ui->spinGreen_arg1, qOverload<int>(&QSpinBox::valueChanged), ui->sliderGreen, &QSlider::setValue);
 	connect(ui->spinBlue_arg2, qOverload<int>(&QSpinBox::valueChanged), ui->sliderBlue, &QSlider::setValue);
 	connect(ui->spinSat_arg3, qOverload<int>(&QSpinBox::valueChanged), ui->sliderSat, &QSlider::setValue);
+
+	// RPG Maker's sample: the flash color (0-31 per channel) at its strength
+	// over a gray screen
+	auto* sample = new ColorSample(this);
+	if (auto* grid = qobject_cast<QGridLayout*>(ui->groupFlashColor->layout()))
+		grid->addWidget(sample, 0, grid->columnCount(), grid->rowCount(), 1);
+	auto update_sample = [this, sample] {
+		const int strength = ui->spinSat_arg3->value();
+		auto channel = [strength](int value) { return 128 + (value * 255 / 31 - 128) * strength / 31; };
+		sample->setColors({QColor(channel(ui->spinRed_arg0->value()), channel(ui->spinGreen_arg1->value()), channel(ui->spinBlue_arg2->value()))});
+	};
+	for (QSpinBox* spin : {ui->spinRed_arg0, ui->spinGreen_arg1, ui->spinBlue_arg2, ui->spinSat_arg3})
+		connect(spin, qOverload<int>(&QSpinBox::valueChanged), this, update_sample);
+	update_sample();
 }
 
 FlashScreenWidget::~FlashScreenWidget() {

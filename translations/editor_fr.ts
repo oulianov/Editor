@@ -3312,6 +3312,14 @@
 <context>
     <name>DatabaseSplitWidget</name>
     <message>
+        <source>Set Maximum Number</source>
+        <translation>Nombre maximal d'éléments</translation>
+    </message>
+    <message>
+        <source>Maximum number:</source>
+        <translation>Nombre maximal :</translation>
+    </message>
+    <message>
         <location filename="../src/ui/database/database_split_widget.ui" line="+14" />
         <source>Form</source>
         <translation>Formulaire</translation>
@@ -10840,6 +10848,10 @@ Cochez d'abord « Utiliser le générateur de donjons aléatoires » dans les pr
 <context>
     <name>MapScene</name>
     <message>
+        <source>Move</source>
+        <translation>Déplacer</translation>
+    </message>
+    <message>
         <location filename="../src/ui/map/map_scene.cpp" line="+888" />
         <source>Start Game Here</source>
         <translation>Commencer le jeu ici</translation>
@@ -13620,8 +13632,8 @@ Placez-le à côté de l'éditeur ou dans le PATH, ou indiquez l'emplacement du 
     </message>
     <message>
         <location line="+0" />
-        <source>Event Page</source>
-        <translation>Page de l'évènement</translation>
+        <source>Page</source>
+        <translation>Page</translation>
     </message>
     <message>
         <location line="+0" />
@@ -13682,6 +13694,22 @@ Placez-le à côté de l'éditeur ou dans le PATH, ou indiquez l'emplacement du 
         <translation>Tous les types</translation>
     </message>
     <message>
+        <source>Variable</source>
+        <translation>Variable</translation>
+    </message>
+    <message>
+        <source>Switch</source>
+        <translation>Interrupteur</translation>
+    </message>
+    <message>
+        <source>Item</source>
+        <translation>Objet</translation>
+    </message>
+    <message>
+        <source>Common event</source>
+        <translation>Événement commun</translation>
+    </message>
+    <message>
         <source>Variables</source>
         <translation>Variables</translation>
     </message>
@@ -13731,6 +13759,18 @@ Placez-le à côté de l'éditeur ou dans le PATH, ou indiquez l'emplacement du 
 </context>
 <context>
     <name>SettingsDialog</name>
+    <message>
+        <source>Reset local state</source>
+        <translation>Réinitialiser l'état local</translation>
+    </message>
+    <message>
+        <source>Reset window sizes, tabs, selections and scroll positions to their defaults. Game data and preferences are kept.</source>
+        <translation>Rétablir les tailles des fenêtres, les onglets, les sélections et les positions de défilement par défaut. Les données du jeu et les préférences sont conservées.</translation>
+    </message>
+    <message>
+        <source>Local state reset to defaults.</source>
+        <translation>L'état local a été réinitialisé.</translation>
+    </message>
     <message>
         <location filename="../src/ui/other/settings_dialog.cpp" line="+53" />
         <source>Settings</source>

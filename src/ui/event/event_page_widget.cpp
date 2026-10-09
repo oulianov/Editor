@@ -28,6 +28,7 @@
 #include <QSettings>
 #include <QSplitter>
 #include "core.h"
+#include "common/editor_settings.h"
 #include "defines.h"
 #include "ui/picker/picker_charset_widget.h"
 #include "ui/picker/picker_dialog.h"
@@ -50,6 +51,13 @@ EventPageWidget::EventPageWidget(ProjectData& project, QWidget *parent) :
 	// the command list takes the rest of the window
 	ui->splitter->setStretchFactor(0, 0);
 	ui->splitter->setStretchFactor(1, 1);
+	connect(ui->splitter, &QSplitter::splitterMoved, this, [this] {
+		QSettings().setValue(SPLITTER_KEY, ui->splitter->sizes().value(0));
+	});
+	connect(&EditorSettings::instance(), &EditorSettings::localStateReset, this, [this] {
+		m_sized = false;
+		if (isVisible()) sizeSettings();
+	});
 
 
 	ui->comboVarOperation->addItem(tr("Equal to") + " (==)", lcf::rpg::EventPageCondition::Comparison_equal);
@@ -275,11 +283,16 @@ void EventPageWidget::on_pushSetSprite_clicked()
 	// A character of a charset, a tile of the upper layer, or nothing
 	QMenu menu(this);
 	menu.addAction(tr("Character..."), this, [this] {
-		auto* widget = new PickerCharsetWidget(m_eventPage->character_name.empty() ? 0 : m_eventPage->character_index, this);
+		// the character, its facing and its frame, like RPG Maker
+		auto* widget = new PickerCharsetWidget(m_eventPage->character_name.empty() ? 0 : m_eventPage->character_index,
+			m_eventPage->character_direction, m_eventPage->character_pattern, this);
 		PickerDialog dialog(m_project, FileFinder::FileType::Image, widget, this);
+		dialog.setWindowTitle(tr("Select Event Graphic"));
 		QObject::connect(&dialog, &PickerDialog::fileSelected, this, [&](const QString& baseName) {
 			m_eventPage->character_name = ToDBString(baseName);
 			m_eventPage->character_index = widget->index();
+			m_eventPage->character_direction = widget->direction();
+			m_eventPage->character_pattern = widget->pattern();
 			updateGraphic();
 		});
 		dialog.setDirectoryAndFile(CHARSET, ToQString(m_eventPage->character_name));
@@ -371,6 +384,11 @@ void EventPageWidget::updateGraphic()
 void EventPageWidget::showEvent(QShowEvent* event)
 {
 	QWidget::showEvent(event);
+	sizeSettings();
+}
+
+void EventPageWidget::sizeSettings()
+{
 	if (m_sized) {
 		return;
 	}
@@ -388,8 +406,4 @@ void EventPageWidget::showEvent(QShowEvent* event)
 	int width = QSettings().value(SPLITTER_KEY, natural).toInt();
 	width = std::clamp(width, minimum, std::max(minimum, std::min(natural + natural / 2, ui->splitter->width() / 2)));
 	ui->splitter->setSizes({width, std::max(0, ui->splitter->width() - width)});
-
-	connect(ui->splitter, &QSplitter::splitterMoved, this, [this] {
-		QSettings().setValue(SPLITTER_KEY, ui->splitter->sizes().value(0));
-	});
 }

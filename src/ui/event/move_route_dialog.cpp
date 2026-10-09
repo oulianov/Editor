@@ -35,7 +35,9 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
 #include <QPushButton>
+#include <QShortcut>
 #include <QVBoxLayout>
 #include <lcf/rpg/sound.h>
 
@@ -65,6 +67,8 @@ bool hasParameters(int code) {
 
 constexpr int this_event = 10005;
 }
+
+std::vector<lcf::rpg::MoveCommand> MoveRouteDialog::s_clipboard;
 
 MoveRouteDialog::MoveRouteDialog(ProjectData& project, const lcf::rpg::MoveRoute& route, QWidget* parent,
 		const MoveRouteCodec::MoveEvent* move_event) :
@@ -109,8 +113,31 @@ MoveRouteDialog::MoveRouteDialog(ProjectData& project, const lcf::rpg::MoveRoute
 	// the route
 	auto* left = new QVBoxLayout();
 	m_list = new QListWidget(this);
+	m_list->setObjectName(QStringLiteral("listMoves"));
 	m_list->setMinimumWidth(240);
+	// several moves are cut, copied or deleted at once, like in RPG Maker
+	m_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	m_list->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(m_list, &QListWidget::customContextMenuRequested, this, &MoveRouteDialog::showContextMenu);
+	// shortcuts: the list would copy the text of a line itself
+	new QShortcut(QKeySequence::Cut, m_list, [this] { copySelected(true); }, Qt::WidgetShortcut);
+	new QShortcut(QKeySequence::Copy, m_list, [this] { copySelected(false); }, Qt::WidgetShortcut);
+	new QShortcut(QKeySequence::Paste, m_list, [this] { paste(); }, Qt::WidgetShortcut);
 	left->addWidget(m_list, 1);
+	auto* list_buttons = new QHBoxLayout();
+	auto* remove = new QPushButton(tr("Delete"), this);
+	auto* clear = new QPushButton(tr("Clear List"), this);
+	remove->setAutoDefault(false);
+	clear->setAutoDefault(false);
+	connect(remove, &QPushButton::clicked, this, &MoveRouteDialog::removeSelected);
+	connect(clear, &QPushButton::clicked, this, [this] {
+		m_moves.clear();
+		refresh(0);
+	});
+	list_buttons->addWidget(remove);
+	list_buttons->addWidget(clear);
+	list_buttons->addStretch(1);
+	left->addLayout(list_buttons);
 	m_repeat = new QCheckBox(tr("Repeat the moves"), this);
 	m_skippable = new QCheckBox(tr("Skip moves that cannot be done"), this);
 	m_repeat->setChecked(route.repeat);
@@ -261,13 +288,61 @@ void MoveRouteDialog::editItem(QListWidgetItem* item) {
 	}
 }
 
+std::vector<int> MoveRouteDialog::selectedRows() const {
+	std::vector<int> rows;
+	for (auto* item : m_list->selectedItems()) {
+		const int row = m_list->row(item);
+		if (row >= 0 && row < static_cast<int>(m_moves.size())) {
+			rows.push_back(row);
+		}
+	}
+	std::sort(rows.begin(), rows.end());
+	return rows;
+}
+
 void MoveRouteDialog::removeSelected() {
-	int row = m_list->currentRow();
-	if (row < 0 || row >= static_cast<int>(m_moves.size())) {
+	const auto rows = selectedRows();
+	if (rows.empty()) {
 		return;
 	}
-	m_moves.erase(m_moves.begin() + row);
-	refresh(row);
+	// from the last, so that the rows before stay where they are
+	for (auto it = rows.rbegin(); it != rows.rend(); ++it) {
+		m_moves.erase(m_moves.begin() + *it);
+	}
+	refresh(rows.front());
+}
+
+void MoveRouteDialog::copySelected(bool cut) {
+	const auto rows = selectedRows();
+	if (rows.empty()) {
+		return;
+	}
+	s_clipboard.clear();
+	for (int row : rows) {
+		s_clipboard.push_back(m_moves[row]);
+	}
+	if (cut) {
+		removeSelected();
+	}
+}
+
+void MoveRouteDialog::paste() {
+	if (s_clipboard.empty()) {
+		return;
+	}
+	const int row = std::clamp(m_list->currentRow(), 0, static_cast<int>(m_moves.size()));
+	m_moves.insert(m_moves.begin() + row, s_clipboard.begin(), s_clipboard.end());
+	refresh(row + static_cast<int>(s_clipboard.size()));
+}
+
+void MoveRouteDialog::showContextMenu(const QPoint& pos) {
+	const bool selected = !selectedRows().empty();
+	QMenu menu(this);
+	menu.addAction(tr("Cut"), QKeySequence::Cut, this, [this] { copySelected(true); })->setEnabled(selected);
+	menu.addAction(tr("Copy"), QKeySequence::Copy, this, [this] { copySelected(false); })->setEnabled(selected);
+	menu.addAction(tr("Paste"), QKeySequence::Paste, this, [this] { paste(); })->setEnabled(!s_clipboard.empty());
+	menu.addAction(tr("Delete"), QKeySequence::Delete, this, [this] { removeSelected(); })->setEnabled(selected);
+	menu.exec(m_list->viewport()->mapToGlobal(pos));
 }
 
 void MoveRouteDialog::keyPressEvent(QKeyEvent* event) {
@@ -275,6 +350,7 @@ void MoveRouteDialog::keyPressEvent(QKeyEvent* event) {
 		removeSelected();
 		return;
 	}
+
 	if (m_list->hasFocus() && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)) {
 		editItem(m_list->currentItem());
 		return;

@@ -137,7 +137,17 @@
             <string>Change BG</string>
            </property>
            <property name="toolTip">
-            <string>Background shown here only, to place the monsters</string>
+            <string>Background of this view and of the test battles</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushTestBattle">
+           <property name="text">
+            <string>Test Battle</string>
+           </property>
+           <property name="toolTip">
+            <string>Fights this monster group in the EasyRPG Player</string>
            </property>
           </widget>
          </item>

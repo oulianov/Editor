@@ -17,17 +17,23 @@
 
 #include "class_editors.h"
 
+#include <QAction>
+#include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QHeaderView>
+#include <QKeyEvent>
+#include <QMouseEvent>
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QVBoxLayout>
 #include <algorithm>
 #include <array>
 
+#include "curve_dialog.h"
 #include "model/project_data.h"
+#include "common/signal_blocker.h"
 #include "ui/common/rpg_combobox.h"
 
 QIcon ClassEditors::rankIcon(int rank) {
@@ -99,7 +105,8 @@ bool ClassEditors::editSkill(QWidget* parent, ProjectData& project, std::vector<
 	level->setRange(1, max_level);
 	level->setValue(learning.level);
 	auto* skill = new SkillRpgComboBox(&dialog);
-	skill->setObjectName(QStringLiteral("comboSkill"));
+	// the combo box itself: scripts set it by index (skill ID - 1)
+	skill->comboBox()->setObjectName(QStringLiteral("comboSkill"));
 	skill->makeModel(project);
 	skill->setCurrentIndex(learning.skill_id - 1);
 	form->addRow(tr("Level"), level);
@@ -133,61 +140,131 @@ void ClassEditors::removeSkill(std::vector<lcf::rpg::Learning>& skills, int row)
 	sortSkills(skills);
 }
 
-bool ClassEditors::editParameters(QWidget* parent, lcf::rpg::Parameters& parameters, int max_level, int max_hp) {
-	lcf::rpg::Parameters edited = parameters;
-	// a level without a value would read as 0 in the game
-	edited.Setup(max_level);
+void ClassEditors::connectSkillTable(QTableWidget* table, ProjectData& project,
+	std::function<std::vector<lcf::rpg::Learning>&()> skills)
+{
+	const int max_level = project.database().system.ldb_id == 2003 ? 99 : 50;
+	// the lines are the list in its order: no sorting, no editing in place
+	table->setSortingEnabled(false);
+	table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+	table->setSelectionBehavior(QAbstractItemView::SelectRows);
+	table->setSelectionMode(QAbstractItemView::SingleSelection);
+	table->setContextMenuPolicy(Qt::ActionsContextMenu);
 
-	struct Column {
-		QString title;
-		std::vector<int16_t>& values;
-		int minimum;
-		int maximum;
-	};
-	const std::array<Column, 6> columns = {{
-		{tr("Max HP"), edited.maxhp, 1, max_hp},
-		{tr("Max MP"), edited.maxsp, 0, 999},
-		{tr("Attack"), edited.attack, 1, 999},
-		{tr("Defense"), edited.defense, 1, 999},
-		{tr("Intelligence"), edited.spirit, 1, 999},
-		{tr("Agility"), edited.agility, 1, 999},
-	}};
-
-	QDialog dialog(parent);
-	dialog.setWindowTitle(tr("Parameter Progression"));
-	auto* layout = new QVBoxLayout(&dialog);
-	auto* table = new QTableWidget(max_level, static_cast<int>(columns.size()), &dialog);
-	table->setObjectName(QStringLiteral("tableParameters"));
-	QStringList titles;
-	for (int column = 0; column < static_cast<int>(columns.size()); ++column) {
-		const auto& values = columns[static_cast<size_t>(column)].values;
-		titles.append(columns[static_cast<size_t>(column)].title);
-		for (int row = 0; row < max_level; ++row) {
-			auto* item = new QTableWidgetItem();
-			item->setData(Qt::EditRole, static_cast<int>(values[static_cast<size_t>(row)]));
-			table->setItem(row, column, item);
+	auto edit = [table, &project, skills, max_level](int row) {
+		if (editSkill(table, project, skills(), row, max_level)) {
+			fillSkills(table, skills(), project);
 		}
-	}
-	// the row headers are the levels, 1 to the maximum
-	table->setHorizontalHeaderLabels(titles);
-	table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-	layout->addWidget(table);
-	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-	layout->addWidget(buttons);
-	QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-	QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+	};
+	auto remove = [table, &project, skills](int row) {
+		if (row < 0 || row >= static_cast<int>(skills().size())) {
+			return;
+		}
+		removeSkill(skills(), row);
+		fillSkills(table, skills(), project);
+		table->setCurrentCell(std::min(row, table->rowCount() - 1), 0);
+	};
 
+	auto* edit_action = new QAction(tr("Edit..."), table);
+	edit_action->setObjectName(QStringLiteral("actionEditSkill"));
+	QObject::connect(edit_action, &QAction::triggered, table, [table, edit] { edit(table->currentRow()); });
+	auto* delete_action = new QAction(tr("Delete"), table);
+	delete_action->setObjectName(QStringLiteral("actionDeleteSkill"));
+	QObject::connect(delete_action, &QAction::triggered, table, [table, remove] { remove(table->currentRow()); });
+	table->addActions({edit_action, delete_action});
+
+	// keys read here, not as shortcuts: scripts post them to the table
+	filterEvents(table, [table, edit, remove](QEvent* event) {
+		if (event->type() != QEvent::KeyPress) {
+			return false;
+		}
+		const int key = static_cast<QKeyEvent*>(event)->key();
+		if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+			edit(table->currentRow());
+			return true;
+		}
+		if (key == Qt::Key_Delete || key == Qt::Key_Backspace) {
+			remove(table->currentRow());
+			return true;
+		}
+		return false;
+	});
+	// a double-click below the lines adds a skill too
+	filterEvents(table->viewport(), [table, skills, edit](QEvent* event) {
+		if (event->type() != QEvent::MouseButtonDblClick) {
+			return false;
+		}
+		const int row = table->indexAt(static_cast<QMouseEvent*>(event)->position().toPoint()).row();
+		edit(row < 0 ? static_cast<int>(skills().size()) : row);
+		return true;
+	});
+}
+
+namespace {
+class FunctionFilter : public QObject {
+public:
+	FunctionFilter(QObject* parent, std::function<bool(QEvent*)> filter) : QObject(parent), m_filter(std::move(filter)) {}
+
+	bool eventFilter(QObject*, QEvent* event) override {
+		return m_filter(event);
+	}
+
+private:
+	std::function<bool(QEvent*)> m_filter;
+};
+}
+
+void ClassEditors::filterEvents(QObject* object, std::function<bool(QEvent*)> filter) {
+	object->installEventFilter(new FunctionFilter(object, std::move(filter)));
+}
+
+bool ClassEditors::editParameters(QWidget* parent, lcf::rpg::Parameters& parameters, int max_level, int max_hp, int tab) {
+	CurveDialog dialog(parameters, max_level, max_hp, tab, parent);
 	if (dialog.exec() != QDialog::Accepted) {
 		return false;
 	}
+	parameters = dialog.parameters();
+	return true;
+}
 
-	for (int column = 0; column < static_cast<int>(columns.size()); ++column) {
-		const auto& c = columns[static_cast<size_t>(column)];
-		for (int row = 0; row < max_level; ++row) {
-			const int value = table->item(row, column)->data(Qt::EditRole).toInt();
-			c.values[static_cast<size_t>(row)] = static_cast<int16_t>(std::clamp(value, c.minimum, c.maximum));
+void ClassEditors::fillBattleCommands(const CommandCombos& combos, const std::vector<int32_t>& commands,
+	ProjectData& project)
+{
+	const auto& database_commands = project.database().battlecommands.commands;
+	// the commands before the Row command (0); -1 pads the list
+	std::vector<int32_t> ids;
+	for (int32_t id : commands) {
+		if (id > 0) {
+			ids.push_back(id);
 		}
 	}
-	parameters = edited;
-	return true;
+
+	for (size_t slot = 0; slot < combos.size(); ++slot) {
+		auto* combo = combos[slot];
+		SignalBlocker blocker(combo);
+		combo->clear();
+		combo->addItem(tr("<none>"), 0);
+		for (const auto& command : database_commands) {
+			combo->addItem(QString("%1: %2").arg(command.ID, 4, 10, QChar('0')).arg(ToQString(command.name)), command.ID);
+		}
+		const int id = slot < ids.size() ? ids[slot] : 0;
+		if (combo->findData(id) < 0) {
+			combo->addItem(tr("<%1?>").arg(id), id);
+		}
+		combo->setCurrentIndex(combo->findData(id));
+	}
+}
+
+std::vector<int32_t> ClassEditors::battleCommands(const CommandCombos& combos) {
+	std::vector<int32_t> ids;
+	for (auto* combo : combos) {
+		const int id = combo->currentData().toInt();
+		if (id > 0) {
+			ids.push_back(id);
+		}
+	}
+	// Like RPG Maker: the Row command (0) ends the list, padded to 7 entries with -1
+	ids.push_back(0);
+	ids.resize(std::max<size_t>(ids.size(), kCommandSlots + 1), -1);
+	return ids;
 }

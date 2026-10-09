@@ -34,13 +34,15 @@ namespace {
 	public:
 		enum { Type = UserType + 1 };
 
-		MemberItem(lcf::rpg::Troop& troop, int index, const QPixmap& pixmap, bool transparent) :
+		MemberItem(lcf::rpg::Troop& troop, int index, const QPixmap& pixmap, bool transparent, bool read_only) :
 			QGraphicsPixmapItem(pixmap), m_troop(troop), m_index(index), m_transparent(transparent)
 		{
 			const auto& member = troop.members[index];
 			setOffset(-pixmap.width() / 2, -pixmap.height() / 2);
 			setPos(member.x, member.y);
-			setFlags(ItemIsMovable | ItemIsSelectable | ItemSendsGeometryChanges);
+			if (!read_only) {
+				setFlags(ItemIsMovable | ItemIsSelectable | ItemSendsGeometryChanges);
+			}
 			updateOpacity();
 		}
 
@@ -122,12 +124,17 @@ void EnemyGroupView::refresh() {
 			pixmap = QPixmap(32, 32);
 			pixmap.fill(QColor(160, 160, 160, 160));
 		}
-		scene()->addItem(new MemberItem(*m_troop, i, pixmap, transparent));
+		scene()->addItem(new MemberItem(*m_troop, i, pixmap, transparent, m_readOnly));
 	}
 }
 
 void EnemyGroupView::setBackdrop(const QPixmap& backdrop) {
 	m_backdrop->setPixmap(backdrop.isNull() ? backdrop : backdrop.scaled(kScreenWidth, kScreenHeight));
+}
+
+void EnemyGroupView::setReadOnly(bool read_only) {
+	m_readOnly = read_only;
+	refresh();
 }
 
 int EnemyGroupView::selectedMember() const {
@@ -155,7 +162,7 @@ void EnemyGroupView::resizeEvent(QResizeEvent* event) {
 
 void EnemyGroupView::contextMenuEvent(QContextMenuEvent* event) {
 	QGraphicsItem* item = itemAt(event->pos());
-	if (!item || item->type() != MemberItem::Type || !m_troop) {
+	if (!item || item->type() != MemberItem::Type || !m_troop || m_readOnly) {
 		return;
 	}
 	auto* member_item = static_cast<MemberItem*>(item);

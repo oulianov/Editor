@@ -51,6 +51,8 @@
     <addaction name="actionProjectOpen"/>
     <addaction name="actionProjectImport"/>
     <addaction name="actionProjectClose"/>
+    <addaction name="actionProjectRename"/>
+    <addaction name="actionProjectConvert2003"/>
     <addaction name="separator"/>
     <addaction name="actionGameDiskCreate"/>
     <addaction name="separator"/>
@@ -61,6 +63,7 @@
      <string>Maps</string>
     </property>
     <addaction name="actionMapSave"/>
+    <addaction name="actionMapSaveAll"/>
     <addaction name="actionMapRevert"/>
     <addaction name="separator"/>
     <addaction name="actionLayerLower"/>
@@ -146,7 +149,6 @@
    </attribute>
    <addaction name="actionProjectNew"/>
    <addaction name="actionProjectOpen"/>
-   <addaction name="actionProjectImport"/>
    <addaction name="actionProjectClose"/>
    <addaction name="separator"/>
    <addaction name="actionGameDiskCreate"/>
@@ -187,9 +189,6 @@
   <widget class="QDockWidget" name="dockPalette">
    <property name="features">
     <set>QDockWidget::DockWidgetFeature::DockWidgetFloatable|QDockWidget::DockWidgetFeature::DockWidgetMovable</set>
-   </property>
-   <property name="windowTitle">
-    <string>Palette</string>
    </property>
    <attribute name="dockWidgetArea">
     <number>1</number>
@@ -245,9 +244,6 @@
    <property name="allowedAreas">
     <set>Qt::DockWidgetArea::LeftDockWidgetArea|Qt::DockWidgetArea::RightDockWidgetArea</set>
    </property>
-   <property name="windowTitle">
-    <string>Map Tree</string>
-   </property>
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
@@ -292,16 +288,16 @@
    </widget>
   </widget>
   <widget class="QToolBar" name="toolBar">
+   <property name="iconSize">
+    <size>
+     <width>16</width>
+     <height>16</height>
+    </size>
+   </property>
    <property name="minimumSize">
     <size>
      <width>196</width>
      <height>0</height>
-    </size>
-   </property>
-   <property name="maximumSize">
-    <size>
-     <width>196</width>
-     <height>16777215</height>
     </size>
    </property>
    <property name="windowTitle">
@@ -358,10 +354,10 @@
   </action>
   <action name="actionGameDiskCreate">
    <property name="text">
-    <string>Create Game &amp;Disk</string>
+    <string>Export &amp;Game...</string>
    </property>
    <property name="statusTip">
-    <string>Generate game installation executable</string>
+    <string>Export the game for Windows, macOS, Linux and the web (RPG Maker's Create Gamedisk)</string>
    </property>
   </action>
   <action name="actionQuit">
@@ -444,13 +440,13 @@
   </action>
   <action name="actionZoom100">
    <property name="text">
-    <string>&amp;Zoom 100%</string>
+    <string>&amp;Normal Size (1/2)</string>
    </property>
    <property name="toolTip">
-    <string>Zoom 100%</string>
+    <string>Normal size (1/2)</string>
    </property>
    <property name="statusTip">
-    <string>Zoom 100%</string>
+    <string>Back to the normal size of the map, as maps open (1/2)</string>
    </property>
   </action>
   <action name="actionZoomIn">
@@ -635,6 +631,33 @@
     <string>Ctrl+Shift+Z</string>
    </property>
   </action>
+  <action name="actionMapSaveAll">
+   <property name="text">
+    <string>Save All Maps</string>
+   </property>
+   <property name="statusTip">
+    <string>Save the changes of every open map</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionProjectRename">
+   <property name="text">
+    <string>Rename Project...</string>
+   </property>
+   <property name="statusTip">
+    <string>Change the folder name and the title of the game</string>
+   </property>
+  </action>
+  <action name="actionProjectConvert2003">
+   <property name="text">
+    <string>Convert to RPG Maker 2003...</string>
+   </property>
+   <property name="statusTip">
+    <string>Convert this RPG Maker 2000 project to the format of RPG Maker 2003</string>
+   </property>
+  </action>
   <action name="actionSettings">
    <property name="text">
     <string>Settings...</string>
@@ -751,9 +774,6 @@
   <action name="actionProjectImport">
    <property name="text">
     <string>&amp;Import Project</string>
-   </property>
-   <property name="visible">
-    <bool>false</bool>
    </property>
   </action>
   <action name="actionMapProperties">

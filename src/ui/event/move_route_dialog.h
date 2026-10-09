@@ -57,10 +57,18 @@ private:
 	/** Asks for the switch, graphic or sound of a move; false when cancelled */
 	bool editParameters(lcf::rpg::MoveCommand& move);
 	void editItem(QListWidgetItem* item);
+	/** The rows of the selected moves, in order (not the last "<>" line) */
+	std::vector<int> selectedRows() const;
 	void removeSelected();
+	void copySelected(bool cut);
+	/** Before the current line, like the moves added */
+	void paste();
+	void showContextMenu(const QPoint& pos);
 
 	ProjectData& m_project;
 	std::vector<lcf::rpg::MoveCommand> m_moves;
+	/** Copied moves, for the routes of every event */
+	static std::vector<lcf::rpg::MoveCommand> s_clipboard;
 	QListWidget* m_list = nullptr;
 	QCheckBox* m_repeat = nullptr;
 	QCheckBox* m_skippable = nullptr;

@@ -19,6 +19,7 @@
 
 #include <QDialog>
 #include <QVariantMap>
+#include <optional>
 #include <lcf/rpg/event.h>
 #include <lcf/rpg/database.h>
 
@@ -52,6 +53,9 @@ public:
 	 *  Shows the new version, asking first when the user changed it. */
 	void reloadEvent(const lcf::rpg::Event* event);
 
+	/** Shows a page (by its ID) and selects a line of it (1: the first, 0: none) */
+	void showCommand(int pageID, int line);
+
 signals:
 	/** Apply was clicked: the event as it is now, to put on the map */
 	void applied(const lcf::rpg::Event& event);
@@ -79,7 +83,8 @@ private:
 	lcf::rpg::Event a_event;
 	int lst_result;
 	ProjectData& m_project;
-	lcf::rpg::EventPage event_page_clipboard;
+	/** Copy Page: shared by the events of every map, like RPG Maker */
+	static std::optional<lcf::rpg::EventPage> s_pageClipboard;
 	int m_mapID;
 	QString m_viewStateKey;
 	std::vector<QVariantMap> m_pageViewStates;
@@ -87,4 +92,8 @@ private:
 	bool m_refreshingPages = false;
 
 	void refreshEventPageTabs();
+	/** New and Paste Page while there are fewer than 100 pages */
+	void updatePageButtons();
+	/** The previous (-1) or next (1) page */
+	void switchPage(int step);
 };

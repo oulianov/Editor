@@ -21,6 +21,10 @@
 #include <zlib.h>
 
 QPixmap ImageLoader::Load(const QString& path) {
+	// no file (a graphic not set or not found): no picture
+	if (path.isEmpty()) {
+		return QPixmap();
+	}
 	QFile file(path);
 
 	if (!file.open(QFile::ReadOnly)) {

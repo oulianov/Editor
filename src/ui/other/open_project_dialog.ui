@@ -108,6 +108,16 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="pushImport">
+       <property name="text">
+        <string>Import...</string>
+       </property>
+       <property name="toolTip">
+        <string>Copy an RPG Maker 2000/2003 game into a new project</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="pushRename">
        <property name="text">
         <string>Rename</string>

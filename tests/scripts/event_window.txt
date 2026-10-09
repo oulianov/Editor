@@ -8,7 +8,7 @@ check-layout
 
 focus commands
 key End
-key Space
+key Return
 type Wait
 key Return
 click OK

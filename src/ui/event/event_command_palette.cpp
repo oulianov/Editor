@@ -210,20 +210,53 @@ const Page& maniacPage() {
 	return page;
 }
 
+// The battle event commands of RPG Maker 2003 (its 37 buttons, in its order)
 const Page& battlePage() {
-	static const Page page = { QT_TRANSLATE_NOOP("EventCommandPalette", "Battle"), {
+	static const Page page = { QT_TRANSLATE_NOOP("EventCommandPalette", "Battle Event Commands"), {
+		{Code::ShowMessage, QT_TRANSLATE_NOOP("EventCommandPalette", "Show Message"), false},
+		{Code::ChangeFaceGraphic, QT_TRANSLATE_NOOP("EventCommandPalette", "Select Face Graphic"), false},
+		{Code::ShowChoice, QT_TRANSLATE_NOOP("EventCommandPalette", "Show Choices"), false},
+		{Code::InputNumber, QT_TRANSLATE_NOOP("EventCommandPalette", "Input Number"), false},
+		{Code::END, nullptr, false},
+		{Code::ControlSwitches, QT_TRANSLATE_NOOP("EventCommandPalette", "Control Switches"), false},
+		{Code::ControlVars, QT_TRANSLATE_NOOP("EventCommandPalette", "Control Variables"), false},
+		{Code::ChangeGold, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Money"), false},
+		{Code::ChangeItems, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Items"), false},
+		{Code::ChangePartyMembers, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Party"), false},
+		{Code::END, nullptr, false},
+		{Code::ChangeLevel, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Level"), false},
+		{Code::ChangeSkills, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Skills"), false},
+		{Code::ChangeEquipment, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Equipment"), false},
+		{Code::ChangeHP, QT_TRANSLATE_NOOP("EventCommandPalette", "Change HP"), false},
+		{Code::ChangeSP, QT_TRANSLATE_NOOP("EventCommandPalette", "Change MP"), false},
+		{Code::ChangeCondition, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Condition"), false},
+		{Code::FullHeal, QT_TRANSLATE_NOOP("EventCommandPalette", "Full Recovery"), false},
+		{Code::END, nullptr, false},
 		{Code::ChangeMonsterHP, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Enemy HP"), false},
 		{Code::ChangeMonsterMP, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Enemy MP"), false},
 		{Code::ChangeMonsterCondition, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Enemy Condition"), false},
 		{Code::ShowHiddenMonster, QT_TRANSLATE_NOOP("EventCommandPalette", "Show Hidden Enemy"), false},
 		{Code::ChangeBattleBG, QT_TRANSLATE_NOOP("EventCommandPalette", "Change Battle Background"), false},
-		{Code::ShowBattleAnimation_B, QT_TRANSLATE_NOOP("EventCommandPalette", "Show Battle Animation (Battle)"), false},
 		{Code::END, nullptr, false},
-		{Code::ConditionalBranch_B, QT_TRANSLATE_NOOP("EventCommandPalette", "Conditional Branch (Battle)"), false},
-		{Code::TerminateBattle, QT_TRANSLATE_NOOP("EventCommandPalette", "End Battle"), false},
-		{Code::CallCommonEvent, QT_TRANSLATE_NOOP("EventCommandPalette", "Call Common Event"), true},
-		{Code::ForceFlee, QT_TRANSLATE_NOOP("EventCommandPalette", "Force Flee"), true},
+		{Code::TintScreen, QT_TRANSLATE_NOOP("EventCommandPalette", "Tint Screen"), false},
+		{Code::FlashScreen, QT_TRANSLATE_NOOP("EventCommandPalette", "Flash Screen"), false},
+		{Code::ShakeScreen, QT_TRANSLATE_NOOP("EventCommandPalette", "Shake Screen"), false},
+		{Code::ShowBattleAnimation_B, QT_TRANSLATE_NOOP("EventCommandPalette", "Show Battle Animation"), false},
+		{Code::END, nullptr, false},
 		{Code::EnableCombo, QT_TRANSLATE_NOOP("EventCommandPalette", "Enable Combo"), true},
+		{Code::ForceFlee, QT_TRANSLATE_NOOP("EventCommandPalette", "Force Flee"), true},
+		{Code::END, nullptr, false},
+		{Code::Wait, QT_TRANSLATE_NOOP("EventCommandPalette", "Wait"), false},
+		{Code::PlayBGM, QT_TRANSLATE_NOOP("EventCommandPalette", "Play BGM"), false},
+		{Code::FadeOutBGM, QT_TRANSLATE_NOOP("EventCommandPalette", "Fade Out BGM"), false},
+		{Code::PlaySound, QT_TRANSLATE_NOOP("EventCommandPalette", "Play Sound Effect"), false},
+		{Code::END, nullptr, false},
+		{Code::ConditionalBranch_B, QT_TRANSLATE_NOOP("EventCommandPalette", "Conditional Branch"), false},
+		{Code::EndEventProcessing, QT_TRANSLATE_NOOP("EventCommandPalette", "End Event Processing"), false},
+		{Code::CallCommonEvent, QT_TRANSLATE_NOOP("EventCommandPalette", "Call Common Event"), true},
+		{Code::Comment, QT_TRANSLATE_NOOP("EventCommandPalette", "Comment"), false},
+		{Code::GameOver, QT_TRANSLATE_NOOP("EventCommandPalette", "Game Over"), false},
+		{Code::TerminateBattle, QT_TRANSLATE_NOOP("EventCommandPalette", "End Battle"), false},
 	}};
 	return page;
 }
@@ -315,12 +348,19 @@ EventCommandPalette::EventCommandPalette(bool rpg2k3, bool battle, QWidget* pare
 
 	int number = 1;
 	if (battle) {
+		// only the commands of battles, like RPG Maker's window for them;
+		// the Maniac Patch also runs its commands in battles
+		setWindowTitle(tr("Battle Event Commands"));
 		add_page(battlePage(), number++);
+		if (maniac) {
+			add_page(maniacPage(), number++);
+		}
+	} else {
+		for (const auto& page : mapPages()) {
+			add_page(page, number++);
+		}
+		add_page(maniacPage(), number++);
 	}
-	for (const auto& page : mapPages()) {
-		add_page(page, number++);
-	}
-	add_page(maniacPage(), number++);
 
 	// the results of a search replace the pages, which would hide the
 	// matches of the other pages

@@ -16,7 +16,10 @@
  */
 
 #include "help.h"
+#include "ui/database/variable_widget.h"
+#include "ui/database/switch_widget.h"
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QPointer>
 #include <QTextBrowser>
 #include <QUrl>
@@ -27,6 +30,11 @@ void Help::open(QWidget* from, const QString& topic) {
 	// One guide window per window asking for help, next to it: a window
 	// parented to a modal dialog can be used while the dialog is open
 	QWidget* window = from ? from->window() : nullptr;
+	QString section = topic;
+	if (window && section == QStringLiteral("database")) {
+		if (window->findChild<VariableWidget*>()) section = QStringLiteral("database-variables");
+		else if (window->findChild<SwitchWidget*>()) section = QStringLiteral("database-switches");
+	}
 	auto* dialog = window ? window->findChild<QDialog*>(QStringLiteral("helpWindow"), Qt::FindDirectChildrenOnly) : nullptr;
 	if (!dialog) {
 		dialog = new QDialog(window, Qt::Window);
@@ -40,16 +48,21 @@ void Help::open(QWidget* from, const QString& topic) {
 		browser->setObjectName(QStringLiteral("helpBrowser"));
 		browser->setOpenExternalLinks(true);
 		layout->addWidget(browser);
+		auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, dialog);
+		QObject::connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
+		layout->addWidget(buttons);
 	}
 	auto* browser = dialog->findChild<QTextBrowser*>(QStringLiteral("helpBrowser"));
 	QUrl url(QStringLiteral("qrc:/help/en/index.html"));
-	if (!topic.isEmpty()) {
-		url.setFragment(topic);
+	if (!section.isEmpty()) {
+		url.setFragment(section);
 	}
 	browser->setSource(url);
 	dialog->show();
+	browser->scrollToAnchor(section);
 	dialog->raise();
 	dialog->activateWindow();
+	browser->setFocus();
 }
 
 QString Help::commandTopic(int code) {

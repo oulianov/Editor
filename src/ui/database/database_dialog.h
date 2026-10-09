@@ -58,6 +58,8 @@ class DatabaseDialog : public QDialog
 public:
 	explicit DatabaseDialog(ProjectData& project, QWidget *parent = nullptr);
 	~DatabaseDialog();
+	/** Opens a common event and selects its matching source line (1-based, 0 for the event). */
+	void selectCommonEvent(int eventID, int line = 0);
 
 signals:
 	void currentActorChanged(lcf::rpg::Actor *actor);

@@ -19,8 +19,12 @@
 #include "defines.h"
 #include "common/logging.h"
 #include <QDateTime>
+#include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
+#ifdef Q_OS_UNIX
+#include <sys/stat.h>
+#endif
 
 ProjectWatcher::ProjectWatcher(QObject* parent) : QObject(parent) {
 	// Writers often replace a file in several steps: wait until it settles
@@ -34,7 +38,39 @@ ProjectWatcher::ProjectWatcher(QObject* parent) : QObject(parent) {
 	connect(&m_retry, &QTimer::timeout, this, &ProjectWatcher::deliver);
 }
 
+ProjectWatcher::Stamp ProjectWatcher::stampOf(const QString& path) {
+	Stamp stamp;
+#ifdef Q_OS_UNIX
+	struct stat st;
+	if (::stat(QFile::encodeName(path).constData(), &st) != 0) {
+		return stamp;
+	}
+	stamp.exists = true;
+	stamp.size = st.st_size;
+	stamp.file_id = st.st_ino;
+#ifdef Q_OS_DARWIN
+	stamp.mtime = qint64(st.st_mtimespec.tv_sec) * 1000000000 + st.st_mtimespec.tv_nsec;
+#else
+	stamp.mtime = qint64(st.st_mtim.tv_sec) * 1000000000 + st.st_mtim.tv_nsec;
+#endif
+#else
+	QFileInfo info(path);
+	if (!info.exists()) {
+		return stamp;
+	}
+	stamp.exists = true;
+	stamp.size = info.size();
+	// NTFS keeps 100 ns: Qt gives milliseconds
+	stamp.mtime = info.lastModified().toMSecsSinceEpoch() * 1000000;
+#endif
+	return stamp;
+}
+
 void ProjectWatcher::setProject(const QString& dir, bool easyrpg) {
+	if (dir == m_dir && easyrpg == m_easyrpg) {
+		// the same project (a setting changed): its pending reloads stay
+		return;
+	}
 	if (!m_watcher.files().isEmpty()) {
 		m_watcher.removePaths(m_watcher.files());
 	}
@@ -45,6 +81,7 @@ void ProjectWatcher::setProject(const QString& dir, bool easyrpg) {
 	m_retry.stop();
 	m_pending.clear();
 	m_stamps.clear();
+	m_watched.clear();
 
 	m_dir = dir;
 	m_easyrpg = easyrpg;
@@ -56,21 +93,42 @@ void ProjectWatcher::setProject(const QString& dir, bool easyrpg) {
 	m_stamps = scan();
 	qCDebug(lcReload).noquote() << "watching" << m_dir << m_stamps.size() << "files";
 	for (auto it = m_stamps.cbegin(); it != m_stamps.cend(); ++it) {
-		m_watcher.addPath(QDir(m_dir).filePath(it.key()));
+		const QString path = QDir(m_dir).filePath(it.key());
+		m_watcher.addPath(path);
+		m_watched.insert(path);
 	}
 }
 
-void ProjectWatcher::acknowledge(const QString& path) {
-	QFileInfo info(path);
-	if (m_dir.isEmpty() || kindOf(info.fileName()) == 0) {
+void ProjectWatcher::acknowledge(const QString& path, const Stamp& stamp) {
+	const QFileInfo info(path);
+	m_known[info.absoluteFilePath()] = stamp;
+	qCDebug(lcReload).noquote() << "the Editor has" << info.fileName() << stamp.mtime << stamp.file_id;
+	if (m_dir.isEmpty() || kindOf(info.fileName()) == 0
+			|| QDir(m_dir).absolutePath() != info.absolutePath()) {
 		return;
 	}
-	info.refresh();
-	qCDebug(lcReload).noquote() << "written by the Editor:" << info.fileName();
-	m_stamps[info.fileName()] = { info.lastModified().toMSecsSinceEpoch(), info.size() };
-	if (!m_watcher.files().contains(info.absoluteFilePath())) {
-		m_watcher.addPath(info.absoluteFilePath());
+	qCDebug(lcReload).noquote() << "version of the Editor:" << info.fileName();
+	m_stamps[info.fileName()] = stamp;
+	// a file replaced by a rename is no longer watched
+	m_watcher.removePath(info.absoluteFilePath());
+	m_watcher.addPath(info.absoluteFilePath());
+	m_watched.insert(info.absoluteFilePath());
+}
+
+bool ProjectWatcher::isStale(const QString& path) const {
+	const Stamp now = stampOf(path);
+	if (!now.exists) {
+		return false;
 	}
+	auto known = m_known.constFind(QFileInfo(path).absoluteFilePath());
+	const bool stale = known == m_known.cend() || *known != now;
+	qCDebug(lcReload).noquote() << QFileInfo(path).fileName() << (stale ? "changed on disk since read" : "as read");
+	return stale;
+}
+
+void ProjectWatcher::requestReload(int kind) {
+	m_pending.insert(kind);
+	deliver();
 }
 
 void ProjectWatcher::setCanDeliver(std::function<bool(int)> can_deliver) {
@@ -98,7 +156,7 @@ QHash<QString, ProjectWatcher::Stamp> ProjectWatcher::scan() const {
 	const auto entries = QDir(m_dir).entryInfoList(QDir::Files);
 	for (const QFileInfo& info : entries) {
 		if (kindOf(info.fileName()) != 0) {
-			stamps.insert(info.fileName(), { info.lastModified().toMSecsSinceEpoch(), info.size() });
+			stamps.insert(info.fileName(), stampOf(info.absoluteFilePath()));
 		}
 	}
 	return stamps;
@@ -111,14 +169,24 @@ void ProjectWatcher::rescan() {
 	auto stamps = scan();
 	for (auto it = stamps.cbegin(); it != stamps.cend(); ++it) {
 		auto old = m_stamps.constFind(it.key());
-		if (old == m_stamps.cend() || !(*old == it.value())) {
+		const QString path = QDir(m_dir).filePath(it.key());
+		if (old == m_stamps.cend() || *old != it.value()) {
 			qCDebug(lcReload).noquote() << it.key() << "changed on disk";
 			m_pending.insert(kindOf(it.key()));
-		}
-		// a file replaced by a rename is no longer watched
-		QString path = QDir(m_dir).filePath(it.key());
-		if (!m_watcher.files().contains(path)) {
+			// a file replaced by a rename is no longer watched
+			m_watcher.removePath(path);
 			m_watcher.addPath(path);
+			m_watched.insert(path);
+		} else if (!m_watched.contains(path)) {
+			m_watcher.addPath(path);
+			m_watched.insert(path);
+		}
+	}
+	for (auto it = m_stamps.cbegin(); it != m_stamps.cend(); ++it) {
+		if (!stamps.contains(it.key())) {
+			// written again later, it is reported then
+			qCDebug(lcReload).noquote() << it.key() << "deleted on disk";
+			m_watched.remove(QDir(m_dir).filePath(it.key()));
 		}
 	}
 	m_stamps = stamps;

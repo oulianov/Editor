@@ -1,0 +1,27 @@
+# Native radio options must fit without overlapping, including at minimum size.
+open-event 1 1
+focus commands
+key End
+key Return
+type Control Variables
+key Return
+check-layout
+resize 1 1
+check-layout
+resize 900 760
+check-layout
+
+# Changing operations and operands keeps their controls usable.
+click operationAdd
+expect-checked operationAdd on
+expect-checked operationSet off
+click operationMultiply
+expect-checked operationMultiply on
+click operandRandomRadio
+expect-enabled operandRandomFrom on
+expect-enabled operandRandomTo on
+expect-enabled operandNumber off
+check-layout
+close
+close
+quit

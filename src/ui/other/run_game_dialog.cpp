@@ -18,19 +18,25 @@
 #include "core.h"
 #include "common/dbstring.h"
 #include "run_game_dialog.h"
+#include "ui/common/stale_file.h"
 #include "common/editor_settings.h"
 #include "ui_run_game_dialog.h"
+#include "model/project.h"
+#include "ui/database/test_battle_party_widget.h"
+#include <lcf/ldb/reader.h>
 #include <QApplication>
 #include <QComboBox>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGroupBox>
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QProcess>
 #include <QPushButton>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QVBoxLayout>
 
 namespace {
 std::function<bool()> before_launch;
@@ -57,13 +63,17 @@ RunGameDialog::RunGameDialog(ProjectData& project, QWidget *parent) :
 {
 	ui->setupUi(this);
 
-	// The Player has no command line option for these
-	ui->checkDisableEncounters->setEnabled(false);
-	ui->checkDisableEncounters->setToolTip(tr("Not supported by the EasyRPG Player"));
-	ui->frame_4->setEnabled(false);
-	ui->frame_4->setToolTip(tr("The battle test uses the levels and equipment of the database (System)"));
-	ui->checkSfx->setToolTip(tr("The Player can only turn off all the audio"));
-	ui->checkMusic->setToolTip(ui->checkSfx->toolTip());
+	// The battle test party (levels and equipment) is read from the saved
+	// database: it replaces the initial party, which only gives heroes
+	m_groupBattleParty = new QGroupBox(tr("Battle Test Party"), this);
+	m_groupBattleParty->setObjectName(QStringLiteral("groupBattleParty"));
+	m_groupBattleParty->setToolTip(tr("Saved in the database when the battle test starts"));
+	auto* party_layout = new QVBoxLayout(m_groupBattleParty);
+	m_battleParty = new TestBattlePartyWidget(project, m_groupBattleParty);
+	party_layout->addWidget(m_battleParty);
+	ui->gridLayout_5->addWidget(m_groupBattleParty, 4, 0, 1, 2);
+	ui->checkSfx->setToolTip(tr("Plays the sound effects at volume 0"));
+	ui->checkMusic->setToolTip(tr("Plays the music at volume 0"));
 
 	ui->comboDisplayMode->setCurrentIndex(QSettings().value(TESTPLAY_FULLSCREEN_KEY, false).toBool() ? 1 : 0);
 	on_comboMode_currentIndexChanged(0);
@@ -84,9 +94,14 @@ void RunGameDialog::runHere(int map_id, int x, int y)
 		QStringLiteral("--start-position"), QString::number(x), QString::number(y)});
 }
 
-void RunGameDialog::runBattle(int troop_id)
+bool RunGameDialog::runBattle(int troop_id, int formation, int condition, int terrain_id)
 {
-	launch(QApplication::activeWindow(), {QStringLiteral("--battle-test"), QString::number(troop_id)});
+	QStringList options{QStringLiteral("--battle-test"), QString::number(troop_id)};
+	if (formation >= 0) {
+		// the four values of RPG_RT's BattleTest: troop, formation, condition, terrain
+		options << QString::number(formation) << QString::number(condition) << QString::number(terrain_id);
+	}
+	return launch(QApplication::activeWindow(), options);
 }
 
 void RunGameDialog::setBeforeLaunch(std::function<bool()> callback)
@@ -223,7 +238,17 @@ void RunGameDialog::accept()
 		args << QStringLiteral("--start-map-id") << ui->comboMapId->currentData().toString()
 			<< QStringLiteral("--start-position") << QString::number(ui->spinX->value()) << QString::number(ui->spinY->value());
 	}
-	if (mode != 2 && ui->groupInitialParty->isChecked()) {
+	if (mode == 3) {
+		// the Player reads the battle test party from the database file;
+		// another program's changes to it are not replaced silently
+		if (core().watcher().isStale(core().project()->databaseFile())
+				&& askStale(this, tr("The database"), false) != StaleChoice::Overwrite) {
+			return;
+		}
+		m_battleParty->save();
+		lcf::LDB_Reader::PrepareSave(m_project.database());
+		core().project()->saveDatabase();
+	} else if (mode != 2 && ui->groupInitialParty->isChecked()) {
 		QStringList party;
 		for (int row = 0; row < ui->tableInitialParty->rowCount(); row++) {
 			auto* combo = qobject_cast<QComboBox*>(ui->tableInitialParty->cellWidget(row, 0));
@@ -235,8 +260,12 @@ void RunGameDialog::accept()
 			args << QStringLiteral("--start-party") << party;
 		}
 	}
-	if (ui->checkSfx->isChecked() || ui->checkMusic->isChecked()) {
+	if (ui->checkSfx->isChecked() && ui->checkMusic->isChecked()) {
 		args << QStringLiteral("--no-audio");
+	} else if (ui->checkSfx->isChecked()) {
+		args << QStringLiteral("--sound-volume") << QStringLiteral("0");
+	} else if (ui->checkMusic->isChecked()) {
+		args << QStringLiteral("--music-volume") << QStringLiteral("0");
 	}
 	if (ui->checkRTP->isChecked()) {
 		args << QStringLiteral("--no-rtp");
@@ -268,9 +297,11 @@ void RunGameDialog::on_comboMode_currentIndexChanged(int index)
 		ui->groupSave->setEnabled(false);
 		ui->groupInitialPosition->setEnabled(false);
 		ui->groupBattleOptions->setEnabled(true);
-		ui->groupInitialParty->setEnabled(true);
+		ui->groupInitialParty->setEnabled(false);
 		break;
 	}
+	ui->groupInitialParty->setVisible(index != 3);
+	m_groupBattleParty->setVisible(index == 3);
 }
 
 void RunGameDialog::UpdateModels()
@@ -309,8 +340,8 @@ void RunGameDialog::UpdateModels()
 	for (size_t i = 0; i < database.terrains.size(); i++)
 		ui->comboCustomFormation->addItem(ToQString(database.terrains[i].name));
 
-	// Initial party: four places, filled with the battle test party
-	const auto& battletest_data = database.system.battletest_data;
+	// Initial party: four places, filled with the party of the game start
+	const auto& party = database.system.party;
 	ui->tableInitialParty->setColumnCount(1);
 	ui->tableInitialParty->setRowCount(4);
 	ui->tableInitialParty->horizontalHeader()->setStretchLastSection(true);
@@ -319,8 +350,8 @@ void RunGameDialog::UpdateModels()
 		combo->addItem(tr("<None>"), 0);
 		for (const auto& actor : database.actors)
 			combo->addItem(ToQString(actor.name), actor.ID);
-		if (row < static_cast<int>(battletest_data.size()))
-			combo->setCurrentIndex(std::max(0, combo->findData(battletest_data[static_cast<size_t>(row)].actor_id)));
+		if (row < static_cast<int>(party.size()))
+			combo->setCurrentIndex(std::max(0, combo->findData(party[static_cast<size_t>(row)])));
 		ui->tableInitialParty->setCellWidget(row, 0, combo);
 	}
 }

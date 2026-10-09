@@ -16,6 +16,7 @@
  */
 
 #include "editor_style.h"
+#include "view_state.h"
 #include <QAbstractItemView>
 #include <QAbstractSpinBox>
 #include <QComboBox>
@@ -27,6 +28,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPlainTextEdit>
+#include <QFormLayout>
 #include <QScrollArea>
 #include <QStyleOptionGroupBox>
 #include <QTextEdit>
@@ -60,6 +62,7 @@ int titleHeight(const QStyleOptionGroupBox* box, const QWidget* widget) {
 
 void EditorStyle::polish(QWidget* widget) {
 	QProxyStyle::polish(widget);
+	if (auto* dialog = qobject_cast<QDialog*>(widget)) ViewState::rememberDialog(dialog);
 
 	if (widget->isWindow()) {
 		// Windows add widgets after setupUi (database pages...). A hidden
@@ -128,6 +131,12 @@ int EditorStyle::styleHint(StyleHint hint, const QStyleOption* option,
 			return false;
 		}
 	}
+	if (hint == SH_FormLayoutFieldGrowthPolicy) {
+		// Fields that can grow fill their row (a path, a name), as in
+		// RPG Maker's windows; macOS keeps every field at its size hint,
+		// which left short paths beside empty space
+		return QFormLayout::ExpandingFieldsGrow;
+	}
 	return QProxyStyle::styleHint(hint, option, widget, data);
 }
 
@@ -160,6 +169,17 @@ QRect EditorStyle::subControlRect(ComplexControl control, const QStyleOptionComp
 		default:
 			return QProxyStyle::subControlRect(control, option, sub_control, widget);
 	}
+}
+
+QRect EditorStyle::subElementRect(SubElement element, const QStyleOption* option, const QWidget* widget) const {
+	if (element == SE_CheckBoxLayoutItem || element == SE_RadioButtonLayoutItem) {
+		// macOS lays check boxes and radio buttons out by a smaller rectangle
+		// than the widget, letting neighbours overlap their margins; its
+		// boxes are drawn into those margins, so a column of them overlapped.
+		// They are laid out by their whole rectangle.
+		return option->rect;
+	}
+	return QProxyStyle::subElementRect(element, option, widget);
 }
 
 QSize EditorStyle::sizeFromContents(ContentsType type, const QStyleOption* option,

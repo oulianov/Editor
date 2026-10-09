@@ -2176,6 +2176,12 @@ namespace Stringizer
 		case C::Comment:				 return stringizeComment(com);
 		case C::GameOver:				 return tr("Game Over");
 		case C::ReturntoTitleScreen:	 return tr("Return to Title Screen");
+		// RPG Maker 2003 v1.10 (official English release)
+		case C::OpenLoadMenu:			 return tr("Call Load Menu");
+		case C::ExitGame:				 return tr("Exit Game");
+		case C::ToggleAtbMode:			 return tr("Toggle ATB Mode");
+		case C::ToggleFullscreen:		 return tr("Toggle Fullscreen");
+		case C::OpenVideoOptions:		 return tr("Open Video Options");
 		case C::ChangeMonsterHP:		 return stringizeChangeMonsterHP(com);
 		case C::ChangeMonsterMP:		 return stringizeChangeMonsterMP(com);
 		case C::ChangeMonsterCondition:	 return stringizeChangeMonsterCondition(com);
@@ -2230,7 +2236,7 @@ namespace Stringizer
 		case C::Maniac_EditTile:
 		case C::Maniac_ControlTextProcessing:
 		case C::Maniac_Zoom:			 return stringizeManiac(com);
-		default:						 return tr(QString("Unknown Command %1").arg(com.code).toUtf8());
+		default:						 return tr("Unknown Command %1").arg(com.code);
 		}
 	}
 }

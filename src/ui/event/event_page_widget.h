@@ -71,6 +71,7 @@ private:
 	bool m_sized = false;
 
 	void updateGraphic();
+	void sizeSettings();
 	/** Choose a tile of the upper layer (-1: none chosen) */
 	int pickUpperTile(int current);
 
@@ -82,4 +83,3 @@ private:
 	QGraphicsScene *m_scene = nullptr;
 	QGraphicsOpacityEffect *m_effect = nullptr;
 };
-

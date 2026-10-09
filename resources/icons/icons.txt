@@ -59,3 +59,5 @@ area-new
 map-shift
 select-all
 help-contents
+variable
+switch

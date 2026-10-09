@@ -41,12 +41,16 @@ public:
 	void setData(lcf::rpg::Troop* troop);
 
 private:
+	/** The monsters and terrains, listed again when they change */
+	void fillLists();
 	void autoName();
 	void addMember();
 	void removeMember();
 	void removeAllMembers();
 	void autoAlign();
 	void changeBackdrop();
+	/** The background of the test battles, behind the group */
+	void showBackdrop();
 	void terrainChanged(int row, bool checked);
 
 	/** Shows the battle event pages again (their widgets keep pointers into the list) */
@@ -63,8 +67,6 @@ private:
 	lcf::rpg::Troop m_dummy;
 	lcf::rpg::Troop* m_current = nullptr;
 	QButtonGroup* m_alignment = nullptr;
-	/** Background of the battle screen preview, not saved */
-	QString m_backdrop;
 
 	static std::optional<lcf::rpg::TroopPage> s_pageClipboard;
 };

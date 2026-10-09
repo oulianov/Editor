@@ -27,6 +27,7 @@
 #include <QtConcurrentRun>
 #include "core.h"
 #include "model/project.h"
+#include "rename_project_dialog.h"
 
 OpenProjectDialog::OpenProjectDialog(QWidget *parent) :
 	QDialog(parent),
@@ -127,31 +128,72 @@ void OpenProjectDialog::on_toolProjectPath_clicked()
 	dialog->open();
 }
 
-bool OpenProjectDialog::removeDir(const QString & dirName)
+std::shared_ptr<Project> OpenProjectDialog::closedProject()
 {
-	bool result = true;
-	QDir dir(dirName);
-
-	if (dir.exists(dirName)) {
-		Q_FOREACH(QFileInfo info, dir.entryInfoList(QDir::NoDotAndDotDot | QDir::System | QDir::Hidden	| QDir::AllDirs | QDir::Files, QDir::DirsFirst))
-		{
-			if (info.isDir())
-				result = removeDir(info.absoluteFilePath());
-			else
-				result = QFile::remove(info.absoluteFilePath());
-
-			if (!result)
-			{
-				QMessageBox::warning(this,
-									 tr("An error ocurred"),
-									 QString(tr("Could't delete %1")).arg(info.absoluteFilePath()),
-									 QMessageBox::Ok);
-				return false;
-			}
-		}
-		result = dir.rmdir(dirName);
+	auto project = getProject();
+	if (!project) {
+		return nullptr;
 	}
-	return result;
+	const auto& open = core().project();
+	if (open && QDir(open->projectDir().absolutePath()) == QDir(project->projectDir().absolutePath())) {
+		QMessageBox::information(this, windowTitle(),
+			tr("%1 is the project open in the Editor: rename it with Game Project > Rename Project, "
+				"or close it to delete it.").arg(project->projectDir().dirName()));
+		return nullptr;
+	}
+	return project;
+}
+
+void OpenProjectDialog::on_pushRename_clicked()
+{
+	auto project = closedProject();
+	if (!project) {
+		return;
+	}
+	RenameProjectDialog dialog(project->projectDir(), project->gameTitle(), this);
+	if (dialog.exec() != QDialog::Accepted) {
+		return;
+	}
+	if (dialog.gameTitle() != project->gameTitle()) {
+		// the title is written in the code page of the game
+		project->detectEncoding();
+		if (!project->saveGameTitle(dialog.gameTitle())) {
+			QMessageBox::warning(this, windowTitle(), tr("The game title could not be written."));
+		}
+	}
+	if (dialog.folderName() != project->projectDir().dirName()) {
+		QDir parent = project->projectDir();
+		parent.cdUp();
+		if (!parent.rename(project->projectDir().dirName(), dialog.folderName())) {
+			QMessageBox::warning(this, windowTitle(), tr("The folder could not be renamed."));
+		}
+	}
+	refreshProjectList();
+}
+
+void OpenProjectDialog::on_pushImport_clicked()
+{
+	// the main window imports, in the folder of the projects
+	done(ImportRequested);
+}
+
+void OpenProjectDialog::on_pushDelete_clicked()
+{
+	auto project = closedProject();
+	if (!project) {
+		return;
+	}
+	const QString path = project->projectDir().absolutePath();
+	if (QMessageBox::warning(this, windowTitle(),
+			tr("Move the project %1 (%2) and all its files to the trash?").arg(project->gameTitle(), QDir::toNativeSeparators(path)),
+			QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) {
+		return;
+	}
+	// to the trash, never erased: RPG Maker asks the same, the files stay recoverable
+	if (!QFile::moveToTrash(path)) {
+		QMessageBox::warning(this, windowTitle(), tr("%1 could not be moved to the trash.").arg(QDir::toNativeSeparators(path)));
+	}
+	refreshProjectList();
 }
 
 void OpenProjectDialog::on_tableProjects_cellDoubleClicked(int row, int column)
@@ -165,5 +207,8 @@ void OpenProjectDialog::on_tableProjects_cellDoubleClicked(int row, int column)
 
 void OpenProjectDialog::on_tableProjects_itemSelectionChanged()
 {
-	ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!ui->tableProjects->selectedItems().empty());
+	const bool selected = !ui->tableProjects->selectedItems().empty();
+	ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(selected);
+	ui->pushRename->setEnabled(selected);
+	ui->pushDelete->setEnabled(selected);
 }

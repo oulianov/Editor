@@ -29,6 +29,7 @@
 #include <lcf/rpg/database.h>
 #include <lcf/rpg/map.h>
 #include <lcf/rpg/treemap.h>
+#include <optional>
 
 class Project {
 	Q_DECLARE_TR_FUNCTIONS(Project)
@@ -54,8 +55,23 @@ public:
 	bool reloadDatabase();
 	/** Read the map tree again, after another program changed it */
 	bool reloadTreeMap();
-	std::unique_ptr<lcf::rpg::Map> loadMap(int index) const;
+	/** Reads a map from its file. The Editor keeps the map it reads with
+	 *  remember (an open map): its version is then the one the Editor has. */
+	std::unique_ptr<lcf::rpg::Map> loadMap(int index, bool remember = false) const;
 	bool saveMap(lcf::rpg::Map& map, int index, bool incSavecount = true);
+	/** The files of the data, where they are or would be written */
+	QString mapFile(int index) const;
+	QString databaseFile() const;
+	QString treeMapFile() const;
+	/** The map tree differs from its file (the last map shown aside) */
+	bool treeMapModified() const;
+	/** The database and the map tree as their files are now, without
+	 *  taking them: what another program changed, to merge */
+	std::unique_ptr<lcf::rpg::Database> readDatabase() const;
+	std::unique_ptr<lcf::rpg::TreeMap> readTreeMap() const;
+	/** The map tree file changed since read: merges what changed there into
+	 *  the map tree (true), else lists in conflicts what both sides changed */
+	bool mergeTreeMap(QStringList* conflicts);
 
 	void relocate(const QDir& newDir, FileFinder::ProjectType newProjectType);
 
@@ -81,6 +97,8 @@ public:
 
 	QString gameTitle() const;
 	void setGameTitle(const QString& gameTitle);
+	/** Writes the game title to RPG_RT.ini (or EASY_RT.cfg), the rest of the file unchanged */
+	bool saveGameTitle(const QString& gameTitle);
 
 	FileFinder::ProjectType projectType() const;
 	void setProjectType(FileFinder::ProjectType projectType);
@@ -102,5 +120,10 @@ private:
 	QDir m_projectDir;
 	std::shared_ptr<QSettings> m_projectSettings;
 	QString m_gameTitle;
+	bool reloadDatabase(lcf::rpg::Database* target);
+	bool reloadTreeMap(lcf::rpg::TreeMap* target);
+
 	ProjectData m_data;
+	/** The map tree as last read or written */
+	lcf::rpg::TreeMap m_savedTreeMap;
 };

@@ -18,8 +18,31 @@
 #include "state_widget.h"
 #include "ui_state_widget.h"
 
+#include "battle_animation_widget.h"
+#include "common/dbstring.h"
 #include "common/lcf_widget_binding.h"
+#include "common/signal_blocker.h"
+#include "defines.h"
+#include "model/project_data.h"
 #include "model/state.h"
+
+namespace {
+// RPG Maker 2003 battler animations have 32 poses; a condition uses one of them
+constexpr int kPoseCount = 32;
+constexpr int kBattlerSize = 48;
+
+/** The battler animation of the first hero, whose poses are shown */
+const lcf::rpg::BattlerAnimation* firstHeroBattler(const lcf::rpg::Database& database) {
+	if (database.actors.empty()) {
+		return nullptr;
+	}
+	const int id = database.actors.front().battler_animation;
+	if (id < 1 || id > static_cast<int>(database.battleranimations.size())) {
+		return nullptr;
+	}
+	return &database.battleranimations[static_cast<size_t>(id) - 1];
+}
+}
 
 StateWidget::StateWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
@@ -169,8 +192,10 @@ StateWidget::StateWidget(ProjectData& project, QWidget *parent) :
 		uis->setEnabled(isRPG2k3);
 	}
 
-	LcfWidgetBinding::connect<int32_t>(this, ui->spinBattlerAnimationId);
-	ui->spinBattlerAnimationId->setEnabled(isRPG2k3);
+	LcfWidgetBinding::connect<int32_t>(this, ui->comboBattlerPose);
+	connect(ui->comboBattlerPose, qOverload<int>(&QComboBox::currentIndexChanged), this, &StateWidget::updatePosePreview);
+	ui->comboBattlerPose->setEnabled(isRPG2k3);
+	ui->labelBattlerPose->setMinimumSize(kBattlerSize, kBattlerSize);
 }
 
 StateWidget::~StateWidget() {
@@ -231,7 +256,9 @@ void StateWidget::on_currentStateChanged(lcf::rpg::State *state) {
 	LcfWidgetBinding::bind(ui->lineMessageAlreadyAffected, state->message_already);
 	LcfWidgetBinding::bind(ui->lineMessagePerTurn, state->message_affected);
 	LcfWidgetBinding::bind(ui->lineMessageRecovery, state->message_recovery);
-	LcfWidgetBinding::bind(ui->spinBattlerAnimationId, state->battler_animation_id);
+	fillPoses();
+	LcfWidgetBinding::bind(ui->comboBattlerPose, state->battler_animation_id);
+	updatePosePreview();
 
 	this->setEnabled(state != &dummy);
 
@@ -261,8 +288,7 @@ void StateWidget::on_currentStateChanged(lcf::rpg::State *state) {
 			ui->spinMPEffectPercentage,
 			ui->spinMPEffectValue,
 			ui->spinMPEffectFieldValue,
-			ui->spinMPEffectFieldSteps,
-			ui->spinBattlerAnimationId }) {
+			ui->spinMPEffectFieldSteps }) {
 		uis->setEnabled(state->ID != 1);
 	}
 
@@ -295,5 +321,50 @@ void StateWidget::on_currentStateChanged(lcf::rpg::State *state) {
 			ui->radioMPEffectDamage }) {
 		uis->setEnabled(state->ID != 1 && isRPG2k3);
 	}
-	ui->spinBattlerAnimationId->setEnabled(state->ID != 1 && isRPG2k3);
+	ui->comboBattlerPose->setEnabled(state->ID != 1 && isRPG2k3);
+}
+
+void StateWidget::fillPoses() {
+	// The pose labels of the first hero's battle graphics, like the
+	// Battle Animation 2 page; the 12 poses RPG_RT uses by default else
+	const QStringList defaults = {tr("Idle Stance"), tr("Right Hand"), tr("Left Hand"), tr("Skill Use"),
+		tr("Dead"), tr("Damage"), tr("Bad Status"), tr("Defending"), tr("Walking Left"),
+		tr("Walking Right"), tr("Victory"), tr("Item")};
+	const auto* battler = firstHeroBattler(m_project.database());
+	SignalBlocker blocker(ui->comboBattlerPose);
+	ui->comboBattlerPose->clear();
+	for (int i = 0; i < kPoseCount; ++i) {
+		QString name;
+		if (battler && i < static_cast<int>(battler->poses.size())) {
+			name = ToQString(battler->poses[static_cast<size_t>(i)].name);
+		}
+		if (name.isEmpty()) {
+			name = i < defaults.size() ? defaults[i] : QString();
+		}
+		ui->comboBattlerPose->addItem(QStringLiteral("%1: %2").arg(i + 1, 2, 10, QChar('0')).arg(name), i);
+	}
+	// keep a value out of the range visible
+	const int value = m_current ? m_current->battler_animation_id : 0;
+	if (ui->comboBattlerPose->findData(value) < 0) {
+		ui->comboBattlerPose->addItem(tr("<%1?>").arg(value + 1), value);
+	}
+}
+
+void StateWidget::updatePosePreview() {
+	ui->labelBattlerPose->clear();
+	const auto* battler = firstHeroBattler(m_project.database());
+	const int index = ui->comboBattlerPose->currentData().toInt();
+	if (!battler || index < 0 || index >= static_cast<int>(battler->poses.size())) {
+		return;
+	}
+	const auto& pose = battler->poses[static_cast<size_t>(index)];
+	if (pose.animation_type == lcf::rpg::BattlerAnimationPose::AnimType_battle) {
+		ui->labelBattlerPose->setText(tr("Battle animation"));
+		return;
+	}
+	// the first frame of the pose's row, as Battle Animation 2 draws it
+	const QPixmap sheet = BattleAnimationWidget::loadGraphic(m_project, BATTLECHARSET, ToQString(pose.battler_name));
+	if (!sheet.isNull()) {
+		ui->labelBattlerPose->setPixmap(sheet.copy(0, pose.battler_index * kBattlerSize, kBattlerSize, kBattlerSize));
+	}
 }

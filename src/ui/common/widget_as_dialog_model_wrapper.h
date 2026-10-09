@@ -22,34 +22,44 @@
 #include <QDialogButtonBox>
 #include <QAbstractButton>
 #include <QAbstractItemModel>
+#include <type_traits>
 #include <lcf/rpg/fwd.h>
 #include "widget_as_dialog_wrapper.h"
 #include "ui/database/database_split_widget.h"
 
+/**
+ * The list of a database type in a window (the "..." of the combo boxes):
+ * edits a copy of the project, OK and Apply write it back and return the
+ * ID of the entry selected with valueSelected.
+ */
 template<typename LCF>
 class WidgetAsDialogModelWrapper : public WidgetAsDialogWrapperBase {
 
 public:
-	explicit WidgetAsDialogModelWrapper(ProjectData& project, QSortFilterProxyModel* filter, int index, QWidget* parent) : WidgetAsDialogWrapperBase(parent), dataOriginal(project) {
-		dataCopy = dataOriginal;
-
+	/** Opens on the entry with this ID (else the first one: "none" was selected) */
+	explicit WidgetAsDialogModelWrapper(ProjectData& project, int id, QWidget* parent) :
+			WidgetAsDialogWrapperBase(parent), dataOriginal(project), dataCopy(project) {
 		wrappedWidget = new DatabaseSplitWidget<LCF>(dataCopy, this);
-
-		if (filter) {
-			filter->setSourceModel(wrappedWidget->listWidget()->model());
-			wrappedWidget->setModel(filter);
+		if (!wrappedWidget->selectId(id)) {
+			wrappedWidget->selectId(1);
 		}
 
-		wrappedWidget->listWidget()->setCurrentIndex(
-				wrappedWidget->listWidget()->model()->index(index, 0)
-		);
-
-		valueSelected(wrappedWidget->listWidget()->currentIndex().row());
+		if constexpr (std::is_same_v<LCF, lcf::rpg::Switch>) {
+			setWindowTitle(tr("Switches"));
+		} else if constexpr (std::is_same_v<LCF, lcf::rpg::Variable>) {
+			setWindowTitle(tr("Variables"));
+		} else {
+			setWindowTitle(tr("Database"));
+		}
 
 		auto* verticalLayout = new QVBoxLayout(this);
 		verticalLayout->addWidget(wrappedWidget);
 		verticalLayout->addWidget(buttonBox);
 		setLayout(verticalLayout);
+	}
+	~WidgetAsDialogModelWrapper() override {
+		// before the copy it shows goes away
+		delete wrappedWidget;
 	}
 	DatabaseSplitWidget<LCF>* widget() const {
 		return wrappedWidget;
@@ -57,8 +67,9 @@ public:
 
 private:
 	void apply() override {
-		dataOriginal = dataCopy;
-		emit valueSelected(wrappedWidget->listWidget()->currentIndex().row());
+		// the other windows showing these lists refresh
+		DatabaseListNotifier::assign(dataOriginal, dataCopy, this);
+		emit valueSelected(wrappedWidget->currentId());
 	}
 
 private:

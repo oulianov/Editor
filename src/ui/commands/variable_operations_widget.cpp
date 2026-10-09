@@ -273,6 +273,8 @@ void VariableOperationsWidget::build(QBoxLayout* layout) {
 		// RPG Maker's window: radio buttons, the controls of the checked one enabled
 		auto* operationBox = new QGroupBox(tr("Operation"), this);
 		auto* operationGrid = new QGridLayout(operationBox);
+		// Native macOS radio buttons extend beyond their layout-item margins.
+		operationGrid->setVerticalSpacing(12);
 		m_operation = new QButtonGroup(this);
 		addRadio(m_operation, operationGrid, 0, tr("Set e&qual"), QStringLiteral("operationSet"), 0, 0);
 		addRadio(m_operation, operationGrid, 2, tr("Subtract"), QStringLiteral("operationSubtract"), 0, 1);

@@ -145,6 +145,7 @@ TimerOperandWidget::TimerOperandWidget(QWidget *parent) :
 	m_buttonGroup->addButton(m_radioVar);
 	m_buttonGroup->setId(m_radioVar, 1);
 	m_spinSec = new RpgSpinBox(this);
+	m_spinSec->setRange(0, 59);
 	m_spinSec->setSuffix(" " + tr("Seconds"));
 	m_spinMin = new RpgSpinBox(this);
 	m_spinMin->setSuffix(" " + tr("Minutes"));

@@ -16,6 +16,7 @@
  */
 
 #include "message_input_widgets.h"
+#include "ui/event/event_command_palette.h"
 #include "event_branch_helpers.h"
 #include "common/dbstring.h"
 #include "defines.h"
@@ -243,8 +244,10 @@ void InputNumberWidget::setData(lcf::rpg::EventCommand* cmd) {
 	auto* digits = new RpgSpinBox(this);
 	digits->setObjectName(QStringLiteral("inputDigits"));
 	const int value = parameter(*cmd, 0, 1);
-	// Unusual values (test games, patches) are shown and kept
-	digits->setRange(std::min(1, value), std::max(9, value));
+	// 1 to 6 digits in RPG Maker (its help), 9 with the Maniac Patch;
+	// unusual values (test games, patches) are shown and kept
+	const int max_digits = EventCommandPalette::usesManiacPatch(m_project.project()) ? 9 : 6;
+	digits->setRange(std::min(1, value), std::max(max_digits, value));
 	digits->setValue(value);
 	layout->addRow(tr("Digits Allowed"), digits);
 

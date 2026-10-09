@@ -21,13 +21,16 @@
 
 class ProjectData;
 class QButtonGroup;
+class QComboBox;
+class QGraphicsPixmapItem;
 
 namespace Ui {
 class BattleScreenWidget;
 }
 
 // The battle layout and the battle commands of RPG Maker 2003
-// (lcf::rpg::BattleCommands), edited in the database copy of the dialog
+// (lcf::rpg::BattleCommands), edited in the database copy of the dialog;
+// the heroes' battle positions (manual placement) and own commands
 class BattleScreenWidget : public QWidget
 {
 	Q_OBJECT
@@ -36,7 +39,16 @@ public:
 	explicit BattleScreenWidget(ProjectData& project, QWidget *parent = nullptr);
 	~BattleScreenWidget() override;
 
+protected:
+	void showEvent(QShowEvent* event) override;
+
 private:
+	/** The selected hero on the battle screen, with their commands */
+	void showHero(int row);
+	void updateHeroItem();
+	void fillHeroCommands();
+	void writeHeroCommands();
+	void changeBackdrop();
 	void fillCommands(int current_row);
 	void showCommand(int row);
 	void updateEnabled();
@@ -44,4 +56,7 @@ private:
 	Ui::BattleScreenWidget *ui;
 	QButtonGroup* m_deathHandler = nullptr;
 	ProjectData& m_project;
+	QGraphicsPixmapItem* m_heroItem = nullptr;
+	/** Background of the preview, not saved */
+	QString m_backdrop;
 };

@@ -39,6 +39,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><a href="#event-editor">Event window</a></li>
 <li><a href="#command-palette">Event Commands window</a></li>
 <li><a href="#move-route">Move route</a></li>
+<li><a href="#resource-picker">Choose a graphic or sound</a></li>
 <li><a href="#resource-manager">Resource Manager</a></li>
 </ul>
 </td><td>
@@ -72,6 +73,8 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <!-- ============================================================ -->
 <h2>Project and maps</h2>
+
+<p>The Editor remembers window sizes and positions, docked panel sizes and placement, splitter widths, table columns, database and event pages, selections, scroll positions and each project's open maps, tile brushes, layers and zoom. In <b>Settings</b>, choose <b>Reset local state</b> to restore these defaults immediately. Game files, unsaved edits, the Player and RTP paths, language and other preferences are kept.</p>
 
 <a name="new-project"></a>
 <h3>New project</h3>
@@ -114,10 +117,10 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <h3>Search</h3>
 <p>Finds where something is used in your events.</p>
 <ul>
-<li><b>Search bar</b>: enter an exact ID, part of a variable, switch, item or event name, or event text. Suggestions show IDs and names. Press Enter or click <b>Search</b>.</li>
+<li><b>Search bar</b>: enter an exact ID, part of a variable, switch, item or event name, or event text. Suggestions show the ID, type and name, with exact matches first across all types. Picking a suggestion also selects its type filter. Press Enter or click <b>Search</b>.</li>
 <li><b>Type</b>: narrow results to variables, switches, items, event names or event text, or search all types. Variable searches include reads, writes, ranges and event page conditions.</li>
 <li><b>Scope</b>: <b>Whole project</b> searches every map and common event; <b>Current map</b> searches the open map, including unsaved edits; <b>Common events</b> searches only common events.</li>
-<li><b>Results</b>: every event page and command that matches. Double-click a result to open it.</li>
+<li><b>Results</b>: every event page and command that matches, with its type and an event graphic when available. Click a map event to select its cell on the map. Click a common event to open it in the database; command matches are selected and scrolled into view. Press Enter to open the selected result.</li>
 </ul>
 
 <a name="test-play"></a>
@@ -323,6 +326,12 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <h3>Switches and variables</h3>
 <a name="database-variables"></a>
 <p>Switches are ON/OFF flags that remember what the player did (door opened, quest done). Variables hold whole numbers (from -999,999 to 999,999 in RPG Maker 2000, -9,999,999 to 9,999,999 in RPG Maker 2003) such as counters, coordinates or choices. All switches are OFF and all variables 0 when a new game starts. As in RPG Maker, they are not in the database: name them with the "..." button next to a switch or variable in an event command or an event page condition; names are only for you.</p>
+<p><b>Set Maximum Number</b> changes how many switches or variables are available. Enter the new number and confirm to update the list, then select an entry to edit its name. Increasing the maximum keeps the existing names and adds empty entries. Decreasing it removes entries above the new maximum. The picker’s <b>OK</b> or <b>Apply</b> keeps your changes; <b>Cancel</b> discards changes you have not applied.</p>
+
+<a name="resource-picker"></a>
+<h3>Choose a graphic or sound</h3>
+<p>Select a file in the list to preview it. The picker includes files from your project and the configured RTP; a project file takes priority when both have the same name. For a charset or faceset, click the character or face in the preview to choose it. For music or sound effects, use the preview controls to listen and adjust volume, tempo or balance.</p>
+<p><b>OK</b> applies the selected file and closes the picker. <b>Apply</b> applies it while keeping the picker open. <b>Cancel</b> closes it without applying the current selection. Use the <a href="#resource-manager">Resource Manager</a> to import or export files.</p>
 
 <!-- ============================================================ -->
 <h2>Event commands</h2>

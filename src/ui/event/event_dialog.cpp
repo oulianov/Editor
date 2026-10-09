@@ -23,7 +23,11 @@
 #include <QSettings>
 #include <QCryptographicHash>
 #include "event_page_widget.h"
+#include "event_commands_widget.h"
+#include <QShortcut>
+#include <QTimer>
 #include "core.h"
+#include "common/editor_settings.h"
 #include "ui/common/help.h"
 #include "ui/common/view_state.h"
 #include <QPushButton>
@@ -31,6 +35,10 @@
 
 
 static const char GEOMETRY_KEY[] = "event_dialog_geometry";
+// RPG Maker's limit of pages in an event
+static constexpr int MAX_PAGES = 100;
+
+std::optional<lcf::rpg::EventPage> EventDialog::s_pageClipboard;
 
 EventDialog::EventDialog(ProjectData& project, QWidget *parent, int mapID) :
 	QDialog(parent),
@@ -38,13 +46,19 @@ EventDialog::EventDialog(ProjectData& project, QWidget *parent, int mapID) :
 	m_project(project), m_mapID(mapID)
 {
 	ui->setupUi(this);
+	setProperty("view_state_contextual", true); // Pages belong to the selected event.
+	connect(&EditorSettings::instance(), &EditorSettings::localStateReset, this, [this] {
+		m_activePage = -1;
+		m_pageViewStates.assign(m_pageViewStates.size(), QVariantMap{});
+		ui->tabEventPages->setCurrentIndex(0);
+		m_activePage = 0;
+		ViewState::reset(this);
+	});
 	lst_result = QDialogButtonBox::Cancel;
 
-	// Open with the size of last time, within the screen
-	QSettings settings;
-	if (!restoreGeometry(settings.value(GEOMETRY_KEY).toByteArray())) {
-		resize(980, 640);
-	}
+	// The shared dialog state restores the saved size after the first show.
+	resize(980, 640);
+	setProperty("dialog_geometry_key", QString::fromLatin1(GEOMETRY_KEY));
 	if (const QScreen* screen = parent ? parent->screen() : this->screen()) {
 		const QSize available = screen->availableGeometry().size() * 0.95;
 		resize(size().boundedTo(available));
@@ -69,6 +83,50 @@ EventDialog::EventDialog(ProjectData& project, QWidget *parent, int mapID) :
 			SLOT(apply()));
 	connect(ui->buttonBox->button(QDialogButtonBox::Help), &QPushButton::clicked, this, [this] {
 		Help::open(this, QStringLiteral("event-editor"));
+	});
+
+	// PgUp / PgDn switch pages like in RPG Maker, Ctrl+Tab as in other tabs
+	connect(new QShortcut(QKeySequence(Qt::Key_PageUp), this), &QShortcut::activated, this, [this] { switchPage(-1); });
+	connect(new QShortcut(QKeySequence::PreviousChild, this), &QShortcut::activated, this, [this] { switchPage(-1); });
+	connect(new QShortcut(QKeySequence(Qt::Key_PageDown), this), &QShortcut::activated, this, [this] { switchPage(1); });
+	connect(new QShortcut(QKeySequence::NextChild, this), &QShortcut::activated, this, [this] { switchPage(1); });
+	updatePageButtons();
+}
+
+void EventDialog::switchPage(int step)
+{
+	const int count = ui->tabEventPages->count();
+	if (count > 0) {
+		ui->tabEventPages->setCurrentIndex(std::clamp(ui->tabEventPages->currentIndex() + step, 0, count - 1));
+	}
+}
+
+void EventDialog::updatePageButtons()
+{
+	const bool room = m_event.pages.size() < static_cast<size_t>(MAX_PAGES);
+	ui->pushNewPage->setEnabled(room);
+	ui->pushPastePage->setEnabled(room && s_pageClipboard.has_value());
+	ui->pushDeletePage->setEnabled(m_event.pages.size() >= 2);
+}
+
+void EventDialog::showCommand(int pageID, int line)
+{
+	// the pages are numbered from 1 in order (refreshEventPageTabs)
+	const int index = pageID - 1;
+	if (index < 0 || index >= ui->tabEventPages->count()) {
+		return;
+	}
+	ui->tabEventPages->setCurrentIndex(index);
+	if (line <= 0) {
+		return;
+	}
+	// after the saved view of the page, restored on the next event-loop turn
+	QTimer::singleShot(0, this, [this, index, line] {
+		auto* page = ui->tabEventPages->widget(index);
+		if (auto* commands = page ? page->findChild<EventCommandsWidget*>(QStringLiteral("commands")) : nullptr) {
+			commands->selectIndex(line - 1);
+			commands->setFocus();
+		}
 	});
 }
 
@@ -239,6 +297,9 @@ void EventDialog::ok()
 }
 
 void EventDialog::on_pushNewPage_clicked() {
+	if (m_event.pages.size() >= static_cast<size_t>(MAX_PAGES)) {
+		return;
+	}
 	int cur_index = ui->tabEventPages->currentIndex();
 	if (cur_index >= 0 && cur_index < static_cast<int>(m_pageViewStates.size()))
 		m_pageViewStates[cur_index] = ViewState::capture(ui->tabEventPages->currentWidget());
@@ -249,15 +310,18 @@ void EventDialog::on_pushNewPage_clicked() {
 }
 
 void EventDialog::on_pushCopyPage_clicked() {
-	event_page_clipboard = m_event.pages[ui->tabEventPages->currentIndex()];
-	ui->pushPastePage->setEnabled(true);
+	s_pageClipboard = m_event.pages[ui->tabEventPages->currentIndex()];
+	updatePageButtons();
 }
 
 void EventDialog::on_pushPastePage_clicked() {
+	if (!s_pageClipboard || m_event.pages.size() >= static_cast<size_t>(MAX_PAGES)) {
+		return;
+	}
 	int cur_index = ui->tabEventPages->currentIndex();
 	m_pageViewStates[cur_index] = ViewState::capture(ui->tabEventPages->currentWidget());
 	m_pageViewStates.insert(m_pageViewStates.begin() + cur_index + 1, QVariantMap{});
-	m_event.pages.insert(m_event.pages.begin() + cur_index + 1, event_page_clipboard);
+	m_event.pages.insert(m_event.pages.begin() + cur_index + 1, *s_pageClipboard);
 	refreshEventPageTabs();
 	ui->tabEventPages->setCurrentIndex(cur_index + 1);
 }
@@ -289,11 +353,13 @@ void EventDialog::refreshEventPageTabs() {
 	}
 	for (unsigned int i = 0; i < m_event.pages.size(); i++)
 	{
+		// numbered in order, as RPG Maker saves them (new and pasted pages too)
+		m_event.pages[i].ID = static_cast<int>(i + 1);
 		EventPageWidget *tab = new EventPageWidget(m_project, this);
 		tab->setEventPage(&(m_event.pages[i]));
 		ui->tabEventPages->addTab(tab, QString::number(i+1));
 	}
-	ui->pushDeletePage->setEnabled(m_event.pages.size() >= 2);
+	updatePageButtons();
 	m_refreshingPages = false;
 	m_activePage = -1;
 	on_tabEventPages_currentChanged(ui->tabEventPages->currentIndex());
