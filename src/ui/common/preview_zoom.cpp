@@ -18,14 +18,25 @@
 #include "preview_zoom.h"
 
 #include <QGraphicsView>
+#include <QHBoxLayout>
 #include <QNativeGestureEvent>
 #include <QPushButton>
 #include <algorithm>
 #include <cmath>
 
-PreviewZoom::PreviewZoom(QGraphicsView* view, QPushButton* zoom_in, QPushButton* zoom_out) :
-	QObject(view), m_view(view), m_zoomIn(zoom_in), m_zoomOut(zoom_out)
+PreviewZoom::PreviewZoom(QGraphicsView* view, QWidget* parent) :
+	QWidget(parent), m_view(view)
 {
+	m_zoomOut = new QPushButton(tr("Zoom Out"), this);
+	m_zoomOut->setObjectName(QStringLiteral("pushZoomOut"));
+	m_zoomIn = new QPushButton(tr("Zoom In"), this);
+	m_zoomIn->setObjectName(QStringLiteral("pushZoomIn"));
+	auto* layout = new QHBoxLayout(this);
+	layout->setContentsMargins(0, 0, 0, 0);
+	layout->addWidget(m_zoomOut);
+	layout->addWidget(m_zoomIn);
+	setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
 	connect(m_zoomIn, &QPushButton::clicked, this, &PreviewZoom::zoomIn);
 	connect(m_zoomOut, &QPushButton::clicked, this, &PreviewZoom::zoomOut);
 	// the pinch keeps the pixel under the fingers in place; the buttons,
@@ -33,6 +44,13 @@ PreviewZoom::PreviewZoom(QGraphicsView* view, QPushButton* zoom_in, QPushButton*
 	m_view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
 	m_view->viewport()->installEventFilter(this);
 	setZoom(1.0);
+}
+
+QHBoxLayout* PreviewZoom::infoRow(QWidget* info, PreviewZoom* zoom) {
+	auto* row = new QHBoxLayout;
+	row->addWidget(info, 1, Qt::AlignTop);
+	row->addWidget(zoom, 0, Qt::AlignTop);
+	return row;
 }
 
 void PreviewZoom::setZoom(double zoom) {

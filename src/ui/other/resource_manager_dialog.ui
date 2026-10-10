@@ -235,20 +235,6 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="pushZoomOut">
-             <property name="text">
-              <string>Zoom Out</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pushZoomIn">
-             <property name="text">
-              <string>Zoom In</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <spacer name="spacerAudio">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>

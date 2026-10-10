@@ -12369,6 +12369,19 @@ Recharger le fichier et abandonner vos modifications non sauvegardées ?</transl
     </message>
 </context>
 <context>
+    <name>PreviewZoom</name>
+    <message>
+        <location filename="../src/ui/common/preview_zoom.cpp" line="0"/>
+        <source>Zoom Out</source>
+        <translation>Zoom -</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/preview_zoom.cpp" line="0"/>
+        <source>Zoom In</source>
+        <translation>Zoom +</translation>
+    </message>
+</context>
+<context>
     <name>Project</name>
     <message>
         <location filename="../src/model/project.cpp" line="+77" />

@@ -128,7 +128,11 @@ void ImportImageDialog::init()
 	ui->graphicsView->setScene(m_scene);
 
 	// small game graphics (charsets, faces...) are easier to click enlarged
-	m_zoom = new PreviewZoom(ui->graphicsView, ui->pushZoomIn, ui->pushZoomOut);
+	// the colour picked on the left, the zoom buttons on the right (as in
+	// the pickers and the Resource Manager)
+	m_zoom = new PreviewZoom(ui->graphicsView, this);
+	ui->horizontalLayout->addWidget(m_zoom, 0, Qt::AlignTop);
+	ui->horizontalLayout->setAlignment(ui->labelColor, Qt::AlignTop);
 	m_zoom->setZoom(m_source.width() <= 320 && m_source.height() <= 256 ? 2 : 1);
 	updateView();
 }

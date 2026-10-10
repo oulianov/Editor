@@ -17,18 +17,20 @@
 
 #pragma once
 
-#include <QObject>
+#include <QWidget>
 
 class QGraphicsView;
+class QHBoxLayout;
 class QPushButton;
 
 /**
- * The zoom of an image preview (resource picker, image import), on top of the
- * view's own scale (faces are shown twice as big). The Zoom In and Zoom Out
- * buttons go to the next whole-pixel level (x1, x2, x4...), sharp for pixel
- * art; a trackpad pinch zooms freely, under the fingers.
+ * The zoom of an image preview (resource pickers, Resource Manager, image
+ * import): the Zoom Out and Zoom In buttons, together, and the trackpad pinch
+ * on the view. The zoom is on top of the view's own scale (faces are shown
+ * twice as big). The buttons go to the next whole-pixel level (x1, x2,
+ * x4...), sharp for pixel art; a pinch zooms freely, under the fingers.
  */
-class PreviewZoom : public QObject
+class PreviewZoom : public QWidget
 {
 	Q_OBJECT
 
@@ -36,7 +38,13 @@ public:
 	static constexpr double minimum = 1.0;
 	static constexpr double maximum = 16.0;
 
-	PreviewZoom(QGraphicsView* view, QPushButton* zoom_in, QPushButton* zoom_out);
+	PreviewZoom(QGraphicsView* view, QWidget* parent);
+
+	/**
+	 * The row under a preview, the same in every dialog: what the file is
+	 * (info) on the left, the zoom buttons on the right, both at the top
+	 */
+	static QHBoxLayout* infoRow(QWidget* info, PreviewZoom* zoom);
 
 	double zoom() const { return m_zoom; }
 	/** Zooms to zoom (within minimum and maximum) */

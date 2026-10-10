@@ -66,6 +66,7 @@
 #include <QElapsedTimer>
 #include <QGraphicsView>
 #include <QMenu>
+#include "ui/common/import_image_dialog.h"
 #include <QNativeGestureEvent>
 #include <QPointingDevice>
 #include <cmath>
@@ -807,6 +808,14 @@ bool Automation::run(const QStringList& args) {
 		}
 		fail(QString("no map %1 in the map tree").arg(a));
 		return false;
+	}
+	if (cmd == "import-image-dialog" && args.size() == 2) {
+		// the window of an image import (transparent colour, zoom), without
+		// the file chooser before it
+		auto* dialog = new ImportImageDialog(args[1], &m_window);
+		dialog->setAttribute(Qt::WA_DeleteOnClose);
+		dialog->show();
+		return true;
 	}
 	if (cmd == "pinch" && args.size() == 3) {
 		// a trackpad pinch on the map ("map") or a view, the fingers spreading

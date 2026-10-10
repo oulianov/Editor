@@ -4128,6 +4128,19 @@ This cannot be undone. Do you want to continue?</source>
     </message>
 </context>
 <context>
+    <name>PreviewZoom</name>
+    <message>
+        <location filename="../src/ui/common/preview_zoom.cpp" line="0"/>
+        <source>Zoom Out</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/preview_zoom.cpp" line="0"/>
+        <source>Zoom In</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Project</name>
     <message>
         <location filename="../src/model/project.cpp" line="72"/>

@@ -49,7 +49,6 @@ PickerDialog::PickerDialog(ProjectData &project, FileFinder::FileType file_type,
 	m_info->setObjectName(QStringLiteral("labelInfo"));
 	m_info->setWordWrap(true);
 	m_info->setTextInteractionFlags(Qt::TextSelectableByMouse);
-	ui->sidebar->insertWidget(1, m_info);
 
 	ui->filesystemView->setRootIsDecorated(false);
 	ui->filesystemView->setHeaderHidden(true);
@@ -82,17 +81,10 @@ PickerDialog::PickerDialog(ProjectData &project, FileFinder::FileType file_type,
 		ui->wrappedWidget->setView(ui->graphicsView);
 		QObject::connect(ui->graphicsView, &RpgGraphicsViewBase::clicked, this, &PickerDialog::viewClicked);
 		// a closer look, as when importing an image
-		auto* zoom_out = new QPushButton(tr("Zoom Out"), this);
-		zoom_out->setObjectName(QStringLiteral("pushZoomOut"));
-		auto* zoom_in = new QPushButton(tr("Zoom In"), this);
-		zoom_in->setObjectName(QStringLiteral("pushZoomIn"));
-		auto* zoom = new QHBoxLayout;
-		zoom->addWidget(zoom_out);
-		zoom->addWidget(zoom_in);
-		zoom->addStretch();
-		ui->sidebar->insertLayout(1, zoom);
-		m_zoom = new PreviewZoom(ui->graphicsView, zoom_in, zoom_out);
+		m_zoom = new PreviewZoom(ui->graphicsView, this);
+		ui->sidebar->insertLayout(1, PreviewZoom::infoRow(m_info, m_zoom));
 	} else {
+		ui->sidebar->insertWidget(1, m_info);
 		ui->graphicsView->setVisible(false);
 	}
 }

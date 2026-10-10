@@ -121,7 +121,11 @@ ResourceManagerDialog::ResourceManagerDialog(QWidget *parent) :
 	m_previewScene->setBackgroundBrush(ui->previewView->palette().brush(QPalette::Base));
 	m_previewPixmap = m_previewScene->addPixmap(QPixmap());
 	ui->previewView->setScene(m_previewScene);
-	m_zoom = new PreviewZoom(ui->previewView, ui->pushZoomIn, ui->pushZoomOut);
+	m_zoom = new PreviewZoom(ui->previewView, this);
+	// what the file is, the zoom buttons on its right (as in the pickers)
+	const int info = ui->layoutRight->indexOf(ui->previewInfo);
+	ui->layoutRight->removeWidget(ui->previewInfo);
+	ui->layoutRight->insertLayout(info, PreviewZoom::infoRow(ui->previewInfo, m_zoom));
 	showImage(false);
 
 	connect(ui->listFolders, &QTreeWidget::currentItemChanged, this, &ResourceManagerDialog::folderChanged);
@@ -425,8 +429,7 @@ void ResourceManagerDialog::updateButtons()
 void ResourceManagerDialog::showImage(bool image)
 {
 	ui->previewView->setVisible(image);
-	ui->pushZoomIn->setVisible(image);
-	ui->pushZoomOut->setVisible(image);
+	m_zoom->setVisible(image);
 	ui->preview->setVisible(!image);
 }
 
