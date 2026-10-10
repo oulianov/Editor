@@ -15,7 +15,7 @@ From the repository:
 
 | Command | Effect |
 |---|---|
-| `make` | build the Editor for this computer, its dependencies included |
+| `make` | build the Editor for this computer (the first time, also what it needs) |
 | `make run` | open it |
 | `make test` | build with the tests and run them (the test game is downloaded) |
 | `make clean` | remove the build |
@@ -37,17 +37,24 @@ On macOS (Apple silicon or Intel) with Xcode's command line tools
    `build/EasyRPG Editor.app`; with `--tests`, also the script runner and the
    tests, on a copy of TestGame-2003 downloaded into `build/testgame2003`.
 
-Running it again only rebuilds what changed. Variables:
+Running it again only rebuilds what changed, and so do the usual commands:
+
+```bash
+cmake --build build          # rebuild
+ctest --test-dir build       # the tests (configured with --tests)
+```
+
+Variables (`make` passes `BUILD_DIR` and `QT_DIR` to the script):
 
 | Variable | Effect |
 |---|---|
-| `DEPS_DIR` | with `QT_DIR`: where ICU and inih go (default `../editor-deps`) |
 | `BUILD_DIR` | where the Editor is built (default `build`) |
 | `JOBS` | parallel jobs (default: every core) |
 | `EDITOR_TEST_PROJECT` | the game the GUI tests change (default: the downloaded copy) |
 | `QT_DIR` | an official Qt (qt.io or aqt, e.g. `~/Qt/6.10.1/macos`) instead of Homebrew's, below |
 | `MACOSX_DEPLOYMENT_TARGET` | with `QT_DIR`: the oldest macOS (default 13.3) |
 | `ARCHS` | with `QT_DIR`: `arm64`, `x86_64` or `"arm64;x86_64"` (default: this Mac's) |
+| `DEPS_DIR` | with `QT_DIR`: where ICU and inih go (default `../editor-deps`) |
 
 If ccache is installed, the Editor is compiled through it.
 
@@ -64,13 +71,6 @@ with what it uses (macdeployqt), signs it, and makes a disk image of it
 (notarized when given Apple's credentials; see the script). It fails if a
 part of the application needs a newer macOS than `MACOSX_DEPLOYMENT_TARGET`.
 
-After the first run, the usual commands work as well:
-
-```bash
-cmake --build build          # rebuild
-ctest --test-dir build       # the tests (configured with --tests)
-```
-
 ### By hand
 
 The script's steps, to adapt them:
@@ -86,13 +86,20 @@ cmake --build build
 
 ## Linux and Windows
 
-Upstream's presets build every dependency with vcpkg, as its continuous
-integration does (`.github/workflows/stable-compilation.yml`):
+Upstream's presets build zlib, inih and expat with vcpkg. Qt 6.10 (Base,
+Multimedia, SVG, Tools) comes from qt.io or
+[aqt](https://github.com/miurahr/aqtinstall), and on Linux ICU from the
+system (`libicu-dev` on Debian and Ubuntu), as in continuous integration
+(`.github/workflows/stable-compilation.yml`):
 
 ```bash
+uvx --from aqtinstall aqt install-qt linux desktop 6.10.1 linux_gcc_64 -m qtmultimedia -O ~/Qt
 export VCPKG_ROOT=/path/to/vcpkg
-make            # or: cmake --preset vcpkg-liblcf-release && cmake --build --preset vcpkg-liblcf-release
+make QT_DIR=~/Qt/6.10.1/gcc_64
 ```
+
+By hand: `cmake --preset vcpkg-liblcf-release -DCMAKE_PREFIX_PATH=$QT_DIR`,
+then `cmake --build --preset vcpkg-liblcf-release`.
 
 `builds/cmake/CMakePresets.json.template` lists the presets (`windows-*`,
 `macos-*`, `vcpkg-*`, `liblcf-*`). The fork is mostly built and tested on macOS:

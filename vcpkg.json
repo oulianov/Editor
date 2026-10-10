@@ -3,10 +3,7 @@
     "version": "1.0.0",
     "dependencies": [
         "zlib",
-        {
-            "name": "inih",
-            "features": ["cpp"]
-        },
+        "inih",
         "expat"
     ]
 }

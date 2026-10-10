@@ -18,7 +18,8 @@ make run
   with Homebrew, then builds the Editor; later runs only rebuild what
   changed.
 - **Linux**: needs [vcpkg](https://github.com/microsoft/vcpkg) (`VCPKG_ROOT`
-  set), which builds the dependencies.
+  set), which builds the small libraries, ICU (`libicu-dev`) and Qt 6.10
+  (from qt.io or aqt: `make QT_DIR=~/Qt/6.10.1/gcc_64`).
 - **Windows**: use the `windows-*` CMake presets.
 
 `make test` builds and runs the tests, `make clean` removes the build. More
