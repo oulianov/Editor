@@ -74,6 +74,8 @@ private:
 	bool m_sized = false;
 
 	void updateGraphic();
+	/** The graphic was replaced: the layer and animation follow (RPG Maker) */
+	void graphicChanged(bool was_character);
 	void sizeSettings();
 	/** Choose a tile of the upper layer (-1: none chosen) */
 	int pickUpperTile(int current);

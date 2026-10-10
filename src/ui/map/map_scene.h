@@ -83,6 +83,8 @@ public:
 	int tileAt(Core::Layer layer, int x, int y) const;
 	/** The id of the event at a cell, 0 when there is none */
 	int eventIdAt(int x, int y) const;
+	/** The start position (a Core::StartMarker) at a cell of this map, -1 when there is none */
+	int startAt(int x, int y) const;
 	/** Draw the boundaries of an area (cells) as a dashed rectangle; empty rect: hidden */
 	void showArea(const QRect &cells);
 	void editMapProperties(QTreeWidgetItem *item);
@@ -216,6 +218,10 @@ private:
 	void pickTile();
 	void moveEvent(int id, int x, int y);
 	void pushStart(const lcf::rpg::Start &old_start);
+	/** Put a start position on a cell of this map (one undo step) */
+	void setStartPosition(Core::StartMarker kind, int x, int y);
+	/** No event and no start position on the cell: what can be placed or dropped there */
+	bool isFreeCell(int x, int y);
 	void fillArea(const QRect &area);
 	/** Push the layers changed since the last commit (one undo step) */
 	void pushLayers(const QString &text);
@@ -251,13 +257,15 @@ private:
 	QAction *m_actionPaste;
 	QAction *m_actionDelete;
 	QAction *m_actionTeleport;
+	QAction *m_actionPartyStart;
 	QAction *m_actionCutArea;
 	QAction *m_actionCopyArea;
 	QAction *m_actionPasteArea;
 	QAction *m_actionClearArea;
 	QGraphicsPixmapItem *m_lowerpix;
 	QGraphicsPixmapItem *m_upperpix;
-	QGraphicsItemGroup* m_lines;
+	QGraphicsPixmapItem *m_markerpix;
+	QGraphicsItem* m_lines = nullptr;
 	QGraphicsRectItem* m_selectionTile;
 	QUndoStack *m_undoStack;
 	std::unique_ptr<lcf::rpg::Map> m_map;
@@ -292,8 +300,10 @@ private:
 	int m_drawnTileFrame = 0;
 	// redraw when shown: drawing a hidden tab would load its chipset
 	bool m_needsRedraw = false;
-	// event layer: the selected cell and the event dragged from it
+	// event layer: the selected cell and the event or the start position
+	// (a Core::StartMarker) dragged from it
 	int m_dragEventId = 0;
+	int m_dragStart = -1;
 	// selection tool: the selected cells, the dashed rectangle around them
 	QRect m_selArea;
 	bool m_selDragging = false;
@@ -317,7 +327,6 @@ private:
 	/** The cells the tool draws on, under the mouse */
 	QGraphicsRectItem *m_brushItem;
 	QGraphicsRectItem *m_brushInner;
-	QList<QGraphicsItem*> grid_lines;
 	QPointer<EventDialog> m_eventDialog;
 	int m_eventDialogId = 0;
 };

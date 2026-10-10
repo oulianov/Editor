@@ -16,9 +16,12 @@
  */
 
 #include "editor_style.h"
+#include "path_field.h"
 #include <QApplication>
 #include <QComboBox>
+#include <QStyleOption>
 #include <memory>
+#include <tuple>
 #include <QTimer>
 #include <QLineEdit>
 #include <QLayoutItem>
@@ -246,8 +249,49 @@ int EditorStyle::styleHint(StyleHint hint, const QStyleOption* option,
 	return QProxyStyle::styleHint(hint, option, widget, data);
 }
 
+void EditorStyle::spinParts(const QStyleOptionSpinBox* box, const QWidget* widget, QRect* field, QRect* stepper) const {
+	*field = box->rect;
+	*stepper = QRect();
+	if (box->buttonSymbols == QAbstractSpinBox::NoButtons) {
+		return;
+	}
+	// the platform's space between two controls, at least the focus ring
+	// on both sides of the edge
+	int gap = proxy()->layoutSpacing(QSizePolicy::SpinBox, QSizePolicy::ToolButton, Qt::Horizontal, box, widget);
+	if (gap < 0) {
+		gap = proxy()->pixelMetric(PM_LayoutHorizontalSpacing, box, widget);
+	}
+	gap = std::max(gap, 2 * proxy()->pixelMetric(PM_FocusFrameHMargin, box, widget));
+	// as wide as the "..." button of a field, as tall as the field
+	const int width = widget ? fieldButtonWidth(widget) : box->rect.height();
+	*stepper = QRect(box->rect.right() - width + 1, box->rect.top(), width, box->rect.height());
+	field->setRight(stepper->left() - gap - 1);
+}
+
 QRect EditorStyle::subControlRect(ComplexControl control, const QStyleOptionComplex* option,
 		SubControl sub_control, const QWidget* widget) const {
+	if (auto* spin = qstyleoption_cast<const QStyleOptionSpinBox*>(option);
+			control == CC_SpinBox && spin && spin->buttonSymbols != QAbstractSpinBox::NoButtons) {
+		QRect field, stepper;
+		spinParts(spin, widget, &field, &stepper);
+		switch (sub_control) {
+		case SC_SpinBoxUp:
+			return QRect(stepper.topLeft(), QSize(stepper.width(), stepper.height() / 2));
+		case SC_SpinBoxDown:
+			return QRect(stepper.left(), stepper.top() + stepper.height() / 2, stepper.width(), stepper.height() - stepper.height() / 2);
+		case SC_SpinBoxFrame:
+			return field;
+		case SC_SpinBoxEditField: {
+			// the platform's field, in the field's part
+			QStyleOptionSpinBox alone = *spin;
+			alone.rect = field;
+			alone.buttonSymbols = QAbstractSpinBox::NoButtons;
+			return QProxyStyle::subControlRect(control, &alone, sub_control, widget);
+		}
+		default:
+			break;
+		}
+	}
 	auto* box = qstyleoption_cast<const QStyleOptionGroupBox*>(option);
 	if (control != CC_GroupBox || !box) {
 		return QProxyStyle::subControlRect(control, option, sub_control, widget);
@@ -379,6 +423,21 @@ QRect EditorStyle::subElementRect(SubElement element, const QStyleOption* option
 	return QProxyStyle::subElementRect(element, option, widget);
 }
 
+int EditorStyle::fieldButtonWidth(const QWidget* field) const {
+	// a "..." button of a field (fieldButton), of the same control size
+	const auto variant = field->testAttribute(Qt::WA_MacSmallSize) ? Qt::WA_MacSmallSize
+		: field->testAttribute(Qt::WA_MacMiniSize) ? Qt::WA_MacMiniSize : Qt::WA_MacNormalSize;
+	const QString key = QApplication::font("QToolButton").key() + QLatin1Char('/') + QString::number(variant);
+	auto width = m_fieldButtonWidths.constFind(key);
+	if (width == m_fieldButtonWidths.cend()) {
+		QWidget form;
+		QToolButton* probe = fieldButton(&form);
+		probe->setAttribute(variant);
+		width = m_fieldButtonWidths.insert(key, probe->sizeHint().width());
+	}
+	return *width;
+}
+
 int EditorStyle::controlHeight(const QWidget* field) const {
 	// What shows of a drop-down list of the platform, in its own font (the
 	// one of the lists, not the field's) and the size of the field's
@@ -443,14 +502,105 @@ QSize EditorStyle::sizeFromContents(ContentsType type, const QStyleOption* optio
 		}
 		const int height = controlHeight(widget) + margins;
 		// a button takes it exactly; a field at least (several lines...)
+		const QSize platform = native;
 		native.setHeight(field_button ? height : std::max(native.height(), height));
+		// a spin box: room for its square arrow button and the gap before
+		// it, instead of the platform's arrows
+		auto* spin = type == CT_SpinBox ? qstyleoption_cast<const QStyleOptionSpinBox*>(option) : nullptr;
+		if (spin && spin->buttonSymbols != QAbstractSpinBox::NoButtons) {
+			QStyleOptionSpinBox sized = *spin;
+			sized.rect = QRect(QPoint(), platform);
+			const int arrows = QProxyStyle::subControlRect(CC_SpinBox, &sized, SC_SpinBoxUp, widget).width();
+			sized.rect = QRect(QPoint(), native);
+			QRect field, stepper;
+			spinParts(&sized, widget, &field, &stepper);
+			native.setWidth(native.width() - arrows + (sized.rect.width() - field.width()));
+		}
 		return native;
 	}
 	return QProxyStyle::sizeFromContents(type, option, size, widget);
 }
 
+QStyle::SubControl EditorStyle::hitTestComplexControl(ComplexControl control, const QStyleOptionComplex* option,
+		const QPoint& position, const QWidget* widget) const {
+	if (auto* spin = qstyleoption_cast<const QStyleOptionSpinBox*>(option);
+			control == CC_SpinBox && spin && spin->buttonSymbols != QAbstractSpinBox::NoButtons) {
+		// the parts as drawn (subControlRect)
+		for (SubControl part : {SC_SpinBoxUp, SC_SpinBoxDown, SC_SpinBoxEditField, SC_SpinBoxFrame}) {
+			if (proxy()->subControlRect(control, option, part, widget).contains(position)) {
+				return part;
+			}
+		}
+		return SC_None;
+	}
+	return QProxyStyle::hitTestComplexControl(control, option, position, widget);
+}
+
 void EditorStyle::drawComplexControl(ComplexControl control, const QStyleOptionComplex* option,
 		QPainter* painter, const QWidget* widget) const {
+	if (auto* combo = qstyleoption_cast<const QStyleOptionComboBox*>(option);
+			control == CC_ComboBox && combo && !combo->editable && combo->frame) {
+		// A list one picks from: a button with one chevron, down (up while
+		// its list is open), instead of the platform's double arrow. The
+		// button is the platform's, where it draws a list
+		QStyleOptionButton button;
+		static_cast<QStyleOption&>(button) = *option;
+		button.state &= ~State_On;
+		button.state |= combo->state & State_Sunken ? State_Sunken : State_Raised;
+		proxy()->drawControl(CE_PushButtonBevel, &button, painter, widget);
+		const QRect arrow = proxy()->subControlRect(control, option, SC_ComboBoxArrow, widget);
+		QStyleOption chevron = *option;
+		const int size = std::min(arrow.height(), option->fontMetrics.xHeight());
+		chevron.rect = QRect(0, 0, size, size);
+		chevron.rect.moveCenter(arrow.center());
+		proxy()->drawPrimitive(combo->state & State_On ? PE_IndicatorArrowUp : PE_IndicatorArrowDown, &chevron, painter, widget);
+		return;
+	}
+	if (auto* spin = qstyleoption_cast<const QStyleOptionSpinBox*>(option);
+			control == CC_SpinBox && spin && spin->buttonSymbols != QAbstractSpinBox::NoButtons) {
+		QRect field, stepper;
+		spinParts(spin, widget, &field, &stepper);
+		// the field, as the platform draws one without arrows
+		QStyleOptionSpinBox alone = *spin;
+		alone.rect = field;
+		alone.buttonSymbols = QAbstractSpinBox::NoButtons;
+		alone.subControls &= ~(SC_SpinBoxUp | SC_SpinBoxDown);
+		QProxyStyle::drawComplexControl(control, &alone, painter, widget);
+
+		// the arrows: a button like the "..." of fields; the half pressed
+		// is drawn pressed
+		QStyleOptionToolButton button;
+		static_cast<QStyleOption&>(button) = *option;
+		button.rect = stepper;
+		button.subControls = SC_ToolButton;
+		button.activeSubControls = SC_None;
+		button.state &= ~(State_HasFocus | State_Sunken | State_MouseOver);
+		button.state |= State_Raised;
+		proxy()->drawComplexControl(CC_ToolButton, &button, painter, widget);
+		const bool pressed = spin->state & State_Sunken;
+		for (auto [part, arrow, step] : {std::tuple{SC_SpinBoxUp, PE_IndicatorArrowUp, QAbstractSpinBox::StepUpEnabled},
+				{SC_SpinBoxDown, PE_IndicatorArrowDown, QAbstractSpinBox::StepDownEnabled}}) {
+			const QRect half = subControlRect(control, option, part, widget);
+			const bool enabled = (spin->state & State_Enabled) && (spin->stepEnabled & step);
+			if (pressed && enabled && (spin->activeSubControls & part)) {
+				painter->save();
+				painter->setClipRect(half);
+				QStyleOptionToolButton down = button;
+				down.state = (button.state & ~State_Raised) | State_Sunken | State_On;
+				proxy()->drawComplexControl(CC_ToolButton, &down, painter, widget);
+				painter->restore();
+			}
+			// a chevron the size of a small letter of the field (as light as
+			// the arrows of a list), in the middle of its half
+			QStyleOption indicator = *option;
+			const int size = std::min(half.height(), option->fontMetrics.xHeight());
+			indicator.rect = QRect(0, 0, size, size);
+			indicator.rect.moveCenter(half.center());
+			indicator.state = enabled ? (option->state | State_Enabled) : (option->state & ~State_Enabled);
+			proxy()->drawPrimitive(arrow, &indicator, painter, widget);
+		}
+		return;
+	}
 	if (control == CC_ScrollBar && isFormScrollBar(widget)) {
 		// Beside the form (see styleHint) but drawn like the overlay bars: no
 		// track, a slim rounded thumb, away from the form's edge

@@ -16,6 +16,7 @@
  */
 
 #include "event_dialog.h"
+#include "model/event_page_defaults.h"
 #include "ui_event_dialog.h"
 #include <QFileDialog>
 #include <QMessageBox>
@@ -320,7 +321,9 @@ void EventDialog::on_pushNewPage_clicked() {
 	if (cur_index >= 0 && cur_index < static_cast<int>(m_pageViewStates.size()))
 		m_pageViewStates[cur_index] = ViewState::capture(ui->tabEventPages->currentWidget());
 	m_pageViewStates.insert(m_pageViewStates.begin() + cur_index + 1, QVariantMap{});
-	m_event.pages.insert(m_event.pages.begin() + cur_index + 1, lcf::rpg::EventPage());
+	// as RPG Maker: the look and movement of the page shown, new conditions
+	m_event.pages.insert(m_event.pages.begin() + cur_index + 1,
+		cur_index >= 0 ? EventPageDefaults::nextPage(m_event.pages[cur_index]) : EventPageDefaults::newPage());
 	refreshEventPageTabs();
 	ui->tabEventPages->setCurrentIndex(cur_index + 1);
 }
@@ -347,13 +350,14 @@ void EventDialog::on_pushDeletePage_clicked() {
 	m_pageViewStates.erase(m_pageViewStates.begin() + cur_index);
 	m_event.pages.erase(m_event.pages.begin() + cur_index);
 	refreshEventPageTabs();
-	ui->tabEventPages->setCurrentIndex(std::max(0, cur_index - 1));
+	// the page that took its place, as RPG Maker (the last one at the end)
+	ui->tabEventPages->setCurrentIndex(std::min(cur_index, ui->tabEventPages->count() - 1));
 }
 
 void EventDialog::on_pushClearPage_clicked() {
 	int cur_index = ui->tabEventPages->currentIndex();
 	m_pageViewStates[cur_index].clear();
-	lcf::rpg::EventPage empty;
+	lcf::rpg::EventPage empty = EventPageDefaults::newPage();
 	empty.ID = m_event.pages[cur_index].ID;
 	m_event.pages[cur_index] = empty;
 	refreshEventPageTabs();

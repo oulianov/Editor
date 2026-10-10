@@ -16,6 +16,7 @@
  */
 
 #include "event_page_widget.h"
+#include "model/event_page_defaults.h"
 #include <QMouseEvent>
 #include "ui_event_page_widget.h"
 #include <QDialogButtonBox>
@@ -47,6 +48,21 @@ EventPageWidget::EventPageWidget(ProjectData& project, QWidget *parent) :
 	m_project(project)
 {
 	ui->setupUi(this);
+
+	// A timer's seconds take any number (60, 90...): when the field is left,
+	// whole minutes go to the minutes, as on a clock (90 s: 1 min 30 s)
+	for (auto [minutes, seconds] : {std::pair{ui->spinTimerAMin, ui->spinTimerASec}, {ui->spinTimerBMin, ui->spinTimerBSec}}) {
+		seconds->setMaximum(minutes->maximum() * 60 + 59);
+		connect(seconds, &QSpinBox::editingFinished, this, [minutes, seconds] {
+			if (seconds->value() < 60) {
+				return;
+			}
+			// the page takes the time again from both (seconds last)
+			const int total = std::min(minutes->value() * 60 + seconds->value(), minutes->maximum() * 60 + 59);
+			minutes->setValue(total / 60);
+			seconds->setValue(total % 60);
+		});
+	}
 
 	// The settings keep their width and scroll when the window is short,
 	// the command list takes the rest of the window
@@ -291,11 +307,12 @@ void EventPageWidget::chooseCharacter()
 	PickerDialog dialog(m_project, FileFinder::FileType::Image, widget, this);
 	dialog.setWindowTitle(tr("Select Event Graphic"));
 	QObject::connect(&dialog, &PickerDialog::fileSelected, this, [&](const QString& baseName) {
+		const bool was_character = !m_eventPage->character_name.empty();
 		m_eventPage->character_name = ToDBString(baseName);
 		m_eventPage->character_index = widget->index();
 		m_eventPage->character_direction = widget->direction();
 		m_eventPage->character_pattern = widget->pattern();
-		updateGraphic();
+		graphicChanged(was_character);
 	});
 	dialog.setDirectoryAndFile(CHARSET, ToQString(m_eventPage->character_name));
 	dialog.exec();
@@ -319,15 +336,17 @@ void EventPageWidget::on_pushSetSprite_clicked()
 	menu.addAction(tr("Tile..."), this, [this] {
 		const int tile = pickUpperTile(m_eventPage->character_name.empty() ? m_eventPage->character_index : -1);
 		if (tile >= 0) {
+			const bool was_character = !m_eventPage->character_name.empty();
 			m_eventPage->character_name = lcf::DBString();
 			m_eventPage->character_index = tile;
-			updateGraphic();
+			graphicChanged(was_character);
 		}
 	})->setEnabled(!core().chipsetIsNull());
 	menu.addAction(tr("No Graphic"), this, [this] {
+		const bool was_character = !m_eventPage->character_name.empty();
 		m_eventPage->character_name = lcf::DBString();
 		m_eventPage->character_index = 0;
-		updateGraphic();
+		graphicChanged(was_character);
 	});
 	menu.exec(ui->pushSetSprite->mapToGlobal(QPoint(0, ui->pushSetSprite->height())));
 }
@@ -374,8 +393,20 @@ int EventPageWidget::pickUpperTile(int current)
 	return chosen;
 }
 
+void EventPageWidget::graphicChanged(bool was_character)
+{
+	// RPG Maker's rule: a character goes to the hero's layer, a tile below
+	// it, and the animation stops (EventPageDefaults::graphicChanged)
+	EventPageDefaults::graphicChanged(*m_eventPage, was_character);
+	ui->comboLayer->setCurrentIndex(ui->comboLayer->findData(m_eventPage->layer));
+	ui->comboAnimationType->setCurrentIndex(ui->comboAnimationType->findData(m_eventPage->animation_type));
+	updateGraphic();
+}
+
 void EventPageWidget::updateGraphic()
 {
+	// a tile or nothing does not animate (RPG Maker greys the list)
+	ui->comboAnimationType->setEnabled(!m_eventPage->character_name.empty());
 	if (m_eventPage->character_name.empty())
 	{
 		QPixmap pix(16,16);
@@ -421,7 +452,9 @@ void EventPageWidget::sizeSettings()
 	ui->scrollSettings->setMinimumWidth(minimum);
 	ui->scrollSettings->setMaximumWidth(natural + natural / 2);
 
+	// (a first opening: the natural width, even past half the page, so that
+	// no list is cut; half the page bounds only the extra room)
 	int width = QSettings().value(SPLITTER_KEY, natural).toInt();
-	width = std::clamp(width, minimum, std::max(minimum, std::min(natural + natural / 2, ui->splitter->width() / 2)));
+	width = std::clamp(width, minimum, std::max(natural, std::min(natural + natural / 2, ui->splitter->width() / 2)));
 	ui->splitter->setSizes({width, std::max(0, ui->splitter->width() - width)});
 }

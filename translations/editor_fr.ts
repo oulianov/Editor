@@ -11016,26 +11016,26 @@ Recharger le fichier et abandonner vos modifications non sauvegardées ?</transl
     <message>
         <location line="+304" />
         <source>P</source>
-        <extracomment>Marker of the party start position on the map (one letter)</extracomment>
-        <translation>P</translation>
+        <extracomment>Letter on the map marker of the party's start position</extracomment>
+        <translation>E</translation>
     </message>
     <message>
         <location line="+2" />
         <source>B</source>
-        <extracomment>Marker of the skiff start position on the map (one letter)</extracomment>
+        <extracomment>Letter on the map marker of the boat's start position</extracomment>
         <translation>B</translation>
     </message>
     <message>
         <location line="+2" />
         <source>S</source>
-        <extracomment>Marker of the ship start position on the map (one letter)</extracomment>
-        <translation>S</translation>
+        <extracomment>Letter on the map marker of the ship's start position</extracomment>
+        <translation>N</translation>
     </message>
     <message>
         <location line="+2" />
         <source>A</source>
-        <extracomment>Marker of the airship start position on the map (one letter)</extracomment>
-        <translation>A</translation>
+        <extracomment>Letter on the map marker of the airship's start position</extracomment>
+        <translation>D</translation>
     </message>
 </context>
 <context>
@@ -12462,8 +12462,13 @@ Recharger le fichier et abandonner vos modifications non sauvegardées ?</transl
     </message>
     <message>
         <location line="+42" />
-        <source>Trans</source>
-        <translation>Transp.</translation>
+        <source>Semi-Transparent</source>
+        <translation>Semi-transparent</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/event/event_page_widget.ui" line="0"/>
+        <source>The graphic is drawn half see-through in the game</source>
+        <translation>Le graphisme est dessiné à moitié transparent dans le jeu</translation>
     </message>
     <message>
         <location line="+7" />
@@ -12482,8 +12487,13 @@ Recharger le fichier et abandonner vos modifications non sauvegardées ?</transl
     </message>
     <message>
         <location line="+21" />
-        <source>Forbid overlap</source>
-        <translation>Interdire la superposition</translation>
+        <source>Forbid Event Overlap</source>
+        <translation>Interdire la superposition d'événements</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/event/event_page_widget.ui" line="0"/>
+        <source>Other events cannot move onto this one, and it cannot move onto them, whatever their layers. Without it, only events on the same layer block each other. The hero is not concerned.</source>
+        <translation>Les autres événements ne peuvent pas aller sur celui-ci, ni lui sur eux, quels que soient leurs niveaux. Sans cette option, seuls les événements du même niveau se bloquent. Le héros n'est pas concerné.</translation>
     </message>
     <message>
         <location line="+10" />

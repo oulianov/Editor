@@ -20,6 +20,8 @@
 #include <QHash>
 #include <QProxyStyle>
 
+class QStyleOptionSpinBox;
+
 /**
  * The look of the Editor's forms, on top of the platform style.
  *
@@ -53,6 +55,8 @@ public:
 		QPainter* painter, const QWidget* widget = nullptr) const override;
 	QRect subControlRect(ComplexControl control, const QStyleOptionComplex* option,
 		SubControl sub_control, const QWidget* widget = nullptr) const override;
+	SubControl hitTestComplexControl(ComplexControl control, const QStyleOptionComplex* option,
+		const QPoint& position, const QWidget* widget = nullptr) const override;
 	int styleHint(StyleHint hint, const QStyleOption* option = nullptr,
 		const QWidget* widget = nullptr, QStyleHintReturn* data = nullptr) const override;
 	QRect subElementRect(SubElement element, const QStyleOption* option, const QWidget* widget) const override;
@@ -61,12 +65,23 @@ public:
 
 	/** Space between the border of a section and its controls */
 	/**
+	 * The parts of a spin box: its field (drawn by the platform, with its
+	 * focus ring) and, after a gap the ring cannot cover, its arrows: a
+	 * button as tall as the field and as wide as the "..." of fields, an
+	 * arrow in each half. Empty
+	 * stepper without arrows
+	 */
+	void spinParts(const QStyleOptionSpinBox* box, const QWidget* widget, QRect* field, QRect* stepper) const;
+	/**
 	 * The height of the one-line fields of a form (the design system's
 	 * control height) like field: what shows of a drop-down list of the
 	 * platform, of the same control size
 	 */
 	int controlHeight(const QWidget* field) const;
 	mutable QHash<QString, int> m_controlHeights;
+	/** The width of the "..." button of a field (fieldButton) like field */
+	int fieldButtonWidth(const QWidget* field) const;
+	mutable QHash<QString, int> m_fieldButtonWidths;
 	static constexpr int section_padding = 4;
 	/** Space above the title of a section, from what is above it */
 	static constexpr int section_title_top = 4;

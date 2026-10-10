@@ -3782,6 +3782,26 @@ This cannot be undone. Do you want to continue?</source>
         <source>Event</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>P</source>
+        <extracomment>Letter on the map marker of the party's start position</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>B</source>
+        <extracomment>Letter on the map marker of the boat's start position</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>S</source>
+        <extracomment>Letter on the map marker of the ship's start position</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A</source>
+        <extracomment>Letter on the map marker of the airship's start position</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>MessageOptionsWidget</name>
@@ -4216,7 +4236,7 @@ This cannot be undone. Do you want to continue?</source>
     </message>
     <message>
         <location filename="../src/ui/event/event_page_widget.ui" line="307"/>
-        <source>Trans</source>
+        <source>Semi-Transparent</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4236,7 +4256,7 @@ This cannot be undone. Do you want to continue?</source>
     </message>
     <message>
         <location filename="../src/ui/event/event_page_widget.ui" line="377"/>
-        <source>Forbid overlap</source>
+        <source>Forbid Event Overlap</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

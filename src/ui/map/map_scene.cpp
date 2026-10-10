@@ -16,6 +16,7 @@
  */
 
 #include "map_scene.h"
+#include "model/event_page_defaults.h"
 #include <QAction>
 #include <QKeyEvent>
 #include <QNativeGestureEvent>
@@ -27,6 +28,7 @@
 #include <QPainter>
 #include <QScrollBar>
 #include <QStatusBar>
+#include <QStyleOptionGraphicsItem>
 #include <lcf/rpg/event.h>
 #include <cmath>
 #include <iomanip>
@@ -103,7 +105,7 @@ MapScene::MapScene(ProjectData& project, int id, QGraphicsView *view, QObject *p
 	m_actionTeleport = addAction(m_eventMenu, "actionPlaceTeleport", QStringLiteral("place-teleport"),
 		QString(), &MapScene::on_actionPlaceTeleport);
 	m_eventMenu->addSeparator();
-	addAction(m_eventMenu, "actionPlacePartyStart", QStringLiteral("place-start"),
+	m_actionPartyStart = addAction(m_eventMenu, "actionPlacePartyStart", QStringLiteral("place-start"),
 		QString(), &MapScene::on_actionSetStartPosition);
 	m_vehicleMenu = m_eventMenu->addMenu(themeIcon(m_view, QStringLiteral("place-vehicle")), QString());
 	const QStringList vehicle_actions = {"actionPlaceBoatStart", "actionPlaceShipStart", "actionPlaceAirshipStart"};
@@ -132,8 +134,11 @@ MapScene::MapScene(ProjectData& project, int id, QGraphicsView *view, QObject *p
 
 	m_lowerpix = new QGraphicsPixmapItem();
 	m_upperpix = new QGraphicsPixmapItem();
+	// the start positions, over the upper layer and dimmed apart from it
+	m_markerpix = new QGraphicsPixmapItem();
 	addItem(m_lowerpix);
 	addItem(m_upperpix);
+	addItem(m_markerpix);
 
 	// The selection of the selection tool: white under black dashes moving
 	// with a timer (RPG Maker's marching ants)
@@ -206,6 +211,7 @@ MapScene::~MapScene()
 		core().setCurrentMapEvents(nullptr);
 	delete m_lowerpix;
 	delete m_upperpix;
+	delete m_markerpix;
 	delete m_lines;
 	delete m_selectionTile;
 	delete m_undoStack;
@@ -413,6 +419,103 @@ int MapScene::eventIdAt(int x, int y) const
 	return 0;
 }
 
+namespace {
+// The cell grid of the event layer: lines of a pixel of the view at every
+// zoom (two on screens of twice the resolution), like the frame of the
+// events, on the first pixels of the cells
+class GridItem : public QGraphicsItem
+{
+public:
+	GridItem(int columns, int rows, int cell) : m_columns(columns), m_rows(rows), m_cell(cell)
+	{
+		setFlag(QGraphicsItem::ItemUsesExtendedStyleOption);
+	}
+
+	QRectF boundingRect() const override
+	{
+		// the last lines are past the map
+		return QRectF(0, 0, (m_columns + 1) * m_cell, (m_rows + 1) * m_cell);
+	}
+
+	void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) override
+	{
+		const QTransform transform = painter->worldTransform();
+		const QRectF exposed = option->exposedRect;
+		const int first_x = std::clamp(static_cast<int>(std::floor(exposed.left() / m_cell)), 0, m_columns);
+		const int last_x = std::clamp(static_cast<int>(std::ceil(exposed.right() / m_cell)), 0, m_columns);
+		const int first_y = std::clamp(static_cast<int>(std::floor(exposed.top() / m_cell)), 0, m_rows);
+		const int last_y = std::clamp(static_cast<int>(std::ceil(exposed.bottom() / m_cell)), 0, m_rows);
+		const QPoint top_left = transform.map(QPointF(0, 0)).toPoint();
+		const QPoint bottom_right = transform.map(QPointF(m_columns * m_cell, m_rows * m_cell)).toPoint();
+		painter->save();
+		// in pixels of the view
+		painter->resetTransform();
+		for (int x = first_x; x <= last_x; x++) {
+			const int view_x = transform.map(QPointF(x * m_cell, 0)).toPoint().x();
+			painter->fillRect(QRect(view_x, top_left.y(), 1, bottom_right.y() - top_left.y() + 1), Qt::black);
+		}
+		for (int y = first_y; y <= last_y; y++) {
+			const int view_y = transform.map(QPointF(0, y * m_cell)).toPoint().y();
+			painter->fillRect(QRect(top_left.x(), view_y, bottom_right.x() - top_left.x() + 1, 1), Qt::black);
+		}
+		painter->restore();
+	}
+
+private:
+	int m_columns;
+	int m_rows;
+	int m_cell;
+};
+
+// the map and the cell of a start position
+struct StartFields {
+	int32_t& map_id;
+	int32_t& x;
+	int32_t& y;
+};
+
+StartFields startFields(lcf::rpg::Start& start, Core::StartMarker kind)
+{
+	switch (kind) {
+	case Core::BOAT:
+		return {start.boat_map_id, start.boat_x, start.boat_y};
+	case Core::SHIP:
+		return {start.ship_map_id, start.ship_x, start.ship_y};
+	case Core::AIRSHIP:
+		return {start.airship_map_id, start.airship_x, start.airship_y};
+	default:
+		return {start.party_map_id, start.party_x, start.party_y};
+	}
+}
+}
+
+int MapScene::startAt(int x, int y) const
+{
+	// the last one is drawn over the others
+	lcf::rpg::Start start = m_project.treeMap().start;
+	for (int kind = Core::AIRSHIP; kind >= Core::PARTY; kind--) {
+		const StartFields fields = startFields(start, static_cast<Core::StartMarker>(kind));
+		if (fields.map_id == id() && fields.x == x && fields.y == y)
+			return kind;
+	}
+	return -1;
+}
+
+bool MapScene::isFreeCell(int x, int y)
+{
+	return !getEventAt(x, y) && startAt(x, y) < 0;
+}
+
+void MapScene::setStartPosition(Core::StartMarker kind, int x, int y)
+{
+	const lcf::rpg::Start old_start = m_project.treeMap().start;
+	const StartFields fields = startFields(m_project.treeMap().start, kind);
+	fields.map_id = id();
+	fields.x = x;
+	fields.y = y;
+	pushStart(old_start);
+}
+
 void MapScene::editMapProperties(QTreeWidgetItem *item)
 {
 	commitFloating();
@@ -529,7 +632,10 @@ void MapScene::onLayerChanged()
 	if (m_selecting)
 		stopSelecting();
 	m_dragEventId = 0;
+	m_dragStart = -1;
 	commitFloating();
+	// RPG Maker shows the start positions at half opacity on the tile layers
+	m_markerpix->setOpacity(core().layer() == Core::EVENT ? 1.0 : 0.5);
 	switch (core().layer())
 	{
 	case Core::LOWER:
@@ -576,8 +682,12 @@ void MapScene::applyCursor()
 		m_lowerpix->setCursor(MapCursors::move());
 	else if (core().layer() != Core::EVENT)
 		m_lowerpix->setCursor(MapCursors::forTool(core().tool()));
-	else if (m_dragEventId)
-		m_lowerpix->setCursor(MapCursors::move());
+	else if (m_dragEventId || m_dragStart >= 0) {
+		// the drop needs an empty cell of the map, or the cell dragged from
+		const bool home = cur_x == lst_x && cur_y == lst_y;
+		const bool allowed = home || (cur_x >= 0 && cur_y >= 0 && isFreeCell(cur_x, cur_y));
+		m_lowerpix->setCursor(allowed ? MapCursors::move() : QCursor(Qt::ForbiddenCursor));
+	}
 	else
 		m_lowerpix->unsetCursor();
 }
@@ -747,7 +857,7 @@ void MapScene::redo()
 
 void MapScene::on_actionNewEvent()
 {
-	if (getEventAt(lst_x, lst_y))
+	if (!isFreeCell(lst_x, lst_y))
 		return;
 	// Find first free id
 	int id = getFirstFreeId();
@@ -757,11 +867,14 @@ void MapScene::on_actionNewEvent()
 	event.name = ToDBString(QString("EV%1").arg(QString::number(id), 4, QLatin1Char('0')));
 	event.x = lst_x;
 	event.y = lst_y;
-	event.pages.push_back(lcf::rpg::EventPage());
+	event.pages.push_back(EventPageDefaults::newPage());
 	editEvent(event);
 }
 
 void MapScene::on_actionEditEvent() {
+	// a start position hides the event of its cell
+	if (startAt(lst_x, lst_y) >= 0)
+		return;
 	if (auto* ev = getEventAt(lst_x, lst_y)) {
 		editEvent(*ev);
 	}
@@ -886,7 +999,7 @@ void MapScene::on_actionCutEvent() {
 
 void MapScene::on_actionPasteEvent() {
 	const lcf::rpg::Event* clipboard = core().eventClipboard();
-	if (!clipboard || getEventAt(lst_x, lst_y))
+	if (!clipboard || !isFreeCell(lst_x, lst_y))
 		return;
 
 	// RPG Maker keeps the name, the event gets the first free id
@@ -975,39 +1088,19 @@ void MapScene::pushStart(const lcf::rpg::Start &old_start)
 
 void MapScene::on_actionSetStartPosition()
 {
-	auto& start = m_project.treeMap().start;
-	const lcf::rpg::Start old_start = start;
-	start.party_map_id = this->id();
-	start.party_x = lst_x;
-	start.party_y = lst_y;
-	pushStart(old_start);
+	// RPG Maker: on an empty cell only, as a drop
+	if (!isFreeCell(lst_x, lst_y))
+		return;
+	setStartPosition(Core::PARTY, lst_x, lst_y);
 }
 
 void MapScene::on_actionSetVehiclePosition()
 {
 	auto* action = qobject_cast<QAction*>(sender());
-	if (!action)
+	if (!action || !isFreeCell(lst_x, lst_y))
 		return;
-	auto& start = m_project.treeMap().start;
-	const lcf::rpg::Start old_start = start;
-	switch (action->data().toInt()) {
-	case 0:
-		start.boat_map_id = this->id();
-		start.boat_x = lst_x;
-		start.boat_y = lst_y;
-		break;
-	case 1:
-		start.ship_map_id = this->id();
-		start.ship_x = lst_x;
-		start.ship_y = lst_y;
-		break;
-	default:
-		start.airship_map_id = this->id();
-		start.airship_x = lst_x;
-		start.airship_y = lst_y;
-		break;
-	}
-	pushStart(old_start);
+	// the boat, the ship and the airship follow the party
+	setStartPosition(static_cast<Core::StartMarker>(Core::BOAT + std::clamp(action->data().toInt(), 0, 2)), lst_x, lst_y);
 }
 
 void MapScene::retranslate()
@@ -1040,7 +1133,7 @@ void MapScene::retranslate()
 
 void MapScene::on_actionPlaceTeleport()
 {
-	if (getEventAt(lst_x, lst_y))
+	if (!isFreeCell(lst_x, lst_y))
 		return;
 	// RPG Maker's Select Location starts on this map
 	int map_id = id();
@@ -1068,7 +1161,7 @@ void MapScene::on_actionPlaceTeleport()
 	std::vector<int32_t> teleport = {map_id, x, y};
 	if (rpg2k3)
 		teleport.push_back(direction);
-	lcf::rpg::EventPage page;
+	lcf::rpg::EventPage page = EventPageDefaults::newPage();
 	page.ID = 1;
 	page.trigger = lcf::rpg::EventPage::Trigger_touched;
 	page.event_commands = {command(Code::EraseScreen, {-1}), command(Code::Teleport, teleport),
@@ -1357,18 +1450,29 @@ void MapScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 		{
 			// the tools are not used on the event layer (RPG Maker)
 			m_dragEventId = 0;
+			m_dragStart = -1;
 			applyCursor();
 			if (!inside)
 				return;
 			selectCell(cur_x, cur_y);
 			const bool has_event = getEventAt(lst_x, lst_y);
+			const bool has_start = startAt(lst_x, lst_y) >= 0;
+			const bool free = !has_event && !has_start;
 			m_actionNew->setVisible(!has_event);
+			m_actionNew->setEnabled(free);
 			m_actionEdit->setVisible(has_event);
+			// a start is not an event: the event it hides is not edited
+			m_actionEdit->setEnabled(!has_start);
 			m_actionCopy->setEnabled(has_event);
 			m_actionCut->setEnabled(has_event);
-			m_actionPaste->setEnabled(!has_event && core().eventClipboard());
+			m_actionPaste->setEnabled(free && core().eventClipboard());
 			m_actionDelete->setEnabled(has_event);
-			m_actionTeleport->setEnabled(!has_event);
+			// RPG Maker places them on empty cells only
+			m_actionTeleport->setEnabled(free);
+			m_actionPartyStart->setEnabled(free);
+			m_vehicleMenu->menuAction()->setEnabled(free);
+			for (QAction* vehicle : m_vehicleMenu->actions())
+				vehicle->setEnabled(free);
 			m_eventMenu->popup(event->screenPos());
 			return;
 		}
@@ -1402,7 +1506,9 @@ void MapScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 		if (!inside)
 			return;
 		selectCell(cur_x, cur_y);
-		m_dragEventId = eventIdAt(cur_x, cur_y);
+		// a start position hides the event of its cell
+		m_dragStart = startAt(cur_x, cur_y);
+		m_dragEventId = m_dragStart < 0 ? eventIdAt(cur_x, cur_y) : 0;
 		applyCursor();
 		return;
 	}
@@ -1543,9 +1649,10 @@ void MapScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 	}
 	if (core().tool() == Core::SELECT)
 		applyCursor();
-	if (m_dragEventId && (event->buttons() & Qt::LeftButton))
+	if ((m_dragEventId || m_dragStart >= 0) && (event->buttons() & Qt::LeftButton))
 	{
-		// the cell the event is dragged to
+		applyCursor();
+		// the cell the event or the start position is dragged to
 		m_selectionTile->setRect(QRectF(QRect(cur_x*core().tileSize(),cur_y*core().tileSize(),
 											  core().tileSize(),core().tileSize())));
 	}
@@ -1597,9 +1704,25 @@ void MapScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 		m_dragEventId = 0;
 		applyCursor();
 		updateCursor(event->scenePos());
-		if (cur_x >= 0 && (cur_x != lst_x || cur_y != lst_y) && !getEventAt(cur_x, cur_y))
+		// RPG Maker: onto an empty cell only
+		if (cur_x >= 0 && (cur_x != lst_x || cur_y != lst_y) && isFreeCell(cur_x, cur_y))
 		{
 			moveEvent(id, cur_x, cur_y);
+			selectCell(cur_x, cur_y);
+		}
+		else
+			selectCell(lst_x, lst_y);
+	}
+	if (m_dragStart >= 0)
+	{
+		const auto kind = static_cast<Core::StartMarker>(m_dragStart);
+		m_dragStart = -1;
+		applyCursor();
+		updateCursor(event->scenePos());
+		// RPG Maker: onto an empty cell only, as an event
+		if (cur_x >= 0 && cur_y >= 0 && (cur_x != lst_x || cur_y != lst_y) && isFreeCell(cur_x, cur_y))
+		{
+			setStartPosition(kind, cur_x, cur_y);
 			selectCell(cur_x, cur_y);
 		}
 		else
@@ -1618,8 +1741,12 @@ void MapScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 	}
 
 	m_dragEventId = 0;
+	m_dragStart = -1;
 	applyCursor();
 	selectCell(cur_x, cur_y);
+	// a start position is not an event
+	if (startAt(cur_x, cur_y) >= 0)
+		return;
 	if (getEventAt(cur_x, cur_y)) {
 		on_actionEditEvent();
 	} else {
@@ -1682,13 +1809,14 @@ bool MapScene::handleKey(QKeyEvent *event, bool run)
 		if (!m_selectionTile->isVisible())
 			return false;
 		const bool has_event = getEventAt(lst_x, lst_y);
-		if (enter)
+		const bool has_start = startAt(lst_x, lst_y) >= 0;
+		if (enter && !has_start)
 			slot = has_event ? &MapScene::on_actionEditEvent : &MapScene::on_actionNewEvent;
 		else if (event->matches(QKeySequence::Cut) && has_event)
 			slot = &MapScene::on_actionCutEvent;
 		else if (event->matches(QKeySequence::Copy) && has_event)
 			slot = &MapScene::on_actionCopyEvent;
-		else if (event->matches(QKeySequence::Paste) && !has_event && core().eventClipboard())
+		else if (event->matches(QKeySequence::Paste) && !has_event && !has_start && core().eventClipboard())
 			slot = &MapScene::on_actionPasteEvent;
 		else if (del && has_event)
 			slot = &MapScene::on_actionDeleteEvent;
@@ -1871,42 +1999,45 @@ void MapScene::redrawLayer(Core::Layer layer)
 			if (Core::isAnimatedTile(tile))
 				(tile < 3000 ? m_waterCells : m_animatedCells).push_back(QPoint(x, y));
 		}
+	// the start positions on this map, which replace the events of their cells
+	struct Marker {
+		Core::StartMarker kind;
+		QString letter;
+		QPoint cell;
+	};
+	QList<Marker> markers;
 	if (layer == Core::UPPER)
 	{
+		const QString letters[] = {
+			//: Letter on the map marker of the party's start position
+			tr("P"),
+			//: Letter on the map marker of the boat's start position
+			tr("B"),
+			//: Letter on the map marker of the ship's start position
+			tr("S"),
+			//: Letter on the map marker of the airship's start position
+			tr("A"),
+		};
+		lcf::rpg::Start start = m_project.treeMap().start;
+		for (int kind = Core::PARTY; kind <= Core::AIRSHIP; kind++) {
+			const StartFields fields = startFields(start, static_cast<Core::StartMarker>(kind));
+			if (fields.map_id == id())
+				markers.append({static_cast<Core::StartMarker>(kind), letters[kind], QPoint(fields.x, fields.y)});
+		}
+		auto hasMarker = [&](int x, int y) {
+			return std::any_of(markers.begin(), markers.end(),
+				[&](const Marker& marker) { return marker.cell == QPoint(x, y); });
+		};
 		for (unsigned int i = 0; i <  m_map->events.size(); i++)
 		{
+			if (hasMarker(m_map->events[i].x, m_map->events[i].y))
+				continue;
 			QRect rect((m_map->events[i].x-start_x)* s_tileSize,
 					   (m_map->events[i].y-start_y)* s_tileSize,
 					   s_tileSize,
 					   s_tileSize);
 			core().renderEvent(m_map->events[i], rect);
 		}
-
-		// The start positions on this map, as RPG Maker shows them
-		const auto& start = m_project.treeMap().start;
-		const auto& database = m_project.database();
-		auto marker = [&](int map_id, int x, int y, const lcf::DBString& charset, int index, const QString& label) {
-			if (map_id != id())
-				return;
-			QRect rect((x-start_x)* s_tileSize, (y-start_y)* s_tileSize, s_tileSize, s_tileSize);
-			core().renderMarker(ToQString(charset), index, label, rect);
-		};
-		// the party has the graphic of its first hero
-		lcf::DBString hero_charset;
-		int hero_index = 0;
-		const auto& party = database.system.party;
-		if (!party.empty() && party[0] >= 1 && party[0] <= static_cast<int>(database.actors.size())) {
-			hero_charset = database.actors[static_cast<size_t>(party[0] - 1)].character_name;
-			hero_index = database.actors[static_cast<size_t>(party[0] - 1)].character_index;
-		}
-		//: Marker of the party start position on the map (one letter)
-		marker(start.party_map_id, start.party_x, start.party_y, hero_charset, hero_index, tr("P"));
-		//: Marker of the skiff start position on the map (one letter)
-		marker(start.boat_map_id, start.boat_x, start.boat_y, database.system.boat_name, database.system.boat_index, tr("B"));
-		//: Marker of the ship start position on the map (one letter)
-		marker(start.ship_map_id, start.ship_x, start.ship_y, database.system.ship_name, database.system.ship_index, tr("S"));
-		//: Marker of the airship start position on the map (one letter)
-		marker(start.airship_map_id, start.airship_x, start.airship_y, database.system.airship_name, database.system.airship_index, tr("A"));
 	}
 	core().endPainting();
 	if (layer == Core::LOWER)
@@ -1918,6 +2049,22 @@ void MapScene::redrawLayer(Core::Layer layer)
 	{
 		m_upperpix->setPixmap(pix);
 		m_upperpix->setPos(start_x*s_tileSize,start_y*s_tileSize);
+		// their own pixmap: its opacity does not follow the upper layer's
+		QPixmap marker_pix;
+		if (!markers.isEmpty()) {
+			// at the screen's resolution, for the letters of the small cells
+			const qreal dpr = m_view->devicePixelRatioF();
+			marker_pix = QPixmap(size * dpr);
+			marker_pix.setDevicePixelRatio(dpr);
+			marker_pix.fill(QColor(0,0,0,0));
+			core().beginPainting(marker_pix);
+			for (const Marker& marker : markers)
+				core().renderMarker(marker.kind, marker.letter, QRect((marker.cell.x()-start_x)* s_tileSize,
+					(marker.cell.y()-start_y)* s_tileSize, s_tileSize, s_tileSize));
+			core().endPainting();
+		}
+		m_markerpix->setPixmap(marker_pix);
+		m_markerpix->setPos(start_x*s_tileSize,start_y*s_tileSize);
 	}
 }
 
@@ -2255,29 +2402,11 @@ void MapScene::redrawPanorama() {
 }
 
 void MapScene::redrawGrid() {
-	if (!grid_lines.empty()) {
-		while (!grid_lines.empty()) {
-			QGraphicsItem* line = grid_lines.takeLast();
-			delete line;
-		}
-		destroyItemGroup(m_lines);
-	}
-
-	for (int x = 0; x <= m_map->width; x++) {
-		grid_lines.append(new QGraphicsLineItem(x*core().tileSize(),
-			0,
-			x*core().tileSize(),
-			m_map->height*core().tileSize()));
-	}
-
-	for (int y = 0; y <= m_map->height; y++) {
-		grid_lines.append(new QGraphicsLineItem(0,
-			y*core().tileSize(),
-			m_map->width*core().tileSize(),
-			y*core().tileSize()));
-	}
-
-	m_lines = createItemGroup(grid_lines);
-
+	delete m_lines;
+	m_lines = new GridItem(m_map->width, m_map->height, core().tileSize());
+	// 0 until the first setScale
+	if (m_scale > 0)
+		m_lines->setScale(static_cast<double>(m_scale));
+	addItem(m_lines);
 	m_lines->setVisible(core().layer() == Core::EVENT);
 }

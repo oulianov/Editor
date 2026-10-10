@@ -16,6 +16,7 @@
  */
 
 #include "automation.h"
+#include <functional>
 #include "screenshot.h"
 #include "core.h"
 #include "common/logging.h"
@@ -671,9 +672,23 @@ bool Automation::run(const QStringList& args) {
 		const QString name = args.mid(1, args.size() - 2).join(' ');
 		const bool on = args.last() == "on";
 		QWidget* widget = findWidget(name);
-		// or a menu action, by object name or text
+		// or a menu action, by object name or text: those of the menu shown
+		// and its submenus first, as each map tab has actions of the same names
+		QList<QAction*> candidates;
+		if (!widget) {
+			std::function<void(QMenu*)> collect = [&](QMenu* menu) {
+				for (QAction* item : menu->actions()) {
+					candidates.append(item);
+					if (item->menu())
+						collect(item->menu());
+				}
+			};
+			if (auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget()))
+				collect(menu);
+			candidates += m_window.findChildren<QAction*>();
+		}
 		QAction* action = nullptr;
-		for (auto* candidate : widget ? QList<QAction*>() : m_window.findChildren<QAction*>()) {
+		for (auto* candidate : candidates) {
 			if (candidate->objectName() == name || candidate->text().remove('&') == name) {
 				action = candidate;
 				break;
@@ -808,6 +823,28 @@ bool Automation::run(const QStringList& args) {
 		}
 		fail(QString("no map %1 in the map tree").arg(a));
 		return false;
+	}
+	if (cmd == "spin-click" && args.size() == 3 && (args[2] == "up" || args[2] == "down")) {
+		// a mouse click in the middle of an arrow of a spin box, where the
+		// style draws it
+		auto* spin = qobject_cast<QAbstractSpinBox*>(findWidget(args[1]));
+		if (!spin) {
+			fail("no spin box " + args[1]);
+			return false;
+		}
+		QStyleOptionSpinBox option;
+		option.initFrom(spin);
+		option.frame = spin->hasFrame();
+		option.subControls = QStyle::SC_All;
+		option.buttonSymbols = spin->buttonSymbols();
+		const QPointF pos = spin->style()->subControlRect(QStyle::CC_SpinBox, &option,
+			args[2] == "up" ? QStyle::SC_SpinBoxUp : QStyle::SC_SpinBoxDown, spin).center();
+		for (auto type : {QEvent::MouseButtonPress, QEvent::MouseButtonRelease}) {
+			QMouseEvent event(type, pos, spin->mapToGlobal(pos), Qt::LeftButton,
+				type == QEvent::MouseButtonPress ? Qt::LeftButton : Qt::NoButton, Qt::NoModifier);
+			QApplication::sendEvent(spin, &event);
+		}
+		return true;
 	}
 	if (cmd == "dump-geometry" && args.size() == 2) {
 		// where a widget is in its window, what of it the layouts align (its
@@ -1377,6 +1414,13 @@ int Automation::checkLayout(QWidget* window) {
 		}
 		if (widget->sizePolicy().verticalPolicy() == QSizePolicy::Ignored) {
 			minimum.setHeight(0);
+		}
+		// text that wraps (WrapCheckBox...): the height its lines take at
+		// the width it has, not at its narrowest
+		if (widget->hasHeightForWidth()) {
+			minimum.setHeight(widget->heightForWidth(widget->width()));
+		} else if (widget->layout() && widget->layout()->hasHeightForWidth()) {
+			minimum.setHeight(widget->layout()->totalHeightForWidth(widget->width()));
 		}
 		// widgets made smaller on purpose (fixed sizes) are fine
 		minimum = minimum.boundedTo(widget->maximumSize());

@@ -59,6 +59,7 @@
 #include <QStringList>
 #include <QDir>
 #include <QMenu>
+#include <QActionEvent>
 #include <QTimer>
 #include <QTreeWidgetItemIterator>
 #include <algorithm>
@@ -153,6 +154,33 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 	ui->setupUi(this);
 	setProperty("view_state_contextual", true); // Map tabs are restored by map id.
+	// macOS moves Preferences, About and Quit to the application menu. Qt
+	// guesses them from the texts unless told, and a translation misleads
+	// it ("Options du test du jeu..." became Preferences in French): only
+	// the actions given a role move, every other one stays in its menu
+	ui->actionQuit->setMenuRole(QAction::QuitRole);
+	for (QMenu* menu : ui->menuBar->findChildren<QMenu*>()) {
+		for (QAction* action : menu->actions()) {
+			if (action->menuRole() == QAction::TextHeuristicRole) action->setMenuRole(QAction::NoRole);
+		}
+		// the ones added later too (recent projects...)
+		menu->installEventFilter(this);
+	}
+#ifdef Q_OS_MACOS
+	// Test Play Options in the application menu too, its own item beside
+	// Settings (it stays in its menu: an action with a role leaves it, so
+	// this is another one, following it)
+	auto* app_test_options = new QAction(this);
+	app_test_options->setMenuRole(QAction::ApplicationSpecificRole);
+	ui->menuTools->addAction(app_test_options);
+	connect(app_test_options, &QAction::triggered, ui->actionPlayTestOptions, &QAction::trigger);
+	auto follow = [this, app_test_options] {
+		app_test_options->setText(ui->actionPlayTestOptions->text());
+		app_test_options->setEnabled(ui->actionPlayTestOptions->isEnabled());
+	};
+	connect(ui->actionPlayTestOptions, &QAction::changed, app_test_options, follow);
+	follow();
+#endif
 	// Map tabs as wide as their names; too many scroll instead of widening
 	// the window. A double-click keeps a temporary tab.
 	ui->tabMap->tabBar()->setExpanding(false);
@@ -1741,6 +1769,10 @@ void MainWindow::onMapTreeContextMenu(const QPoint& pos)
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event)
 {
+	if (event->type() == QEvent::ActionAdded && qobject_cast<QMenu*>(watched)) {
+		QAction* action = static_cast<QActionEvent*>(event)->action();
+		if (action->menuRole() == QAction::TextHeuristicRole) action->setMenuRole(QAction::NoRole);
+	}
 	// the type first: the tree can be gone while the window is destroyed
 	if (event->type() == QEvent::Drop && watched == ui->treeMap->viewport())
 	{

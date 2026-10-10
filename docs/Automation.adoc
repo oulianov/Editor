@@ -92,7 +92,7 @@ at once: the next commands act on the dialog, until `close`.
 | `expect NAME TEXT` | Fails unless the widget shows the text (for a list: one of its lines; the current line starts with `>`).
 | `expect-not NAME TEXT` | Fails if the widget shows the text.
 | `set-control NAME VALUE` | Sets a control: index of a combo box, number of a spin box, `on`/`off` for a check box, radio button or checkable group box, text of a field, value of a slider, button id of a button group.
-| `expect-enabled NAME on\|off` | Fails unless the control (by object name or button text) or menu action (by object name or text) is enabled (`on`) or disabled (`off`).
+| `expect-enabled NAME on\|off` | Fails unless the control (by object name or button text) or menu action (by object name or text; those of the pop-up menu shown first) is enabled (`on`) or disabled (`off`).
 | `expect-checked NAME on\|off` | Fails unless the check box, radio button or menu option (object name or text) is checked (`on`) or not (`off`).
 | `expect-option-enabled NAME INDEX on\|off` | The same for one item of a combo box.
 | `inspect-controls FILE` | Writes the controls and group boxes of the dialog to a JSON file: values, choices, enabled states, position and widths (to find what makes a window too wide).
@@ -116,6 +116,7 @@ at once: the next commands act on the dialog, until `close`.
 | `context-menu NAME` | Opens the right-click menu of a widget, at the current line of a list.
 | `dump-menu` | Logs each item of the menu shown: its text, its shortcut, whether it has an icon, whether it is greyed, its tooltip.
 | `click-tab NAME INDEX` | Clicks a tab of a tab widget with the mouse (the tab bar takes the focus).
+| `spin-click NAME up\|down` | Clicks the middle of an arrow of a spin box, where the style draws it.
 | `expect-tab NAME TEXT` | Fails unless the tab widget shows the tab TEXT.
 | `pinch map\|NAME FACTOR` | A trackpad pinch on the map or an image view (`graphicsView`...): the fingers spreading (FACTOR above 1) or closing; logs the zoom reached.
 | `import-image-dialog FILE` | Opens the image import window (transparent color, zoom) on FILE, without the file chooser before it.

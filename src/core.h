@@ -54,6 +54,15 @@ public:
 		EVENT
 	};
 
+	/** The start positions of the party and of the vehicles, in RPG Maker's order */
+	enum StartMarker
+	{
+		PARTY,
+		BOAT,
+		SHIP,
+		AIRSHIP
+	};
+
 	enum Tool
 	{
 		ZOOM,
@@ -104,8 +113,8 @@ public:
 	void beginPainting(QPixmap &dest);
 	void renderTile(const short &tile_id, const QRect &dest_rect);
 	void renderEvent(const lcf::rpg::Event& event, const QRect &dest_rect);
-	/** A start position: the charset (facing down) with its label, or the label alone */
-	void renderMarker(const QString& charset_name, int charset_index, const QString& label, const QRect &dest_rect);
+	/** A start position, drawn like RPG Maker 2003's markers on the map, with its letter */
+	void renderMarker(StartMarker marker, const QString& letter, const QRect &dest_rect);
 	void endPainting();
 
 	QColor keycolor();
@@ -216,6 +225,8 @@ private:
 	QHash<QString, QPixmap> m_charsetCache;
 	const Project* m_cacheProject = nullptr;
 	QPixmap charsetImage(const QString& name);
+	/** The frame of an event's graphic, also around the start markers; returns the inside */
+	QRect renderEventFrame(const QRect &dest_rect);
 	TileClipboard m_tileClipboard;
 	lcf::rpg::Event m_eventClipboard;
 	bool m_eventClipboardSet = false;

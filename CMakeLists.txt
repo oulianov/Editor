@@ -90,6 +90,7 @@ set(EDITOR_SOURCES
 	src/model/move_route_codec.cpp
 	src/model/move_route_codec.h
 	src/model/event_command_list.h
+	src/model/event_page_defaults.h
 	src/model/export_files.cpp
 	src/model/export_files.h
 	src/model/export_references.cpp
@@ -226,6 +227,8 @@ set(EDITOR_SOURCES
 	src/ui/common/page_scroll_area.h
 	src/ui/common/preview_zoom.cpp
 	src/ui/common/preview_zoom.h
+	src/ui/common/wrap_check_box.cpp
+	src/ui/common/wrap_check_box.h
 	src/ui/common/path_field.h
 	src/ui/common/resource_info.h
 	src/ui/common/stale_file.h
