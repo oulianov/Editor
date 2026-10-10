@@ -39,6 +39,7 @@
 #include <QPainter>
 #include <QHeaderView>
 #include <QAction>
+#include "ui/common/edit_actions.h"
 #include <QStyledItemDelegate>
 #include <memory>
 
@@ -776,7 +777,7 @@ QModelIndex EventCommandsWidget::moveCursor(CursorAction action, Qt::KeyboardMod
 void EventCommandsWidget::keyPressEvent(QKeyEvent* event) {
 	QTreeWidgetItem* item = currentItem();
 	if (event->key() == Qt::Key_O && event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier)
-			&& !m_scriptLocation.isEmpty() && ScriptLink::available()) {
+			&& !m_scriptLocation.isEmpty() && ScriptLink::unavailableReason().isEmpty()) {
 		openScript();
 	} else if (event->matches(QKeySequence::Undo)) {
 		m_undoStack->undo();
@@ -830,29 +831,38 @@ void EventCommandsWidget::showContextMenu(const QPoint& pos) {
 	bool editable = item && indexOf(item) < static_cast<int>(m_commands->size())
 		&& hasEditor(static_cast<Cmd>((*m_commands)[commandStart(indexOf(item))].code));
 
+	// the keys are read by keyPressEvent: the menu only shows them
+	using EditActions::Kind;
 	QMenu menu(this);
-	menu.addAction(m_undoStack->createUndoAction(&menu));
-	menu.addAction(m_undoStack->createRedoAction(&menu));
+	auto* undo = m_undoStack->createUndoAction(&menu);
+	EditActions::decorate(undo, Kind::Undo);
+	auto* redo = m_undoStack->createRedoAction(&menu);
+	EditActions::decorate(redo, Kind::Redo);
+	menu.addActions({undo, redo});
 	menu.addSeparator();
-	menu.addAction(tr("Insert") + "...", QKeySequence(Qt::Key_Return), this, [=, this] { insertCommand(insert_at); });
+	EditActions::add(menu, Kind::Insert, this, [=, this] { insertCommand(insert_at); });
 	if (editable) {
-		menu.addAction(tr("Edit") + "...", QKeySequence(Qt::Key_Space), this, [=, this] { editEvent(item, 0); });
+		// Space, as in RPG Maker: Enter inserts
+		EditActions::add(menu, Kind::Edit, this, [=, this] { editEvent(item, 0); }, {QKeySequence(Qt::Key_Space)});
 	}
 	menu.addSeparator();
-	if (removable) {
-		menu.addAction(tr("Cut"), QKeySequence::Cut, this, [=, this] { copyLines(range, true); });
-		menu.addAction(tr("Copy"), QKeySequence::Copy, this, [=, this] { copyLines(range, false); });
-	}
-	auto* paste = menu.addAction(tr("Paste"), QKeySequence::Paste, this, [=, this] { pasteCommands(insert_at); });
-	paste->setEnabled(!s_clipboard.empty());
-	if (removable) {
-		menu.addAction(tr("Delete"), QKeySequence::Delete, this, [=, this] { deleteLines(range); });
-	}
-	menu.addAction(tr("Select All"), QKeySequence::SelectAll, this, [this] { selectAllCommands(); })
+	EditActions::add(menu, Kind::Cut, this, [=, this] { copyLines(range, true); })->setEnabled(removable);
+	EditActions::add(menu, Kind::Copy, this, [=, this] { copyLines(range, false); })->setEnabled(removable);
+	EditActions::add(menu, Kind::Paste, this, [=, this] { pasteCommands(insert_at); })->setEnabled(!s_clipboard.empty());
+	EditActions::add(menu, Kind::Delete, this, [=, this] { deleteLines(range); })->setEnabled(removable);
+	menu.addSeparator();
+	EditActions::add(menu, Kind::SelectAll, this, [this] { selectAllCommands(); })
 		->setEnabled(m_commands && !m_commands->empty());
-	if (!m_scriptLocation.isEmpty() && ScriptLink::available()) {
+	if (!m_scriptLocation.isEmpty()) {
+		// greyed without rpgsync, the tooltip says how to set it up
 		menu.addSeparator();
-		menu.addAction(tr("Open in Script Editor"), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O), this, [this] { openScript(); });
+		auto* open = EditActions::create(&menu, tr("Open in Script Editor"), {QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O)}, QStringLiteral("code"));
+		connect(open, &QAction::triggered, this, [this] { openScript(); });
+		const QString reason = ScriptLink::unavailableReason();
+		open->setEnabled(reason.isEmpty());
+		open->setToolTip(reason.isEmpty() ? tr("Open the script at the line of this command") : reason);
+		menu.setToolTipsVisible(true);
+		menu.addAction(open);
 	}
 	menu.addSeparator();
 	menu.addAction(tr("Add raw") + "...", this, [=, this] { addRawEvent(item); });
@@ -860,7 +870,7 @@ void EventCommandsWidget::showContextMenu(const QPoint& pos) {
 		menu.addAction(tr("Edit raw") + "...", this, [=, this] { editRawEvent(item, 0, false); });
 	}
 
-	menu.exec(mapToGlobal(pos));
+	EditActions::exec(menu, this, pos);
 }
 
 void EventCommandsWidget::refreshList() {

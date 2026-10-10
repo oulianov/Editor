@@ -83,10 +83,13 @@ EventDialog::EventDialog(ProjectData& project, QWidget *parent, int mapID) :
 			this,
 			SLOT(apply()));
 	// the script of the page, for games edited with rpgsync
-	if (ScriptLink::available() && m_mapID > 0) {
+	if (m_mapID > 0) {
 		auto* script = ui->buttonBox->addButton(tr("Open Script"), QDialogButtonBox::ActionRole);
 		script->setObjectName(QStringLiteral("openScript"));
-		script->setToolTip(tr("Open the script of this page at the selected command (Ctrl+Shift+O in the list)"));
+		// greyed without rpgsync, the tooltip says how to set it up
+		const QString reason = ScriptLink::unavailableReason();
+		script->setEnabled(reason.isEmpty());
+		script->setToolTip(reason.isEmpty() ? tr("Open the script of this page at the selected command (Ctrl+Shift+O in the list)") : reason);
 		connect(script, &QPushButton::clicked, this, [this] {
 			QWidget* page = ui->tabEventPages->currentWidget();
 			if (auto* commands = page ? page->findChild<EventCommandsWidget*>(QStringLiteral("commands")) : nullptr) {

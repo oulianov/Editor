@@ -23,6 +23,7 @@
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QMenu>
+#include "ui/common/edit_actions.h"
 #include <QMessageBox>
 #include "ui/common/page_scroll_area.h"
 #include <QScrollBar>
@@ -110,37 +111,40 @@ void DatabaseSplitWidgetBase::setupList(QAbstractItemModel* model) {
 
 	// RPG Maker's list menu; the shortcuts work in the list only: the pages
 	// have their own copy and paste (event commands, text fields)
-	auto addListAction = [this, &list](const char* name, const QString& text, const QList<QKeySequence>& keys, auto slot) {
-		auto* action = new QAction(text, this);
+	auto addListAction = [this, &list](const char* name, auto kind, auto slot) {
+		QAction* action;
+		if constexpr (std::is_same_v<decltype(kind), EditActions::Kind>) {
+			action = EditActions::create(kind, &list);
+		} else {
+			action = EditActions::create(&list, kind);
+		}
 		action->setObjectName(QLatin1String(name));
-		action->setShortcuts(keys);
-		action->setShortcutContext(Qt::WidgetShortcut);
-		list.addAction(action);
 		connect(action, &QAction::triggered, this, slot);
 		return action;
 	};
-	m_copy = addListAction("actionDataCopy", tr("Copy"), QKeySequence::keyBindings(QKeySequence::Copy), [this] {
+	using EditActions::Kind;
+	m_copy = addListAction("actionDataCopy", Kind::Copy, [this] {
 		if (currentRow() >= 0) {
 			copyEntries(currentRow(), 1);
 		}
 	});
-	m_paste = addListAction("actionDataPaste", tr("Paste"), QKeySequence::keyBindings(QKeySequence::Paste), [this] {
+	m_paste = addListAction("actionDataPaste", Kind::Paste, [this] {
 		if (currentRow() >= 0 && clipboardSize() > 0) {
 			pasteEntries(currentRow());
 		}
 	});
-	m_clear = addListAction("actionDataClear", tr("Clear"), {QKeySequence(Qt::Key_Delete), QKeySequence(Qt::Key_Backspace)}, [this] {
+	m_clear = addListAction("actionDataClear", Kind::Clear, [this] {
 		if (currentRow() >= 0 && canClear(currentRow())) {
 			clearEntry(currentRow());
 		}
 	});
-	m_cut = addListAction("actionDataCut", tr("Cut"), QKeySequence::keyBindings(QKeySequence::Cut), [this] {
+	m_cut = addListAction("actionDataCut", Kind::Cut, [this] {
 		if (currentRow() >= 0 && canClear(currentRow())) {
 			copyEntries(currentRow(), 1);
 			clearEntry(currentRow());
 		}
 	});
-	m_multipleCopy = addListAction("actionDataMultiCopy", tr("Multiple Copy..."), {}, [this] {
+	m_multipleCopy = addListAction("actionDataMultiCopy", tr("Multiple Copy..."), [this] {
 		multipleCopy();
 	});
 	list.setContextMenuPolicy(Qt::CustomContextMenu);
@@ -219,16 +223,12 @@ void DatabaseSplitWidgetBase::showMenu(const QPoint& pos) {
 	m_clear->setEnabled(canClear(row));
 	m_cut->setEnabled(canClear(row));
 
+	// RPG Maker's order
 	QMenu menu(this);
 	menu.addActions({m_copy, m_paste, m_clear, m_cut});
 	menu.addSeparator();
 	menu.addAction(m_multipleCopy);
-	menu.exec(ui->list->viewport()->mapToGlobal(pos));
-
-	// the shortcuts check by themselves
-	for (auto* action : {m_paste, m_clear, m_cut}) {
-		action->setEnabled(true);
-	}
+	EditActions::exec(menu, ui->list, pos);
 }
 
 void DatabaseSplitWidgetBase::step(int delta) {

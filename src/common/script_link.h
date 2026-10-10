@@ -31,6 +31,9 @@ class QWidget;
 namespace ScriptLink {
 	/** The open game has rpgsync scripts */
 	bool available();
+	/** Why scripts cannot open for the open game (shown beside the greyed
+	 *  Open in Script Editor), empty when they can */
+	QString unavailableReason();
 	/** location: what rpgsync locate takes (--map 1 --event 2 --page 1,
 	 *  --common-event 3); command: a line of the list, -1 for its start */
 	void open(QWidget* parent, const QStringList& location, int command = -1);

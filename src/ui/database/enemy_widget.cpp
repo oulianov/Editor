@@ -25,6 +25,7 @@
 #include <QGraphicsPixmapItem>
 #include <QHeaderView>
 #include <QMenu>
+#include "ui/common/edit_actions.h"
 #include "common/dbstring.h"
 #include "common/lcf_widget_binding.h"
 #include "defines.h"
@@ -96,19 +97,17 @@ EnemyWidget::EnemyWidget(ProjectData& project, QWidget *parent) :
 		editAction(ui->treeActions->indexOfTopLevelItem(item));
 	});
 
-	auto addAction = [this](const QString& text, const QKeySequence& key, auto slot) {
-		auto* action = new QAction(text, ui->treeActions);
-		action->setShortcut(key);
-		action->setShortcutContext(Qt::WidgetShortcut);
+	auto addAction = [this](EditActions::Kind kind, auto slot) {
+		auto* action = EditActions::create(kind, ui->treeActions);
 		connect(action, &QAction::triggered, this, slot);
-		ui->treeActions->addAction(action);
 		return action;
 	};
-	auto* actEdit = addAction(tr("Edit..."), QKeySequence(Qt::Key_Return), [this] { editAction(currentActionIndex()); });
-	auto* actCut = addAction(tr("Cut"), QKeySequence::Cut, [this] { copyAction(true); });
-	auto* actCopy = addAction(tr("Copy"), QKeySequence::Copy, [this] { copyAction(false); });
-	auto* actPaste = addAction(tr("Paste"), QKeySequence::Paste, [this] { pasteAction(); });
-	auto* actDelete = addAction(tr("Delete"), QKeySequence::Delete, [this] { deleteAction(); });
+	using EditActions::Kind;
+	auto* actEdit = addAction(Kind::Edit, [this] { editAction(currentActionIndex()); });
+	auto* actCut = addAction(Kind::Cut, [this] { copyAction(true); });
+	auto* actCopy = addAction(Kind::Copy, [this] { copyAction(false); });
+	auto* actPaste = addAction(Kind::Paste, [this] { pasteAction(); });
+	auto* actDelete = addAction(Kind::Delete, [this] { deleteAction(); });
 	connect(ui->treeActions, &QWidget::customContextMenuRequested, this, [this, actEdit, actCut, actCopy, actPaste, actDelete](const QPoint& pos) {
 		const bool onAction = currentActionIndex() < static_cast<int>(m_current->actions.size());
 		actCut->setEnabled(onAction);
@@ -116,8 +115,10 @@ EnemyWidget::EnemyWidget(ProjectData& project, QWidget *parent) :
 		actDelete->setEnabled(onAction);
 		actPaste->setEnabled(s_clipboard.has_value());
 		QMenu menu(this);
-		menu.addActions({actEdit, actCut, actCopy, actPaste, actDelete});
-		menu.exec(ui->treeActions->viewport()->mapToGlobal(pos));
+		menu.addAction(actEdit);
+		menu.addSeparator();
+		menu.addActions({actCut, actCopy, actPaste, actDelete});
+		EditActions::exec(menu, ui->treeActions, pos);
 	});
 
 	// Resistances: a click gives the next rank

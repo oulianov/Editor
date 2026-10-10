@@ -612,9 +612,10 @@ const QPixmap& Core::background() const
 	return m_background;
 }
 
-void Core::setBackground(const QPixmap& background)
+void Core::setBackground(const QPixmap& background, const QTransform& transform)
 {
 	m_background = background;
+	m_backgroundTransform = transform;
 }
 
 int Core::tileSize()
@@ -759,15 +760,22 @@ QPixmap Core::paletteTiles(Layer layer, int size)
 void Core::beginPainting(QPixmap &dest)
 {
 	m_painter.begin(&dest);
-	if (m_painter.isActive())
-		m_painter.setBackground(QBrush(m_background));
+	if (m_painter.isActive()) {
+		QBrush panorama(m_background);
+		panorama.setTransform(m_backgroundTransform);
+		m_painter.setBackground(panorama);
+	}
 	m_painter.setPen(Qt::yellow);
 }
 
 void Core::renderTile(const short &tile_id, const QRect &dest_rect)
 {
-	if (tile_id < 10000)
-		m_painter.fillRect(dest_rect, QBrush(m_background));
+	if (tile_id < 10000) {
+		// the panorama, at the place and zoom of the map (setBackground)
+		QBrush panorama(m_background);
+		panorama.setTransform(m_backgroundTransform);
+		m_painter.fillRect(dest_rect, panorama);
+	}
 	// value(): operator[] would add an empty tile for every unknown id
 	const int frame = !isAnimatedTile(tile_id) ? 0 : tile_id < 3000 ? m_waterFrame : m_animatedTileFrame;
 	if (frame > 0)

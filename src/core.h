@@ -28,6 +28,7 @@
 #include <QHash>
 #include <QBrush>
 #include <QPixmap>
+#include <QTransform>
 #include <QPainter>
 #include <QListWidget>
 #include <QTimer>
@@ -82,7 +83,9 @@ public:
 	void LoadBackground(QString name);
 	/** The panorama drawn behind the lower tiles; each map keeps its own */
 	const QPixmap& background() const;
-	void setBackground(const QPixmap& background);
+	/** The panorama drawn under empty tiles; transform: where its top-left
+	 *  corner is and how much it is zoomed, in the picture painted */
+	void setBackground(const QPixmap& background, const QTransform& transform = QTransform());
 
 	int tileSize();
 	void setTileSize(int tileSize);
@@ -199,6 +202,7 @@ private:
 	Layer m_layer;
 	Tool m_tool;
 	QPixmap m_background;
+	QTransform m_backgroundTransform;
 	QMap<int, QPixmap> m_tileCache;
 	// frames 1 to 3 of the animated tiles; m_tileCache has the frame 0
 	QMap<int, QPixmap> m_frameCache[3];

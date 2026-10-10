@@ -22,6 +22,7 @@
 
 #include "import_item.h"
 
+class PreviewZoom;
 class QGraphicsScene;
 
 namespace Ui {
@@ -72,21 +73,16 @@ public:
 	/** Palette images: the number of colors, else 0 */
 	static int paletteSize(const QImage& image);
 
-private slots:
-	void on_pushZoomIn_clicked();
-	void on_pushZoomOut_clicked();
-
 private:
 	void init();
 	void pick(QPoint pixel);
-	void setScale(int scale);
 	void updateView();
 	QImage displayImage() const;
 
 	Ui::ImportImageDialog *ui;
 
 	QImage m_source;
-	int m_scale = 1;
+	PreviewZoom* m_zoom = nullptr;
 	int m_keyIndex = 0;
 	bool m_hasKeyColor = false;
 	QRgb m_keyColor = 0;

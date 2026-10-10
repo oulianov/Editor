@@ -41,7 +41,7 @@ public:
 	~MapPropertiesDialog();
 
 private slots:
-	void accept();
+	void accept() override;
 
 	void on_groupPanorama_toggled(bool arg1);
 
@@ -54,6 +54,9 @@ private slots:
 	void on_toolSetBGM_clicked();
 
 	void on_toolSetBackdrop_clicked();
+
+protected:
+	bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
 	Ui::MapPropertiesDialog *ui;

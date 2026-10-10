@@ -37,6 +37,7 @@
 #include "core.h"
 
 class ProjectData;
+class QNativeGestureEvent;
 class EventDialog;
 
 class MapScene : public QGraphicsScene
@@ -179,6 +180,8 @@ protected:
 	void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event);
 	void keyPressEvent(QKeyEvent *event);
 	void wheelEvent(QGraphicsSceneWheelEvent *event);
+	/** A trackpad pinch on the view: zooms (eventFilter) */
+	bool pinch(QNativeGestureEvent *event);
 	bool event(QEvent *event);
 	bool eventFilter(QObject *watched, QEvent *event);
 
@@ -224,6 +227,9 @@ private:
 	lcf::rpg::Event* getEventAt(int x, int y);
 	int getFirstFreeId();
 	void redrawPanorama();
+	/** Where the panorama goes in a picture of the map starting at first_cell,
+	 *  with tiles of tile_size pixels */
+	QTransform panoramaTransform(const QPoint& first_cell, double tile_size) const;
 	void redrawGrid();
 	/** Shows map (read from its file); keep_view keeps the grid and the
 	 *  scale unless the size changed */
@@ -259,6 +265,8 @@ private:
 	std::vector<short> m_lower;
 	std::vector<short> m_upper;
 	float m_scale = 0.0f; // 0 until the first setScale
+	// how much the fingers of a pinch spread since the last zoom step
+	double m_pinch = 1.0;
 	bool m_init = false;
 	int s_tileSize;
 	int cur_x;

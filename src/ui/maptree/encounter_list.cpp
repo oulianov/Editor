@@ -25,6 +25,7 @@
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QMenu>
+#include "ui/common/edit_actions.h"
 #include <QMessageBox>
 #include <QTableWidget>
 #include <QVBoxLayout>
@@ -54,20 +55,18 @@ EncounterList::EncounterList(ProjectData& project, QTableWidget* table, QObject*
 	m_table->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_table->setContextMenuPolicy(Qt::CustomContextMenu);
 
-	auto makeAction = [this](const QString& text, const QKeySequence& key, void (EncounterList::*slot)()) {
-		auto* action = new QAction(text, m_table);
-		action->setShortcut(key);
-		// only while the list has the focus: the dialog has other fields
-		action->setShortcutContext(Qt::WidgetShortcut);
-		m_table->addAction(action);
+	// only while the list has the focus: the dialog has other fields
+	auto makeAction = [this](EditActions::Kind kind, void (EncounterList::*slot)()) {
+		auto* action = EditActions::create(kind, m_table);
 		connect(action, &QAction::triggered, this, slot);
 		return action;
 	};
-	QAction* edit = makeAction(tr("Edit..."), QKeySequence(Qt::Key_Return), &EncounterList::edit);
-	QAction* cut = makeAction(tr("Cut"), QKeySequence::Cut, &EncounterList::cut);
-	QAction* copy = makeAction(tr("Copy"), QKeySequence::Copy, &EncounterList::copy);
-	m_paste = makeAction(tr("Paste"), QKeySequence::Paste, &EncounterList::paste);
-	QAction* remove = makeAction(tr("Delete"), QKeySequence(Qt::Key_Delete), &EncounterList::remove);
+	using EditActions::Kind;
+	QAction* edit = makeAction(Kind::Edit, &EncounterList::edit);
+	QAction* cut = makeAction(Kind::Cut, &EncounterList::cut);
+	QAction* copy = makeAction(Kind::Copy, &EncounterList::copy);
+	m_paste = makeAction(Kind::Paste, &EncounterList::paste);
+	QAction* remove = makeAction(Kind::Delete, &EncounterList::remove);
 
 	connect(m_table, &QTableWidget::cellDoubleClicked, this, &EncounterList::edit);
 	connect(m_table, &QWidget::customContextMenuRequested, this, [=, this](const QPoint& pos) {
@@ -80,12 +79,7 @@ EncounterList::EncounterList(ProjectData& project, QTableWidget* table, QObject*
 		menu.addAction(edit);
 		menu.addSeparator();
 		menu.addActions({cut, copy, m_paste, remove});
-		menu.exec(m_table->viewport()->mapToGlobal(pos));
-		// the shortcuts check themselves
-		cut->setEnabled(true);
-		copy->setEnabled(true);
-		remove->setEnabled(true);
-		m_paste->setEnabled(true);
+		EditActions::exec(menu, m_table, pos);
 	});
 }
 

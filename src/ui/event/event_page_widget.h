@@ -68,6 +68,9 @@ protected:
 	void showEvent(QShowEvent* event) override;
 
 private:
+	/** Select Event Graphic: the character, its facing and its frame */
+	void chooseCharacter();
+	bool eventFilter(QObject* watched, QEvent* event) override;
 	bool m_sized = false;
 
 	void updateGraphic();

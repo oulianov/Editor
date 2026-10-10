@@ -16,6 +16,8 @@
  */
 
 #include "resource_manager_dialog.h"
+#include "ui/common/resource_info.h"
+#include "ui/common/preview_zoom.h"
 #include "common/audio_player.h"
 #include "ui_resource_manager_dialog.h"
 #include <QAction>
@@ -23,6 +25,8 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGraphicsPixmapItem>
+#include <QGraphicsScene>
 #include <QHash>
 #include <QLocale>
 #include <QMessageBox>
@@ -100,6 +104,9 @@ ResourceManagerDialog::ResourceManagerDialog(QWidget *parent) :
 	ui(new Ui::ResourceManagerDialog)
 {
 	ui->setupUi(this);
+	// the separator gives the preview more room: 2/5 for the files at first
+	ui->splitterResources->setStretchFactor(0, 2);
+	ui->splitterResources->setStretchFactor(1, 3);
 
 	const QIcon folderIcon = style()->standardIcon(QStyle::SP_DirIcon);
 	for (const Folder& folder : folders) {
@@ -108,6 +115,14 @@ ResourceManagerDialog::ResourceManagerDialog(QWidget *parent) :
 	}
 	ui->previewImage->setBackgroundRole(QPalette::Base);
 	ui->previewImage->setAutoFillBackground(true);
+	// images in a view, to zoom on them as in the pickers; the label says
+	// what the other files are
+	m_previewScene = new QGraphicsScene(this);
+	m_previewScene->setBackgroundBrush(ui->previewView->palette().brush(QPalette::Base));
+	m_previewPixmap = m_previewScene->addPixmap(QPixmap());
+	ui->previewView->setScene(m_previewScene);
+	m_zoom = new PreviewZoom(ui->previewView, ui->pushZoomIn, ui->pushZoomOut);
+	showImage(false);
 
 	connect(ui->listFolders, &QTreeWidget::currentItemChanged, this, &ResourceManagerDialog::folderChanged);
 	connect(ui->listFiles, &QTreeWidget::currentItemChanged, this, &ResourceManagerDialog::fileChanged);
@@ -407,34 +422,34 @@ void ResourceManagerDialog::updateButtons()
 	ui->pushPlay->setEnabled(selected);
 }
 
+void ResourceManagerDialog::showImage(bool image)
+{
+	ui->previewView->setVisible(image);
+	ui->pushZoomIn->setVisible(image);
+	ui->pushZoomOut->setVisible(image);
+	ui->preview->setVisible(!image);
+}
+
 void ResourceManagerDialog::showPreview(const QString& path, bool rtp)
 {
 	const Folder* folder = currentFolder();
 	ui->previewImage->clear();
+	m_previewPixmap->setPixmap(QPixmap());
+	showImage(folder && folder->type == FileType::Image);
 	if (path.isEmpty() || !folder) {
 		ui->previewInfo->setText(core().project() ? QString() : tr("No project is open."));
 		return;
 	}
 
-	const QFileInfo info(path);
-	QStringList lines;
-	lines << (rtp ? tr("RTP file: %1") : tr("Game file: %1")).arg(info.fileName());
-	lines << tr("Size: %1").arg(QLocale().formattedDataSize(info.size()));
+	const QImage image = folder->type == FileType::Image ? ImportImageDialog::loadImage(path) : QImage();
+	QStringList lines = resourceInfo(path, rtp, image);
 
 	if (folder->type == FileType::Image) {
-		const QImage image = ImportImageDialog::loadImage(path);
 		if (image.isNull()) {
 			lines << tr("This image cannot be read.");
 		} else {
-			lines << tr("%1 x %2 pixels").arg(image.width()).arg(image.height());
-			const int colors = ImportImageDialog::paletteSize(image);
-			if (colors > 0) {
-				lines << tr("Palette image, %1 colors").arg(colors);
-				if (folder->transparent) {
-					lines << tr("Shown as in the game: palette color 0 is transparent.");
-				}
-			} else {
-				lines << tr("True color image: the game needs the EasyRPG extensions (RPG Maker only uses 256 color images).");
+			if (ImportImageDialog::paletteSize(image) > 0 && folder->transparent) {
+				lines << tr("Shown as in the game: palette color 0 is transparent.");
 			}
 			const QString rule = sizeRule(*folder, image.size());
 			if (!rule.isEmpty()) {
@@ -449,10 +464,11 @@ void ResourceManagerDialog::showPreview(const QString& path, bool rtp)
 			painter.fillRect(pixmap.rect(), checkerBrush());
 			painter.drawImage(0, 0, shown);
 			painter.end();
-			ui->previewImage->setPixmap(pixmap);
+			m_previewPixmap->setPixmap(pixmap);
+			m_previewScene->setSceneRect(pixmap.rect());
 		}
 	} else {
-		lines << tr("Format: %1").arg(info.suffix().toUpper());
+		lines << tr("Format: %1").arg(QFileInfo(path).suffix().toUpper());
 		if (folder->type == FileType::Video) {
 			ui->previewImage->setText(tr("Movies have no preview."));
 		} else {

@@ -95,9 +95,15 @@ void EditorStyle::polish(QWidget* widget) {
 		view->viewport()->installEventFilter(this);
 	}
 
-	if (qobject_cast<QTabBar*>(widget)) {
+	if (auto* bar = qobject_cast<QTabBar*>(widget)) {
 		// the wheel scrolls the tabs (scrollTabs)
 		widget->installEventFilter(this);
+		// A click on a tab of a dialog (the database...) lets the arrows go
+		// to the next tabs, as on Windows: macOS gives tab bars no focus. The
+		// map tabs leave it to the map, whose cursor the arrows move.
+		if (!bar->documentMode()) {
+			bar->setFocusPolicy(Qt::StrongFocus);
+		}
 	}
 
 	if (auto* group = qobject_cast<QGroupBox*>(widget)) {
@@ -170,7 +176,8 @@ bool EditorStyle::eventFilter(QObject* watched, QEvent* event) {
 		}
 		return false;
 	}
-	if (event->type() == QEvent::Wheel && !static_cast<QWidget*>(watched)->hasFocus()) {
+	if (event->type() == QEvent::Wheel && (qobject_cast<QAbstractSpinBox*>(watched) || qobject_cast<QComboBox*>(watched))
+			&& !static_cast<QWidget*>(watched)->hasFocus()) {
 		// ignored: the scroll area around gets it
 		event->ignore();
 		return true;
@@ -332,7 +339,10 @@ QSize EditorStyle::sizeFromContents(ContentsType type, const QStyleOption* optio
 			const int name = std::max(QFontMetrics(bar->font()).horizontalAdvance(tab->text),
 				QFontMetrics(font).horizontalAdvance(tab->text));
 			const QSize native = QProxyStyle::sizeFromContents(type, option, size, widget);
-			return QSize(tab_padding + name + documentTabButton(bar) + tab_padding, native.height());
+			// short names (the pages of an event: 1, 2...) still make a tab
+			// easy to click: four lines of text wide at least
+			const int minimum = 4 * QFontMetrics(bar->font()).height();
+			return QSize(std::max(minimum, tab_padding + name + documentTabButton(bar) + tab_padding), native.height());
 		}
 	}
 	if (type == CT_GroupBox) {

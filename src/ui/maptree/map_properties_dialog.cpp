@@ -16,6 +16,7 @@
  */
 
 #include "map_properties_dialog.h"
+#include <QMouseEvent>
 #include "ui_map_properties_dialog.h"
 #include "core.h"
 #include "common/dbstring.h"
@@ -137,6 +138,10 @@ MapPropertiesDialog::MapPropertiesDialog(ProjectData& project, lcf::rpg::MapInfo
 
 	ui->graphicsPanorama->setScene(new QGraphicsScene(this));
 	ui->graphicsPanorama->scene()->addItem(m_panoramaItem);
+	// a click on the picture (or where it would be) chooses the panorama
+	ui->graphicsPanorama->viewport()->installEventFilter(this);
+	ui->graphicsPanorama->viewport()->setCursor(Qt::PointingHandCursor);
+	ui->graphicsPanorama->setToolTip(tr("Click to choose the panorama"));
 	QPixmap pix;
 	if (m_map_copy.parallax_flag)
 	{
@@ -439,6 +444,15 @@ void MapPropertiesDialog::on_pushAddEncounter_clicked() {
 
 void MapPropertiesDialog::on_pushRemoveEncounter_clicked() {
 	m_encounters->remove();
+}
+
+bool MapPropertiesDialog::eventFilter(QObject* watched, QEvent* event) {
+	if (watched == ui->graphicsPanorama->viewport() && event->type() == QEvent::MouseButtonRelease
+			&& static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton) {
+		on_pushSetPanorama_clicked();
+		return true;
+	}
+	return QDialog::eventFilter(watched, event);
 }
 
 void MapPropertiesDialog::on_pushSetPanorama_clicked() {

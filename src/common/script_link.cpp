@@ -45,6 +45,18 @@ bool ScriptLink::available() {
 	return core().project() && GameExporter::usesRpgsync(core().project()->projectDir());
 }
 
+QString ScriptLink::unavailableReason() {
+	if (!available()) {
+		return QApplication::translate("ScriptLink", "Set up rpgsync for this game to open its events as Python scripts: "
+			"install rpgsync (github.com/oulianov/rpgsync), then run rpgsync in the game folder.");
+	}
+	if (rpgsync(core().project()->projectDir()).isEmpty()) {
+		return QApplication::translate("ScriptLink", "rpgsync is not installed: install it "
+			"(github.com/oulianov/rpgsync), or run rpgsync in the game folder to create the scripts' .venv.");
+	}
+	return {};
+}
+
 void ScriptLink::open(QWidget* parent, const QStringList& location, int command) {
 	if (!available() || location.isEmpty()) {
 		return;

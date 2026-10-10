@@ -16,6 +16,7 @@
  */
 
 #include "event_page_widget.h"
+#include <QMouseEvent>
 #include "ui_event_page_widget.h"
 #include <QDialogButtonBox>
 #include <QMessageBox>
@@ -122,6 +123,10 @@ EventPageWidget::EventPageWidget(ProjectData& project, QWidget *parent) :
 	m_scene->addItem(m_tileItem);
 	m_scene->setBackgroundBrush(Core::transparencyBrush());
 	ui->graphicsSprite->setScene(m_scene);
+	// a click on the sprite chooses its character
+	ui->graphicsSprite->viewport()->installEventFilter(this);
+	ui->graphicsSprite->viewport()->setCursor(Qt::PointingHandCursor);
+	ui->graphicsSprite->setToolTip(tr("Click to choose the character"));
 
 	ui->comboSwitchA->makeModel(project);
 	ui->comboSwitchB->makeModel(project);
@@ -278,26 +283,39 @@ void EventPageWidget::on_spinTimerBSec_valueChanged(int arg1)
 	m_eventPage->condition.timer2_sec = ui->spinTimerBMin->value()*60 + arg1;
 }
 
+void EventPageWidget::chooseCharacter()
+{
+	// the character, its facing and its frame, like RPG Maker
+	auto* widget = new PickerCharsetWidget(m_eventPage->character_name.empty() ? 0 : m_eventPage->character_index,
+		m_eventPage->character_direction, m_eventPage->character_pattern, this);
+	PickerDialog dialog(m_project, FileFinder::FileType::Image, widget, this);
+	dialog.setWindowTitle(tr("Select Event Graphic"));
+	QObject::connect(&dialog, &PickerDialog::fileSelected, this, [&](const QString& baseName) {
+		m_eventPage->character_name = ToDBString(baseName);
+		m_eventPage->character_index = widget->index();
+		m_eventPage->character_direction = widget->direction();
+		m_eventPage->character_pattern = widget->pattern();
+		updateGraphic();
+	});
+	dialog.setDirectoryAndFile(CHARSET, ToQString(m_eventPage->character_name));
+	dialog.exec();
+}
+
+bool EventPageWidget::eventFilter(QObject* watched, QEvent* event)
+{
+	if (watched == ui->graphicsSprite->viewport() && event->type() == QEvent::MouseButtonRelease
+			&& static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton) {
+		chooseCharacter();
+		return true;
+	}
+	return QWidget::eventFilter(watched, event);
+}
+
 void EventPageWidget::on_pushSetSprite_clicked()
 {
 	// A character of a charset, a tile of the upper layer, or nothing
 	QMenu menu(this);
-	menu.addAction(tr("Character..."), this, [this] {
-		// the character, its facing and its frame, like RPG Maker
-		auto* widget = new PickerCharsetWidget(m_eventPage->character_name.empty() ? 0 : m_eventPage->character_index,
-			m_eventPage->character_direction, m_eventPage->character_pattern, this);
-		PickerDialog dialog(m_project, FileFinder::FileType::Image, widget, this);
-		dialog.setWindowTitle(tr("Select Event Graphic"));
-		QObject::connect(&dialog, &PickerDialog::fileSelected, this, [&](const QString& baseName) {
-			m_eventPage->character_name = ToDBString(baseName);
-			m_eventPage->character_index = widget->index();
-			m_eventPage->character_direction = widget->direction();
-			m_eventPage->character_pattern = widget->pattern();
-			updateGraphic();
-		});
-		dialog.setDirectoryAndFile(CHARSET, ToQString(m_eventPage->character_name));
-		dialog.exec();
-	});
+	menu.addAction(tr("Character..."), this, &EventPageWidget::chooseCharacter);
 	menu.addAction(tr("Tile..."), this, [this] {
 		const int tile = pickUpperTile(m_eventPage->character_name.empty() ? m_eventPage->character_index : -1);
 		if (tile >= 0) {

@@ -16,6 +16,7 @@
  */
 
 #include "class_editors.h"
+#include "ui/common/edit_actions.h"
 
 #include <QAction>
 #include <QComboBox>
@@ -165,13 +166,13 @@ void ClassEditors::connectSkillTable(QTableWidget* table, ProjectData& project,
 		table->setCurrentCell(std::min(row, table->rowCount() - 1), 0);
 	};
 
-	auto* edit_action = new QAction(tr("Edit..."), table);
+	// the table's menu (ActionsContextMenu)
+	auto* edit_action = EditActions::create(EditActions::Kind::Edit, table);
 	edit_action->setObjectName(QStringLiteral("actionEditSkill"));
 	QObject::connect(edit_action, &QAction::triggered, table, [table, edit] { edit(table->currentRow()); });
-	auto* delete_action = new QAction(tr("Delete"), table);
+	auto* delete_action = EditActions::create(EditActions::Kind::Delete, table);
 	delete_action->setObjectName(QStringLiteral("actionDeleteSkill"));
 	QObject::connect(delete_action, &QAction::triggered, table, [table, remove] { remove(table->currentRow()); });
-	table->addActions({edit_action, delete_action});
 
 	// keys read here, not as shortcuts: scripts post them to the table
 	filterEvents(table, [table, edit, remove](QEvent* event) {

@@ -21,6 +21,12 @@
 #include "model/project.h"
 #include "common/image_loader.h"
 #include "picker_child_widget.h"
+#include "ui/common/resource_info.h"
+#include "ui/common/preview_zoom.h"
+#include <QLabel>
+#include <QHBoxLayout>
+#include <QPushButton>
+#include <algorithm>
 #include <QFileSystemModel>
 #include <QGraphicsScene>
 #include <QAbstractButton>
@@ -32,16 +38,38 @@ PickerDialog::PickerDialog(ProjectData &project, FileFinder::FileType file_type,
 		m_project(project),
 		m_file_type(file_type) {
 	ui->setupUi(this);
+	// the separator gives the preview more room; the list takes what the window gains
+	ui->splitterPicker->setStretchFactor(0, 1);
+	ui->splitterPicker->setStretchFactor(1, 0);
 	wrappedWidget->setParent(this);
 	ui->wrappedWidget = wrappedWidget;
 	ui->sidebar->insertWidget(1, wrappedWidget);
+	// what the file is, under its preview (as in the Resource Manager)
+	m_info = new QLabel(this);
+	m_info->setObjectName(QStringLiteral("labelInfo"));
+	m_info->setWordWrap(true);
+	m_info->setTextInteractionFlags(Qt::TextSelectableByMouse);
+	ui->sidebar->insertWidget(1, m_info);
 
 	ui->filesystemView->setRootIsDecorated(false);
 	ui->filesystemView->setHeaderHidden(true);
 
 	m_model = new QFileSystemModel(this);
 	m_model->setReadOnly(true);
+	// only the files of the kind asked (no desktop.ini, Thumbs.db...)
+	if (file_type != FileFinder::FileType::Default) {
+		QStringList filters;
+		for (const QString& extension : FileFinder::GetFiltersForType(file_type)) {
+			filters << QStringLiteral("*") + extension;
+		}
+		m_model->setFilter(QDir::Files | QDir::NoDotAndDotDot);
+		m_model->setNameFilters(filters);
+		m_model->setNameFilterDisables(false);
+	}
 	ui->filesystemView->setModel(m_model);
+	// the preview follows the file shown, with the mouse or the arrow keys
+	QObject::connect(ui->filesystemView->selectionModel(), &QItemSelectionModel::currentChanged,
+		this, [this](const QModelIndex& index) { showFile(index); });
 
 	// Hide columns except name
 	for (int i = 1; i <= 3; ++i) {
@@ -53,9 +81,32 @@ PickerDialog::PickerDialog(ProjectData &project, FileFinder::FileType file_type,
 	if (file_type == FileFinder::FileType::Image) {
 		ui->wrappedWidget->setView(ui->graphicsView);
 		QObject::connect(ui->graphicsView, &RpgGraphicsViewBase::clicked, this, &PickerDialog::viewClicked);
+		// a closer look, as when importing an image
+		auto* zoom_out = new QPushButton(tr("Zoom Out"), this);
+		zoom_out->setObjectName(QStringLiteral("pushZoomOut"));
+		auto* zoom_in = new QPushButton(tr("Zoom In"), this);
+		zoom_in->setObjectName(QStringLiteral("pushZoomIn"));
+		auto* zoom = new QHBoxLayout;
+		zoom->addWidget(zoom_out);
+		zoom->addWidget(zoom_in);
+		zoom->addStretch();
+		ui->sidebar->insertLayout(1, zoom);
+		m_zoom = new PreviewZoom(ui->graphicsView, zoom_in, zoom_out);
 	} else {
 		ui->graphicsView->setVisible(false);
 	}
+}
+
+void PickerDialog::showInfo() {
+	const QString path = m_currentFile.absoluteFilePath();
+	if (m_currentFile.fileName().isEmpty() || !m_currentFile.isFile()) {
+		m_info->clear();
+		return;
+	}
+	// the RTP's files are outside the game
+	const bool rtp = !path.startsWith(m_project.project().projectDir().absolutePath() + QLatin1Char('/'));
+	const QImage image = m_file_type == FileFinder::FileType::Image ? ImportImageDialog::loadImage(path) : QImage();
+	m_info->setText(resourceInfo(path, rtp, image).join(QLatin1Char('\n')));
 }
 
 PickerDialog::~PickerDialog() {
@@ -85,6 +136,10 @@ void PickerDialog::buttonClicked(QAbstractButton* button) {
 
 void PickerDialog::setDirectoryAndFile(const QString &dir, const QString& initialFile) {
 	m_dir.setPath(dir);
+	// the folder chosen in (Panorama, CharSet...), unless the caller named it
+	if (windowTitle().isEmpty()) {
+		setWindowTitle(tr("Select from %1").arg(QFileInfo(dir).fileName()));
+	}
 	QString path = m_project.project().findDirectory(dir);
 	QString file = m_project.project().findFile(dir, initialFile, m_file_type);
 	m_model->setRootPath(path);
@@ -94,6 +149,7 @@ void PickerDialog::setDirectoryAndFile(const QString &dir, const QString& initia
 	ui->filesystemView->setCurrentIndex(index);
 
 	m_currentFile = QFileInfo(file);
+	showInfo();
 
 	ui->wrappedWidget->fileChanged(m_currentFile.absoluteFilePath());
 
@@ -103,8 +159,12 @@ void PickerDialog::setDirectoryAndFile(const QString &dir, const QString& initia
 	}
 }
 
-void PickerDialog::on_filesystemView_clicked(const QModelIndex &index) {
+void PickerDialog::showFile(const QModelIndex &index) {
+	if (!index.isValid()) {
+		return;
+	}
 	m_currentFile = m_model->fileInfo(index);
+	showInfo();
 	ui->wrappedWidget->fileChanged(m_currentFile.absoluteFilePath());
 	if (m_file_type == FileFinder::FileType::Image) {
 		QPixmap image = ImageLoader::Load(m_currentFile.absoluteFilePath());

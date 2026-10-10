@@ -219,10 +219,15 @@ set(EDITOR_SOURCES
 	src/ui/commands/weather_effects_widget.cpp
 	src/ui/commands/weather_effects_widget.h
 	src/ui/commands/weather_effects_widget.ui
+	src/ui/common/edit_actions.cpp
+	src/ui/common/edit_actions.h
 	src/ui/common/edit_dialog.cpp
 	src/ui/common/color_sample.h
 	src/ui/common/page_scroll_area.h
+	src/ui/common/preview_zoom.cpp
+	src/ui/common/preview_zoom.h
 	src/ui/common/path_field.h
+	src/ui/common/resource_info.h
 	src/ui/common/stale_file.h
 	src/ui/common/toolbar_overflow.cpp
 	src/ui/common/toolbar_overflow.h

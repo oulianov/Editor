@@ -42,6 +42,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
+#include "ui/common/edit_actions.h"
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
@@ -468,18 +469,20 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 
 	// the cel menu of RPG Maker, on the preview
 	m_cellMenu = new QMenu(this);
-	auto* cel_properties = m_cellMenu->addAction(tr("Cel Properties"));
+	auto* cel_properties = EditActions::create(m_cellMenu, tr("Cel Properties"), {}, QStringLiteral("properties"));
+	m_cellMenu->addAction(cel_properties);
 	connect(cel_properties, &QAction::triggered, this, [this] {
 		m_cellPattern->setFocus(Qt::OtherFocusReason);
 		m_cellPattern->selectAll();
 	});
 	m_cellMenu->addSeparator();
-	auto* cel_cut = widgetAction(m_view, tr("Cut"), {QKeySequence::Cut});
-	auto* cel_copy = widgetAction(m_view, tr("Copy"), {QKeySequence::Copy});
-	auto* cel_paste = widgetAction(m_view, tr("Paste"), {QKeySequence::Paste});
-	auto* cel_delete = widgetAction(m_view, tr("Delete"), {QKeySequence::Delete});
-	auto* cel_up = widgetAction(m_view, tr("Increment Image ID"), {QKeySequence(Qt::Key_Plus), QKeySequence(Qt::Key_PageUp)});
-	auto* cel_down = widgetAction(m_view, tr("Decrement Image ID"), {QKeySequence(Qt::Key_Minus), QKeySequence(Qt::Key_PageDown)});
+	using EditActions::Kind;
+	auto* cel_cut = EditActions::create(Kind::Cut, m_view);
+	auto* cel_copy = EditActions::create(Kind::Copy, m_view);
+	auto* cel_paste = EditActions::create(Kind::Paste, m_view);
+	auto* cel_delete = EditActions::create(Kind::Delete, m_view);
+	auto* cel_up = EditActions::create(m_view, tr("Increment Image ID"), {QKeySequence(Qt::Key_Plus), QKeySequence(Qt::Key_PageUp)});
+	auto* cel_down = EditActions::create(m_view, tr("Decrement Image ID"), {QKeySequence(Qt::Key_Minus), QKeySequence(Qt::Key_PageDown)});
 	m_cellMenu->addActions({cel_cut, cel_copy, cel_paste, cel_delete});
 	m_cellMenu->addSeparator();
 	m_cellMenu->addActions({cel_up, cel_down});
@@ -527,13 +530,18 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 	// the frame menu of RPG Maker
 	m_frames->setContextMenuPolicy(Qt::CustomContextMenu);
 	auto* frame_menu = new QMenu(this);
-	auto* frame_copy = widgetAction(m_frames, tr("Copy"), {QKeySequence::Copy});
-	auto* frame_paste = widgetAction(m_frames, tr("Paste"), {QKeySequence::Paste});
-	auto* frame_clear = widgetAction(m_frames, tr("Clear"), {QKeySequence::Delete});
-	auto* frame_cut = widgetAction(m_frames, tr("Cut"), {QKeySequence::Cut});
-	auto* frame_insert = widgetAction(m_frames, tr("Insert"), {QKeySequence(Qt::Key_Insert)});
-	auto* frame_delete = widgetAction(m_frames, tr("Delete"), {QKeySequence(Qt::ShiftModifier | Qt::Key_Delete)});
-	frame_menu->addActions({frame_copy, frame_paste, frame_clear, frame_cut, frame_insert, frame_delete});
+	// RPG Maker's order: Clear empties the frame, Delete removes it
+	auto* frame_copy = EditActions::create(Kind::Copy, m_frames);
+	auto* frame_paste = EditActions::create(Kind::Paste, m_frames);
+	auto* frame_clear = EditActions::create(Kind::Clear, m_frames);
+	auto* frame_cut = EditActions::create(Kind::Cut, m_frames);
+	// a blank frame, no window: no "..."
+	auto* frame_insert = EditActions::create(Kind::Insert, m_frames, {QKeySequence(Qt::Key_Insert)});
+	frame_insert->setText(tr("Insert"));
+	auto* frame_delete = EditActions::create(Kind::Delete, m_frames, {QKeySequence(Qt::ShiftModifier | Qt::Key_Delete)});
+	frame_menu->addActions({frame_copy, frame_paste, frame_clear, frame_cut});
+	frame_menu->addSeparator();
+	frame_menu->addActions({frame_insert, frame_delete});
 	connect(frame_copy, &QAction::triggered, this, [this] {
 		if (auto* frame = currentFrame()) frame_clipboard = frame->cells;
 	});
@@ -560,19 +568,20 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 		frame_paste->setEnabled(frame_clipboard.has_value());
 		frame_insert->setEnabled(count < AnimationTools::kMaxFrames);
 		frame_delete->setEnabled(count > 1);
-		frame_menu->exec(m_frames->viewport()->mapToGlobal(pos));
-		for (auto* action : frame_menu->actions()) action->setEnabled(true);
+		EditActions::exec(*frame_menu, m_frames, pos);
 	});
 
 	// the effect timing menu of RPG Maker
 	m_timings->setContextMenuPolicy(Qt::CustomContextMenu);
 	auto* timing_menu = new QMenu(this);
-	auto* timing_edit = widgetAction(m_timings, tr("Edit..."), {QKeySequence(Qt::Key_Return)});
-	auto* timing_cut = widgetAction(m_timings, tr("Cut"), {QKeySequence::Cut});
-	auto* timing_copy = widgetAction(m_timings, tr("Copy"), {QKeySequence::Copy});
-	auto* timing_paste = widgetAction(m_timings, tr("Paste"), {QKeySequence::Paste});
-	auto* timing_delete = widgetAction(m_timings, tr("Delete"), {QKeySequence::Delete});
-	timing_menu->addActions({timing_edit, timing_cut, timing_copy, timing_paste, timing_delete});
+	auto* timing_edit = EditActions::create(Kind::Edit, m_timings);
+	auto* timing_cut = EditActions::create(Kind::Cut, m_timings);
+	auto* timing_copy = EditActions::create(Kind::Copy, m_timings);
+	auto* timing_paste = EditActions::create(Kind::Paste, m_timings);
+	auto* timing_delete = EditActions::create(Kind::Delete, m_timings);
+	timing_menu->addAction(timing_edit);
+	timing_menu->addSeparator();
+	timing_menu->addActions({timing_cut, timing_copy, timing_paste, timing_delete});
 	connect(timing_edit, &QAction::triggered, this, [this] { editTiming(currentTiming()); });
 	connect(timing_copy, &QAction::triggered, this, [this] {
 		const int index = currentTiming();
@@ -588,8 +597,7 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 		const bool on_timing = currentTiming() >= 0;
 		for (auto* action : {timing_cut, timing_copy, timing_delete}) action->setEnabled(on_timing);
 		timing_paste->setEnabled(timing_clipboard.has_value());
-		timing_menu->exec(m_timings->viewport()->mapToGlobal(pos));
-		for (auto* action : timing_menu->actions()) action->setEnabled(true);
+		EditActions::exec(*timing_menu, m_timings, pos);
 	});
 
 	loadTarget();

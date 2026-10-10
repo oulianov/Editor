@@ -44,6 +44,9 @@
 int main(int argc, char *argv[]) {
 	QApplication app(argc, argv);
 	app.setStyle(new EditorStyle());
+	// the shortcuts beside the actions of right-click menus too, as on
+	// Windows and Linux (macOS hides them by default)
+	QCoreApplication::setAttribute(Qt::AA_DontShowShortcutsInContextMenus, false);
 
 	app.setApplicationName("EasyRPG Editor");
 	app.setOrganizationName("EasyRPG");

@@ -17,6 +17,7 @@
 
 #include "import_image_dialog.h"
 #include "ui_import_image_dialog.h"
+#include "preview_zoom.h"
 #include <QFile>
 #include <QGraphicsScene>
 #include <QHash>
@@ -127,7 +128,8 @@ void ImportImageDialog::init()
 	ui->graphicsView->setScene(m_scene);
 
 	// small game graphics (charsets, faces...) are easier to click enlarged
-	setScale(m_source.width() <= 320 && m_source.height() <= 256 ? 2 : 1);
+	m_zoom = new PreviewZoom(ui->graphicsView, ui->pushZoomIn, ui->pushZoomOut);
+	m_zoom->setZoom(m_source.width() <= 320 && m_source.height() <= 256 ? 2 : 1);
 	updateView();
 }
 
@@ -203,25 +205,6 @@ QImage ImportImageDialog::image() const
 		return opaquePalette(result);
 	}
 	return displayImage();
-}
-
-void ImportImageDialog::setScale(int scale)
-{
-	m_scale = qBound(1, scale, 4);
-	ui->graphicsView->resetTransform();
-	ui->graphicsView->scale(m_scale, m_scale);
-	ui->pushZoomIn->setEnabled(m_scale < 4);
-	ui->pushZoomOut->setEnabled(m_scale > 1);
-}
-
-void ImportImageDialog::on_pushZoomIn_clicked()
-{
-	setScale(m_scale + 1);
-}
-
-void ImportImageDialog::on_pushZoomOut_clicked()
-{
-	setScale(m_scale - 1);
 }
 
 QImage ImportImageDialog::loadImage(const QString& path)

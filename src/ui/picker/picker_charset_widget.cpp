@@ -87,7 +87,6 @@ void PickerCharsetWidget::imageChanged(QPixmap image) {
 		// the whole sheet, at its size: every pose can be clicked
 		if (!m_pixmap) {
 			m_view->setMinimumSize(24 * 12 + 4, 32 * 8 + 4);
-			m_view->setMaximumSize(24 * 12 + 4, 32 * 8 + 4);
 			m_pixmap = new QGraphicsPixmapItem();
 		}
 		m_pixmap->setPixmap(image);
@@ -97,7 +96,6 @@ void PickerCharsetWidget::imageChanged(QPixmap image) {
 	}
 	if (!m_pixmap) {
 		m_view->setMinimumSize(196, 132);
-		m_view->setMaximumSize(196, 132);
 		m_view->scale(2.0, 2.0);
 		m_pixmap = new QGraphicsPixmapItem();
 	}

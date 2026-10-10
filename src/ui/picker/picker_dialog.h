@@ -25,8 +25,10 @@
 
 class ProjectData;
 class QFileSystemModel;
+class QLabel;
 class QAbstractButton;
 class PickerChildWidget;
+class PreviewZoom;
 
 namespace Ui {
 class PickerDialog;
@@ -45,7 +47,8 @@ signals:
 	void fileSelected(QString baseName);
 
 private slots:
-	void on_filesystemView_clicked(const QModelIndex &index);
+	/** The file shown (a click, the arrow keys): its preview */
+	void showFile(const QModelIndex &index);
 	void buttonClicked(QAbstractButton* button);
 	void viewClicked(const QPointF& pos);
 
@@ -57,5 +60,10 @@ private:
 	QDir m_dir;
 	QFileInfo m_currentFile;
 	QFileSystemModel* m_model = nullptr;
+	/** What the file shown is (resourceInfo) */
+	QLabel* m_info = nullptr;
+	/** The zoom of the preview, as when importing an image */
+	PreviewZoom* m_zoom = nullptr;
+	void showInfo();
 	FileFinder::FileType m_file_type;
 };

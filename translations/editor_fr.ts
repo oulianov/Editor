@@ -3341,6 +3341,59 @@
     </message>
 </context>
 <context>
+    <name>EditActions</name>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Undo</source>
+        <translation>Défaire</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Redo</source>
+        <translation>Rétablir</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Insert...</source>
+        <translation>Insérer...</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Edit...</source>
+        <translation>Éditer...</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Cut</source>
+        <translation>Couper</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Copy</source>
+        <translation>Copier</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Paste</source>
+        <translation>Coller</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Delete</source>
+        <translation>Supprimer</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Clear</source>
+        <translation>Effacer</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/common/edit_actions.cpp" line="0"/>
+        <source>Select All</source>
+        <translation>Tout sélectionner</translation>
+    </message>
+</context>
+<context>
     <name>EditDialog</name>
     <message>
         <location filename="../src/ui/common/edit_dialog.ui" line="+14" />

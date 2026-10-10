@@ -66,6 +66,10 @@
 #include <QElapsedTimer>
 #include <QGraphicsView>
 #include <QMenu>
+#include <QNativeGestureEvent>
+#include <QPointingDevice>
+#include <cmath>
+#include <QContextMenuEvent>
 #include <QAbstractItemView>
 #include <array>
 #include <optional>
@@ -391,6 +395,15 @@ bool Automation::run(const QStringList& args) {
 	if (cmd == "screenshot" && args.size() <= 2) {
 		return !Screenshot::save(nullptr, args.value(1)).isEmpty();
 	}
+	if (cmd == "screenshot-menu" && args.size() == 2) {
+		// the menu shown: a window of its own, outside the window's screenshot
+		auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+		if (!menu || !menu->grab().save(args[1])) {
+			fail("no menu shown");
+			return false;
+		}
+		return true;
+	}
 	if (cmd == "check-layout" && args.size() == 1) {
 		QWidget* window = Screenshot::activeWindow();
 		if (!window) {
@@ -505,6 +518,48 @@ bool Automation::run(const QStringList& args) {
 		}
 		// queued: a button opening a dialog must not block the script
 		QMetaObject::invokeMethod(found, &QAbstractButton::click, Qt::QueuedConnection);
+		return true;
+	}
+	if (cmd == "context-menu" && args.size() == 2) {
+		// the menu of a right click on the widget (on its current line for a list)
+		QWidget* widget = findWidget(args[1]);
+		if (!widget) {
+			fail("no widget " + args[1]);
+			return false;
+		}
+		QWidget* target = widget;
+		QPoint pos = widget->rect().center();
+		if (auto* view = qobject_cast<QAbstractItemView*>(widget)) {
+			target = view->viewport();
+			pos = view->currentIndex().isValid() ? view->visualRect(view->currentIndex()).center() : target->rect().center();
+		}
+		// posted: the menu runs its own loop, the script goes on in it
+		QApplication::postEvent(target, new QContextMenuEvent(QContextMenuEvent::Mouse, pos, target->mapToGlobal(pos)));
+		return true;
+	}
+	if (cmd == "dump-menu" && args.size() == 1) {
+		// each item of the menu shown: its text, its shortcut, whether it has an
+		// icon, whether it is greyed, its tooltip
+		auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+		if (!menu) {
+			fail("no menu shown");
+			return false;
+		}
+		for (QAction* action : menu->actions()) {
+			if (action->isSeparator()) {
+				continue;
+			}
+			const QString tip = action->toolTip() != action->text().remove('&') ? " | " + action->toolTip() : QString();
+			qCInfo(lcAutomation).noquote() << QString("  %1 | %2 | %3%4%5").arg(action->text().remove('&'),
+				action->shortcut().toString(QKeySequence::PortableText), action->icon().isNull() ? "-" : "icon",
+				action->isEnabled() ? "" : " | greyed", tip);
+		}
+		return true;
+	}
+	if (cmd == "close-menu" && args.size() == 1) {
+		if (QWidget* popup = QApplication::activePopupWidget()) {
+			popup->close();
+		}
 		return true;
 	}
 	if (cmd == "menu" && args.size() >= 2) {
@@ -753,6 +808,39 @@ bool Automation::run(const QStringList& args) {
 		fail(QString("no map %1 in the map tree").arg(a));
 		return false;
 	}
+	if (cmd == "pinch" && args.size() == 3) {
+		// a trackpad pinch on the map ("map") or a view, the fingers spreading
+		// (factor > 1) or closing, in ten events as macOS sends them
+		bool ok = false;
+		const double factor = args[2].toDouble(&ok);
+		QGraphicsView* view = nullptr;
+		MapScene* scene = args[1] == "map" ? m_window.currentScene() : nullptr;
+		if (scene && !scene->views().isEmpty()) {
+			view = scene->views().first();
+		} else if (args[1] != "map") {
+			view = qobject_cast<QGraphicsView*>(findWidget(args[1]));
+		}
+		if (!view || !ok || factor <= 0) {
+			fail("no view " + args[1]);
+			return false;
+		}
+		QWidget* target = view->viewport();
+		const QPointF pos = target->rect().center();
+		const QPointF global = target->mapToGlobal(pos);
+		const double step = std::pow(factor, 0.1) - 1.0;
+		auto send = [&](Qt::NativeGestureType type, double value) {
+			QNativeGestureEvent gesture(type, QPointingDevice::primaryPointingDevice(), 2, pos, pos, global, value, QPointF());
+			QApplication::sendEvent(target, &gesture);
+		};
+		send(Qt::BeginNativeGesture, 0);
+		for (int i = 0; i < 10; ++i) {
+			send(Qt::ZoomNativeGesture, step);
+		}
+		send(Qt::EndNativeGesture, 0);
+		qCInfo(lcAutomation).noquote() << QString("%1 zoomed x%2").arg(args[1])
+			.arg(scene ? static_cast<double>(scene->scale()) : view->transform().m11());
+		return true;
+	}
 	if ((cmd == "map-click" || cmd == "map-double-click") && (args.size() == 3 || args.size() == 4)
 			&& toInt(args[1], a) && toInt(args[2], b)) {
 		MapScene* scene = m_window.currentScene();
@@ -813,6 +901,33 @@ bool Automation::run(const QStringList& args) {
 		previewMouse(preview, QEvent::MouseButtonPress, a, b, Qt::LeftButton, Qt::LeftButton);
 		previewMouse(preview, QEvent::MouseMove, x2, y2, Qt::NoButton, Qt::LeftButton);
 		previewMouse(preview, QEvent::MouseButtonRelease, x2, y2, Qt::LeftButton, Qt::NoButton);
+		return true;
+	}
+	if (cmd == "expect-tab" && args.size() == 3) {
+		// the tab shown in a tab widget, by its text
+		auto* tabs = qobject_cast<QTabWidget*>(findWidget(args[1]));
+		const QString shown = tabs ? tabs->tabText(tabs->currentIndex()).remove('&') : QString();
+		if (shown != args[2]) {
+			fail(QString("%1 shows the tab \"%2\", not \"%3\"").arg(args[1], shown, args[2]));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "click-tab" && args.size() == 3 && toInt(args[2], a)) {
+		// a click on a tab of a tab widget, as the mouse does it (the click
+		// focuses the bar, then the arrows go to the next tabs)
+		auto* tabs = qobject_cast<QTabWidget*>(findWidget(args[1]));
+		QTabBar* bar = tabs ? tabs->tabBar() : nullptr;
+		if (!bar || a < 0 || a >= bar->count()) {
+			fail("no tab " + args[2] + " in " + args[1]);
+			return false;
+		}
+		const QPointF pos = bar->tabRect(a).center();
+		for (auto type : {QEvent::MouseButtonPress, QEvent::MouseButtonRelease}) {
+			QMouseEvent event(type, pos, bar->mapToGlobal(pos), Qt::LeftButton,
+				type == QEvent::MouseButtonPress ? Qt::LeftButton : Qt::NoButton, Qt::NoModifier);
+			QApplication::sendEvent(bar, &event);
+		}
 		return true;
 	}
 	if (cmd == "view-click" || cmd == "view-drag") {

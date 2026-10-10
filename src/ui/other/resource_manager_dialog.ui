@@ -15,7 +15,7 @@
   </property>
   <layout class="QVBoxLayout" name="layoutDialog">
    <item>
-    <layout class="QHBoxLayout" name="layoutMain" stretch="0,2,3">
+    <layout class="QHBoxLayout" name="layoutMain" stretch="0,1">
      <item>
       <widget class="QTreeWidget" name="listFolders">
        <property name="sizePolicy">
@@ -44,170 +44,228 @@
       </widget>
      </item>
      <item>
-      <layout class="QVBoxLayout" name="layoutFiles">
-       <item>
-        <widget class="QLineEdit" name="filterFiles">
-         <property name="placeholderText">
-          <string>Filter</string>
+      <widget class="QSplitter" name="splitterResources">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="childrenCollapsible">
+        <bool>false</bool>
+       </property>
+       <widget class="QWidget" name="widgetFiles">
+        <layout class="QVBoxLayout" name="layoutFiles">
+         <property name="leftMargin">
+          <number>0</number>
          </property>
-         <property name="clearButtonEnabled">
-          <bool>true</bool>
+         <property name="topMargin">
+          <number>0</number>
          </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QTreeWidget" name="listFiles">
-         <property name="rootIsDecorated">
-          <bool>false</bool>
+         <property name="rightMargin">
+          <number>0</number>
          </property>
-         <property name="uniformRowHeights">
-          <bool>true</bool>
+         <property name="bottomMargin">
+          <number>0</number>
          </property>
-         <property name="headerHidden">
-          <bool>true</bool>
-         </property>
-         <column>
-          <property name="text">
-           <string>File</string>
-          </property>
-         </column>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="labelCount"/>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QVBoxLayout" name="layoutRight">
-       <item>
-        <layout class="QHBoxLayout" name="layoutActions">
          <item>
-          <layout class="QVBoxLayout" name="layoutButtons">
+          <widget class="QLineEdit" name="filterFiles">
+           <property name="placeholderText">
+            <string>Filter</string>
+           </property>
+           <property name="clearButtonEnabled">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QTreeWidget" name="listFiles">
+           <property name="rootIsDecorated">
+            <bool>false</bool>
+           </property>
+           <property name="uniformRowHeights">
+            <bool>true</bool>
+           </property>
+           <property name="headerHidden">
+            <bool>true</bool>
+           </property>
+           <column>
+            <property name="text">
+             <string>File</string>
+            </property>
+           </column>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="labelCount"/>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="widgetRight">
+        <layout class="QVBoxLayout" name="layoutRight">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <layout class="QHBoxLayout" name="layoutActions">
            <item>
-            <widget class="QPushButton" name="pushImport">
-             <property name="text">
-              <string>Import...</string>
+            <layout class="QVBoxLayout" name="layoutButtons">
+             <item>
+              <widget class="QPushButton" name="pushImport">
+               <property name="text">
+                <string>Import...</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushExport">
+               <property name="text">
+                <string>Export...</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushDelete">
+               <property name="text">
+                <string>Delete</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="groupImportAs">
+             <property name="title">
+              <string>Import as</string>
              </property>
+             <layout class="QVBoxLayout" name="layoutImportAs">
+              <item>
+               <widget class="QRadioButton" name="radioImportPng">
+                <property name="text">
+                 <string>PNG Image</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="radioImportXyz">
+                <property name="text">
+                 <string>XYZ Image</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="pushExport">
-             <property name="text">
-              <string>Export...</string>
+            <spacer name="spacerActions">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
              </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pushDelete">
-             <property name="text">
-              <string>Delete</string>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
              </property>
-            </widget>
+            </spacer>
            </item>
           </layout>
          </item>
          <item>
-          <widget class="QGroupBox" name="groupImportAs">
-           <property name="title">
-            <string>Import as</string>
+          <widget class="QGraphicsView" name="previewView">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>1</verstretch>
+            </sizepolicy>
            </property>
-           <layout class="QVBoxLayout" name="layoutImportAs">
-            <item>
-             <widget class="QRadioButton" name="radioImportPng">
-              <property name="text">
-               <string>PNG Image</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QRadioButton" name="radioImportXyz">
-              <property name="text">
-               <string>XYZ Image</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
           </widget>
          </item>
          <item>
-          <spacer name="spacerActions">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
+          <widget class="QScrollArea" name="preview">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>1</verstretch>
+            </sizepolicy>
            </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>0</width>
-             <height>0</height>
-            </size>
+           <property name="widgetResizable">
+            <bool>true</bool>
            </property>
-          </spacer>
+           <widget class="QLabel" name="previewImage">
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="previewInfo">
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="textInteractionFlags">
+            <set>Qt::TextSelectableByMouse</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="layoutAudio">
+           <item>
+            <widget class="QPushButton" name="pushPlay">
+             <property name="text">
+              <string>Play</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushStop">
+             <property name="text">
+              <string>Stop</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushZoomOut">
+             <property name="text">
+              <string>Zoom Out</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushZoomIn">
+             <property name="text">
+              <string>Zoom In</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="spacerAudio">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
          </item>
         </layout>
-       </item>
-       <item>
-        <widget class="QScrollArea" name="preview">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>1</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="widgetResizable">
-          <bool>true</bool>
-         </property>
-         <widget class="QLabel" name="previewImage">
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="previewInfo">
-         <property name="wordWrap">
-          <bool>true</bool>
-         </property>
-         <property name="textInteractionFlags">
-          <set>Qt::TextSelectableByMouse</set>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="layoutAudio">
-         <item>
-          <widget class="QPushButton" name="pushPlay">
-           <property name="text">
-            <string>Play</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pushStop">
-           <property name="text">
-            <string>Stop</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="spacerAudio">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>0</width>
-             <height>0</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-        </layout>
-       </item>
-      </layout>
+       </widget>
+      </widget>
      </item>
     </layout>
    </item>

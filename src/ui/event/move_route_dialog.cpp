@@ -36,6 +36,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QMenu>
+#include "ui/common/edit_actions.h"
 #include <QPushButton>
 #include <QShortcut>
 #include <QVBoxLayout>
@@ -337,12 +338,14 @@ void MoveRouteDialog::paste() {
 
 void MoveRouteDialog::showContextMenu(const QPoint& pos) {
 	const bool selected = !selectedRows().empty();
+	// the keys are read by keyPressEvent: the menu only shows them
+	using EditActions::Kind;
 	QMenu menu(this);
-	menu.addAction(tr("Cut"), QKeySequence::Cut, this, [this] { copySelected(true); })->setEnabled(selected);
-	menu.addAction(tr("Copy"), QKeySequence::Copy, this, [this] { copySelected(false); })->setEnabled(selected);
-	menu.addAction(tr("Paste"), QKeySequence::Paste, this, [this] { paste(); })->setEnabled(!s_clipboard.empty());
-	menu.addAction(tr("Delete"), QKeySequence::Delete, this, [this] { removeSelected(); })->setEnabled(selected);
-	menu.exec(m_list->viewport()->mapToGlobal(pos));
+	EditActions::add(menu, Kind::Cut, this, [this] { copySelected(true); })->setEnabled(selected);
+	EditActions::add(menu, Kind::Copy, this, [this] { copySelected(false); })->setEnabled(selected);
+	EditActions::add(menu, Kind::Paste, this, [this] { paste(); })->setEnabled(!s_clipboard.empty());
+	EditActions::add(menu, Kind::Delete, this, [this] { removeSelected(); })->setEnabled(selected);
+	EditActions::exec(menu, m_list, pos);
 }
 
 void MoveRouteDialog::keyPressEvent(QKeyEvent* event) {

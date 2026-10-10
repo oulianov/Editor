@@ -21,6 +21,9 @@
 #include <QImage>
 #include "common/filefinder.h"
 
+class PreviewZoom;
+class QGraphicsPixmapItem;
+class QGraphicsScene;
 class QTreeWidgetItem;
 
 namespace Ui {
@@ -82,6 +85,8 @@ private:
 	void refreshFolders();
 	void refreshFiles(const QString& select = QString());
 	void updateButtons();
+	/** The image view and its zoom, else the label (sounds, movies) */
+	void showImage(bool image);
 	void showPreview(const QString& path, bool rtp);
 
 	QString currentPath() const;
@@ -94,4 +99,7 @@ private:
 	static QString sizeRule(const Folder& folder, QSize size);
 
 	Ui::ResourceManagerDialog *ui;
+	QGraphicsScene* m_previewScene = nullptr;
+	QGraphicsPixmapItem* m_previewPixmap = nullptr;
+	PreviewZoom* m_zoom = nullptr;
 };

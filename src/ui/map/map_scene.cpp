@@ -18,6 +18,7 @@
 #include "map_scene.h"
 #include <QAction>
 #include <QKeyEvent>
+#include <QNativeGestureEvent>
 #include <QDialogButtonBox>
 #include <QGraphicsBlurEffect>
 #include <QGraphicsOpacityEffect>
@@ -1230,7 +1231,7 @@ void MapScene::showFloating()
 	const int ts = core().tileSize();
 	QPixmap pix(m_float.width * ts, m_float.height * ts);
 	pix.fill(Qt::transparent);
-	core().setBackground(m_panorama);
+	core().setBackground(m_panorama, panoramaTransform(m_floatPos, ts));
 	core().beginPainting(pix);
 	for (int y = 0; y < m_float.height; y++)
 		for (int x = 0; x < m_float.width; x++)
@@ -1626,6 +1627,33 @@ void MapScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 	}
 }
 
+bool MapScene::pinch(QNativeGestureEvent *event)
+{
+	// A trackpad pinch zooms by the steps of the zoom tool, as Ctrl + wheel:
+	// a step each time the fingers spread (or close) by about 1.4
+	switch (event->gestureType()) {
+	case Qt::BeginNativeGesture:
+	case Qt::EndNativeGesture:
+		m_pinch = 1.0;
+		return false;
+	case Qt::ZoomNativeGesture:
+		break;
+	default:
+		return false;
+	}
+	m_pinch *= 1.0 + event->value();
+	if (m_pinch >= M_SQRT2 && static_cast<double>(m_scale) < 8.0) {
+		setScale(m_scale * 2);
+		m_pinch /= 2;
+	} else if (m_pinch <= M_SQRT1_2 && static_cast<double>(m_scale) > 0.125) {
+		setScale(m_scale / 2);
+		m_pinch *= 2;
+	}
+	// at a limit, the fingers going on do not pile up
+	m_pinch = std::clamp(m_pinch, M_SQRT1_2, M_SQRT2);
+	return true;
+}
+
 void MapScene::wheelEvent(QGraphicsSceneWheelEvent *event)
 {
 	// Ctrl + wheel zooms, by the steps of the zoom tool
@@ -1715,6 +1743,8 @@ bool MapScene::eventFilter(QObject *watched, QEvent *event)
 		QTimer::singleShot(0, this, &MapScene::redrawMap);
 	if (watched == m_view->viewport() && event->type() == QEvent::Leave)
 		m_brushItem->setVisible(false);
+	if (watched == m_view->viewport() && event->type() == QEvent::NativeGesture)
+		return pinch(static_cast<QNativeGestureEvent*>(event));
 	return QGraphicsScene::eventFilter(watched, event);
 }
 
@@ -1823,7 +1853,7 @@ void MapScene::redrawLayer(Core::Layer layer)
 		m_drawnTileFrame = core().animatedTileFrame();
 	}
 	// the panorama of this map, not of the last map loaded
-	core().setBackground(m_panorama);
+	core().setBackground(m_panorama, panoramaTransform(QPoint(start_x, start_y), s_tileSize));
 	core().beginPainting(pix);
 	for (int x = start_x; x <= end_x; x++)
 		for (int y = start_y; y <= end_y; y++)
@@ -1911,7 +1941,7 @@ void MapScene::animateTiles()
 	if (tiles)
 		m_drawnTileFrame = core().animatedTileFrame();
 	QPixmap pix = m_lowerpix->pixmap();
-	core().setBackground(m_panorama);
+	core().setBackground(m_panorama, panoramaTransform(m_lowerOrigin, s_tileSize));
 	core().beginPainting(pix);
 	auto draw = [this](const std::vector<QPoint>& cells) {
 		for (const QPoint& cell : cells)
@@ -2202,6 +2232,16 @@ int MapScene::getFirstFreeId() {
 	}
 
 	return id;
+}
+
+QTransform MapScene::panoramaTransform(const QPoint& first_cell, double tile_size) const {
+	// the panorama starts at the top-left corner of the map, one of its
+	// pixels a pixel of the map: as zoomed as the tiles
+	const double zoom = tile_size / core().tileSize();
+	QTransform transform;
+	transform.translate(-first_cell.x() * tile_size, -first_cell.y() * tile_size);
+	transform.scale(zoom, zoom);
+	return transform;
 }
 
 void MapScene::redrawPanorama() {
