@@ -35,6 +35,7 @@
 #include <QTreeWidgetItemIterator>
 #include "common/dbstring.h"
 #include "common/editor_settings.h"
+#include "common/script_link.h"
 #include <QPainter>
 #include <QHeaderView>
 #include <QAction>
@@ -772,7 +773,10 @@ QModelIndex EventCommandsWidget::moveCursor(CursorAction action, Qt::KeyboardMod
 
 void EventCommandsWidget::keyPressEvent(QKeyEvent* event) {
 	QTreeWidgetItem* item = currentItem();
-	if (event->matches(QKeySequence::Undo)) {
+	if (event->key() == Qt::Key_O && event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier)
+			&& !m_scriptLocation.isEmpty() && ScriptLink::available()) {
+		openScript();
+	} else if (event->matches(QKeySequence::Undo)) {
 		m_undoStack->undo();
 	} else if (event->matches(QKeySequence::Redo)) {
 		m_undoStack->redo();
@@ -797,6 +801,21 @@ void EventCommandsWidget::keyPressEvent(QKeyEvent* event) {
 		QTreeWidget::keyPressEvent(event);
 		m_extending = false;
 	}
+}
+
+void EventCommandsWidget::setScriptLocation(const QStringList& location) {
+	m_scriptLocation = location;
+}
+
+void EventCommandsWidget::openScript() {
+	if (m_scriptLocation.isEmpty()) {
+		return;
+	}
+	QTreeWidgetItem* item = currentItem();
+	const int index = item ? indexOf(item) : -1;
+	// the line of the command (a message opens at its first line)
+	ScriptLink::open(this, m_scriptLocation, index >= 0 && m_commands && index < static_cast<int>(m_commands->size())
+		? commandStart(index) : -1);
 }
 
 void EventCommandsWidget::showContextMenu(const QPoint& pos) {
@@ -829,6 +848,10 @@ void EventCommandsWidget::showContextMenu(const QPoint& pos) {
 	}
 	menu.addAction(tr("Select All"), QKeySequence::SelectAll, this, [this] { selectAllCommands(); })
 		->setEnabled(m_commands && !m_commands->empty());
+	if (!m_scriptLocation.isEmpty() && ScriptLink::available()) {
+		menu.addSeparator();
+		menu.addAction(tr("Open in Script Editor"), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O), this, [this] { openScript(); });
+	}
 	menu.addSeparator();
 	menu.addAction(tr("Add raw") + "...", this, [=, this] { addRawEvent(item); });
 	if (item && indexOf(item) < static_cast<int>(m_commands->size())) {

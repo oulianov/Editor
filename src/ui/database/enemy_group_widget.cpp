@@ -16,6 +16,7 @@
  */
 
 #include "enemy_group_widget.h"
+#include "ui/event/event_commands_widget.h"
 #include "database_list_data.h"
 #include "ui_enemy_group_widget.h"
 
@@ -272,10 +273,15 @@ void EnemyGroupWidget::refreshPages(int current) {
 	}
 
 	auto& pages = m_current->pages;
-	for (auto& page : pages) {
+	for (size_t i = 0; i < pages.size(); ++i) {
 		auto* tab = new BattlePageWidget(ui->tabPages);
-		tab->setEventPage(m_project, *m_current, &page);
-		ui->tabPages->addTab(tab, QString::number(page.ID));
+		tab->setEventPage(m_project, *m_current, &pages[i]);
+		// its script (rpgsync): the page of the troop, in order
+		if (auto* commands = tab->findChild<EventCommandsWidget*>(QStringLiteral("commands")); commands && m_current != &m_dummy) {
+			commands->setScriptLocation({QStringLiteral("--troop"), QString::number(m_current->ID),
+				QStringLiteral("--page"), QString::number(i + 1)});
+		}
+		ui->tabPages->addTab(tab, QString::number(pages[i].ID));
 	}
 	ui->tabPages->setCurrentIndex(std::min(current, ui->tabPages->count() - 1));
 }

@@ -743,9 +743,10 @@ bool Automation::run(const QStringList& args) {
 		}
 		for (QTreeWidgetItemIterator it(tree); *it; ++it) {
 			if ((*it)->data(1, Qt::DisplayRole).toInt() == a) {
+				// as a click: the tree has the focus when the map is selected
+				tree->setFocus(Qt::OtherFocusReason);
 				tree->setCurrentItem(*it);
 				tree->scrollToItem(*it);
-				tree->setFocus(Qt::OtherFocusReason);
 				return true;
 			}
 		}
@@ -1144,6 +1145,15 @@ QString Automation::widgetText(QWidget* widget) {
 			lines << (row == view->currentIndex().row() ? "> " : "  ") + cells.join(" | ");
 		}
 		return lines.join('\n');
+	}
+	if (auto* tabs = qobject_cast<QTabWidget*>(widget)) {
+		// its tabs, the temporary ones (a map only looked at) marked with "~"
+		QStringList names;
+		for (int i = 0; i < tabs->count(); ++i) {
+			const bool temporary = tabs->tabBar()->tabData(i).toString() == QLatin1String("temporary");
+			names << (temporary ? QStringLiteral("~") : QString()) + tabs->tabText(i);
+		}
+		return names.join(QStringLiteral(" | "));
 	}
 	if (auto* text = qobject_cast<QPlainTextEdit*>(widget)) {
 		return text->toPlainText();

@@ -38,7 +38,8 @@ struct ExportPreset
 	/**
 	 * The EasyRPG Player of the platform: Player.exe, the "EasyRPG Player.app"
 	 * bundle, the easyrpg-player program, or the folder of the web Player
-	 * (index.html). kGameRuntime keeps the game's RPG_RT.exe (Windows).
+	 * (a release with index.html, or a Player build folder: see WebPlayer).
+	 * kGameRuntime keeps the game's RPG_RT.exe (Windows).
 	 */
 	QString launcher;
 	/** A .zip of the folder next to it (web: the zip to upload to itch.io) */

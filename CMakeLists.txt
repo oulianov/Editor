@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
 cmake_policy(SET CMP0091 NEW) # Support MSVC_RUNTIME_LIBRARY
 
-project(EasyRPG_Editor VERSION 0.1.0 LANGUAGES CXX)
+project(EasyRPG_Editor VERSION 0.1.0
+	DESCRIPTION "Editor for RPG Maker 2000/2003 games (fork of the EasyRPG Editor)"
+	HOMEPAGE_URL "https://github.com/oulianov/Editor"
+	LANGUAGES CXX)
 if(APPLE)
 	# Native macOS audio and application activation
 	enable_language(OBJCXX)
@@ -9,7 +12,21 @@ endif()
 
 # Extra CMake Module files
 set(REQUIRED_QT_VERSION "6.10.1")
-find_package(ECM ${REQUIRED_QT_VERSION} REQUIRED)
+# A dependency missing: where to get it (docs/Building.md)
+macro(editor_find_package name)
+	find_package(${name} ${ARGN} QUIET)
+	if(NOT ${name}_FOUND)
+		if(APPLE)
+			set(_editor_hint "run builds/macos/build.sh, which builds it with the Editor")
+		else()
+			set(_editor_hint "use the vcpkg presets (cmake --preset vcpkg-liblcf-release)")
+		endif()
+		message(FATAL_ERROR "${name} was not found. To get it, ${_editor_hint}, "
+			"or add its install folder to CMAKE_PREFIX_PATH. See docs/Building.md.")
+	endif()
+endmacro()
+
+editor_find_package(ECM ${REQUIRED_QT_VERSION})
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/Modules" ${ECM_MODULE_PATH})
 include(EditorConfigureWindows)
 
@@ -79,6 +96,8 @@ set(EDITOR_SOURCES
 	src/model/export_references.h
 	src/model/game_export.cpp
 	src/model/game_export.h
+	src/model/web_player.cpp
+	src/model/web_player.h
 	src/model/item.cpp
 	src/model/item.h
 	src/model/map_tools.cpp
@@ -87,6 +106,8 @@ set(EDITOR_SOURCES
 	src/model/maniac_expression.h
 	src/model/dungeon_generator.cpp
 	src/model/dungeon_generator.h
+	src/common/script_link.cpp
+	src/common/script_link.h
 	src/model/data_merge.cpp
 	src/model/data_merge.h
 	src/model/project_convert.cpp
@@ -501,11 +522,11 @@ find_package(Qt6 ${REQUIRED_QT_VERSION} CONFIG REQUIRED COMPONENTS
 	GuiPrivate QuickPrivate QuickControls2 WidgetsPrivate)
 find_package(Qt6LinguistTools CONFIG QUIET)
 find_package(ZLIB REQUIRED)
-find_package(glaze REQUIRED)
-find_package(KF6 ${KF_DEP_VERSION} REQUIRED COMPONENTS Kirigami)
-find_package(QQC2BreezeStyle REQUIRED)
+editor_find_package(glaze)
+editor_find_package(KF6 ${KF_DEP_VERSION} COMPONENTS Kirigami)
+editor_find_package(QQC2BreezeStyle)
 find_package(KDBindings QUIET) # only required by the static build
-find_package(KDDockWidgets-qt6 REQUIRED)
+editor_find_package(KDDockWidgets-qt6)
 
 qt_standard_project_setup(
 	REQUIRES "${REQUIRED_QT_VERSION}"
@@ -712,6 +733,11 @@ if(EDITOR_SCRIPTS)
 		target_link_libraries(editor_data_merge_test PRIVATE liblcf::liblcf Qt6::Core)
 	endif()
 	add_test(NAME data_merge COMMAND editor_data_merge_test)
+	# the web Player folders the export accepts (a release, a Player build folder)
+	add_executable(editor_web_player_test tests/web_player_test.cpp src/model/web_player.cpp)
+	target_include_directories(editor_web_player_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+	target_link_libraries(editor_web_player_test PRIVATE Qt6::Core)
+	add_test(NAME web_player COMMAND editor_web_player_test)
 	if(EDITOR_TEST_PROJECT)
 		# the Editor and another program change the game at once
 		add_test(NAME merge_with_other_program COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/merge_test.sh

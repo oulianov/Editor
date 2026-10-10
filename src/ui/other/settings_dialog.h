@@ -42,6 +42,7 @@ private:
 	QCheckBox* m_searchCache;
 	QLineEdit* m_rtpPath;
 	QLineEdit* m_playerPath;
+	QLineEdit* m_scriptEditor;
 	QCheckBox* m_animateTiles;
 	QCheckBox* m_commandColors;
 	QCheckBox* m_commandStripes;

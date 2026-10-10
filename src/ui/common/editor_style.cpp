@@ -29,6 +29,10 @@
 #include <QPainterPath>
 #include <QPlainTextEdit>
 #include <QFormLayout>
+#include <QTabBar>
+#include <cmath>
+#include <QStyleOptionTab>
+#include <QToolButton>
 #include <QScrollArea>
 #include <QStyleOptionGroupBox>
 #include <QTextEdit>
@@ -81,6 +85,11 @@ void EditorStyle::polish(QWidget* widget) {
 		widget->installEventFilter(this);
 	}
 
+	if (qobject_cast<QTabBar*>(widget)) {
+		// the wheel scrolls the tabs (scrollTabs)
+		widget->installEventFilter(this);
+	}
+
 	if (auto* group = qobject_cast<QGroupBox*>(widget)) {
 		// the padding comes from the style, the same in every dialog
 		if (group->layout()) {
@@ -98,7 +107,38 @@ void EditorStyle::polish(QWidget* widget) {
 #endif
 }
 
+namespace {
+/** The wheel over a tab bar scrolls its tabs, one tab a step (a notch of a
+ *  mouse wheel, 40 pixels of a trackpad, up or sideways), and never changes
+ *  the tab shown. false: not a horizontal bar. */
+bool scrollTabs(QTabBar* bar, QWheelEvent* wheel) {
+	if (bar->shape() != QTabBar::RoundedNorth && bar->shape() != QTabBar::RoundedSouth
+			&& bar->shape() != QTabBar::TriangularNorth && bar->shape() != QTabBar::TriangularSouth) {
+		return false;
+	}
+	const QPoint pixels = wheel->pixelDelta();
+	const QPoint delta = pixels.isNull() ? wheel->angleDelta() : pixels;
+	const int step = pixels.isNull() ? QWheelEvent::DefaultDeltasPerStep : 40;
+	// down or to the left: the next tabs
+	int accumulated = bar->property("editor_wheel").toInt()
+		+ (std::abs(delta.y()) >= std::abs(delta.x()) ? delta.y() : delta.x());
+	const int steps = accumulated / step;
+	accumulated -= steps * step;
+	bar->setProperty("editor_wheel", accumulated);
+	auto* arrow = bar->findChild<QToolButton*>(steps > 0 ? QStringLiteral("ScrollLeftButton") : QStringLiteral("ScrollRightButton"));
+	for (int i = 0; arrow && i < std::abs(steps); ++i) {
+		if (arrow->isVisible() && arrow->isEnabled()) {
+			arrow->click();
+		}
+	}
+	return true;
+}
+}
+
 bool EditorStyle::eventFilter(QObject* watched, QEvent* event) {
+	if (auto* bar = qobject_cast<QTabBar*>(watched); bar && event->type() == QEvent::Wheel) {
+		return scrollTabs(bar, static_cast<QWheelEvent*>(event));
+	}
 	if (event->type() == QEvent::Wheel && !static_cast<QWidget*>(watched)->hasFocus()) {
 		// ignored: the scroll area around gets it
 		event->ignore();
@@ -130,6 +170,15 @@ int EditorStyle::styleHint(StyleHint hint, const QStyleOption* option,
 		if (isFormScrollBar(widget)) {
 			return false;
 		}
+	}
+	if (hint == SH_TabBar_AllowWheelScrolling) {
+		// macOS does not let the wheel scroll tabs
+		return true;
+	}
+	if (hint == SH_TabBar_CloseButtonPosition) {
+		// the close button after the name, as in most applications (macOS
+		// puts it before)
+		return QTabBar::RightSide;
 	}
 	if (hint == SH_FormLayoutFieldGrowthPolicy) {
 		// Fields that can grow fill their row (a path, a name), as in
@@ -171,6 +220,63 @@ QRect EditorStyle::subControlRect(ComplexControl control, const QStyleOptionComp
 	}
 }
 
+namespace {
+// The space before the name of a document tab (the maps), and after its close button
+constexpr int tab_padding = 8;
+
+/** The room of the close button of a document tab, with its gap */
+int documentTabButton(const QTabBar* bar) {
+	return bar->tabsClosable() ? bar->style()->pixelMetric(QStyle::PM_TabCloseIndicatorWidth, nullptr, bar) + 4 : 0;
+}
+
+}
+
+
+void EditorStyle::drawControl(ControlElement element, const QStyleOption* option, QPainter* painter,
+		const QWidget* widget) const {
+	if (element == CE_TabBarTabLabel) {
+		auto* bar = qobject_cast<const QTabBar*>(widget);
+		const int index = bar ? bar->tabAt(option->rect.center()) : -1;
+		// a temporary tab (the map only looked at): its name in italics
+		const bool temporary = index >= 0 && bar->tabData(index).toString() == QLatin1String("temporary");
+		auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
+		if (bar && tab && bar->documentMode() && tab->icon.isNull()) {
+			// document tabs (the maps): the name from the left of a tab as
+			// wide as it is (CT_TabBarTab); macOS centers it with wide margins.
+			// Its colors are the ones of macOS: in dark mode, white for the
+			// tab shown in the active window, gray for the others
+			painter->save();
+			QFont font = painter->font();
+			font.setItalic(temporary);
+			painter->setFont(font);
+			const bool dark = tab->palette.color(QPalette::Window).lightness() < 128;
+			const bool shown = (tab->state & State_Selected) && (tab->state & State_Active);
+			QColor color = tab->palette.color(QPalette::WindowText);
+			if (dark) {
+				color = shown ? QColor(Qt::white) : QColor(Qt::gray);
+			} else if (!(tab->state & State_Selected)) {
+				color.setAlphaF(0.7);
+			}
+			const QRect text = tab->rect.adjusted(tab_padding, 0, -documentTabButton(bar), 0);
+			painter->setPen(color);
+			painter->drawText(text, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine,
+				QFontMetrics(font).elidedText(tab->text, Qt::ElideRight, text.width()));
+			painter->restore();
+			return;
+		}
+		if (temporary) {
+			painter->save();
+			QFont font = painter->font();
+			font.setItalic(true);
+			painter->setFont(font);
+			QProxyStyle::drawControl(element, option, painter, widget);
+			painter->restore();
+			return;
+		}
+	}
+	QProxyStyle::drawControl(element, option, painter, widget);
+}
+
 QRect EditorStyle::subElementRect(SubElement element, const QStyleOption* option, const QWidget* widget) const {
 	if (element == SE_CheckBoxLayoutItem || element == SE_RadioButtonLayoutItem) {
 		// macOS lays check boxes and radio buttons out by a smaller rectangle
@@ -184,6 +290,20 @@ QRect EditorStyle::subElementRect(SubElement element, const QStyleOption* option
 
 QSize EditorStyle::sizeFromContents(ContentsType type, const QStyleOption* option,
 		const QSize& size, const QWidget* widget) const {
+	if (type == CT_TabBarTab) {
+		auto* bar = qobject_cast<const QTabBar*>(widget);
+		auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
+		if (bar && tab && bar->documentMode() && tab->icon.isNull()) {
+			// as wide as the name (in italics, a little wider) and the close
+			// button: the style draws the name at the left, with its colors
+			QFont font = bar->font();
+			font.setItalic(true);
+			const int name = std::max(QFontMetrics(bar->font()).horizontalAdvance(tab->text),
+				QFontMetrics(font).horizontalAdvance(tab->text));
+			const QSize native = QProxyStyle::sizeFromContents(type, option, size, widget);
+			return QSize(tab_padding + name + documentTabButton(bar) + tab_padding, native.height());
+		}
+	}
 	if (type == CT_GroupBox) {
 		// the title and the border around the contents
 		return size + QSize(2 + 2 * section_padding, 2 + 2 * section_padding + section_title_top + section_title_gap);

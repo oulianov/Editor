@@ -55,6 +55,14 @@ void EditorSettings::setRtpPath(const QString& path) { setValue(RTP_KEY, path); 
 QString EditorSettings::playerPath() const { return value(PLAYER_PATH_KEY, QString()).toString(); }
 void EditorSettings::setPlayerPath(const QString& path) { setValue(PLAYER_PATH_KEY, path); }
 
+namespace {
+const char kScriptEditorKey[] = "script_editor";
+}
+
+QString EditorSettings::defaultScriptEditor() { return QStringLiteral("vscode://file/{file}:{line}"); }
+QString EditorSettings::scriptEditor() const { return value(kScriptEditorKey, defaultScriptEditor()).toString(); }
+void EditorSettings::setScriptEditor(const QString& editor) { setValue(kScriptEditorKey, editor); }
+
 bool EditorSettings::reloadExternalChanges() const { return value(RELOAD_EXTERNAL_KEY, false).toBool(); }
 void EditorSettings::setReloadExternalChanges(bool on) { setValue(RELOAD_EXTERNAL_KEY, on); }
 

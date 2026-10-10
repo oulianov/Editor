@@ -45,6 +45,11 @@ public:
 	void selectIndex(int index);
 	/** Selects every command of the list, like Ctrl+A */
 	void selectAllCommands();
+	/** Where the rpgsync script writes this list (rpgsync locate arguments:
+	 *  --map 1 --event 2 --page 1...); empty: not in a script */
+	void setScriptLocation(const QStringList& location);
+	/** Opens the script at the command selected (rpgsync games) */
+	void openScript();
 
 private:
 	template<typename T>
@@ -81,6 +86,7 @@ private:
 
 	ProjectData* m_project = nullptr;
 	bool m_battle = false;
+	QStringList m_scriptLocation;
 	static std::vector<lcf::rpg::EventCommand> s_clipboard;
 	/** Lines drawn selected: the commands from the anchor to the current line */
 	std::pair<int, int> m_highlight = {-1, -1};

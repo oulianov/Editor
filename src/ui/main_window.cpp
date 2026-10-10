@@ -153,6 +153,15 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 	ui->setupUi(this);
 	setProperty("view_state_contextual", true); // Map tabs are restored by map id.
+	// Map tabs as wide as their names; too many scroll instead of widening
+	// the window. A double-click keeps a temporary tab.
+	ui->tabMap->tabBar()->setExpanding(false);
+	ui->tabMap->setUsesScrollButtons(true);
+	ui->tabMap->setElideMode(Qt::ElideNone);
+	connect(ui->tabMap->tabBar(), &QTabBar::tabBarDoubleClicked, this, [this](int index) {
+		if (MapScene* scene = getTabScene(index))
+			keepMap(scene->id());
+	});
 	m_defaultWindowSize = size();
 	// Panels have their View menu actions; the fixed toolbars are always shown.
 	setContextMenuPolicy(Qt::PreventContextMenu);
@@ -745,6 +754,8 @@ void MainWindow::removeView(int id)
 		return;
 	MapScene* scene = static_cast<MapScene*>(view->scene());
 	m_views.remove(id);
+	if (id == m_temporaryMap)
+		m_temporaryMap = 0;
 	delete scene;
 	delete view;
 }
@@ -918,7 +929,13 @@ void MainWindow::on_actionZoom100_triggered()
 		currentScene()->setScale(static_cast<float>(default_map_scale));
 }
 
-void MainWindow::on_treeMap_itemDoubleClicked(QTreeWidgetItem *item, int column)
+void MainWindow::on_treeMap_itemDoubleClicked(QTreeWidgetItem *item, int)
+{
+	// a double-click keeps the map open
+	openMap(item, true);
+}
+
+void MainWindow::openMap(QTreeWidgetItem *item, bool keep)
 {
 	if (!item)
 		return;
@@ -932,7 +949,7 @@ void MainWindow::on_treeMap_itemDoubleClicked(QTreeWidgetItem *item, int column)
 		if (parent && parent->data(1, Qt::DisplayRole).toInt() != 0)
 		{
 			const int parent_id = parent->data(1, Qt::DisplayRole).toInt();
-			on_treeMap_itemDoubleClicked(parent, column);
+			openMap(parent, keep);
 			ui->treeMap->setCurrentItem(item);
 			const auto* info = mapInfo(id);
 			if (MapScene* scene = m_views.value(parent_id) ? getScene(parent_id) : nullptr; scene && info) {
@@ -948,10 +965,49 @@ void MainWindow::on_treeMap_itemDoubleClicked(QTreeWidgetItem *item, int column)
 			tr("The file of the map %1 (%2) is missing or cannot be read.").arg(item->text(0), mapFileName(id)));
 		return;
 	}
-	QGraphicsView *view = getView(id);
+	// Like a code editor: a map only looked at opens in the temporary tab,
+	// which the next one replaces; it stays when kept (a double-click, an
+	// edit to save)
+	QGraphicsView *view = m_views.value(id);
+	if (!view) {
+		int index = -1;
+		MapScene* temporary = m_temporaryMap ? getScene(m_temporaryMap) : nullptr;
+		if (temporary && !temporary->isModified()) {
+			index = ui->tabMap->indexOf(m_views.value(m_temporaryMap));
+			removeView(m_temporaryMap);
+		}
+		m_temporaryMap = 0;
+		view = getView(id);
+		if (index >= 0)
+			ui->tabMap->tabBar()->moveTab(ui->tabMap->indexOf(view), index);
+		if (!keep)
+			setTemporaryMap(id);
+	} else if (keep) {
+		keepMap(id);
+	}
 	ui->tabMap->setCurrentWidget(view);
 	if (ui->tabMap->count() == 1)
 		m_paletteScene->onChipsetChange();
+}
+
+void MainWindow::setTemporaryMap(int id)
+{
+	m_temporaryMap = id;
+	const int index = ui->tabMap->indexOf(m_views.value(id));
+	if (index >= 0)
+		ui->tabMap->tabBar()->setTabData(index, QStringLiteral("temporary"));
+}
+
+void MainWindow::keepMap(int id)
+{
+	if (id == 0 || id != m_temporaryMap)
+		return;
+	m_temporaryMap = 0;
+	const int index = ui->tabMap->indexOf(m_views.value(id));
+	if (index >= 0) {
+		ui->tabMap->tabBar()->setTabData(index, QVariant());
+		ui->tabMap->tabBar()->update();
+	}
 }
 
 void MainWindow::on_tabMap_tabCloseRequested(int index)
@@ -1263,8 +1319,12 @@ void MainWindow::setTabText(MapScene* scene)
 void MainWindow::on_mapChanged()
 {
 	update_actions();
-	if (MapScene* scene = senderScene())
+	if (MapScene* scene = senderScene()) {
+		// an edit to save keeps a temporary map open (looking does not)
+		if (scene->isModified())
+			keepMap(scene->id());
 		setTabText(scene);
+	}
 }
 
 void MainWindow::on_mapUnchanged()
@@ -1528,7 +1588,7 @@ void MainWindow::openTreeItem(QTreeWidgetItem* item)
 	if (m_openingTreeItem)
 		return;
 	m_openingTreeItem = true;
-	on_treeMap_itemDoubleClicked(item, 0);
+	openMap(item, false);
 	m_openingTreeItem = false;
 }
 
@@ -2102,7 +2162,7 @@ void MainWindow::updateSearchUI()
 
 void MainWindow::openScene(int mapID)
 {
-	this->on_treeMap_itemDoubleClicked(m_treeItems.value(mapID), 0);
+	openMap(m_treeItems.value(mapID), false);
 }
 
 bool MainWindow::hasMap(int mapID) const

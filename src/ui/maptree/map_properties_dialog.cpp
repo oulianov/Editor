@@ -184,6 +184,11 @@ MapPropertiesDialog::MapPropertiesDialog(ProjectData& project, lcf::rpg::MapInfo
 	LcfWidgetBinding::connect<int32_t>(this, m_buttonGroupSave);
 
 	LcfWidgetBinding::bind(ui->lineName, m_info_copy.name);
+	// the ID of the map (its file, events and teleports name it so)
+	ui->labelMapId->setText(tr("ID %1 \u00B7 %2").arg(m_info_copy.ID, 4, 10, QChar('0'))
+		.arg(QStringLiteral("Map%1.lmu").arg(m_info_copy.ID, 4, 10, QChar('0'))));
+	ui->labelMapId->setForegroundRole(QPalette::PlaceholderText);
+	ui->labelMapId->setTextInteractionFlags(Qt::TextSelectableByMouse);
 	LcfWidgetBinding::bind(ui->lineBackdropName, m_info_copy.background_name);
 	LcfWidgetBinding::bind(ui->comboTileset, m_map_copy.chipset_id);
 	LcfWidgetBinding::bind(ui->comboWrapping, m_map_copy.scroll_type);

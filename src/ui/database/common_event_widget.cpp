@@ -52,6 +52,8 @@ void CommonEventWidget::setData(lcf::rpg::CommonEvent* common_event) {
 	LcfWidgetBinding::bind(ui->comboSwitch, m_current->switch_id);
 
 	ui->commands->setData(m_project, m_current);
+	ui->commands->setScriptLocation(common_event
+		? QStringList{QStringLiteral("--common-event"), QString::number(common_event->ID)} : QStringList());
 
 	this->setEnabled(common_event != nullptr);
 	updateComboSwitchEnabled();

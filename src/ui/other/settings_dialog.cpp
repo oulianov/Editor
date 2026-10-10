@@ -28,6 +28,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include "ui/common/path_field.h"
 #include <QPushButton>
 #include <QToolButton>
@@ -69,8 +70,10 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent)
 	auto* project_layout = new QVBoxLayout(project);
 	project_layout->setSpacing(12);
 	project_layout->setSizeConstraint(QLayout::SetMinimumSize);
-	m_reloadExternal = new QCheckBox(tr("Reload files changed by other programs (rpgsync...)"), project);
+	m_reloadExternal = new QCheckBox(tr("rpgsync mode: reload the files other programs change"), project);
 	m_reloadExternal->setObjectName(QStringLiteral("checkReloadExternal"));
+	m_reloadExternal->setToolTip(tr("For rpgsync and other programs that edit the game while the Editor is open: "
+		"what they change is shown, and merged with your unsaved changes when you save."));
 	m_reloadExternal->setChecked(settings.reloadExternalChanges());
 	project_layout->addWidget(m_reloadExternal);
 	m_searchCache = new QCheckBox(tr("Keep search results between searches"), project);
@@ -98,6 +101,26 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent)
 			m_playerPath->setText(program);
 		}
 	}));
+	// where rpgsync scripts open: a URL or a command, with {file} and {line}
+	m_scriptEditor = new QLineEdit(settings.scriptEditor(), paths);
+	m_scriptEditor->setObjectName(QStringLiteral("lineScriptEditor"));
+	m_scriptEditor->setPlaceholderText(tr("The program of the system, at the start of the file"));
+	m_scriptEditor->setToolTip(tr("For games edited with rpgsync: Open in Script Editor opens the script at the line "
+		"of the command. A URL or a command, with {file} and {line}."));
+	auto* presets = new QToolButton(paths);
+	presets->setObjectName(QStringLiteral("scriptEditorPresets"));
+	presets->setPopupMode(QToolButton::InstantPopup);
+	auto* presets_menu = new QMenu(presets);
+	const std::pair<QString, QString> editors[] = {
+		{QStringLiteral("Visual Studio Code"), EditorSettings::defaultScriptEditor()},
+		{QStringLiteral("Cursor"), QStringLiteral("cursor://file/{file}:{line}")},
+		{tr("The program of the system (no line)"), QString()},
+	};
+	for (const auto& [name, editor] : editors) {
+		presets_menu->addAction(name, this, [this, editor] { m_scriptEditor->setText(editor); });
+	}
+	presets->setMenu(presets_menu);
+	paths_form->addRow(tr("Script editor"), pathFieldLayout(m_scriptEditor, presets));
 	layout->addWidget(paths);
 
 	auto* appearance = new QGroupBox(tr("Appearance"), this);
@@ -159,6 +182,7 @@ void SettingsDialog::accept()
 	}
 	settings.setRtpPath(rtp);
 	settings.setPlayerPath(m_playerPath->text().trimmed());
+	settings.setScriptEditor(m_scriptEditor->text().trimmed());
 	settings.setAnimateTiles(m_animateTiles->isChecked());
 	settings.setCommandColors(m_commandColors->isChecked());
 	settings.setCommandStripes(m_commandStripes->isChecked());

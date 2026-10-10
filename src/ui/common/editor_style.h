@@ -46,6 +46,8 @@ public:
 	using QProxyStyle::polish;
 	bool eventFilter(QObject* watched, QEvent* event) override;
 
+	void drawControl(ControlElement element, const QStyleOption* option, QPainter* painter,
+		const QWidget* widget = nullptr) const override;
 	void drawComplexControl(ComplexControl control, const QStyleOptionComplex* option,
 		QPainter* painter, const QWidget* widget = nullptr) const override;
 	QRect subControlRect(ComplexControl control, const QStyleOptionComplex* option,

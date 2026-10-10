@@ -160,6 +160,12 @@ private slots:
 	void setPlatformShortcuts();
 	/** Shows the map (or the area on its map) of a tree item */
 	void openTreeItem(QTreeWidgetItem* item);
+	/** Shows the map of item in its tab; keep: a kept tab, else the
+	 *  temporary one (italic), replaced by the next map opened */
+	void openMap(QTreeWidgetItem* item, bool keep);
+	void setTemporaryMap(int id);
+	/** The temporary tab of id becomes a kept one */
+	void keepMap(int id);
 
 	void on_actionAreaNew_triggered();
 
@@ -244,6 +250,8 @@ private:
 	SearchDialog *searchdialog = nullptr;
 	/** The language setting seen last: a change switches the language */
 	std::optional<QString> m_languageSetting;
+	/** The map of the temporary tab (0: none) */
+	int m_temporaryMap = 0;
 	/** openTreeItem is running (opening an area selects items again) */
 	bool m_openingTreeItem = false;
 	bool m_windowGeometryRestored = false;

@@ -30,13 +30,16 @@
           <property name="title">
            <string>Name</string>
           </property>
-          <layout class="QHBoxLayout" name="layoutName">
+          <layout class="QVBoxLayout" name="layoutName">
            <item>
             <widget class="QLineEdit" name="lineName">
              <property name="maxLength">
               <number>24</number>
              </property>
             </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="labelMapId"/>
            </item>
           </layout>
          </widget>

@@ -24,6 +24,7 @@
 #include <QCryptographicHash>
 #include "event_page_widget.h"
 #include "event_commands_widget.h"
+#include "common/script_link.h"
 #include <QShortcut>
 #include <QTimer>
 #include "core.h"
@@ -81,6 +82,18 @@ EventDialog::EventDialog(ProjectData& project, QWidget *parent, int mapID) :
 			SIGNAL(clicked()),
 			this,
 			SLOT(apply()));
+	// the script of the page, for games edited with rpgsync
+	if (ScriptLink::available() && m_mapID > 0) {
+		auto* script = ui->buttonBox->addButton(tr("Open Script"), QDialogButtonBox::ActionRole);
+		script->setObjectName(QStringLiteral("openScript"));
+		script->setToolTip(tr("Open the script of this page at the selected command (Ctrl+Shift+O in the list)"));
+		connect(script, &QPushButton::clicked, this, [this] {
+			QWidget* page = ui->tabEventPages->currentWidget();
+			if (auto* commands = page ? page->findChild<EventCommandsWidget*>(QStringLiteral("commands")) : nullptr) {
+				commands->openScript();
+			}
+		});
+	}
 	connect(ui->buttonBox->button(QDialogButtonBox::Help), &QPushButton::clicked, this, [this] {
 		Help::open(this, QStringLiteral("event-editor"));
 	});
@@ -357,6 +370,10 @@ void EventDialog::refreshEventPageTabs() {
 		m_event.pages[i].ID = static_cast<int>(i + 1);
 		EventPageWidget *tab = new EventPageWidget(m_project, this);
 		tab->setEventPage(&(m_event.pages[i]));
+		if (auto* commands = tab->findChild<EventCommandsWidget*>(QStringLiteral("commands"))) {
+			commands->setScriptLocation({QStringLiteral("--map"), QString::number(m_mapID), QStringLiteral("--event"),
+				QString::number(m_event.ID), QStringLiteral("--page"), QString::number(i + 1)});
+		}
 		ui->tabEventPages->addTab(tab, QString::number(i+1));
 	}
 	updatePageButtons();

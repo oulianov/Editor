@@ -42,6 +42,12 @@ public:
 	QString playerPath() const;
 	void setPlayerPath(const QString& path);
 
+	/** How a script opens at a line (rpgsync scripts): a URL or a command with
+	 *  {file} and {line}; empty: the program of the system, at its start */
+	QString scriptEditor() const;
+	void setScriptEditor(const QString& editor);
+	static QString defaultScriptEditor();
+
 	/** Read again the files that other programs change in the project (off by default) */
 	bool reloadExternalChanges() const;
 	void setReloadExternalChanges(bool on);

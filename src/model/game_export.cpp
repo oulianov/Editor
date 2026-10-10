@@ -19,6 +19,7 @@
 #include "defines.h"
 #include "export_files.h"
 #include "export_references.h"
+#include "web_player.h"
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
@@ -274,13 +275,9 @@ bool GameExporter::isLauncher(ExportPlatform platform, const QString& path)
 		return info.isDir() && info.suffix() == QStringLiteral("app") && QFileInfo(path + QStringLiteral("/Contents/MacOS")).isDir();
 	case ExportPlatform::Linux:
 		return info.isFile();
-	case ExportPlatform::Web: {
-		// the shell page, the program and its WebAssembly
-		const QDir dir(path);
-		return info.isDir() && dir.exists(QStringLiteral("index.html"))
-			&& !dir.entryList({ QStringLiteral("*.wasm") }, QDir::Files).isEmpty()
-			&& !dir.entryList({ QStringLiteral("*.js") }, QDir::Files).isEmpty();
-	}
+	case ExportPlatform::Web:
+		// the shell page, the program and its WebAssembly: a release, or a Player build folder
+		return !WebPlayer::page(path).isEmpty();
 	}
 	return false;
 }
@@ -810,18 +807,22 @@ bool GameExporter::writeWeb(const ExportPreset& preset, const QString& dir)
 {
 	const QString html = dir + QStringLiteral("/html");
 	QString error;
-	// the Player's files, without its own games
+	// the Player's files, without its own games; from a build folder only its page and program
 	const QDir launcher(preset.launcher);
-	for (const QFileInfo& info : launcher.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
-		if (info.fileName().compare(QStringLiteral("games"), Qt::CaseInsensitive) == 0) {
-			continue;
-		}
-		const bool ok = info.isDir() ? ExportFiles::copyTree(info.filePath(), html + QLatin1Char('/') + info.fileName(), &error)
-			: (QDir().mkpath(html) && QFile::copy(info.filePath(), html + QLatin1Char('/') + info.fileName()));
+	const QString player_page = WebPlayer::page(preset.launcher);
+	for (const QString& name : WebPlayer::files(preset.launcher)) {
+		const QFileInfo info(launcher.filePath(name));
+		// the page of a build is published as index.html
+		const QString target = html + QLatin1Char('/') + (name == player_page ? QStringLiteral("index.html") : name);
+		const bool ok = info.isDir() ? ExportFiles::copyTree(info.filePath(), target, &error)
+			: (QDir().mkpath(html) && QFile::copy(info.filePath(), target));
 		if (!ok) {
 			log(error.isEmpty() ? tr("Cannot copy %1.").arg(info.filePath()) : error, Error);
 			return false;
 		}
+	}
+	if (WebPlayer::isBuild(preset.launcher)) {
+		log(tr("Web Player taken from a build folder: %1 (as index.html) and its program.").arg(player_page));
 	}
 
 	// the game has a name of its own: itch.io gives one storage to all its games, saves are kept by name
