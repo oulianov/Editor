@@ -23,6 +23,7 @@
 #include <QSortFilterProxyModel>
 #include <QCompleter>
 #include <QToolButton>
+#include "ui/common/path_field.h"
 #include <functional>
 #include <vector>
 #include <QHBoxLayout>
@@ -139,25 +140,16 @@ RpgComboBox<LCF>::RpgComboBox(QWidget *parent, QAbstractItemModel *model) :
 	RpgComboBoxBase(parent)
 {
 	m_comboBox = new QComboBox(this);
-	// a tool button: as tall as the combo box in every style (a push button
-	// has a large bezel on macOS)
 	m_editButton = new QToolButton(this);
 	m_editButton->setObjectName(QStringLiteral("editButton"));
-	m_editButton->setText(QStringLiteral("..."));
 	m_editButton->setToolTip(QObject::tr("Edit in the database"));
 
-	// No margins: it sits in other layouts like a plain combo box
-	auto* layout = new QHBoxLayout(this);
-	layout->setContentsMargins(0, 0, 0, 0);
-	layout->setSpacing(2);
-	layout->addWidget(m_comboBox, 1);
-	layout->addWidget(m_editButton);
+	fieldRow(m_comboBox, m_editButton, this);
 
 	// Long database names are elided instead of widening the whole dialog
 	m_comboBox->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
 	m_comboBox->setMinimumContentsLength(14);
 	m_comboBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-	m_editButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
 	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
 	if (model) {

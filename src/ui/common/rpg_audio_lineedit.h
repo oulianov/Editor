@@ -21,7 +21,7 @@
 #include <QWidget>
 
 class QLineEdit;
-class QPushButton;
+class QToolButton;
 class ProjectData;
 
 namespace lcf::rpg {
@@ -42,7 +42,7 @@ public:
 
 protected:
 	QLineEdit* m_lineEdit = nullptr;
-	QPushButton* m_editButton = nullptr;
+	QToolButton* m_editButton = nullptr;
 	ProjectData* m_project = nullptr;
 };
 

@@ -809,6 +809,61 @@ bool Automation::run(const QStringList& args) {
 		fail(QString("no map %1 in the map tree").arg(a));
 		return false;
 	}
+	if (cmd == "dump-geometry" && args.size() == 2) {
+		// where a widget is in its window, what of it the layouts align (its
+		// layout item) and, for a spin box, its field and its arrows
+		QWidget* widget = findWidget(args[1]);
+		if (!widget) {
+			fail("no widget " + args[1]);
+			return false;
+		}
+		auto text = [](const QRect& r) { return QString("%1,%2 %3x%4").arg(r.x()).arg(r.y()).arg(r.width()).arg(r.height()); };
+		const QRect in_window(widget->mapTo(widget->window(), QPoint()), widget->size());
+		QWidgetItem item(widget);
+		qCInfo(lcAutomation).noquote() << QString("%1: %2, size hint %3x%4, layout item %5x%6").arg(describe(widget), text(in_window))
+			.arg(widget->sizeHint().width()).arg(widget->sizeHint().height()).arg(item.sizeHint().width()).arg(item.sizeHint().height());
+		auto dumpCombo = [&text](QComboBox* combo) {
+			QStyleOptionComboBox option;
+			option.initFrom(combo);
+			option.editable = combo->isEditable();
+			option.frame = combo->hasFrame();
+			option.subControls = QStyle::SC_All;
+			for (auto [name, sub] : {std::pair{"frame", QStyle::SC_ComboBoxFrame}, {"field", QStyle::SC_ComboBoxEditField},
+					{"arrow", QStyle::SC_ComboBoxArrow}}) {
+				qCInfo(lcAutomation).noquote() << QString("    %1: %2").arg(name, text(combo->style()->subControlRect(QStyle::CC_ComboBox, &option, sub, combo)));
+			}
+			qCInfo(lcAutomation).noquote() << "    layout item: " + text(combo->style()->subElementRect(QStyle::SE_ComboBoxLayoutItem, &option, combo))
+				+ (combo->isEditable() ? " (editable)" : "");
+		};
+		if (auto* combo = qobject_cast<QComboBox*>(widget)) {
+			dumpCombo(combo);
+		}
+		// the widgets of its layout (a list and its "..." button...)
+		for (int i = 0; widget->layout() && i < widget->layout()->count(); ++i) {
+			if (QWidget* part = widget->layout()->itemAt(i)->widget()) {
+				const QRect r = part->geometry();
+				QWidgetItem part_item(part);
+				qCInfo(lcAutomation).noquote() << QString("  part %1: %2, layout item %3x%4").arg(QString::fromLatin1(part->metaObject()->className()), text(r))
+					.arg(part_item.sizeHint().width()).arg(part_item.sizeHint().height());
+				if (auto* combo = qobject_cast<QComboBox*>(part)) {
+					dumpCombo(combo);
+				}
+			}
+		}
+		if (auto* spin = qobject_cast<QAbstractSpinBox*>(widget)) {
+			QStyleOptionSpinBox option;
+			option.initFrom(spin);
+			option.frame = spin->hasFrame();
+			option.subControls = QStyle::SC_All;
+			option.buttonSymbols = spin->buttonSymbols();
+			option.stepEnabled = QAbstractSpinBox::StepUpEnabled | QAbstractSpinBox::StepDownEnabled;
+			for (auto [name, sub] : {std::pair{"frame", QStyle::SC_SpinBoxFrame}, {"field", QStyle::SC_SpinBoxEditField},
+					{"up", QStyle::SC_SpinBoxUp}, {"down", QStyle::SC_SpinBoxDown}}) {
+				qCInfo(lcAutomation).noquote() << QString("  %1: %2").arg(name, text(spin->style()->subControlRect(QStyle::CC_SpinBox, &option, sub, spin)));
+			}
+		}
+		return true;
+	}
 	if (cmd == "import-image-dialog" && args.size() == 2) {
 		// the window of an image import (transparent colour, zoom), without
 		// the file chooser before it

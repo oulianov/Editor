@@ -16,10 +16,15 @@
  */
 
 #include "editor_style.h"
+#include <QApplication>
+#include <QComboBox>
+#include <memory>
+#include <QTimer>
+#include <QLineEdit>
+#include <QLayoutItem>
 #include "view_state.h"
 #include <QAbstractItemView>
 #include <QAbstractSpinBox>
-#include <QComboBox>
 #include <QWheelEvent>
 #include <QDialog>
 #include <QGraphicsView>
@@ -152,6 +157,20 @@ bool scrollTabs(QTabBar* bar, QWheelEvent* wheel) {
 }
 
 bool EditorStyle::eventFilter(QObject* watched, QEvent* event) {
+	if (event->type() == QEvent::ChildAdded && qobject_cast<QComboBox*>(watched)) {
+		// A list one can type in now (setEditable after its creation, which
+		// adds its line edit): what shows of it changes, its layout item is
+		// asked again (SE_ComboBoxLayoutItem)
+		QTimer::singleShot(0, watched, [combo = static_cast<QComboBox*>(watched)] {
+			if (combo->isEditable() == combo->property("editor_margins_editable").toBool()) {
+				return;
+			}
+			combo->setProperty("editor_margins_editable", combo->isEditable());
+			QEvent change(QEvent::StyleChange);
+			QCoreApplication::sendEvent(combo, &change);
+			combo->updateGeometry();
+		});
+	}
 	if (auto* bar = qobject_cast<QTabBar*>(watched); bar && event->type() == QEvent::Wheel) {
 		return scrollTabs(bar, static_cast<QWheelEvent*>(event));
 	}
@@ -323,7 +342,60 @@ QRect EditorStyle::subElementRect(SubElement element, const QStyleOption* option
 		// They are laid out by their whole rectangle.
 		return option->rect;
 	}
+	if (element == SE_ComboBoxLayoutItem) {
+		// What shows of a drop-down list is centered on what the style draws
+		// in it (its text and arrow): macOS draws its button lower than the
+		// rectangle it gives the layouts, and the fields beside the list were
+		// laid out higher than it. Where both agree, nothing moves. Qt asks
+		// for a placeholder rectangle (the margins hold for any size): they
+		// are found at the list's own height
+		const QRect item = QProxyStyle::subElementRect(element, option, widget);
+		auto* box = qobject_cast<const QComboBox*>(widget);
+		if (!box || !item.isValid()) {
+			return item;
+		}
+		// Qt computes the margins of a new list with a plain option
+		QStyleOptionComboBox sized;
+		if (auto* combo = qstyleoption_cast<const QStyleOptionComboBox*>(option)) {
+			sized = *combo;
+		} else {
+			static_cast<QStyleOption&>(sized) = *option;
+			sized.editable = box->isEditable();
+			sized.frame = box->hasFrame();
+		}
+		// (the list being built: its height from the style, as its size hint)
+		const int text = sized.fontMetrics.height();
+		sized.rect = QRect(QPoint(), proxy()->sizeFromContents(CT_ComboBox, &sized, QSize(option->rect.width(), text), widget));
+		QRect shown = QProxyStyle::subElementRect(element, &sized, widget);
+		const QRect drawn = proxy()->subControlRect(CC_ComboBox, &sized, SC_ComboBoxEditField, widget);
+		if (!shown.isValid() || !drawn.isValid()) {
+			return item;
+		}
+		shown.translate(0, qRound(QRectF(drawn).center().y() - QRectF(shown).center().y()));
+		shown &= sized.rect;
+		return QRect(item.left(), option->rect.top() + shown.top(), item.width(),
+			option->rect.height() - (sized.rect.height() - shown.height()));
+	}
 	return QProxyStyle::subElementRect(element, option, widget);
+}
+
+int EditorStyle::controlHeight(const QWidget* field) const {
+	// What shows of a drop-down list of the platform, in its own font (the
+	// one of the lists, not the field's) and the size of the field's
+	// controls (macOS: small in dialogs), once for each
+	const auto variant = field->testAttribute(Qt::WA_MacSmallSize) ? Qt::WA_MacSmallSize
+		: field->testAttribute(Qt::WA_MacMiniSize) ? Qt::WA_MacMiniSize : Qt::WA_MacNormalSize;
+	const QString key = QApplication::font("QComboBox").key() + QLatin1Char('/') + QString::number(variant);
+	auto height = m_controlHeights.constFind(key);
+	if (height == m_controlHeights.cend()) {
+		// in a widget, as in a form: the layout measures it as it does there
+		QWidget form;
+		QComboBox probe(&form);
+		probe.setAttribute(variant);
+		probe.addItem(QStringLiteral("0"));
+		height = m_controlHeights.insert(key, QWidgetItem(&probe).sizeHint().height());
+	}
+	return *height;
 }
 
 QSize EditorStyle::sizeFromContents(ContentsType type, const QStyleOption* option,
@@ -348,6 +420,31 @@ QSize EditorStyle::sizeFromContents(ContentsType type, const QStyleOption* optio
 	if (type == CT_GroupBox) {
 		// the title and the border around the contents
 		return size + QSize(2 + 2 * section_padding, 2 + 2 * section_padding + section_title_top + section_title_gap);
+	}
+	// One height for the one-line controls of a form: number fields, text
+	// fields and the "..." buttons of fields show as tall as a drop-down list
+	// of the platform (EditorStyle::controlHeight), and the layouts center
+	// them on the line. The fields inside a spin box or a list are theirs
+	const bool inner = widget && (qobject_cast<const QAbstractSpinBox*>(widget->parentWidget())
+		|| qobject_cast<const QComboBox*>(widget->parentWidget()));
+	const bool field_button = type == CT_ToolButton && widget && widget->property("editor_field_button").toBool();
+	if (widget && !inner && (type == CT_SpinBox || type == CT_LineEdit || field_button)) {
+		QSize native = QProxyStyle::sizeFromContents(type, option, size, widget);
+		// the margins the style keeps around what shows of it, if any (Qt
+		// has no layout item for line edits: all of them shows)
+		int margins = 0;
+		if (type != CT_LineEdit) {
+			std::unique_ptr<QStyleOption> shown(option ? (type == CT_SpinBox && qstyleoption_cast<const QStyleOptionSpinBox*>(option)
+				? static_cast<QStyleOption*>(new QStyleOptionSpinBox(*qstyleoption_cast<const QStyleOptionSpinBox*>(option)))
+				: new QStyleOption(*option)) : new QStyleOption);
+			shown->rect = QRect(QPoint(), native);
+			const QRect item = subElementRect(type == CT_SpinBox ? SE_SpinBoxLayoutItem : SE_ToolButtonLayoutItem, shown.get(), widget);
+			margins = item.isValid() ? native.height() - item.height() : 0;
+		}
+		const int height = controlHeight(widget) + margins;
+		// a button takes it exactly; a field at least (several lines...)
+		native.setHeight(field_button ? height : std::max(native.height(), height));
+		return native;
 	}
 	return QProxyStyle::sizeFromContents(type, option, size, widget);
 }

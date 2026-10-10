@@ -22,15 +22,41 @@
 #include <QLineEdit>
 #include <QToolButton>
 
-/** A path and its "..." button, the same in every window (Settings, Export
- *  Game...): the button takes the height of the field, whatever the style
- *  draws for a tool button on its own */
-inline QHBoxLayout* pathFieldLayout(QLineEdit* field, QToolButton* button) {
-	button->setText(QStringLiteral("..."));
-	button->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Ignored);
-	auto* row = new QHBoxLayout;
+/**
+ * The "..." button of a field (a list of the database, a path, a sound...),
+ * the same everywhere: as tall as the field (the style gives it the height
+ * of the one-line fields, EditorStyle::controlHeight)
+ */
+inline QToolButton* fieldButton(QWidget* parent, QToolButton* button = nullptr) {
+	if (!button) {
+		button = new QToolButton(parent);
+	}
+	// (a button with its own text keeps it: the presets of Settings...)
+	if (button->text().isEmpty()) {
+		button->setText(QStringLiteral("..."));
+	}
+	button->setProperty("editor_field_button", true);
+	button->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	return button;
+}
+
+/**
+ * A field and its "..." button, the same in every window (the lists of the
+ * database, paths in Settings and Export Game, sounds): no margins, it sits
+ * in forms like a plain field; the button close to the field it belongs to.
+ * With parent, the layout of that widget
+ */
+inline QHBoxLayout* fieldRow(QWidget* field, QToolButton* button, QWidget* parent = nullptr) {
+	fieldButton(nullptr, button);
+	auto* row = parent ? new QHBoxLayout(parent) : new QHBoxLayout;
 	row->setContentsMargins(0, 0, 0, 0);
+	row->setSpacing(2);
 	row->addWidget(field, 1);
 	row->addWidget(button);
 	return row;
+}
+
+/** A path and its "..." button (Settings, Export Game...) */
+inline QHBoxLayout* pathFieldLayout(QLineEdit* field, QToolButton* button) {
+	return fieldRow(field, button);
 }

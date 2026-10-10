@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <QHash>
 #include <QProxyStyle>
 
 /**
@@ -59,6 +60,13 @@ public:
 		const QSize& size, const QWidget* widget = nullptr) const override;
 
 	/** Space between the border of a section and its controls */
+	/**
+	 * The height of the one-line fields of a form (the design system's
+	 * control height) like field: what shows of a drop-down list of the
+	 * platform, of the same control size
+	 */
+	int controlHeight(const QWidget* field) const;
+	mutable QHash<QString, int> m_controlHeights;
 	static constexpr int section_padding = 4;
 	/** Space above the title of a section, from what is above it */
 	static constexpr int section_title_top = 4;

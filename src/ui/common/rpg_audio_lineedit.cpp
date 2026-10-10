@@ -19,7 +19,6 @@
 
 #include <QHBoxLayout>
 #include <QLineEdit>
-#include <QPushButton>
 #include <lcf/rpg/music.h>
 #include <lcf/rpg/sound.h>
 
@@ -27,19 +26,14 @@
 #include "model/project_data.h"
 #include "ui/picker/picker_audio_widget.h"
 #include "ui/picker/picker_dialog.h"
+#include "ui/common/path_field.h"
+#include <QToolButton>
 
 RpgAudioLineEdit::RpgAudioLineEdit(QWidget *parent) : QWidget(parent) {
 	m_lineEdit = new QLineEdit(this);
 	m_lineEdit->setReadOnly(true);
-	m_editButton = new QPushButton("...", this);
-
-	auto* layout = new QHBoxLayout(this);
-	layout->addWidget(m_lineEdit);
-	layout->addWidget(m_editButton);
-
-	QSizePolicy policy;
-	policy.setHorizontalPolicy(QSizePolicy::Maximum);
-	m_editButton->setSizePolicy(policy);
+	m_editButton = new QToolButton(this);
+	fieldRow(m_lineEdit, m_editButton, this);
 }
 
 QLineEdit* RpgAudioLineEdit::lineEdit() const {
@@ -49,7 +43,7 @@ QLineEdit* RpgAudioLineEdit::lineEdit() const {
 void RpgAudioLineEdit::makeModel(ProjectData& project) {
 	m_project = &project;
 
-	QObject::connect(m_editButton, &QPushButton::pressed, [&] {
+	QObject::connect(m_editButton, &QToolButton::pressed, [&] {
 		editPressed();
 	});
 }
