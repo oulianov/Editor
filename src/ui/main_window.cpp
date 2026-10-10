@@ -64,8 +64,6 @@
 #include <QTreeWidgetItemIterator>
 #include <algorithm>
 #include <set>
-#include <QQmlContext>
-#include <QQmlApplicationEngine>
 #include <cassert>
 #include <sstream>
 #include <iomanip>

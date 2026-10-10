@@ -132,7 +132,4 @@
         <file alias="rank3">icons/ranks/rank3.svg</file>
         <file alias="rank4">icons/ranks/rank4.svg</file>
     </qresource>
-    <qresource prefix="/qt/qml/org/kde/kirigami">
-        <file>Theme.qml</file>
-    </qresource>
 </RCC>

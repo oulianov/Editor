@@ -26,7 +26,6 @@
 #include "common/dbstring.h"
 #include "common/filefinder.h"
 #include "common/image_loader.h"
-#include "json_list_view.h"
 #include "model/rpg_reflect.h"
 #include "ui/database/database_list_data.h"
 
@@ -99,7 +98,7 @@ QVariant RpgModel<LCF>::data(const QModelIndex &index, int role) const {
 		return QString("%1: %2").arg(data.ID, 4, 10, QChar('0')).arg(ToQString(data.name));
 	} else if (role == Qt::DecorationRole) {
 		return typename RpgReflect<LCF>::model_type(m_project, m_data[index.row()]).preview();
-	} else if (role == Qt::UserRole || role == JsonListView::IdRole) {
+	} else if (role == Qt::UserRole) {
 		return m_data[index.row()].ID;
 	} else if (role == ModelDataObject) {
 		return QVariant::fromValue(&m_data[index.row()]);

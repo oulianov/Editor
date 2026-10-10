@@ -42,9 +42,10 @@ public:
 	 * Create a SortFilterProxy which only contains items of a specific type
 	 * and who the actor can equip.
 	 * @param type Equipment type
+	 * @param parent Owner of the filter
 	 * @return QSortFilterProxyModel
 	 */
-	Q_INVOKABLE QAbstractItemModel* CreateEquipmentFilter(lcf::rpg::Item::Type type, QObject* parent = nullptr);
+	QAbstractItemModel* CreateEquipmentFilter(lcf::rpg::Item::Type type, QObject* parent);
 
 	lcf::rpg::Actor& data();
 

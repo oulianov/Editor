@@ -88,11 +88,5 @@ QAbstractItemModel* ActorModel::CreateEquipmentFilter(lcf::rpg::Item::Type type,
 		indices.push_back(item.ID);
 	}
 
-	auto filter = new SortFilterProxyModelIdFilter(indices, parent);
-
-	if (!parent) {
-	    QQmlEngine::setObjectOwnership(filter, QQmlEngine::JavaScriptOwnership);
-	}
-
-	return filter;
+	return new SortFilterProxyModelIdFilter(indices, parent);
 }

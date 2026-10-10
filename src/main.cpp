@@ -37,8 +37,6 @@
 #include <QTranslator>
 #include <QTimer>
 #include <QDebug>
-#include <QQmlApplicationEngine>
-#include <QQuickStyle>
 #include <QStyleHints>
 
 int main(int argc, char *argv[]) {
@@ -101,27 +99,9 @@ int main(int argc, char *argv[]) {
 	QPixmap logo(":/app/splash.png");
 	QSplashScreen s(logo, Qt::WindowStaysOnTopHint);
 
-	// Style setup
-	bool force_dark = false;
-
-	// Kirigami only loads a custom style when using a static build
-	// Lets wait for upstream to improve this
-#if defined(KIRIGAMI_STATIC)
-	// Default to org.kde.breeze style (from qqc2-breeze style)
-	if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
-		const char* fstyle = "KIRIGAMI_FORCE_STYLE";
-		if (qEnvironmentVariableIsEmpty(fstyle) || qEnvironmentVariableIntValue(fstyle) > 0) {
-			// Built in EasyRPG Style (Theme.qml)
-			qputenv("KIRIGAMI_FORCE_STYLE", "1");
-			force_dark = true;
-		}
-		QQuickStyle::setStyle(QStringLiteral("org.kde.breeze"));
-	}
-#endif
-
 	auto hints = app.styleHints();
 	auto scheme_changed = [=]() {
-		if (!force_dark && hints->colorScheme() == Qt::ColorScheme::Light) {
+		if (hints->colorScheme() == Qt::ColorScheme::Light) {
 			QIcon::setThemeName("ezbright");
 		} else {
 			QIcon::setThemeName("ezdark");
@@ -137,14 +117,6 @@ int main(int argc, char *argv[]) {
 	// close splash after 3 seconds for release
 	QTimer::singleShot(3000, &s, &QWidget::close);
 #endif
-
-	// setup qml engine
-	//auto engine = core().qmlEngine();
-
-	/*engine->loadFromModule("org.easyrpg.editor", "MainWindow");
-	if (engine->rootObjects().isEmpty()) {
-		return -1;
-	}*/
 
 	// load translations: the language chosen in the Editor, else the system's
 	s.showMessage("Loading translations...");

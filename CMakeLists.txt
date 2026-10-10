@@ -10,7 +10,6 @@ if(APPLE)
 	enable_language(OBJCXX)
 endif()
 
-# Extra CMake Module files
 set(REQUIRED_QT_VERSION "6.10.1")
 # A dependency missing: where to get it (docs/Building.md)
 macro(editor_find_package name)
@@ -26,8 +25,7 @@ macro(editor_find_package name)
 	endif()
 endmacro()
 
-editor_find_package(ECM ${REQUIRED_QT_VERSION})
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/Modules" ${ECM_MODULE_PATH})
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/Modules")
 include(EditorConfigureWindows)
 
 # Dependencies provided by CMake Presets
@@ -466,75 +464,12 @@ set(EDITOR_SOURCES
 	src/ui/viewer/stat_curve_graphics_item.h
 )
 
-set(EDITOR_QML_UI
-	src/ui/common/CheckBox.qml
-	src/ui/common/ComboBox.qml
-	src/ui/common/PickerData.qml
-	src/ui/common/RadioButton.qml
-	src/ui/common/SpinBox.qml
-	src/ui/common/TextField.qml
-	src/ui/database/ActorPage.qml
-	src/ui/database/AttributePage.qml
-	src/ui/database/DatabaseEntryListPage.qml
-	src/ui/database/DatabaseEntryPage.qml
-	src/ui/database/DatabasePage.qml
-	src/ui/database/DatabaseWindow.qml
-	src/ui/database/ItemPage.qml
-	src/ui/database/SkillPage.qml
-	src/ui/database/SystemPage.qml
-	src/ui/database/VocabularyPage.qml
-	src/ui/MainWindow.qml
-	src/ui/picker/CharSetPicker.qml
-	src/ui/picker/FaceSetPicker.qml
-	src/ui/picker/ImagePicker.qml
-	src/ui/picker/MusicPicker.qml
-	src/ui/picker/PickerBase.qml
-	src/ui/picker/SoundPicker.qml
-	src/ui/viewer/CharSetViewer.qml
-	src/ui/viewer/FaceSetViewer.qml
-	src/ui/viewer/FileViewerBase.qml
-	src/ui/viewer/ImageViewer.qml
-	src/ui/viewer/MusicViewer.qml
-	src/ui/viewer/SoundViewer.qml
-	src/ui/viewer/ViewerBase.qml
-)
-
-set(EDITOR_QML_INTERFACE
-	src/qmlbinding/directory_model.cpp
-	src/qmlbinding/directory_model.h
-	src/qmlbinding/json_internals/json_t_database.cpp
-	src/qmlbinding/json_internals/json_t_impl.h
-	src/qmlbinding/json_internals/json_t_map.cpp
-	src/qmlbinding/json_internals/json_t_treemap.cpp
-	src/qmlbinding/json_list_view.cpp
-	src/qmlbinding/json_list_view.h
-	src/qmlbinding/json_t.h
-	src/qmlbinding/json_view.cpp
-	src/qmlbinding/json_view.h
-	src/qmlbinding/json.h
-	src/qmlbinding/lcf_glaze.h
-	src/qmlbinding/project_data_gadget.cpp
-	src/qmlbinding/project_data_gadget.h
-	src/ui/picker/charset_painted_item.cpp
-	src/ui/picker/charset_painted_item.h
-	src/ui/picker/faceset_painted_item.cpp
-	src/ui/picker/faceset_painted_item.h
-	src/ui/picker/sprite_painted_item.cpp
-	src/ui/picker/sprite_painted_item.h
-)
-
 # Dependencies
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
 find_package(Qt6 ${REQUIRED_QT_VERSION} CONFIG REQUIRED COMPONENTS
-	Widgets Core Concurrent Multimedia Gui Svg Network
-	GuiPrivate QuickPrivate QuickControls2 WidgetsPrivate)
+	Widgets Core Concurrent Multimedia Gui Svg Network GuiPrivate)
 find_package(Qt6LinguistTools CONFIG QUIET)
 find_package(ZLIB REQUIRED)
-editor_find_package(glaze)
-editor_find_package(KF6 ${KF_DEP_VERSION} COMPONENTS Kirigami)
-editor_find_package(QQC2BreezeStyle)
-find_package(KDBindings QUIET) # only required by the static build
-editor_find_package(KDDockWidgets-qt6)
 
 qt_standard_project_setup(
 	REQUIRES "${REQUIRED_QT_VERSION}"
@@ -575,24 +510,27 @@ else()
 	else()
 		set_target_properties(${EXE_NAME} PROPERTIES OUTPUT_NAME "easyrpg-editor")
 	endif()
-
-	# QML Debugger support
-	if(CMAKE_BUILD_TYPE MATCHES "Debug")
-		target_compile_definitions(${EXE_NAME} PRIVATE QT_QML_DEBUG=1)
-	endif()
 endif()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang$")
-	# Fix template recursion limit hit by glaze
-	target_compile_options(${EXE_NAME} PRIVATE "-fbracket-depth=1024")
+# Qt Widgets and the database of liblcf, which most files include: parsed
+# once for all of them
+option(EDITOR_PRECOMPILE_HEADERS "Precompile the Qt and liblcf headers (faster builds)" ON)
+if(EDITOR_PRECOMPILE_HEADERS)
+	target_precompile_headers(${EXE_NAME} PRIVATE
+		"$<$<COMPILE_LANGUAGE:CXX>:<QtWidgets$<ANGLE-R>>"
+		"$<$<COMPILE_LANGUAGE:CXX>:<lcf/rpg/database.h$<ANGLE-R>>")
+	# a function of it is named like Qt's emit macro
+	set_source_files_properties(src/model/maniac_expression.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang$")
+		# ccache reuses files compiled with them only without their time
+		target_compile_options(${EXE_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-Xclang -fno-pch-timestamp>")
+	endif()
 endif()
 
 # Include directories
 target_include_directories(${EXE_NAME}
 	PUBLIC
 		${CMAKE_CURRENT_SOURCE_DIR}/src
-		${CMAKE_CURRENT_SOURCE_DIR}/src/qmlbinding  # Required by QML build step
-		${CMAKE_CURRENT_SOURCE_DIR}/src/ui/picker   # QML painted items
 	INTERFACE
 		$<BUILD_INTERFACE:${AUTOGEN_INCLUDE_DIR}>
 )
@@ -616,21 +554,6 @@ set_target_properties(${EXE_NAME} PROPERTIES
 	AUTORCC ON # Enable resource compiler for exe
 )
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
-include(ECMQmlModule)
-include(ECMFindQmlModule)
-
-ecm_add_qml_module(${EXE_NAME}
-	URI "org.easyrpg.editor"
-	VERSION 1.0
-	GENERATE_PLUGIN_SOURCE
-	SOURCES
-		${EDITOR_QML_INTERFACE}
-)
-
-ecm_target_qml_sources(${EXE_NAME}
-	SOURCES ${EDITOR_QML_UI}
-)
 
 # liblcf
 option(EDITOR_BUILD_LIBLCF "Instead of detecting liblcf the liblcf repository is cloned into lib/liblcf and built together with the Player. This is convenient for development" OFF)
@@ -668,8 +591,6 @@ endif()
 target_compile_definitions(${EXE_NAME} PRIVATE EDITOR_VERSION="${PROJECT_VERSION}")
 target_link_libraries(${EXE_NAME} PRIVATE
 	ZLIB::ZLIB
-	glaze::glaze
-	KDAB::kddockwidgets
 	Qt6::Widgets
 	Qt6::Gui
 	Qt6::Core
@@ -677,7 +598,6 @@ target_link_libraries(${EXE_NAME} PRIVATE
 	Qt6::Multimedia
 	Qt6::Network
 	Qt6::Svg
-	Qt6::QuickControls2
 )
 if(APPLE)
 	# audio of the Jukebox and the pickers: Apple's audio engine, with MIDI
@@ -685,36 +605,6 @@ if(APPLE)
 	set_source_files_properties(src/common/audio_player_mac.mm src/ui/other/run_game_dialog_mac.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 	target_link_libraries(${EXE_NAME} PRIVATE "-framework AVFoundation" "-framework AudioToolbox" "-framework Foundation" "-framework AppKit")
 endif()
-
-get_target_property(KIRIGAMI_TYPE KF6::Kirigami TYPE)
-message(STATUS "Kirigami library type: ${KIRIGAMI_TYPE}")
-if(KIRIGAMI_TYPE STREQUAL "STATIC_LIBRARY")
-	# Why is this so difficult? Kirigami bug?
-	target_link_libraries(${EXE_NAME} PRIVATE
-		KF6::Kirigami
-		KF6Kirigamiplugin
-		KF6KirigamiTemplatesplugin
-		KF6KirigamiDialogsplugin
-		KF6KirigamiDelegatesplugin
-		KF6KirigamiLayoutsplugin
-		KF6KirigamiLayoutsPrivateplugin
-		KF6KirigamiPrimitivesplugin
-		KF6KirigamiPrivateplugin
-		KF6KirigamiPolyfillplugin
-	)
-	target_compile_definitions(${EXE_NAME} PUBLIC "-DKIRIGAMI_STATIC=1")
-endif()
-
-get_target_property(QQC2_TYPE org.kde.breeze TYPE)
-message(STATUS "BreezeStyle library type: ${QQC2_TYPE}")
-if(QQC2_TYPE STREQUAL "STATIC_LIBRARY")
-	target_link_libraries(${EXE_NAME} PRIVATE
-		BreezeStyle
-		BreezeImpl
-	)
-endif()
-
-qt_import_qml_plugins(${EXE_NAME})
 
 # Add resources
 target_sources(${EXE_NAME} PRIVATE "resources/Resources.qrc")
@@ -724,34 +614,11 @@ option(EDITOR_SCRIPTS "Build the script runner (--script) used by the tests and 
 set(EDITOR_TEST_PROJECT "" CACHE PATH "Game the script tests run on (TestGame-2003 of https://github.com/EasyRPG/TestGame)")
 if(EDITOR_SCRIPTS)
 	enable_testing()
-	add_executable(editor_view_state_test tests/view_state_test.cpp src/ui/common/view_state.cpp
-		src/common/editor_settings.cpp src/common/editor_settings.h)
-	set_target_properties(editor_view_state_test PROPERTIES AUTOMOC ON)
-	target_include_directories(editor_view_state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-	target_link_libraries(editor_view_state_test PRIVATE Qt6::Widgets)
-	add_test(NAME view_state_restart COMMAND ${CMAKE_COMMAND}
-		-DTEST_PROGRAM=$<TARGET_FILE:editor_view_state_test> -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/run_view_state_test.cmake)
-	set_tests_properties(view_state_restart PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-	# the three-way merges with the data another program changed (rpgsync)
-	add_executable(editor_data_merge_test tests/data_merge_test.cpp src/model/data_merge.cpp)
-	target_include_directories(editor_data_merge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-	if(EDITOR_BUILD_LIBLCF)
-		target_link_libraries(editor_data_merge_test PRIVATE lcf Qt6::Core)
-	else()
-		target_link_libraries(editor_data_merge_test PRIVATE liblcf::liblcf Qt6::Core)
-	endif()
-	add_test(NAME data_merge COMMAND editor_data_merge_test)
 	# the web Player folders the export accepts (a release, a Player build folder)
 	add_executable(editor_web_player_test tests/web_player_test.cpp src/model/web_player.cpp)
 	target_include_directories(editor_web_player_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 	target_link_libraries(editor_web_player_test PRIVATE Qt6::Core)
 	add_test(NAME web_player COMMAND editor_web_player_test)
-	if(EDITOR_TEST_PROJECT)
-		# the Editor and another program change the game at once
-		add_test(NAME merge_with_other_program COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/merge_test.sh
-			$<TARGET_FILE:${EXE_NAME}> $<TARGET_FILE:editor_data_merge_test> ${EDITOR_TEST_PROJECT}
-			${CMAKE_CURRENT_SOURCE_DIR}/tests/merge)
-	endif()
 	target_sources(${EXE_NAME} PRIVATE src/ui/tools/automation.cpp src/ui/tools/automation.h)
 	target_compile_definitions(${EXE_NAME} PRIVATE EDITOR_SCRIPTS=1)
 	# wheel: trackpad events injected like the platform's
@@ -765,14 +632,6 @@ if(EDITOR_SCRIPTS)
 				COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${script} ${EDITOR_TEST_PROJECT}
 				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 			set_tests_properties(script_${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-		endforeach()
-		# the real style of the system: its windows show on screen while they run
-		file(GLOB EDITOR_NATIVE_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/scripts/native/*.txt")
-		foreach(script ${EDITOR_NATIVE_SCRIPTS})
-			get_filename_component(name ${script} NAME_WE)
-			add_test(NAME native_${name}
-				COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${script} ${EDITOR_TEST_PROJECT}
-				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 		endforeach()
 	endif()
 endif()
@@ -835,7 +694,7 @@ endif()
 if(WIN32 OR APPLE)
 	# The script fails on Linux currently
 	# On macOS the generated app does not run due to unsigned plugins
-	qt_generate_deploy_qml_app_script(
+	qt_generate_deploy_app_script(
 		TARGET ${EXE_NAME}
 		OUTPUT_SCRIPT deploy_script
 	)

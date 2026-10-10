@@ -15,8 +15,8 @@ make run
 
 - **macOS**: needs Xcode's command line tools (`xcode-select --install`) and
   [Homebrew](https://brew.sh). The first `make` installs what is missing
-  with Homebrew and builds four libraries Homebrew does not have, then the
-  Editor; later runs only rebuild what changed.
+  with Homebrew, then builds the Editor; later runs only rebuild what
+  changed.
 - **Linux**: needs [vcpkg](https://github.com/microsoft/vcpkg) (`VCPKG_ROOT`
   set), which builds the dependencies.
 - **Windows**: use the `windows-*` CMake presets.

@@ -8,6 +8,10 @@ on:
       git-ref:
         description: Git Ref (Optional)
         required: false
+      notarize-macos:
+        description: Notarize MacOS app
+        type: boolean
+        default: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,6 +20,17 @@ concurrency:
 defaults:
   run:
     shell: bash
+
+env:
+  QT_VERSION: '6.10.1'
+  # vcpkg, at a fixed commit: the libraries it builds are kept between runs
+  VCPKG_COMMIT: e456309491fd875487bf02b8a0dca76c1b1b00cc
+  # Qt's tools warn on every call without a UTF-8 locale
+  LC_ALL: C.UTF-8
+  CCACHE_MAXSIZE: 500M
+  CCACHE_COMPILERCHECK: content
+  # the precompiled headers (EDITOR_PRECOMPILE_HEADERS) through ccache
+  CCACHE_SLOPPINESS: pch_defines,time_macros,include_file_mtime,include_file_ctime
 
 jobs:
   flatpak:
@@ -26,17 +41,23 @@ jobs:
       options: --privileged
     steps:
     - uses: actions/checkout@v7
+    # without a cache-key, the cache of the libraries is named after the
+    # manifest: it is saved again only when the manifest changes
     - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
       with:
         bundle: EasyRPG-Editor.flatpak
         manifest-path: builds/flatpak/org.easyrpg.editor.yml
-        cache-key: flatpak-builder-${{ github.sha }}
 
+  # The x86_64 build is the AppImage's
   docker:
     name: ${{ matrix.image }} (${{ matrix.os.arch }})
     runs-on: ${{ matrix.os.name }}
     container:
       image: ${{ matrix.image }}
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: /vcpkg-cache/archives
+      VCPKG_DOWNLOADS: /vcpkg-cache/downloads
+      CCACHE_DIR: /ccache
 
     strategy:
       fail-fast: false
@@ -46,10 +67,9 @@ jobs:
           # -------------------------------------------------------------
           - ubuntu:24.04  # 3.28.3 | 13.2.0 | (too old) | LTS    (4/29) #
         os:
-          - arch: x86_64
-            name: ubuntu-latest
           - arch: arm64
             name: ubuntu-24.04-arm
+            triplet: arm64-linux-release
 
     steps:
       - &deps
@@ -58,21 +78,49 @@ jobs:
           export DEBIAN_FRONTEND="noninteractive"
           apt-get update
           apt-get install -yqq --no-install-recommends --no-install-suggests \
-            ca-certificates build-essential cmake ninja-build git \
+            ca-certificates build-essential cmake ninja-build git ccache \
             libicu-dev curl zip unzip tar tzdata
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE" "$VCPKG_DOWNLOADS" "$CCACHE_DIR"
+          echo "compiler=$(gcc -dumpfullversion)" >> "$GITHUB_OUTPUT"
+        id: deps
 
       - &qt6
         name: Install Qt6
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.10.1'
+          version: ${{ env.QT_VERSION }}
           install-deps: 'nosudo'
-          modules: 'qtmultimedia qtshadertools qtwaylandcompositor'
+          modules: 'qtmultimedia qtwaylandcompositor'
+          cache: true
 
       - &vcpkg
         name: Install vcpkg
         run: |
-          git clone https://github.com/Microsoft/vcpkg.git ../vcpkg
+          git init -q ../vcpkg
+          git -C ../vcpkg fetch -q --depth 1 https://github.com/microsoft/vcpkg.git "$VCPKG_COMMIT"
+          git -C ../vcpkg checkout -q FETCH_HEAD
+
+      # The libraries vcpkg builds, kept between runs. vcpkg rebuilds a
+      # library when its port changes, but not when the compiler does: it
+      # names the cache
+      - &vcpkgcache
+        name: Cache the libraries of vcpkg
+        uses: actions/cache@v6
+        with:
+          path: /vcpkg-cache
+          key: vcpkg-${{ matrix.os.triplet }}-gcc${{ steps.deps.outputs.compiler }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ matrix.os.triplet }}-gcc${{ steps.deps.outputs.compiler }}-
+
+      # What the Editor compiled before: a push recompiles what it changed
+      - &ccache
+        name: Cache the compiled files
+        uses: actions/cache@v6
+        with:
+          path: /ccache
+          key: ccache-${{ matrix.os.triplet }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ matrix.os.triplet }}-
 
       - &clone
         name: Clone Repository
@@ -89,13 +137,18 @@ jobs:
       - name: Use gcc problem matcher
         run: echo "::add-matcher::.github/gcc_comment_matcher.json"
 
+      # The libraries in Release only: the Editor is built in Release
       - name: Compile
         run: |
           export VCPKG_ROOT=$PWD/../vcpkg
           export Qt6_Path=$QT_ROOT_DIR
+          ccache -z
           cmake --preset vcpkg-liblcf-release -DCMAKE_INSTALL_PREFIX=/usr \
-            -DCMAKE_PREFIX_PATH=$QT_ROOT_DIR -DLIBLCF_WITH_ICU=OFF
+            -DCMAKE_PREFIX_PATH=$QT_ROOT_DIR -DLIBLCF_WITH_ICU=OFF \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.os.triplet }} -DVCPKG_HOST_TRIPLET=${{ matrix.os.triplet }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build --preset vcpkg-liblcf-release
+          ccache -s
 
       - name: Install
         run: |
@@ -107,6 +160,14 @@ jobs:
     container:
       image: ubuntu:24.04
       options: --privileged
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: /vcpkg-cache/archives
+      VCPKG_DOWNLOADS: /vcpkg-cache/downloads
+      CCACHE_DIR: /ccache
+    strategy:
+      matrix:
+        os:
+          - triplet: x64-linux-release
 
     steps:
       - *deps
@@ -119,6 +180,8 @@ jobs:
 
       - *qt6
       - *vcpkg
+      - *vcpkgcache
+      - *ccache
       - *clone
       - *cloneref
 
@@ -136,9 +199,13 @@ jobs:
         run: |
           export VCPKG_ROOT=$PWD/../vcpkg
           export Qt6_Path=$QT_ROOT_DIR
+          ccache -z
           cmake --preset vcpkg-liblcf-release -DCMAKE_INSTALL_PREFIX=AppDir \
-            -DCMAKE_PREFIX_PATH=$QT_ROOT_DIR
+            -DCMAKE_PREFIX_PATH=$QT_ROOT_DIR \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.os.triplet }} -DVCPKG_HOST_TRIPLET=${{ matrix.os.triplet }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build --preset vcpkg-liblcf-release
+          ccache -s
 
       - name: Install
         run: |
@@ -147,7 +214,6 @@ jobs:
       - name: Build AppImage
         run: |
           export EXTRA_QT_PLUGINS=waylandcompositor
-          export QML_SOURCES_PATHS="$PWD/src/ui"
           ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --executable AppDir/bin/easyrpg-editor \
@@ -162,12 +228,17 @@ jobs:
           name: EasyRPG-Editor-AppImage
           path: ./EasyRPG*.AppImage
 
+  # Built with the official Qt, for macOS 13.3 and later: Homebrew's runs on
+  # the newest macOS only
   macos:
-    name: "macOS (arm64)"
+    name: "macOS"
     runs-on: macos-26
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
       HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+      MACOSX_DEPLOYMENT_TARGET: '13.3'
+      MACOS_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+      MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
 
     steps:
       - *clone
@@ -176,29 +247,86 @@ jobs:
       - name: Use gcc problem matcher
         run: echo "::add-matcher::.github/gcc_comment_matcher.json"
 
-      # The four libraries Homebrew lacks are built against its Qt (Kirigami
-      # and KDDockWidgets use private Qt API): a new Qt rebuilds them
-      - name: Dependencies folder and Qt version
-        id: qt
-        run: |
-          echo "DEPS_DIR=$RUNNER_TEMP/editor-deps" >> "$GITHUB_ENV"
-          echo "version=$(brew info --json=v2 qtbase | python3 -c 'import json,sys; print(json.load(sys.stdin)["formulae"][0]["versions"]["stable"])')" >> "$GITHUB_OUTPUT"
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: 'qtmultimedia'
+          cache: true
 
+      - name: Folders and ccache
+        run: |
+          brew install ccache
+          {
+            echo "QT_DIR=$QT_ROOT_DIR"
+            echo "DEPS_DIR=$RUNNER_TEMP/editor-deps"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+          } >> "$GITHUB_ENV"
+
+      # ICU and inih, built by build.sh for both kinds of Mac: Homebrew's
+      # are for the newest macOS only
       - name: Cache dependencies
         uses: actions/cache@v6
         with:
           path: ${{ env.DEPS_DIR }}/install
-          key: editor-deps-${{ runner.os }}-${{ runner.arch }}-qt${{ steps.qt.outputs.version }}-${{ hashFiles('builds/macos/build.sh', 'builds/vcpkg_overlay/qqc2-breeze-style/*.patch') }}
+          key: editor-deps-macos${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ hashFiles('builds/macos/build.sh') }}
 
+      - name: Cache the compiled files
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-macos-${{ github.sha }}
+          restore-keys: |
+            ccache-macos-
+
+      # for this Mac's kind only: the application, below, is for both
       - name: Compile
         run: |
+          ccache -z
           builds/macos/build.sh --tests
+          ccache -s
 
       - name: Test
         run: |
-          ctest --test-dir build --output-on-failure -E '^native_'
+          ctest --test-dir build --output-on-failure
 
-      # its windows show in the runner's desktop session, in the macOS style
-      - name: Test (macOS style)
+      # A run started by hand also makes the application, in a disk image
+
+      - name: Build without the script runner
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          ctest --test-dir build --output-on-failure -R '^native_'
+          cmake -B build -DEDITOR_SCRIPTS=OFF -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          cmake --build build
+
+      - name: Import the Developer ID certificate
+        if: github.event_name == 'workflow_dispatch' && env.MACOS_DEVELOPER_ID_CERTIFICATE_BASE64 != ''
+        run: |
+          CERTIFICATE="$RUNNER_TEMP/developer-id.p12"
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          printf '%s' "$MACOS_DEVELOPER_ID_CERTIFICATE_BASE64" | base64 -D > "$CERTIFICATE"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          security import "$CERTIFICATE" -P "$MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          rm -f "$CERTIFICATE"
+          security list-keychain -d user -s "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KEYCHAIN"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+          echo "SIGN_IDENTITY=${{ secrets.MACOS_SIGN_IDENTITY }}" >> "$GITHUB_ENV"
+
+      - name: Package
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          APPLE_ID: ${{ inputs.notarize-macos && secrets.APPLE_ID || '' }}
+          APPLE_TEAM_ID: ${{ inputs.notarize-macos && secrets.APPLE_TEAM_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ inputs.notarize-macos && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+        run: |
+          builds/macos/package.sh
+
+      - name: Upload the disk image
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: EasyRPG-Editor-macOS
+          path: build/dist/*.dmg

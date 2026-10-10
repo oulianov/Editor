@@ -42,8 +42,7 @@
 			"hidden": true,
 			"toolchainFile": "$env{EASYRPG_BUILDSCRIPTS}/windows/vcpkg/scripts/buildsystems/vcpkg.cmake",
 			"cacheVariables": {
-				"EDITOR_PREFIX_PATH_APPEND": "$env{EASYRPG_BUILDSCRIPTS}/windows/qt/6.10.1/msvc2022_64",
-				"VCPKG_OVERLAY_PORTS": "${sourceDir}/builds/vcpkg_overlay"
+				"EDITOR_PREFIX_PATH_APPEND": "$env{EASYRPG_BUILDSCRIPTS}/windows/qt/6.10.1/msvc2022_64"
 			},
 			"environment": {
 				"Qt6_Path": "$env{EASYRPG_BUILDSCRIPTS}/windows/qt/6.10.1/msvc2022_64"
@@ -67,10 +66,7 @@
 			"name": "build-vcpkg",
 			"displayName": "build dependencies with vcpkg",
 			"toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-			"hidden": true,
-			"cacheVariables": {
-				"VCPKG_OVERLAY_PORTS": "${sourceDir}/builds/vcpkg_overlay"
-			}
+			"hidden": true
 		},
 		{
 			"name": "build-vcpkg-liblcf",

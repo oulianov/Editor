@@ -7,14 +7,6 @@
             "name": "inih",
             "features": ["cpp"]
         },
-        "ecm",
-        "expat",
-        "glaze",
-        {
-            "name": "kddockwidgets",
-            "features": ["qtquick"]
-        },
-        "kirigami",
-        "qqc2-breeze-style"
+        "expat"
     ]
 }
