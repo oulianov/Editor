@@ -161,3 +161,44 @@ jobs:
         with:
           name: EasyRPG-Editor-AppImage
           path: ./EasyRPG*.AppImage
+
+  macos:
+    name: "macOS (arm64)"
+    runs-on: macos-26
+    env:
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+
+    steps:
+      - *clone
+      - *cloneref
+
+      - name: Use gcc problem matcher
+        run: echo "::add-matcher::.github/gcc_comment_matcher.json"
+
+      # The four libraries Homebrew lacks are built against its Qt (Kirigami
+      # and KDDockWidgets use private Qt API): a new Qt rebuilds them
+      - name: Dependencies folder and Qt version
+        id: qt
+        run: |
+          echo "DEPS_DIR=$RUNNER_TEMP/editor-deps" >> "$GITHUB_ENV"
+          echo "version=$(brew info --json=v2 qtbase | python3 -c 'import json,sys; print(json.load(sys.stdin)["formulae"][0]["versions"]["stable"])')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache dependencies
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.DEPS_DIR }}/install
+          key: editor-deps-${{ runner.os }}-${{ runner.arch }}-qt${{ steps.qt.outputs.version }}-${{ hashFiles('builds/macos/build.sh', 'builds/vcpkg_overlay/qqc2-breeze-style/*.patch') }}
+
+      - name: Compile
+        run: |
+          builds/macos/build.sh --tests
+
+      - name: Test
+        run: |
+          ctest --test-dir build --output-on-failure -E '^native_'
+
+      # its windows show in the runner's desktop session, in the macOS style
+      - name: Test (macOS style)
+        run: |
+          ctest --test-dir build --output-on-failure -R '^native_'
