@@ -631,7 +631,8 @@ if(EDITOR_SCRIPTS)
 			add_test(NAME script_${name}
 				COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${script} ${EDITOR_TEST_PROJECT}
 				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-			set_tests_properties(script_${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+			# a dialog nobody closes fails the test instead of blocking the run
+			set_tests_properties(script_${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
 		endforeach()
 	endif()
 endif()

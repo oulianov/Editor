@@ -132,6 +132,9 @@ int main(int argc, char *argv[]) {
 	s.showMessage("Loading main window...");
 	app.processEvents();
 	MainWindow w;
+	// a script runs without an RTP (as in CI): no window may wait for one
+	if (!automation)
+		w.AskForRtp();
 	if (automation) {
 		// Clean up after the window has saved its workspace on aboutToQuit.
 		QObject::connect(&app, &QCoreApplication::aboutToQuit, [] {

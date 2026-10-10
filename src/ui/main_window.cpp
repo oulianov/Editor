@@ -311,8 +311,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	// the options of the Settings window, now and when they change
 	applySettings();
 	connect(&EditorSettings::instance(), &EditorSettings::changed, this, &MainWindow::applySettings);
-	if (core().rtpPath("").isEmpty())
-		on_actionSettings_triggered();
 	core().setDefDir(m_settings.value(DEFAULT_DIR_KEY,
 										qApp->applicationDirPath()).toString());
 	updateLayerActions();
@@ -326,6 +324,12 @@ MainWindow::~MainWindow()
 {
 	delete ui;
 	delete dlg_resource;
+}
+
+void MainWindow::AskForRtp()
+{
+	if (core().rtpPath("").isEmpty())
+		on_actionSettings_triggered();
 }
 
 void MainWindow::LoadLastProject()

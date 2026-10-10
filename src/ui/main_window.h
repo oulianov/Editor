@@ -47,6 +47,8 @@ public:
 	explicit MainWindow(QWidget *parent = nullptr);
 	~MainWindow();
 
+	/** Opens the Settings window when no RTP folder is set */
+	void AskForRtp();
 	void LoadLastProject();
 	void LoadProject(QString foldername);
 	void ImportProject(const QDir& src_dir, QDir& target_dir, bool convert_xyz);
