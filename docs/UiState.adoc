@@ -23,9 +23,3 @@ Presentation state must never serialize edited game values, undo history or
 clipboard contents. `Reset local state` clears the stored presentation state,
 restores open windows immediately and invalidates pending restores through the
 local state revision. Unsaved game edits and preferences remain intact.
-
-The `view_state_restart` CTest runs separate write, partial reopen and read processes.
-It verifies dock sizes, distinct splitter sizes on repeated tabs, column widths and
-order, last tabs, unvisited pages and immediate reset, while checking that edited
-values are untouched. It runs without a game fixture and is enabled with
-`EDITOR_SCRIPTS`.

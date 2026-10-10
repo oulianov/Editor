@@ -5,10 +5,11 @@ a change, to check that dialogs fit small screens, or to take screenshots.
 
 == Building
 
-The script runner is not part of releases. Turn it on in a development build:
+Every build of the Editor has the script runner. The scripts of
+`tests/scripts` are tests when the build is given a game to run them on:
 
 ----
-cmake -B build -DEDITOR_SCRIPTS=ON -DEDITOR_TEST_PROJECT=/path/to/TestGame-2003
+cmake -B build -DEDITOR_TEST_PROJECT=/path/to/TestGame-2003
 cmake --build build
 ctest --test-dir build --output-on-failure -j 8
 ----

@@ -29,9 +29,6 @@ step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
 [ -d "$BUILD_DIR/$NAME.app" ] || { echo "No $BUILD_DIR/$NAME.app: run builds/macos/build.sh first"; exit 1; }
 VERSION="$(sed -n 's/^CMAKE_PROJECT_VERSION:STATIC=//p' "$BUILD_DIR/CMakeCache.txt")"
-if grep -qs "^EDITOR_SCRIPTS:BOOL=ON" "$BUILD_DIR/CMakeCache.txt"; then
-	echo "Warning: built with EDITOR_SCRIPTS (the script runner is not part of releases)"
-fi
 
 notarize=false
 if [ -n "${NOTARY_PROFILE:-}" ]; then

@@ -609,32 +609,29 @@ endif()
 # Add resources
 target_sources(${EXE_NAME} PRIVATE "resources/Resources.qrc")
 
-# Script runner and its tests: not part of releases (docs/Automation.adoc)
-option(EDITOR_SCRIPTS "Build the script runner (--script) used by the tests and for screenshots" OFF)
+# Script runner (--script, docs/Automation.adoc), for tests and screenshots
+target_sources(${EXE_NAME} PRIVATE src/ui/tools/automation.cpp src/ui/tools/automation.h)
+# wheel: trackpad events injected like the platform's
+target_link_libraries(${EXE_NAME} PRIVATE Qt6::GuiPrivate)
+
+# Tests
+enable_testing()
+# the web Player folders the export accepts (a release, a Player build folder)
+add_executable(editor_web_player_test tests/web_player_test.cpp src/model/web_player.cpp)
+target_include_directories(editor_web_player_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(editor_web_player_test PRIVATE Qt6::Core)
+add_test(NAME web_player COMMAND editor_web_player_test)
 set(EDITOR_TEST_PROJECT "" CACHE PATH "Game the script tests run on (TestGame-2003 of https://github.com/EasyRPG/TestGame)")
-if(EDITOR_SCRIPTS)
-	enable_testing()
-	# the web Player folders the export accepts (a release, a Player build folder)
-	add_executable(editor_web_player_test tests/web_player_test.cpp src/model/web_player.cpp)
-	target_include_directories(editor_web_player_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-	target_link_libraries(editor_web_player_test PRIVATE Qt6::Core)
-	add_test(NAME web_player COMMAND editor_web_player_test)
-	target_sources(${EXE_NAME} PRIVATE src/ui/tools/automation.cpp src/ui/tools/automation.h)
-	target_compile_definitions(${EXE_NAME} PRIVATE EDITOR_SCRIPTS=1)
-	# wheel: trackpad events injected like the platform's
-	target_link_libraries(${EXE_NAME} PRIVATE Qt6::GuiPrivate)
-	if(EDITOR_TEST_PROJECT)
-		enable_testing()
-		file(GLOB EDITOR_TEST_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/scripts/*.txt")
-		foreach(script ${EDITOR_TEST_SCRIPTS})
-			get_filename_component(name ${script} NAME_WE)
-			add_test(NAME script_${name}
-				COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${script} ${EDITOR_TEST_PROJECT}
-				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-			# a dialog nobody closes fails the test instead of blocking the run
-			set_tests_properties(script_${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
-		endforeach()
-	endif()
+if(EDITOR_TEST_PROJECT)
+	file(GLOB EDITOR_TEST_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/scripts/*.txt")
+	foreach(script ${EDITOR_TEST_SCRIPTS})
+		get_filename_component(name ${script} NAME_WE)
+		add_test(NAME script_${name}
+			COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${script} ${EDITOR_TEST_PROJECT}
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+		# a dialog nobody closes fails the test instead of blocking the run
+		set_tests_properties(script_${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
+	endforeach()
 endif()
 
 # Translations

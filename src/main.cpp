@@ -23,9 +23,7 @@
 #include "common/translations.h"
 #include "ui/main_window.h"
 #include "ui/common/editor_style.h"
-#ifdef EDITOR_SCRIPTS
 #include "ui/tools/automation.h"
-#endif
 #include "ui/tools/screenshot.h"
 #include <QApplication>
 #include <QCommandLineParser>
@@ -63,13 +61,10 @@ int main(int argc, char *argv[]) {
 		"code");
 	parser.addOption(language_option);
 	parser.addOption(verbose_option);
-#ifdef EDITOR_SCRIPTS
-	// test builds only (EDITOR_SCRIPTS in CMake)
 	QCommandLineOption script_option("script",
 		QCoreApplication::translate("main", "Run the Editor commands of <file> and quit, for tests and screenshots (see docs/Automation.adoc)."),
 		"file");
 	parser.addOption(script_option);
-#endif
 	parser.process(app);
 
 	// The details only on request
@@ -77,11 +72,7 @@ int main(int argc, char *argv[]) {
 		? QStringLiteral("editor.*.debug=true")
 		: QStringLiteral("editor.*.debug=false"));
 
-#ifdef EDITOR_SCRIPTS
 	const bool automation = parser.isSet(script_option);
-#else
-	const bool automation = false;
-#endif
 	if (automation) {
 		// Each script starts from the default settings, in its own file: runs
 		// in parallel do not see each other's, nor the user's (last project,
@@ -156,7 +147,6 @@ int main(int argc, char *argv[]) {
 	s.clearMessage();
 	w.show();
 
-#ifdef EDITOR_SCRIPTS
 	if (automation) {
 		Automation script(w, parser.value(script_option));
 		if (!script.isValid()) {
@@ -166,7 +156,6 @@ int main(int argc, char *argv[]) {
 		script.start();
 		return app.exec();
 	}
-#endif
 	Screenshot::installShortcut();
 #ifndef NDEBUG
 	// close splash immediately in debug

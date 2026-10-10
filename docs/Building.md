@@ -34,8 +34,8 @@ On macOS (Apple silicon or Intel) with Xcode's command line tools
 1. `brew install` what is missing among cmake, ninja, the Qt 6 modules,
    icu4c@78, inih and expat (installed packages are not upgraded);
 2. configures the Editor in `build` with liblcf built alongside, and builds
-   `build/EasyRPG Editor.app`; with `--tests`, also the script runner and the
-   tests, on a copy of TestGame-2003 downloaded into `build/testgame2003`.
+   `build/EasyRPG Editor.app`; with `--tests`, also the tests, on a copy of
+   TestGame-2003 downloaded into `build/testgame2003`.
 
 Running it again only rebuilds what changed, and so do the usual commands:
 
@@ -118,18 +118,17 @@ files between runs. To move to a newer vcpkg, change `VCPKG_COMMIT`.
 | `EDITOR_BUILD_LIBLCF` | `OFF` | clone liblcf into `lib/liblcf` and build it with the Editor |
 | `EDITOR_BUILD_LIBLCF_GIT` | GitHub (HTTPS) | the repository cloned; an SSH URL where HTTPS is blocked |
 | `EDITOR_PRECOMPILE_HEADERS` | `ON` | parse Qt Widgets and liblcf's database header once for every file (a clean build takes a quarter less time) |
-| `EDITOR_SCRIPTS` | `OFF` | build the script runner (`--script FILE`) and the tests |
-| `EDITOR_TEST_PROJECT` | (none) | the game the GUI tests run on: a copy of TestGame-2003 |
+| `EDITOR_TEST_PROJECT` | (none) | the game the script tests run on: a copy of TestGame-2003 |
 
 
 ## Tests
 
-`make test` builds with `EDITOR_SCRIPTS=ON` and runs them. By hand, with a
+`make test` builds the Editor with the tests and runs them. By hand, with a
 copy of [TestGame-2003](https://github.com/EasyRPG/TestGame) (the tests
 change it):
 
 ```bash
-cmake -B build -DEDITOR_SCRIPTS=ON -DEDITOR_TEST_PROJECT=/path/to/testgame2003
+cmake -B build -DEDITOR_TEST_PROJECT=/path/to/testgame2003
 cmake --build build && ctest --test-dir build -j 8
 ```
 

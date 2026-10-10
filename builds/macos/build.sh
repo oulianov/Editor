@@ -3,7 +3,7 @@
 # but Xcode's command line tools and Homebrew:
 #
 #   builds/macos/build.sh            # the Editor
-#   builds/macos/build.sh --tests    # also the script runner and the tests
+#   builds/macos/build.sh --tests    # also the GUI tests (and their game)
 #
 # Homebrew gives Qt 6 and the libraries. The Editor is built in BUILD_DIR,
 # with liblcf cloned into lib/liblcf and built alongside.
@@ -119,7 +119,6 @@ if command -v ccache >/dev/null; then
 	options+=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
 fi
 if [ "$TESTS" = ON ]; then
-	options+=(-DEDITOR_SCRIPTS=ON)
 	# the game the GUI tests change: a copy of TestGame-2003, made once
 	if [ -z "${EDITOR_TEST_PROJECT:-}" ] && ! grep -qs "^EDITOR_TEST_PROJECT:PATH=." "$BUILD_DIR/CMakeCache.txt"; then
 		EDITOR_TEST_PROJECT="$BUILD_DIR/testgame2003"
