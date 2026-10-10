@@ -61,12 +61,13 @@
     </property>
     <addaction name="actionProjectNew"/>
     <addaction name="actionProjectOpen"/>
-    <addaction name="actionProjectImport"/>
     <addaction name="actionProjectClose"/>
+    <addaction name="separator"/>
     <addaction name="actionProjectRename"/>
+    <addaction name="actionGameDiskCreate"/>
     <addaction name="actionProjectConvert2003"/>
     <addaction name="separator"/>
-    <addaction name="actionGameDiskCreate"/>
+    <addaction name="actionProjectImport"/>
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
@@ -74,6 +75,9 @@
     <property name="title">
      <string>Maps</string>
     </property>
+    <addaction name="actionUndo"/>
+    <addaction name="actionRedo"/>
+    <addaction name="separator"/>
     <addaction name="actionMapSave"/>
     <addaction name="actionMapSaveAll"/>
     <addaction name="actionMapRevert"/>
@@ -328,11 +332,12 @@
    <addaction name="actionRedo"/>
    <addaction name="separator"/>
    <addaction name="actionDrawSelect"/>
-   <addaction name="actionZoom"/>
    <addaction name="actionDrawPen"/>
    <addaction name="actionDrawRectangle"/>
    <addaction name="actionDrawCircle"/>
    <addaction name="actionDrawFill"/>
+   <addaction name="separator"/>
+   <addaction name="actionZoom"/>
   </widget>
   <action name="actionProjectOpen">
    <property name="text">
@@ -625,9 +630,6 @@
    <property name="toolTip">
     <string>Undo last action</string>
    </property>
-   <property name="shortcut">
-    <string>Ctrl+Z</string>
-   </property>
   </action>
   <action name="actionRedo">
    <property name="text">
@@ -638,9 +640,6 @@
    </property>
    <property name="toolTip">
     <string>Redo the last action undone</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Shift+Z</string>
    </property>
   </action>
   <action name="actionMapSaveAll">
@@ -785,7 +784,7 @@
   </action>
   <action name="actionProjectImport">
    <property name="text">
-    <string>&amp;Import Project</string>
+    <string>&amp;Import Project to Workspace...</string>
    </property>
   </action>
   <action name="actionMapProperties">

@@ -51,6 +51,64 @@
 #include <lcf/lmu/reader.h>
 #include <lcf/lmt/reader.h>
 
+// A rectangle of cells framed inside its edges by a line of 1.5 pixels of the
+// view at every zoom (3 on screens of twice the resolution, whole pixels of
+// the screen): white under black dashes marching clockwise around it
+class SelectionOutline : public QGraphicsItem
+{
+public:
+	void setRect(const QRectF& rect)
+	{
+		prepareGeometryChange();
+		m_rect = rect;
+	}
+
+	/** The steps the dashes have marched, a pixel of the screen each */
+	void setDashOffset(int offset)
+	{
+		m_offset = offset;
+		update();
+	}
+
+	QRectF boundingRect() const override
+	{
+		return m_rect;
+	}
+
+	void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override
+	{
+		const qreal dpr = painter->device()->devicePixelRatioF();
+		const QTransform transform = painter->worldTransform();
+		// in pixels of the screen
+		const QPointF top_left = transform.map(m_rect.topLeft()) * dpr;
+		const QPointF bottom_right = transform.map(m_rect.bottomRight()) * dpr;
+		const int width = std::max(1, qRound(1.5 * dpr));
+		// the middle of the line, inside the edges
+		const QRectF line(QPointF(std::round(top_left.x()), std::round(top_left.y())) + QPointF(width, width) / 2,
+			QPointF(std::round(bottom_right.x()), std::round(bottom_right.y())) - QPointF(width, width) / 2);
+		painter->save();
+		painter->resetTransform();
+		painter->scale(1 / dpr, 1 / dpr);
+		painter->setRenderHint(QPainter::Antialiasing, false);
+		painter->setBrush(Qt::NoBrush);
+		painter->setPen(QPen(Qt::white, width, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin));
+		painter->drawRect(line);
+		// one path around the rectangle, its dashes and gaps of two widths;
+		// a smaller offset moves them forward, clockwise
+		QPen ants(Qt::black, width, Qt::CustomDashLine, Qt::FlatCap, Qt::MiterJoin);
+		ants.setDashPattern({2, 2});
+		const int period = 4 * width;
+		ants.setDashOffset(static_cast<qreal>(period - m_offset % period) / width);
+		painter->setPen(ants);
+		painter->drawRect(line);
+		painter->restore();
+	}
+
+private:
+	QRectF m_rect;
+	int m_offset = 0;
+};
+
 MapScene::MapScene(ProjectData& project, int id, QGraphicsView *view, QObject *parent) :
 	QGraphicsScene(parent), m_project(project)
 {
@@ -142,23 +200,15 @@ MapScene::MapScene(ProjectData& project, int id, QGraphicsView *view, QObject *p
 
 	// The selection of the selection tool: white under black dashes moving
 	// with a timer (RPG Maker's marching ants)
-	QPen white_pen(Qt::white, 1);
-	white_pen.setCosmetic(true);
-	QPen ants_pen(Qt::black, 1, Qt::DashLine);
-	ants_pen.setCosmetic(true);
-	m_selAreaItem = new QGraphicsRectItem();
-	m_selAreaItem->setPen(white_pen);
+	m_selAreaItem = new SelectionOutline();
 	m_selAreaItem->setZValue(3);
 	m_selAreaItem->setVisible(false);
-	m_selAntsItem = new QGraphicsRectItem(m_selAreaItem);
-	m_selAntsItem->setPen(ants_pen);
 	addItem(m_selAreaItem);
-	m_antsTimer.setInterval(150);
+	// a pixel of the screen every 40 ms
+	m_antsTimer.setInterval(40);
 	connect(&m_antsTimer, &QTimer::timeout, this, [this]() {
-		m_antsOffset = (m_antsOffset + 1) % 8;
-		QPen pen = m_selAntsItem->pen();
-		pen.setDashOffset(m_antsOffset);
-		m_selAntsItem->setPen(pen);
+		m_antsOffset = (m_antsOffset + 1) % 1200;
+		m_selAreaItem->setDashOffset(m_antsOffset);
 	});
 	// RPG Maker frames the cells the tool draws on, under the mouse
 	QPen brush_outer(Qt::black, 3);
@@ -214,6 +264,7 @@ MapScene::~MapScene()
 	delete m_markerpix;
 	delete m_lines;
 	delete m_selectionTile;
+	qDeleteAll(m_itemTiles);
 	delete m_undoStack;
 }
 
@@ -516,6 +567,170 @@ void MapScene::setStartPosition(Core::StartMarker kind, int x, int y)
 	pushStart(old_start);
 }
 
+namespace {
+// the events copied with the selection tool, their cells from the top left
+// of the selection; for every map
+std::vector<lcf::rpg::Event>& itemsClipboard()
+{
+	static std::vector<lcf::rpg::Event> events;
+	return events;
+}
+}
+
+bool MapScene::selectingItems() const
+{
+	return core().layer() == Core::EVENT && core().tool() == Core::SELECT;
+}
+
+void MapScene::selectItems(const QRect &cells)
+{
+	m_selEvents.clear();
+	m_selStarts.clear();
+	const QRect area = cells & QRect(0, 0, m_map->width, m_map->height);
+	for (const auto& ev : m_map->events)
+		if (area.contains(ev.x, ev.y))
+			m_selEvents.append(ev.ID);
+	lcf::rpg::Start start = m_project.treeMap().start;
+	for (int kind = Core::PARTY; kind <= Core::AIRSHIP; kind++) {
+		const StartFields fields = startFields(start, static_cast<Core::StartMarker>(kind));
+		if (fields.map_id == id() && area.contains(fields.x, fields.y))
+			m_selStarts.append(kind);
+	}
+	m_selArea = m_selEvents.isEmpty() && m_selStarts.isEmpty() ? QRect() : area;
+	updateSelectionArea();
+}
+
+bool MapScene::canMoveItems(const QPoint &offset)
+{
+	lcf::rpg::Start start = m_project.treeMap().start;
+	// RPG Maker's rule of the drops: an empty cell, here or one left by the
+	// selection
+	auto free = [&](const QPoint& cell) {
+		if (!QRect(0, 0, m_map->width, m_map->height).contains(cell))
+			return false;
+		for (const auto& ev : m_map->events)
+			if (ev.x == cell.x() && ev.y == cell.y() && !m_selEvents.contains(ev.ID))
+				return false;
+		for (int kind = Core::PARTY; kind <= Core::AIRSHIP; kind++) {
+			const StartFields fields = startFields(start, static_cast<Core::StartMarker>(kind));
+			if (fields.map_id == id() && fields.x == cell.x() && fields.y == cell.y() && !m_selStarts.contains(kind))
+				return false;
+		}
+		return true;
+	};
+	for (int ev_id : m_selEvents)
+		if (const auto* ev = findEvent(ev_id); ev && !free(QPoint(ev->x, ev->y) + offset))
+			return false;
+	for (int kind : m_selStarts) {
+		const StartFields fields = startFields(start, static_cast<Core::StartMarker>(kind));
+		if (!free(QPoint(fields.x, fields.y) + offset))
+			return false;
+	}
+	return true;
+}
+
+void MapScene::moveItems(const QPoint &offset)
+{
+	if (offset.isNull() || !canMoveItems(offset))
+		return;
+	m_undoStack->beginMacro(tr("Move Events"));
+	for (int ev_id : m_selEvents) {
+		if (auto* ev = findEvent(ev_id)) {
+			const lcf::rpg::Event before = *ev;
+			ev->x += offset.x();
+			ev->y += offset.y();
+			m_undoStack->push(new UndoEvent(ev_id, before, this));
+		}
+	}
+	const lcf::rpg::Start old_start = m_project.treeMap().start;
+	for (int kind : m_selStarts) {
+		const StartFields fields = startFields(m_project.treeMap().start, static_cast<Core::StartMarker>(kind));
+		fields.x += offset.x();
+		fields.y += offset.y();
+	}
+	if (!(old_start == m_project.treeMap().start))
+		m_undoStack->push(new UndoStart(old_start, this));
+	m_undoStack->endMacro();
+	m_selArea.translate(offset);
+	updateSelectionArea();
+	redrawMap();
+	emit mapChanged();
+}
+
+void MapScene::copyItems()
+{
+	// the start positions are not copied: there is one of each
+	std::vector<lcf::rpg::Event> events;
+	for (int ev_id : m_selEvents) {
+		if (const auto* ev = findEvent(ev_id)) {
+			events.push_back(*ev);
+			events.back().x -= m_selArea.x();
+			events.back().y -= m_selArea.y();
+		}
+	}
+	if (!events.empty())
+		itemsClipboard() = std::move(events);
+}
+
+void MapScene::deleteItems()
+{
+	if (m_selEvents.isEmpty())
+		return;
+	m_undoStack->beginMacro(tr("Delete Events"));
+	for (int ev_id : m_selEvents) {
+		auto& events = m_map->events;
+		auto ev = std::find_if(events.begin(), events.end(), [ev_id](const auto& e) { return e.ID == ev_id; });
+		if (ev == events.end())
+			continue;
+		const lcf::rpg::Event backup = *ev;
+		events.erase(ev);
+		m_undoStack->push(new UndoEvent(ev_id, backup, this));
+	}
+	m_undoStack->endMacro();
+	// the start positions stay selected
+	m_selEvents.clear();
+	if (m_selStarts.isEmpty())
+		m_selArea = QRect();
+	updateSelectionArea();
+	redrawMap();
+	// the events moved in memory
+	emit mapReloaded();
+	emit mapChanged();
+}
+
+void MapScene::pasteItems(int x, int y)
+{
+	const auto& events = itemsClipboard();
+	if (events.empty())
+		return;
+	for (const auto& ev : events) {
+		const QPoint cell(x + ev.x, y + ev.y);
+		if (!QRect(0, 0, m_map->width, m_map->height).contains(cell) || !isFreeCell(cell.x(), cell.y()))
+			return;
+	}
+	clearSelectionArea();
+	m_undoStack->beginMacro(tr("Paste Events"));
+	QRect area;
+	for (const auto& ev : events) {
+		// RPG Maker keeps the names, the events get the first free ids
+		lcf::rpg::Event pasted = ev;
+		pasted.ID = getFirstFreeId();
+		pasted.x += x;
+		pasted.y += y;
+		m_map->events.push_back(pasted);
+		m_undoStack->push(new UndoEvent(pasted.ID, std::nullopt, this));
+		m_selEvents.append(pasted.ID);
+		area |= QRect(pasted.x, pasted.y, 1, 1);
+	}
+	m_undoStack->endMacro();
+	// the pasted events stay selected
+	m_selArea = area;
+	updateSelectionArea();
+	redrawMap();
+	emit mapReloaded();
+	emit mapChanged();
+}
+
 void MapScene::editMapProperties(QTreeWidgetItem *item)
 {
 	commitFloating();
@@ -602,6 +817,8 @@ void MapScene::setScale(float scale)
 	m_scale = scale;
 	m_lines->setScale(static_cast<double>(m_scale));
 	m_selectionTile->setScale(static_cast<double>(m_scale));
+	for (QGraphicsRectItem* tile : m_itemTiles)
+		tile->setScale(static_cast<double>(m_scale));
 	m_selAreaItem->setScale(static_cast<double>(m_scale));
 	m_floatItem->setScale(static_cast<double>(m_scale));
 	m_areaItem->setScale(static_cast<double>(m_scale));
@@ -652,7 +869,7 @@ void MapScene::onLayerChanged()
 		m_lowerpix->graphicsEffect()->setEnabled(false);
 		m_upperpix->graphicsEffect()->setEnabled(false);
 		m_lines->setVisible(true);
-		// the selection tool works on the tile layers only
+		// the tile selection ends; the selection tool selects events here
 		clearSelectionArea();
 		break;
 //	  default:
@@ -678,9 +895,12 @@ void MapScene::onToolChanged()
 void MapScene::applyCursor()
 {
 	// the event layer has the arrow, and the move cursor while an event is dragged
-	if (core().layer() != Core::EVENT && core().tool() == Core::SELECT && m_selArea.contains(cur_x, cur_y))
+	if (m_itemsMoving)
+		m_lowerpix->setCursor(m_itemsOffset.isNull() || canMoveItems(m_itemsOffset)
+			? MapCursors::move() : QCursor(Qt::ForbiddenCursor));
+	else if (core().tool() == Core::SELECT && m_selArea.contains(cur_x, cur_y))
 		m_lowerpix->setCursor(MapCursors::move());
-	else if (core().layer() != Core::EVENT)
+	else if (core().layer() != Core::EVENT || core().tool() == Core::SELECT)
 		m_lowerpix->setCursor(MapCursors::forTool(core().tool()));
 	else if (m_dragEventId || m_dragStart >= 0) {
 		// the drop needs an empty cell of the map, or the cell dragged from
@@ -1179,6 +1399,10 @@ void MapScene::on_actionPlaceTeleport()
 
 void MapScene::on_actionCopyArea()
 {
+	if (core().layer() == Core::EVENT) {
+		copyItems();
+		return;
+	}
 	if (m_floating) {
 		core().setTileClipboard(m_float);
 		return;
@@ -1201,6 +1425,11 @@ void MapScene::on_actionCopyArea()
 
 void MapScene::on_actionCutArea()
 {
+	if (core().layer() == Core::EVENT) {
+		copyItems();
+		deleteItems();
+		return;
+	}
 	if (m_floating) {
 		core().setTileClipboard(m_float);
 		cancelFloating();
@@ -1212,6 +1441,14 @@ void MapScene::on_actionCutArea()
 
 void MapScene::on_actionPasteArea()
 {
+	if (core().layer() == Core::EVENT) {
+		// on the cell under the mouse, else the cell selected
+		if (cur_x >= 0 && cur_y >= 0)
+			pasteItems(cur_x, cur_y);
+		else
+			pasteItems(lst_x, lst_y);
+		return;
+	}
 	commitFloating();
 	clearSelectionArea();
 	const Core::TileClipboard& clipboard = core().tileClipboard();
@@ -1231,6 +1468,10 @@ void MapScene::on_actionPasteArea()
 
 void MapScene::on_actionClearArea()
 {
+	if (core().layer() == Core::EVENT) {
+		deleteItems();
+		return;
+	}
 	if (m_floating) {
 		cancelFloating();
 		return;
@@ -1240,6 +1481,10 @@ void MapScene::on_actionClearArea()
 
 void MapScene::on_actionSelectAll()
 {
+	if (core().layer() == Core::EVENT) {
+		selectItems(QRect(0, 0, m_map->width, m_map->height));
+		return;
+	}
 	commitFloating();
 	clearSelectionArea();
 	m_selArea = QRect(0, 0, m_map->width, m_map->height);
@@ -1293,10 +1538,12 @@ void MapScene::pushLayers(const QString &text)
 void MapScene::updateSelectionArea()
 {
 	const int ts = core().tileSize();
-	const QRectF rect(m_selArea.x() * ts, m_selArea.y() * ts, m_selArea.width() * ts, m_selArea.height() * ts);
+	// the selected items are shown where they are dragged
+	const QRect area = m_selArea.translated(m_itemsOffset);
+	const QRectF rect(area.x() * ts, area.y() * ts, area.width() * ts, area.height() * ts);
 	m_selAreaItem->setRect(rect);
-	m_selAntsItem->setRect(rect);
 	m_selAreaItem->setVisible(!m_selArea.isEmpty());
+	updateItemTiles();
 	if (m_selArea.isEmpty())
 		m_antsTimer.stop();
 	else if (!m_antsTimer.isActive())
@@ -1315,8 +1562,48 @@ void MapScene::clearSelectionArea()
 	m_selContents = {};
 	m_selBackground = {};
 	m_selDragging = false;
+	// the events and the start positions selected on the event layer
+	const bool dragged = !m_itemsOffset.isNull();
+	m_selEvents.clear();
+	m_selStarts.clear();
+	m_itemsSelecting = false;
+	m_itemsMoving = false;
+	m_itemsOffset = QPoint();
 	m_selArea = QRect();
 	updateSelectionArea();
+	if (dragged)
+		redrawLayer(Core::UPPER);
+}
+
+void MapScene::updateItemTiles()
+{
+	// the cells of the selected items, where they are dragged
+	QList<QPoint> cells;
+	for (int ev_id : m_selEvents)
+		if (const auto* ev = findEvent(ev_id))
+			cells.append(QPoint(ev->x, ev->y) + m_itemsOffset);
+	lcf::rpg::Start start = m_project.treeMap().start;
+	for (int kind : m_selStarts) {
+		const StartFields fields = startFields(start, static_cast<Core::StartMarker>(kind));
+		cells.append(QPoint(fields.x, fields.y) + m_itemsOffset);
+	}
+	while (m_itemTiles.size() < cells.size()) {
+		// as the cursor of the selected cell
+		auto* tile = new QGraphicsRectItem();
+		tile->setPen(m_selectionTile->pen());
+		tile->setZValue(m_selectionTile->zValue());
+		tile->setScale(m_selectionTile->scale());
+		addItem(tile);
+		m_itemTiles.append(tile);
+	}
+	const int ts = core().tileSize();
+	for (int i = 0; i < m_itemTiles.size(); i++) {
+		m_itemTiles[i]->setVisible(i < cells.size());
+		if (i < cells.size())
+			m_itemTiles[i]->setRect(QRectF(QRect(cells[i].x() * ts, cells[i].y() * ts, ts, ts)));
+	}
+	// the cursor of the selected cell gives way to them
+	m_selectionTile->setVisible(m_selecting && cells.isEmpty());
 }
 
 void MapScene::showFloating()
@@ -1392,7 +1679,8 @@ void MapScene::selectCell(int x, int y)
 	lst_x = x;
 	lst_y = y;
 	m_selecting = true;
-	m_selectionTile->setVisible(true);
+	// the selected items have their own
+	m_selectionTile->setVisible(m_selEvents.isEmpty() && m_selStarts.isEmpty());
 	m_selectionTile->setRect(QRectF(QRect(x*core().tileSize(),y*core().tileSize(),
 										  core().tileSize(),core().tileSize())));
 }
@@ -1446,9 +1734,23 @@ void MapScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 			stopDrawing();
 			return;
 		}
+		if (selectingItems())
+		{
+			// the menu of the selection tool, on the selected events; Paste
+			// puts the copied ones on the cell clicked
+			if (!inside || m_itemsSelecting || m_itemsMoving)
+				return;
+			selectCell(cur_x, cur_y);
+			m_actionCutArea->setEnabled(!m_selEvents.isEmpty());
+			m_actionCopyArea->setEnabled(!m_selEvents.isEmpty());
+			m_actionClearArea->setEnabled(!m_selEvents.isEmpty());
+			m_actionPasteArea->setEnabled(!itemsClipboard().empty());
+			m_areaMenu->popup(event->screenPos());
+			return;
+		}
 		if (core().layer() == Core::EVENT)
 		{
-			// the tools are not used on the event layer (RPG Maker)
+			// the other tools are not used on the event layer (RPG Maker)
 			m_dragEventId = 0;
 			m_dragStart = -1;
 			applyCursor();
@@ -1500,6 +1802,28 @@ void MapScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 	if (event->button() != Qt::LeftButton)
 		return;
 
+	if (selectingItems())
+	{
+		if (!inside)
+			return;
+		selectCell(cur_x, cur_y);
+		if (m_selArea.contains(cur_x, cur_y)) {
+			// drag the selected events and start positions
+			m_itemsMoving = true;
+			m_itemsGrab = QPoint(cur_x, cur_y);
+			m_itemsOffset = QPoint();
+		} else {
+			// a rectangle of cells, or a click on an item
+			clearSelectionArea();
+			m_itemsSelecting = true;
+			fst_x = cur_x;
+			fst_y = cur_y;
+			m_selArea = QRect(cur_x, cur_y, 1, 1);
+			updateSelectionArea();
+		}
+		applyCursor();
+		return;
+	}
 	if (core().layer() == Core::EVENT) // Select tile, maybe to drag its event
 	{
 		// Do not allow selecting the (-1, -1) spot
@@ -1618,10 +1942,17 @@ void MapScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 			break;
 		}
 	}
-	if (m_selDragging)
+	if (m_selDragging || m_itemsSelecting)
 	{
 		m_selArea = QRect(QPoint(fst_x, fst_y), QPoint(cur_x, cur_y)).normalized();
 		updateSelectionArea();
+	}
+	if (m_itemsMoving)
+	{
+		m_itemsOffset = QPoint(cur_x, cur_y) - m_itemsGrab;
+		updateSelectionArea();
+		redrawLayer(Core::UPPER);
+		applyCursor();
 	}
 	if (m_selMoving) {
 		const QPoint pos(std::clamp(cur_x - m_selGrab.x(), 0, m_map->width - m_selContents.width),
@@ -1698,6 +2029,26 @@ void MapScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 		m_selBackground = {};
 	}
 	m_floatDragging = false;
+	if (m_itemsSelecting)
+	{
+		m_itemsSelecting = false;
+		selectItems(m_selArea);
+	}
+	if (m_itemsMoving)
+	{
+		m_itemsMoving = false;
+		const QPoint offset = m_itemsOffset;
+		m_itemsOffset = QPoint();
+		// dropped out of the map, or where an item is not free to go: nothing moves
+		if (updateCursor(event->scenePos()) && !offset.isNull() && canMoveItems(offset)) {
+			moveItems(offset);
+			selectCell(m_itemsGrab.x() + offset.x(), m_itemsGrab.y() + offset.y());
+		} else {
+			updateSelectionArea();
+			redrawLayer(Core::UPPER);
+		}
+		applyCursor();
+	}
 	if (m_dragEventId)
 	{
 		const int id = m_dragEventId;
@@ -1803,14 +2154,37 @@ bool MapScene::handleKey(QKeyEvent *event, bool run)
 	const bool del = no_modifier && (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace);
 	void (MapScene::*slot)() = nullptr;
 
+	if (selectingItems())
+	{
+		// the keys of the selection tool, on the selected events
+		const bool has_events = !m_selEvents.isEmpty();
+		if (event->matches(QKeySequence::Cut) && has_events)
+			slot = &MapScene::on_actionCutArea;
+		else if (event->matches(QKeySequence::Copy) && has_events)
+			slot = &MapScene::on_actionCopyArea;
+		else if (event->matches(QKeySequence::Paste) && !itemsClipboard().empty())
+			slot = &MapScene::on_actionPasteArea;
+		else if (del && has_events)
+			slot = &MapScene::on_actionClearArea;
+		else if (event->matches(QKeySequence::SelectAll))
+			slot = &MapScene::on_actionSelectAll;
+		else if (no_modifier && event->key() == Qt::Key_Escape && !m_selArea.isEmpty())
+			slot = &MapScene::clearSelectionArea;
+		// the selection replaces the event of the cell, but for Enter
+		else if (!enter)
+			return false;
+	}
 	if (core().layer() == Core::EVENT)
 	{
-		// the cell selected with the mouse
-		if (!m_selectionTile->isVisible())
+		// the keys of the event on the cell selected with the mouse; the
+		// selection tool's first
+		if (!slot && !m_selecting)
 			return false;
 		const bool has_event = getEventAt(lst_x, lst_y);
 		const bool has_start = startAt(lst_x, lst_y) >= 0;
-		if (enter && !has_start)
+		if (slot)
+			;
+		else if (enter && !has_start)
 			slot = has_event ? &MapScene::on_actionEditEvent : &MapScene::on_actionNewEvent;
 		else if (event->matches(QKeySequence::Cut) && has_event)
 			slot = &MapScene::on_actionCutEvent;
@@ -2021,8 +2395,10 @@ void MapScene::redrawLayer(Core::Layer layer)
 		lcf::rpg::Start start = m_project.treeMap().start;
 		for (int kind = Core::PARTY; kind <= Core::AIRSHIP; kind++) {
 			const StartFields fields = startFields(start, static_cast<Core::StartMarker>(kind));
+			// the selected ones where they are dragged
+			const QPoint offset = m_selStarts.contains(kind) ? m_itemsOffset : QPoint();
 			if (fields.map_id == id())
-				markers.append({static_cast<Core::StartMarker>(kind), letters[kind], QPoint(fields.x, fields.y)});
+				markers.append({static_cast<Core::StartMarker>(kind), letters[kind], QPoint(fields.x, fields.y) + offset});
 		}
 		auto hasMarker = [&](int x, int y) {
 			return std::any_of(markers.begin(), markers.end(),
@@ -2030,10 +2406,12 @@ void MapScene::redrawLayer(Core::Layer layer)
 		};
 		for (unsigned int i = 0; i <  m_map->events.size(); i++)
 		{
-			if (hasMarker(m_map->events[i].x, m_map->events[i].y))
+			const QPoint cell = QPoint(m_map->events[i].x, m_map->events[i].y)
+				+ (m_selEvents.contains(m_map->events[i].ID) ? m_itemsOffset : QPoint());
+			if (hasMarker(cell.x(), cell.y()))
 				continue;
-			QRect rect((m_map->events[i].x-start_x)* s_tileSize,
-					   (m_map->events[i].y-start_y)* s_tileSize,
+			QRect rect((cell.x()-start_x)* s_tileSize,
+					   (cell.y()-start_y)* s_tileSize,
 					   s_tileSize,
 					   s_tileSize);
 			core().renderEvent(m_map->events[i], rect);

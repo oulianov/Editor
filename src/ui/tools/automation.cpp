@@ -539,16 +539,20 @@ bool Automation::run(const QStringList& args) {
 		QApplication::postEvent(target, new QContextMenuEvent(QContextMenuEvent::Mouse, pos, target->mapToGlobal(pos)));
 		return true;
 	}
-	if (cmd == "dump-menu" && args.size() == 1) {
-		// each item of the menu shown: its text, its shortcut, whether it has an
-		// icon, whether it is greyed, its tooltip
-		auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+	if (cmd == "dump-menu" && args.size() <= 2) {
+		// each item of the menu shown (or of a menu by object name, such as a
+		// menu of the menu bar): its text, its shortcut, whether it has an
+		// icon, whether it is greyed, its tooltip; the separators as "--"
+		auto* menu = args.size() == 2 ? m_window.findChild<QMenu*>(args[1])
+			: qobject_cast<QMenu*>(QApplication::activePopupWidget());
 		if (!menu) {
-			fail("no menu shown");
+			fail(args.size() == 2 ? "no menu " + args[1] : QString("no menu shown"));
 			return false;
 		}
 		for (QAction* action : menu->actions()) {
 			if (action->isSeparator()) {
+				if (args.size() == 2)
+					qCInfo(lcAutomation).noquote() << "  --";
 				continue;
 			}
 			const QString tip = action->toolTip() != action->text().remove('&') ? " | " + action->toolTip() : QString();

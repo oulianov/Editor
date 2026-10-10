@@ -8090,8 +8090,8 @@ Afficher la nouvelle version et abandonner vos modifications ?</translation>
     </message>
     <message>
         <location line="+5" />
-        <source>&amp;Import Project</source>
-        <translation>&amp;Importer un projet</translation>
+        <source>&amp;Import Project to Workspace...</source>
+        <translation>&amp;Importer un projet dans l&apos;espace de travail...</translation>
     </message>
     <message>
         <location line="+73" />
@@ -11036,6 +11036,18 @@ Recharger le fichier et abandonner vos modifications non sauvegardées ?</transl
         <source>A</source>
         <extracomment>Letter on the map marker of the airship's start position</extracomment>
         <translation>D</translation>
+    </message>
+    <message>
+        <source>Move Events</source>
+        <translation>Déplacer les évènements</translation>
+    </message>
+    <message>
+        <source>Delete Events</source>
+        <translation>Supprimer les évènements</translation>
+    </message>
+    <message>
+        <source>Paste Events</source>
+        <translation>Coller les évènements</translation>
     </message>
 </context>
 <context>

@@ -3215,7 +3215,7 @@
     </message>
     <message>
         <location filename="../src/ui/main_window.ui" line="750"/>
-        <source>&amp;Import Project</source>
+        <source>&amp;Import Project to Workspace...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3800,6 +3800,18 @@ This cannot be undone. Do you want to continue?</source>
     <message>
         <source>A</source>
         <extracomment>Letter on the map marker of the airship's start position</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Move Events</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete Events</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Paste Events</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

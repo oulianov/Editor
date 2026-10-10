@@ -114,7 +114,7 @@ at once: the next commands act on the dialog, until `close`.
 | `view-drag NAME X1 Y1 X2 Y2 [right]` | Drags between two points of a graphics view's scene, in small steps.
 | `menu TEXT` | Chooses an item of the pop-up menu shown, by its text (with or without "...").
 | `context-menu NAME` | Opens the right-click menu of a widget, at the current line of a list.
-| `dump-menu` | Logs each item of the menu shown: its text, its shortcut, whether it has an icon, whether it is greyed, its tooltip.
+| `dump-menu [NAME]` | Logs each item of the menu shown, or of a menu by object name (`menuGame`, `menuMaps`... of the menu bar, with its separators as `--`): its text, its shortcut, whether it has an icon, whether it is greyed, its tooltip.
 | `click-tab NAME INDEX` | Clicks a tab of a tab widget with the mouse (the tab bar takes the focus).
 | `spin-click NAME up\|down` | Clicks the middle of an arrow of a spin box, where the style draws it.
 | `expect-tab NAME TEXT` | Fails unless the tab widget shows the tab TEXT.

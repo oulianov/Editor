@@ -4,7 +4,6 @@ project-new: project-development-new-template
 project-open: project-open
 project-import:
 project-close: project-development-close
-gamedisk-create: based on archive-insert
 exit: application-exit
 save: document-save
 revert: view-refresh
@@ -33,7 +32,7 @@ draw-pen: draw-freehand
 draw-rectangle: draw-rectangle
 draw-circle: draw-circle
 draw-fill: fill-color
-zoom: zoom
+select-area: zoom
 
 folder: document-open
 
@@ -48,6 +47,8 @@ edit-delete: edit-delete
 edit-find: edit-find
 
 Drawn for the Editor (no Breeze equivalent):
+zoom (the zoom tool, as zoom-ratio-*)
+export (Export Game)
 zoom-ratio-1
 zoom-ratio-2
 zoom-ratio-4

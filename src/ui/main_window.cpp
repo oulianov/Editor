@@ -1218,6 +1218,9 @@ void MainWindow::setPlatformShortcuts()
 	ui->actionQuit->setShortcuts(QKeySequence::Quit);
 	ui->actionSettings->setShortcut(QKeySequence::Preferences);
 	ui->actionContents->setShortcut(QKeySequence::HelpContents);
+	// Shift+Cmd+Z on macOS, Ctrl+Y and Ctrl+Shift+Z elsewhere
+	ui->actionUndo->setShortcuts(QKeySequence::Undo);
+	ui->actionRedo->setShortcuts(QKeySequence::Redo);
 #ifdef Q_OS_MACOS
 	// the Delete key of Mac keyboards is Backspace
 	for (QAction* action : {ui->actionMapDelete, ui->actionAreaDelete})
@@ -2240,7 +2243,7 @@ void MainWindow::refreshIcons() {
 	// Tilemap
 	set(ui->actionDrawPen, "draw-pen");
 	set(ui->actionDrawCircle, "draw-circle");
-	set(ui->actionDrawSelect, "select");
+	set(ui->actionDrawSelect, "select-area");
 	set(ui->actionDrawRectangle, "draw-rectangle");
 	set(ui->actionDrawFill, "draw-fill");
 	set(ui->actionUndo, "edit-undo");
@@ -2260,7 +2263,7 @@ void MainWindow::refreshIcons() {
 	set(ui->actionSearch, "edit-find");
 
 	// Other
-	set(ui->actionGameDiskCreate, "gamedisk-create");
+	set(ui->actionGameDiskCreate, "export");
 	set(ui->actionScriptEditor, "code");
 
 	// Game

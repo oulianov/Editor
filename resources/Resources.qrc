@@ -33,7 +33,7 @@
         <file alias="exit">icons/bright/exit.svg</file>
         <file alias="folder">icons/bright/folder.svg</file>
         <file alias="fullscreen">icons/bright/fullscreen.svg</file>
-        <file alias="gamedisk-create">icons/bright/gamedisk-create.svg</file>
+        <file alias="export">icons/bright/export.svg</file>
         <file alias="help-about">icons/bright/help-about.svg</file>
         <file alias="layer-event">icons/bright/layer-event.svg</file>
         <file alias="layer-high">icons/bright/layer-high.svg</file>
@@ -55,6 +55,7 @@
         <file alias="zoom-original">icons/bright/zoom-original.svg</file>
         <file alias="zoom-out">icons/bright/zoom-out.svg</file>
         <file alias="zoom">icons/bright/zoom.svg</file>
+        <file alias="select-area">icons/bright/select-area.svg</file>
         <file alias="zoom-ratio-1">icons/bright/zoom-ratio-1.svg</file>
         <file alias="zoom-ratio-2">icons/bright/zoom-ratio-2.svg</file>
         <file alias="zoom-ratio-4">icons/bright/zoom-ratio-4.svg</file>
@@ -87,7 +88,7 @@
         <file alias="exit">icons/dark/exit.svg</file>
         <file alias="folder">icons/dark/folder.svg</file>
         <file alias="fullscreen">icons/dark/fullscreen.svg</file>
-        <file alias="gamedisk-create">icons/dark/gamedisk-create.svg</file>
+        <file alias="export">icons/dark/export.svg</file>
         <file alias="help-about">icons/dark/help-about.svg</file>
         <file alias="layer-event">icons/dark/layer-event.svg</file>
         <file alias="layer-high">icons/dark/layer-high.svg</file>
@@ -109,6 +110,7 @@
         <file alias="zoom-original">icons/dark/zoom-original.svg</file>
         <file alias="zoom-out">icons/dark/zoom-out.svg</file>
         <file alias="zoom">icons/dark/zoom.svg</file>
+        <file alias="select-area">icons/dark/select-area.svg</file>
         <file alias="zoom-ratio-1">icons/dark/zoom-ratio-1.svg</file>
         <file alias="zoom-ratio-2">icons/dark/zoom-ratio-2.svg</file>
         <file alias="zoom-ratio-4">icons/dark/zoom-ratio-4.svg</file>

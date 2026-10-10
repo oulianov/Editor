@@ -39,6 +39,7 @@
 class ProjectData;
 class QNativeGestureEvent;
 class EventDialog;
+class SelectionOutline;
 
 class MapScene : public QGraphicsScene
 {
@@ -222,6 +223,18 @@ private:
 	void setStartPosition(Core::StartMarker kind, int x, int y);
 	/** No event and no start position on the cell: what can be placed or dropped there */
 	bool isFreeCell(int x, int y);
+	/** The selection tool on the event layer: it selects events and start positions */
+	bool selectingItems() const;
+	/** Select the events and the start positions in cells; none: the selection is cleared */
+	void selectItems(const QRect &cells);
+	/** Every selected item can go offset cells away: in the map, on a free cell or a selected item's */
+	bool canMoveItems(const QPoint &offset);
+	/** Move the selected items (one undo step) */
+	void moveItems(const QPoint &offset);
+	void copyItems();
+	void deleteItems();
+	/** Paste the copied events, the top left of their cells on a cell (one undo step) */
+	void pasteItems(int x, int y);
 	void fillArea(const QRect &area);
 	/** Push the layers changed since the last commit (one undo step) */
 	void pushLayers(const QString &text);
@@ -312,8 +325,18 @@ private:
 	Core::TileClipboard m_selContents;
 	// Both layers beneath a movable selection, restored as it crosses them.
 	Core::TileClipboard m_selBackground;
-	QGraphicsRectItem *m_selAreaItem;
-	QGraphicsRectItem *m_selAntsItem;
+	SelectionOutline *m_selAreaItem;
+	// event layer: the events (ids) and the start positions (Core::StartMarker)
+	// selected in m_selArea, dragged by an offset of cells
+	QList<int> m_selEvents;
+	QList<int> m_selStarts;
+	bool m_itemsSelecting = false;
+	bool m_itemsMoving = false;
+	QPoint m_itemsGrab;
+	QPoint m_itemsOffset;
+	// the cursor of the selected cell, on the cell of each selected item
+	QList<QGraphicsRectItem*> m_itemTiles;
+	void updateItemTiles();
 	QTimer m_antsTimer;
 	int m_antsOffset = 0;
 	// a pasted region floating over the map until a click outside it
