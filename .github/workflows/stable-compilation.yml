@@ -1,8 +1,6 @@
 name: Stable Compilation
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
     inputs:
       git-ref:
@@ -22,7 +20,7 @@ defaults:
     shell: bash
 
 env:
-  QT_VERSION: '6.10.1'
+  QT_VERSION: "6.10.1"
   # vcpkg, at a fixed commit: the libraries it builds are kept between runs
   VCPKG_COMMIT: e456309491fd875487bf02b8a0dca76c1b1b00cc
   # Qt's tools warn on every call without a UTF-8 locale
@@ -40,13 +38,13 @@ jobs:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.10
       options: --privileged
     steps:
-    - uses: actions/checkout@v7
-    # without a cache-key, the cache of the libraries is named after the
-    # manifest: it is saved again only when the manifest changes
-    - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
-      with:
-        bundle: EasyRPG-Editor.flatpak
-        manifest-path: builds/flatpak/org.easyrpg.editor.yml
+      - uses: actions/checkout@v7
+      # without a cache-key, the cache of the libraries is named after the
+      # manifest: it is saved again only when the manifest changes
+      - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: EasyRPG-Editor.flatpak
+          manifest-path: builds/flatpak/org.easyrpg.editor.yml
 
   # The x86_64 build is the AppImage's
   docker:
@@ -65,7 +63,7 @@ jobs:
         image:
           #   version of: # CMake  | g++    | Qt        |  support end  #
           # -------------------------------------------------------------
-          - ubuntu:24.04  # 3.28.3 | 13.2.0 | (too old) | LTS    (4/29) #
+          - ubuntu:24.04 # 3.28.3 | 13.2.0 | (too old) | LTS    (4/29) #
         os:
           - arch: arm64
             name: ubuntu-24.04-arm
@@ -89,8 +87,8 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          install-deps: 'nosudo'
-          modules: 'qtmultimedia qtwaylandcompositor'
+          install-deps: "nosudo"
+          modules: "qtmultimedia qtwaylandcompositor"
           cache: true
 
       - &vcpkg
@@ -236,7 +234,7 @@ jobs:
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
       HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
-      MACOSX_DEPLOYMENT_TARGET: '13.3'
+      MACOSX_DEPLOYMENT_TARGET: "13.3"
       MACOS_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_BASE64 }}
       MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
 
@@ -251,7 +249,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          modules: 'qtmultimedia'
+          modules: "qtmultimedia"
           cache: true
 
       - name: Folders and ccache
