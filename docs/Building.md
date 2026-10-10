@@ -110,6 +110,11 @@ release-only triplets (`-DVCPKG_TARGET_TRIPLET=x64-linux-release`, the same
 for `VCPKG_HOST_TRIPLET`), and keeps the libraries it builds and ccache's
 files between runs. To move to a newer vcpkg, change `VCPKG_COMMIT`.
 
+The workflow runs by hand (Actions, "Run workflow") or when a release is
+published on GitHub: it then builds the release's tag, notarizes the macOS
+application, and attaches the Flatpak, the AppImage and the disk image to the
+release.
+
 
 ## CMake options
 

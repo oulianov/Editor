@@ -10,6 +10,10 @@ on:
         description: Notarize MacOS app
         type: boolean
         default: true
+  # a release (published, not a draft): built from its tag, the macOS app
+  # notarized, and what is built attached to it
+  release:
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -244,6 +248,8 @@ jobs:
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
       MACOSX_DEPLOYMENT_TARGET: "13.3"
+      # a release is always notarized
+      NOTARIZE: ${{ github.event_name == 'release' || inputs.notarize-macos }}
       MACOS_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_BASE64 }}
       MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
 
@@ -251,7 +257,7 @@ jobs:
       # before the build: notarizing needs every secret (only whether each
       # is set is read here)
       - name: Check the signing secrets
-        if: inputs.notarize-macos
+        if: env.NOTARIZE == 'true'
         env:
           HAS_CERTIFICATE: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_BASE64 != '' }}
           HAS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD != '' }}
@@ -360,9 +366,9 @@ jobs:
 
       - name: Package
         env:
-          APPLE_ID: ${{ inputs.notarize-macos && secrets.APPLE_ID || '' }}
-          APPLE_TEAM_ID: ${{ inputs.notarize-macos && secrets.APPLE_TEAM_ID || '' }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ inputs.notarize-macos && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_ID: ${{ env.NOTARIZE == 'true' && secrets.APPLE_ID || '' }}
+          APPLE_TEAM_ID: ${{ env.NOTARIZE == 'true' && secrets.APPLE_TEAM_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ env.NOTARIZE == 'true' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
         run: |
           builds/macos/package.sh
 
@@ -371,3 +377,30 @@ jobs:
         with:
           name: EasyRPG-Editor-macOS
           path: build/dist/*.dmg
+
+  # On a release: the Flatpak, the AppImage and the disk image attached to it
+  # (replacing files of the same name, for a run started again)
+  release:
+    name: "Attach to the release"
+    if: github.event_name == 'release'
+    needs: [flatpak, appimage, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download the artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Attach them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          shopt -s nullglob
+          files=(artifacts/*.flatpak artifacts/*.AppImage artifacts/*.dmg)
+          ls -l "${files[@]}"
+          [ ${#files[@]} = 3 ] || { echo "::error::Expected a Flatpak, an AppImage and a disk image"; exit 1; }
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
