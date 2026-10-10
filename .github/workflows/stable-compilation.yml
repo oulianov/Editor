@@ -173,8 +173,19 @@ jobs:
       - name: Install linuxdeploy dependencies
         run: |
           export DEBIAN_FRONTEND="noninteractive"
+          # linuxdeploy copies into the AppImage the libraries Qt and its
+          # plugins use (windows on X11 and Wayland, ffmpeg, sound): they must
+          # be installed
           apt-get install -yqq --no-install-recommends --no-install-suggests \
-            file fuse
+            file fuse \
+            libgl1 libegl1 libfontconfig1 libfreetype6 libdbus-1-3 libglib2.0-0t64 \
+            libx11-6 libx11-xcb1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 \
+            libxkbcommon0 libxkbcommon-x11-0 libxcb1 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-util1 libxcb-xfixes0 \
+            libxcb-xinerama0 libxcb-xkb1 \
+            libwayland-client0 libwayland-cursor0 libwayland-egl1 \
+            libdrm2 libva2 libva-drm2 libva-x11-2 libpulse0
 
       - *qt6
       - *vcpkg
