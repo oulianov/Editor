@@ -30,6 +30,7 @@
 #include <QPlainTextEdit>
 #include <QFormLayout>
 #include <QTabBar>
+#include <QScrollBar>
 #include <cmath>
 #include <QStyleOptionTab>
 #include <QToolButton>
@@ -85,6 +86,15 @@ void EditorStyle::polish(QWidget* widget) {
 		widget->installEventFilter(this);
 	}
 
+	if (auto* view = qobject_cast<QAbstractItemView*>(widget)) {
+		// lists, trees and tables scroll by pixels: a trackpad follows the
+		// fingers (eventFilter), not three lines a step
+		view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+		view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+		view->viewport()->setProperty("editor_view_viewport", true);
+		view->viewport()->installEventFilter(this);
+	}
+
 	if (qobject_cast<QTabBar*>(widget)) {
 		// the wheel scrolls the tabs (scrollTabs)
 		widget->installEventFilter(this);
@@ -138,6 +148,27 @@ bool scrollTabs(QTabBar* bar, QWheelEvent* wheel) {
 bool EditorStyle::eventFilter(QObject* watched, QEvent* event) {
 	if (auto* bar = qobject_cast<QTabBar*>(watched); bar && event->type() == QEvent::Wheel) {
 		return scrollTabs(bar, static_cast<QWheelEvent*>(event));
+	}
+	if (event->type() == QEvent::Wheel && watched->property("editor_view_viewport").toBool()) {
+		// A trackpad moves a list by the pixels it reports, as in a text
+		// editor; Qt turns them into lines (three a step), much faster than
+		// the fingers. A mouse wheel keeps its steps.
+		auto* view = qobject_cast<QAbstractItemView*>(static_cast<QWidget*>(watched)->parentWidget());
+		auto* wheel = static_cast<QWheelEvent*>(event);
+		const QPoint pixels = wheel->pixelDelta();
+		if (view && !pixels.isNull()) {
+			const bool vertical = std::abs(pixels.y()) >= std::abs(pixels.x());
+			QScrollBar* scroll = vertical ? view->verticalScrollBar() : view->horizontalScrollBar();
+			const int before = scroll->value();
+			scroll->setValue(before - (vertical ? pixels.y() : pixels.x()));
+			// at an end, the scroll area around takes the rest
+			if (scroll->value() != before || wheel->phase() == Qt::ScrollMomentum) {
+				return true;
+			}
+			event->ignore();
+			return false;
+		}
+		return false;
 	}
 	if (event->type() == QEvent::Wheel && !static_cast<QWidget*>(watched)->hasFocus()) {
 		// ignored: the scroll area around gets it

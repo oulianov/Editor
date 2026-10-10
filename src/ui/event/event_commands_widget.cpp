@@ -52,7 +52,9 @@ public:
 		if (index.data(Qt::UserRole + 1).toBool()) {
 			// All preceding lines have the same height. Only the final insertion
 			// row expands; long lists retain a normal last row and scroll normally.
-			const int line = index.siblingAtColumn(1).data().toInt();
+			// (the count of the lines before it is on the row itself: the list
+			// shows one column, the line numbers of the second are not in it)
+			const int line = index.data(Qt::UserRole + 2).toInt();
 			size.setHeight(std::max(size.height(), m_view->viewport()->height() - line * size.height()));
 		}
 		return size;
@@ -956,6 +958,7 @@ void EventCommandsWidget::refreshList() {
 	// RPG Maker does not store the empty line ending the page, it only shows it
 	auto* last = new QTreeWidgetItem({QStringLiteral("<>"), QString::number(m_commands->size())});
 	last->setData(0, Qt::UserRole + 1, true);
+	last->setData(0, Qt::UserRole + 2, static_cast<int>(m_commands->size()));
 	addTopLevelItem(last);
 
 	expandAll();
