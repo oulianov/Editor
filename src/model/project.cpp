@@ -159,7 +159,10 @@ std::shared_ptr<Project> Project::load(const QDir& dir) {
 QString Project::create(const QDir& dir, const QString& title, Format format) {
 	auto read = [](const QString& resource) {
 		QFile file(resource);
-		file.open(QIODevice::ReadOnly);
+		if (!file.open(QIODevice::ReadOnly)) {
+			// nothing to read: the template is reported below
+			return std::istringstream();
+		}
 		return std::istringstream(file.readAll().toStdString());
 	};
 	auto db_stream = read(QStringLiteral(":/templates/EASY_RT.edb"));

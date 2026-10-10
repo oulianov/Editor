@@ -243,12 +243,35 @@ jobs:
     runs-on: macos-26
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
-      HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
       MACOSX_DEPLOYMENT_TARGET: "13.3"
       MACOS_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_BASE64 }}
       MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
 
     steps:
+      # before the build: notarizing needs every secret (only whether each
+      # is set is read here)
+      - name: Check the signing secrets
+        if: inputs.notarize-macos
+        env:
+          HAS_CERTIFICATE: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_BASE64 != '' }}
+          HAS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD != '' }}
+          HAS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY != '' }}
+          HAS_APPLE_ID: ${{ secrets.APPLE_ID != '' }}
+          HAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
+          HAS_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
+        run: |
+          missing=()
+          [ "$HAS_CERTIFICATE" = true ] || missing+=(MACOS_DEVELOPER_ID_CERTIFICATE_BASE64)
+          [ "$HAS_CERTIFICATE_PASSWORD" = true ] || missing+=(MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD)
+          [ "$HAS_SIGN_IDENTITY" = true ] || missing+=(MACOS_SIGN_IDENTITY)
+          [ "$HAS_APPLE_ID" = true ] || missing+=(APPLE_ID)
+          [ "$HAS_APPLE_TEAM_ID" = true ] || missing+=(APPLE_TEAM_ID)
+          [ "$HAS_APPLE_APP_SPECIFIC_PASSWORD" = true ] || missing+=(APPLE_APP_SPECIFIC_PASSWORD)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Notarizing needs these repository secrets: ${missing[*]} (or run without \"Notarize MacOS app\")"
+            exit 1
+          fi
+
       - *clone
       - *cloneref
 
@@ -272,15 +295,17 @@ jobs:
           } >> "$GITHUB_ENV"
 
       # ICU and inih, built by build.sh for both kinds of Mac: Homebrew's
-      # are for the newest macOS only
-      - name: Cache dependencies
-        uses: actions/cache@v6
+      # are for the newest macOS only. Saved right after the build, not at
+      # the end of the job: a failed test or package keeps them
+      - name: Restore the dependencies
+        id: deps
+        uses: actions/cache/restore@v6
         with:
           path: ${{ env.DEPS_DIR }}/install
           key: editor-deps-macos${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ hashFiles('builds/macos/build.sh') }}
 
-      - name: Cache the compiled files
-        uses: actions/cache@v6
+      - name: Restore the compiled files
+        uses: actions/cache/restore@v6
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-macos-${{ github.sha }}
@@ -296,6 +321,21 @@ jobs:
           ccache -z
           builds/macos/build.sh --tests
           ccache -s
+
+      - name: Save the dependencies
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.DEPS_DIR }}/install
+          key: ${{ steps.deps.outputs.cache-primary-key }}
+
+      # even when the build failed: what compiled is kept
+      - name: Save the compiled files
+        if: always() && steps.deps.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-macos-${{ github.sha }}
 
       - name: Test
         run: |

@@ -64,13 +64,15 @@ done < <(find "$APP" -type f -print0)
 # nothing outside the application but the system
 outside=0
 for file in "${machos[@]}"; do
-	id="$(otool -D "$file" | tail -n +2)"
-	while read -r lib; do
+	# a universal file has a "FILE (architecture X):" line per kind of Mac:
+	# the library's own name and its libraries are the other lines
+	id="$(otool -D "$file" | awk '!/:$/ {print; exit}')"
+	while IFS= read -r lib; do
 		case "$lib" in
 			/System/*|/usr/lib/*|@*|"$id") ;;
 			*) echo "$file uses $lib"; outside=1 ;;
 		esac
-	done < <(otool -L "$file" | tail -n +2 | awk '{print $1}')
+	done < <(otool -L "$file" | awk '/^\t/ {sub(/^\t/, ""); sub(/ \(compatibility version .*/, ""); print}' | sort -u)
 done
 [ "$outside" = 0 ] || { echo "The application uses libraries outside it"; exit 1; }
 

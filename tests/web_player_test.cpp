@@ -37,7 +37,7 @@ void check(bool condition, const char* what) {
 void touch(const QDir& dir, const QString& name) {
 	QDir().mkpath(QFileInfo(dir.filePath(name)).absolutePath());
 	QFile f(dir.filePath(name));
-	f.open(QIODevice::WriteOnly);
+	check(f.open(QIODevice::WriteOnly), "create a test file");
 }
 }
 

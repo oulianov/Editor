@@ -579,6 +579,10 @@ if(EDITOR_BUILD_LIBLCF)
 		add_subdirectory(${LIBLCF_PATH})
 	endfunction()
 	add_liblcf()
+	if(APPLE)
+		# liblcf's vsprintf, deprecated by Apple's SDK: not ours to change
+		target_compile_options(lcf PRIVATE -Wno-deprecated-declarations)
+	endif()
 	target_link_libraries(${EXE_NAME} PRIVATE lcf)
 else()
 	# Use system package
