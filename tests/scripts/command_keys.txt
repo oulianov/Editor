@@ -34,5 +34,13 @@ key PgDown
 expect commands > Message: Increase main hero 98 levels
 key PgDown
 expect commands > <>
+# Ctrl+Tab and Ctrl+Shift+Tab switch pages
+click New Page
+expect-tab tabEventPages 2
+focus commands
+key Ctrl+Shift+Tab
+expect-tab tabEventPages 1
+key Ctrl+Tab
+expect-tab tabEventPages 2
 close
 quit

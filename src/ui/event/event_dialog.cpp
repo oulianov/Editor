@@ -118,6 +118,14 @@ EventDialog::EventDialog(ProjectData& project, QWidget *parent, int mapID) :
 	connect(new QShortcut(QKeySequence::PreviousChild, this), &QShortcut::activated, this, [this] { switchPage(-1); });
 	connect(new QShortcut(QKeySequence(Qt::Key_PageDown), this), &QShortcut::activated, this, [pageKey] { pageKey(false); });
 	connect(new QShortcut(QKeySequence::NextChild, this), &QShortcut::activated, this, [this] { switchPage(1); });
+#ifdef Q_OS_MACOS
+	// Qt's Ctrl is Command there (Command+Tab switches applications): the
+	// Control key of RPG Maker's Ctrl+Tab is Meta
+	connect(new QShortcut(QKeySequence(Qt::META | Qt::Key_Tab), this), &QShortcut::activated, this, [this] { switchPage(1); });
+	for (const QKeySequence& keys : {QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Tab), QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Backtab)}) {
+		connect(new QShortcut(keys, this), &QShortcut::activated, this, [this] { switchPage(-1); });
+	}
+#endif
 	updatePageButtons();
 }
 
