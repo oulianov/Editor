@@ -531,6 +531,13 @@ else()
 	endif()
 endif()
 
+if(MSVC)
+	# the sources are UTF-8 (the symbols and the translations in the texts),
+	# and std::min / std::max are not the macros of windows.h
+	target_compile_options(${EXE_NAME} PRIVATE /utf-8)
+	target_compile_definitions(${EXE_NAME} PRIVATE NOMINMAX)
+endif()
+
 # Qt Widgets and the database of liblcf, which most files include: parsed
 # once for all of them
 option(EDITOR_PRECOMPILE_HEADERS "Precompile the Qt and liblcf headers (faster builds)" ON)

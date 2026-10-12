@@ -6,8 +6,29 @@ on:
       git-ref:
         description: Git Ref (Optional)
         required: false
+      # the platforms built (a release builds them all)
+      flatpak:
+        description: Linux Flatpak (x86_64)
+        type: boolean
+        default: true
+      appimage:
+        description: Linux AppImage (x86_64)
+        type: boolean
+        default: true
+      linux-arm64:
+        description: Linux build check (arm64, no package)
+        type: boolean
+        default: true
+      macos:
+        description: macOS disk image
+        type: boolean
+        default: true
       notarize-macos:
         description: Notarize MacOS app
+        type: boolean
+        default: true
+      windows:
+        description: Windows zip (x64)
         type: boolean
         default: true
   # a release (published, not a draft): built from its tag, the macOS app
@@ -37,6 +58,7 @@ env:
 jobs:
   flatpak:
     name: "Flatpak (x86_64)"
+    if: github.event_name == 'release' || inputs.flatpak
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.10
@@ -53,6 +75,7 @@ jobs:
   # The x86_64 build is the AppImage's
   docker:
     name: ${{ matrix.image }} (${{ matrix.os.arch }})
+    if: github.event_name == 'release' || inputs.linux-arm64
     runs-on: ${{ matrix.os.name }}
     container:
       image: ${{ matrix.image }}
@@ -158,6 +181,7 @@ jobs:
 
   appimage:
     name: "AppImage (x86_64)"
+    if: github.event_name == 'release' || inputs.appimage
     runs-on: ubuntu-latest
     container:
       image: ubuntu:24.04
@@ -244,6 +268,7 @@ jobs:
   # the newest macOS only
   macos:
     name: "macOS"
+    if: github.event_name == 'release' || inputs.macos
     runs-on: macos-26
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
@@ -378,12 +403,99 @@ jobs:
           name: EasyRPG-Editor-macOS
           path: build/dist/*.dmg
 
-  # On a release: the Flatpak, the AppImage and the disk image attached to it
+  # Built with MSVC and the official Qt, for Windows 10 1903 and later:
+  # liblcf reads the encodings of the games with the ICU of Windows
+  windows:
+    name: "Windows (x64)"
+    if: github.event_name == 'release' || inputs.windows
+    runs-on: windows-2025
+    env:
+      # the libraries of vcpkg linked in the Editor, with the runtime of Qt
+      TRIPLET: x64-windows-static-md
+
+    steps:
+      - *clone
+      - *cloneref
+
+      # cl, link and the paths of the Windows SDK, for the next steps
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: win64_msvc2022_64
+          modules: "qtmultimedia"
+          cache: true
+
+      - name: Folders
+        run: |
+          temp=$(cygpath -m "$RUNNER_TEMP")
+          {
+            echo "VCPKG_ROOT=$temp/vcpkg"
+            echo "VCPKG_DEFAULT_BINARY_CACHE=$temp/vcpkg-cache/archives"
+            echo "VCPKG_DOWNLOADS=$temp/vcpkg-cache/downloads"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$temp/vcpkg-cache/archives" "$temp/vcpkg-cache/downloads"
+
+      - name: Install vcpkg
+        run: |
+          git init -q "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" fetch -q --depth 1 https://github.com/microsoft/vcpkg.git "$VCPKG_COMMIT"
+          git -C "$VCPKG_ROOT" checkout -q FETCH_HEAD
+
+      - name: Cache the libraries of vcpkg
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/vcpkg-cache
+          key: vcpkg-${{ env.TRIPLET }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ env.TRIPLET }}-
+
+      # PowerShell: the link of Git's bash would hide the linker of MSVC
+      - name: Compile
+        shell: pwsh
+        run: |
+          cmake --preset vcpkg-liblcf-release `
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+            -DVCPKG_TARGET_TRIPLET="$env:TRIPLET"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build --preset vcpkg-liblcf-release
+
+      - name: Test
+        shell: pwsh
+        run: |
+          ctest --test-dir build/vcpkg-liblcf-release --output-on-failure
+
+      # The Editor with the libraries of Qt (windeployqt, by the install) and
+      # of MSVC next to it, in a zip
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path build/vcpkg-liblcf-release/CMakeCache.txt `
+            -Pattern '^CMAKE_PROJECT_VERSION:STATIC=(.*)$').Matches[0].Groups[1].Value
+          $app = "dist/EasyRPG Editor"
+          cmake --install build/vcpkg-liblcf-release --prefix $app
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Copy-Item "$env:VCToolsRedistDir/x64/Microsoft.VC*.CRT/*.dll" "$app/bin"
+          Get-ChildItem -Recurse $app | Select-Object -First 40 FullName
+          Compress-Archive -Path $app -DestinationPath "dist/EasyRPG-Editor-$version-Windows.zip"
+
+      - name: Upload the zip
+        uses: actions/upload-artifact@v7
+        with:
+          name: EasyRPG-Editor-Windows
+          path: dist/*.zip
+
+  # On a release: the Flatpak, the AppImage, the disk image and the zip attached to it
   # (replacing files of the same name, for a run started again)
   release:
     name: "Attach to the release"
     if: github.event_name == 'release'
-    needs: [flatpak, appimage, macos]
+    needs: [flatpak, appimage, macos, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -400,7 +512,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: |
           shopt -s nullglob
-          files=(artifacts/*.flatpak artifacts/*.AppImage artifacts/*.dmg)
+          files=(artifacts/*.flatpak artifacts/*.AppImage artifacts/*.dmg artifacts/*.zip)
           ls -l "${files[@]}"
-          [ ${#files[@]} = 3 ] || { echo "::error::Expected a Flatpak, an AppImage and a disk image"; exit 1; }
+          [ ${#files[@]} = 4 ] || { echo "::error::Expected a Flatpak, an AppImage, a disk image and a zip"; exit 1; }
           gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
