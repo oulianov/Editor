@@ -26,6 +26,7 @@
 #include "model/project_data.h"
 #include "ui/picker/picker_backdrop_widget.h"
 #include "ui/picker/picker_dialog.h"
+#include "ui/common/text_limit.h"
 
 namespace {
 QButtonGroup* makeGroup(QWidget* parent, std::initializer_list<QAbstractButton*> buttons) {
@@ -44,6 +45,7 @@ TerrainWidget::TerrainWidget(ProjectData& project, QWidget *parent) :
 	m_project(project)
 {
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 16);
 
 	m_bushDepth = makeGroup(this, {ui->radioBushNormal, ui->radioBushThird, ui->radioBushHalf, ui->radioBushFull});
 	m_gridLocation = makeGroup(this, {ui->radioGridShallow, ui->radioGridDeep});

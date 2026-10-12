@@ -235,6 +235,7 @@ set(EDITOR_SOURCES
 	src/ui/common/edit_dialog.cpp
 	src/ui/common/color_sample.h
 	src/ui/common/message_text_edit.h
+	src/ui/common/text_limit.h
 	src/ui/common/page_scroll_area.h
 	src/ui/common/preview_zoom.cpp
 	src/ui/common/preview_zoom.h

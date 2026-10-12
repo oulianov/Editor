@@ -16,6 +16,7 @@
  */
 
 #include "picker_dialog.h"
+#include "picker_backdrop_widget.h"
 #include "ui/common/help.h"
 #include "ui_picker_dialog.h"
 #include "model/project.h"
@@ -44,6 +45,10 @@ PickerDialog::PickerDialog(ProjectData &project, FileFinder::FileType file_type,
 	// the separator gives the preview more room; the list takes what the window gains
 	ui->splitterPicker->setStretchFactor(0, 1);
 	ui->splitterPicker->setStretchFactor(1, 0);
+	if (!wrappedWidget) {
+		// no preview of its own: the whole image (chipsets, animations...)
+		wrappedWidget = new PickerBackdropWidget(this);
+	}
 	wrappedWidget->setParent(this);
 	ui->wrappedWidget = wrappedWidget;
 	ui->sidebar->insertWidget(1, wrappedWidget);

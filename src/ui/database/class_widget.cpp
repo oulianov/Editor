@@ -28,6 +28,7 @@
 #include "common/dbstring.h"
 #include "common/lcf_widget_binding.h"
 #include "model/project_data.h"
+#include "ui/common/text_limit.h"
 
 ClassWidget::ClassWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
@@ -35,6 +36,7 @@ ClassWidget::ClassWidget(ProjectData& project, QWidget *parent) :
 	m_project(project)
 {
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 12);
 
 	const bool is2k3 = project.database().system.ldb_id == 2003;
 	const int max_level = is2k3 ? 99 : 50;

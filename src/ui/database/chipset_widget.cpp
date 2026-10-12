@@ -24,6 +24,7 @@
 #include "model/project_data.h"
 #include "ui/common/rpg_combobox.h"
 #include "ui/picker/picker_dialog.h"
+#include "ui/common/text_limit.h"
 #include <QButtonGroup>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -76,6 +77,9 @@ ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
 	m_view->setObjectName(QStringLiteral("viewTiles"));
 	m_view->setFixedWidth(columns * cell + m_view->verticalScrollBar()->sizeHint().width() + 4);
 	m_view->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+	// it scrolls its tiles: the whole chipset must not make the page as tall
+	// (the page scrolls when it is taller than the window)
+	m_view->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Ignored);
 	m_view->viewport()->installEventFilter(this);
 	tiles->addWidget(m_view, 1);
 	layout->addLayout(tiles);
@@ -86,11 +90,13 @@ ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
 	form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 	form->setLabelAlignment(Qt::AlignLeft);
 	m_name = new QLineEdit(this);
+	TextLimit::mark(m_name, 20);
 	form->addRow(tr("Name"), m_name);
 	auto* file_row = new QHBoxLayout();
 	m_file = new QLineEdit(this);
 	m_file->setReadOnly(true);
 	auto* pick = new QToolButton(this);
+	pick->setObjectName(QStringLiteral("pushChipsetFile"));
 	pick->setText(QStringLiteral("..."));
 	file_row->addWidget(m_file, 1);
 	file_row->addWidget(pick);
@@ -345,6 +351,8 @@ bool ChipsetWidget::eventFilter(QObject* watched, QEvent* event) {
 	auto* mouse = static_cast<QMouseEvent*>(event);
 	switch (event->type()) {
 		case QEvent::MouseButtonPress:
+		// a quick second click comes as a double click: it is a click too
+		case QEvent::MouseButtonDblClick:
 			tileClicked(m_view->mapToScene(mouse->position().toPoint()), mouse->button() == Qt::RightButton);
 			return true;
 		case QEvent::MouseMove:

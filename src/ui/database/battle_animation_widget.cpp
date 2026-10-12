@@ -43,6 +43,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include "ui/common/edit_actions.h"
+#include "ui/common/text_limit.h"
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
@@ -145,9 +146,11 @@ BattleAnimationWidget::BattleAnimationWidget(ProjectData& project, QWidget *pare
 	// general settings
 	auto* general = new QGridLayout();
 	m_name = new QLineEdit(this);
+	TextLimit::mark(m_name, 20);
 	m_file = new QLineEdit(this);
 	m_file->setReadOnly(true);
 	auto* pick = new QToolButton(this);
+	pick->setObjectName(QStringLiteral("pushAnimationFile"));
 	pick->setText(QStringLiteral("..."));
 	// RPG Maker 2003 picks it in the Large Animations tab of its file chooser
 	m_large = new QCheckBox(tr("Large"), this);

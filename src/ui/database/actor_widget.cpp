@@ -39,6 +39,7 @@
 #include "ui/picker/picker_faceset_widget.h"
 #include "curve_dialog.h"
 #include "experience_dialog.h"
+#include "ui/common/text_limit.h"
 
 ActorWidget::ActorWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
@@ -50,6 +51,8 @@ ActorWidget::ActorWidget(ProjectData& project, QWidget *parent) :
 	const auto kMaxLevel = database.system.ldb_id == 2003 ? 99 : 50;
 	const auto kMaxHp = database.system.ldb_id == 2003 ? 9999 : 999;
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 12);
+	TextLimit::mark(ui->lineTitle, 12);
 
 	m_current = nullptr;
 

@@ -34,6 +34,7 @@
 #include "enemy_action_dialog.h"
 #include "enemy_graphics.h"
 #include "enemy_picker_widget.h"
+#include "ui/common/text_limit.h"
 
 std::optional<lcf::rpg::EnemyAction> EnemyWidget::s_clipboard;
 
@@ -43,6 +44,7 @@ EnemyWidget::EnemyWidget(ProjectData& project, QWidget *parent) :
 	m_project(project)
 {
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 20);
 
 	auto& database = project.database();
 	const bool isRPG2k3 = database.system.ldb_id == 2003;

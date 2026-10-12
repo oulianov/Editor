@@ -38,6 +38,7 @@
 #include "ui/common/rpg_audio_lineedit.h"
 #include "ui/common/rpg_combobox.h"
 #include "skill_item_common.h"
+#include "ui/common/text_limit.h"
 
 using Skill = lcf::rpg::Skill;
 
@@ -74,6 +75,7 @@ SkillWidget::SkillWidget(ProjectData& project, QWidget *parent) :
 	};
 
 	m_name = new QLineEdit(page);
+	TextLimit::mark(m_name, 20);
 	addField(tr("Name"), m_name, 0, 0);
 	m_type = new QComboBox(page);
 	m_type->setObjectName(QStringLiteral("skillType"));
@@ -89,6 +91,7 @@ SkillWidget::SkillWidget(ProjectData& project, QWidget *parent) :
 	}
 	addField(tr("Type"), m_type, 0, 2);
 	m_description = new QLineEdit(page);
+	TextLimit::mark(m_description, 50);
 	addField(tr("Description"), m_description, 1, 0, 3);
 
 	auto* mp = new QWidget(page);

@@ -18,12 +18,14 @@
 #include "switch_widget.h"
 #include "ui_switch_widget.h"
 #include "src/common/lcf_widget_binding.h"
+#include "ui/common/text_limit.h"
 
 SwitchWidget::SwitchWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
 	ui(new Ui::SwitchWidget), m_project(project)
 {
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 20);
 
 	LcfWidgetBinding::connect(this, ui->lineName);
 }

@@ -22,6 +22,7 @@
 #include "model/project_data.h"
 #include "ui/common/rpg_combobox.h"
 #include "ui/picker/picker_dialog.h"
+#include "ui/common/text_limit.h"
 #include <QButtonGroup>
 #include <QComboBox>
 #include <QFormLayout>
@@ -119,6 +120,7 @@ BattleAnimation2Widget::BattleAnimation2Widget(ProjectData& project, QWidget *pa
 	auto* top = new QHBoxLayout();
 	auto* form = new QFormLayout();
 	m_name = new QLineEdit(this);
+	TextLimit::mark(m_name, 16);
 	form->addRow(tr("Name"), m_name);
 	top->addLayout(form, 1);
 	auto* speed_box = new QGroupBox(tr("Animation Display Speed"), this);
@@ -150,6 +152,7 @@ BattleAnimation2Widget::BattleAnimation2Widget(ProjectData& project, QWidget *pa
 	auto* pose_edit = new QVBoxLayout();
 	auto* pose_form = new QFormLayout();
 	m_poseName = new QLineEdit(poses_page);
+	TextLimit::mark(m_poseName, 18);
 	m_poseName->setObjectName(QStringLiteral("editPoseName"));
 	pose_form->addRow(tr("Pose Label"), m_poseName);
 	auto* type_row = new QVBoxLayout();
@@ -163,6 +166,7 @@ BattleAnimation2Widget::BattleAnimation2Widget(ProjectData& project, QWidget *pa
 	pose_form->addRow(tr("Animation Type"), type_row);
 	QToolButton* pose_pick;
 	m_poseFileRow = makeFileRow(m_poseFile, pose_pick, poses_page);
+	pose_pick->setObjectName(QStringLiteral("pushPoseFile"));
 	pose_form->addRow(tr("Graphic"), m_poseFileRow);
 	m_poseIndex = new QSpinBox(poses_page);
 	m_poseIndex->setObjectName(QStringLiteral("spinPoseIndex"));
@@ -196,9 +200,11 @@ BattleAnimation2Widget::BattleAnimation2Widget(ProjectData& project, QWidget *pa
 	auto* weapon_edit = new QVBoxLayout();
 	auto* weapon_form = new QFormLayout();
 	m_weaponName = new QLineEdit(weapons_page);
+	TextLimit::mark(m_weaponName, 18);
 	weapon_form->addRow(tr("Name"), m_weaponName);
 	QToolButton* weapon_pick;
 	weapon_form->addRow(tr("Graphic"), makeFileRow(m_weaponFile, weapon_pick, weapons_page));
+	weapon_pick->setObjectName(QStringLiteral("pushWeaponFile"));
 	m_weaponIndex = new QSpinBox(weapons_page);
 	m_weaponIndex->setObjectName(QStringLiteral("spinWeaponIndex"));
 	m_weaponIndex->setRange(1, 8);

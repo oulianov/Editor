@@ -33,6 +33,7 @@
 #include "ui/picker/picker_backdrop_widget.h"
 #include "ui/picker/picker_dialog.h"
 #include "test_battle_dialog.h"
+#include "ui/common/text_limit.h"
 
 std::optional<lcf::rpg::TroopPage> EnemyGroupWidget::s_pageClipboard;
 
@@ -54,6 +55,7 @@ EnemyGroupWidget::EnemyGroupWidget(ProjectData& project, QWidget *parent) :
 	m_project(project)
 {
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 20);
 	ui->splitter->setStretchFactor(0, 1);
 	ui->splitter->setStretchFactor(1, 1);
 

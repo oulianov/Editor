@@ -32,6 +32,7 @@
 #include "model/project_data.h"
 #include "ui/picker/picker_backdrop_widget.h"
 #include "ui/picker/picker_dialog.h"
+#include "ui/common/text_limit.h"
 
 namespace {
 constexpr int kScreenWidth = 320;
@@ -102,6 +103,7 @@ BattleScreenWidget::BattleScreenWidget(ProjectData& project, QWidget *parent) :
 	m_project(project)
 {
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineCommandName, 10);
 
 	auto& battle = project.database().battlecommands;
 	const bool is2k3 = project.database().system.ldb_id == 2003;

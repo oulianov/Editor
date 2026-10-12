@@ -25,6 +25,7 @@
 #include "defines.h"
 #include "model/project_data.h"
 #include "model/state.h"
+#include "ui/common/text_limit.h"
 
 namespace {
 // RPG Maker 2003 battler animations have 32 poses; a condition uses one of them
@@ -53,6 +54,7 @@ StateWidget::StateWidget(ProjectData& project, QWidget *parent) :
 
 	const bool isRPG2k3 = database.system.ldb_id == 2003;
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 8);
 
 	m_current = nullptr;
 

@@ -18,12 +18,14 @@
 #include "variable_widget.h"
 #include "ui_variable_widget.h"
 #include "src/common/lcf_widget_binding.h"
+#include "ui/common/text_limit.h"
 
 VariableWidget::VariableWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
 	ui(new Ui::VariableWidget), m_project(project)
 {
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 20);
 
 	LcfWidgetBinding::connect(this, ui->lineName);
 }

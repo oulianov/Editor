@@ -35,6 +35,7 @@
 #include "model/project_data.h"
 #include "ui/common/rpg_combobox.h"
 #include "skill_item_common.h"
+#include "ui/common/text_limit.h"
 
 using Item = lcf::rpg::Item;
 
@@ -88,6 +89,8 @@ ItemWidget::ItemWidget(ProjectData& project, QWidget *parent) :
 		return label;
 	};
 	m_name = new QLineEdit(page);
+	m_name->setObjectName(QStringLiteral("itemName"));
+	TextLimit::mark(m_name, 20);
 	addField(tr("Name"), m_name, 0, 0);
 	m_type = new QComboBox(page);
 	m_type->setObjectName(QStringLiteral("itemType"));
@@ -95,6 +98,8 @@ ItemWidget::ItemWidget(ProjectData& project, QWidget *parent) :
 		tr("Accessory"), tr("Medicine"), tr("Skill Book"), tr("Seed"), tr("Skill Scroll"), tr("Switch")});
 	addField(tr("Type"), m_type, 0, 2);
 	m_description = new QLineEdit(page);
+	m_description->setObjectName(QStringLiteral("itemDescription"));
+	TextLimit::mark(m_description, 50);
 	addField(tr("Description"), m_description, 1, 0, 3);
 	auto* price = new QSpinBox(page);
 	price->setRange(0, 999999);

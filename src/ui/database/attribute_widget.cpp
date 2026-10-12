@@ -20,6 +20,7 @@
 
 #include "common/lcf_widget_binding.h"
 #include "model/attribute.h"
+#include "ui/common/text_limit.h"
 
 AttributeWidget::AttributeWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
@@ -30,6 +31,7 @@ AttributeWidget::AttributeWidget(ProjectData& project, QWidget *parent) :
 
 	const auto kMinERate = database.system.ldb_id == 2003 ? -99999 : 0;
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 8);
 
 	m_current = nullptr;
 

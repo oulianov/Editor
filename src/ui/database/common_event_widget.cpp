@@ -18,6 +18,7 @@
 #include "common_event_widget.h"
 #include "ui_common_event_widget.h"
 #include "src/common/lcf_widget_binding.h"
+#include "ui/common/text_limit.h"
 
 CommonEventWidget::CommonEventWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
@@ -25,6 +26,7 @@ CommonEventWidget::CommonEventWidget(ProjectData& project, QWidget *parent) :
 	m_project(project)
 {
 	ui->setupUi(this);
+	TextLimit::mark(ui->lineName, 20);
 
 	// RPG Maker's names: a called event runs only from Call Event
 	ui->comboTrigger->addItem(tr("Call"), lcf::rpg::CommonEvent::Trigger_call);

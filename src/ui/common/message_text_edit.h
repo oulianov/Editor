@@ -25,6 +25,19 @@
 #include <QTextEdit>
 #include <QtMath>
 
+/** The monospaced font of the system, at the size of the given font */
+inline QFont monospaceFont(const QFont& base) {
+	QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+	if (!QFontInfo(font).fixedPitch()) {
+		// no monospaced font of the system (some Linux desktops)
+		font.setFamilies({QStringLiteral("Menlo"), QStringLiteral("Consolas"), QStringLiteral("DejaVu Sans Mono"),
+			QStringLiteral("Liberation Mono"), QStringLiteral("Courier New"), QStringLiteral("monospace")});
+		font.setStyleHint(QFont::Monospace);
+	}
+	font.setPointSizeF(base.pointSizeF());
+	return font;
+}
+
 /**
  * The text of a message, in a monospaced font and not wrapped, with a line
  * after the 38th character (the width of a message with a face) and one after
@@ -36,15 +49,7 @@ public:
 	explicit MessageTextEdit(QWidget* parent = nullptr) : QTextEdit(parent) {
 		setAcceptRichText(false);
 		setLineWrapMode(QTextEdit::NoWrap);
-		QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-		if (!QFontInfo(font).fixedPitch()) {
-			// no monospaced font of the system (some Linux desktops)
-			font.setFamilies({QStringLiteral("Menlo"), QStringLiteral("Consolas"), QStringLiteral("DejaVu Sans Mono"),
-				QStringLiteral("Liberation Mono"), QStringLiteral("Courier New"), QStringLiteral("monospace")});
-			font.setStyleHint(QFont::Monospace);
-		}
-		font.setPointSizeF(QWidget::font().pointSizeF());
-		setFont(font);
+		setFont(monospaceFont(QWidget::font()));
 		// a little wider than the longest message
 		const int margins = 2 * qCeil(document()->documentMargin()) + 2 * frameWidth()
 			+ verticalScrollBar()->sizeHint().width();

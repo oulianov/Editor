@@ -1,0 +1,22 @@
+# The "..." of the database graphics without a preview of their own (chipset,
+# battle animation, battler pose) open the picker on the file. Nothing is
+# saved.
+action actionDatabase
+tab tabOld_Pages 12
+click pushChipsetFile
+wait 300
+expect labelInfo Game file: World.png
+close
+tab tabOld_Pages 8
+click pushAnimationFile
+wait 300
+# an RTP file: the picker is open on the folder
+expect-enabled filesystemView on
+close
+tab tabOld_Pages 9
+click pushPoseFile
+wait 300
+expect-enabled filesystemView on
+close
+close
+quit

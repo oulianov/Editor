@@ -33,6 +33,7 @@
 #include "common/lcf_widget_binding.h"
 #include "model/project_data.h"
 #include "system_fields.h"
+#include "ui/common/text_limit.h"
 
 namespace {
 using Terms = lcf::rpg::Terms;
@@ -60,6 +61,45 @@ struct Page {
 	QString title;
 	std::vector<Group> groups;
 };
+
+/** The MaxLength of a term in RPG Maker 2003, 0 for the terms of RPG Maker 2000 only */
+int termLimit(std::string_view name) {
+	static const std::map<std::string_view, int> limits = {
+		{"battle_start", 30}, {"special_combat", 50}, {"miss", 8}, {"escape_failure", 50},
+		{"victory", 50}, {"defeat", 50}, {"exp_received", 38}, {"gold_recieved_a", 10},
+		{"gold_recieved_b", 24}, {"item_recieved", 30}, {"level_up", 16}, {"skill_learned", 26},
+		{"possessed_items", 16}, {"equipped_items", 16}, {"gold", 6},
+		{"battle_fight", 10}, {"battle_auto", 10}, {"battle_escape", 10}, {"command_item", 10},
+		{"command_skill", 10}, {"menu_equipment", 12}, {"menu_save", 12}, {"menu_quit", 12},
+		{"status", 12}, {"row", 10}, {"order", 12}, {"wait_on", 12}, {"wait_off", 12},
+		{"new_game", 16}, {"load_game", 16}, {"exit_game", 16},
+		{"level", 10}, {"health_points", 10}, {"spirit_points", 10}, {"normal_status", 8},
+		{"lvl_short", 2}, {"hp_short", 2}, {"sp_short", 2}, {"exp_short", 2}, {"sp_cost", 10},
+		{"attack", 10}, {"defense", 10}, {"spirit", 10}, {"agility", 10},
+		{"weapon", 10}, {"shield", 10}, {"armor", 10}, {"helmet", 10}, {"accessory", 10},
+		{"save_game_message", 50}, {"load_game_message", 50}, {"exit_game_message", 50},
+		{"file", 10}, {"yes", 10}, {"no", 10},
+	};
+	if (auto it = limits.find(name); it != limits.end()) {
+		return it->second;
+	}
+	// the three shops and the two inns
+	auto starts = [&](std::string_view prefix) { return name.substr(0, prefix.size()) == prefix; };
+	if (starts("shop_buy_") || starts("shop_sell_") || starts("shop_greeting") || starts("shop_regreeting")
+			|| starts("shop_purchased") || starts("shop_sold")) {
+		return 50;
+	}
+	if (starts("shop_buy") || starts("shop_sell") || starts("shop_leave")) {
+		return 12;
+	}
+	if (starts("inn_")) {
+		if (name.size() >= 2 && name.substr(name.size() - 2) == "_1") return 16;
+		if (name.size() >= 2 && name.substr(name.size() - 2) == "_2") return 20;
+		if (name.size() >= 2 && name.substr(name.size() - 2) == "_3") return 50;
+		return 12;
+	}
+	return 0;
+}
 }
 
 VocabularyWidget::VocabularyWidget(ProjectData& project, QWidget *parent) :
@@ -236,6 +276,10 @@ VocabularyWidget::VocabularyWidget(ProjectData& project, QWidget *parent) :
 		auto& value = terms.*term;
 		auto* line = new QLineEdit(parent);
 		line->setObjectName(ToQString(names[&value]));
+		if (const int limit = termLimit(names[&value])) {
+			// the pages fit the window, not the limits
+			TextLimit::mark(line, limit, false);
+		}
 		LcfWidgetBinding::connect(this, line);
 		LcfWidgetBinding::bind(line, value);
 		return line;
