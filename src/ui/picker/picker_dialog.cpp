@@ -27,7 +27,10 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <algorithm>
+#include <QCollator>
+#include <QDir>
 #include <QFileSystemModel>
+#include <algorithm>
 #include <QGraphicsScene>
 #include <QAbstractButton>
 #include <QDialogButtonBox>
@@ -149,6 +152,20 @@ void PickerDialog::setDirectoryAndFile(const QString &dir, const QString& initia
 		QPixmap image = ImageLoader::Load(m_currentFile.absoluteFilePath());
 		ui->wrappedWidget->imageChanged(image);
 	}
+}
+
+QString PickerDialog::firstFile(const QString& dir) const {
+	const QString path = m_project.project().findDirectory(dir);
+	if (path.isEmpty()) {
+		return {};
+	}
+	QStringList files = QDir(path).entryList(m_model->nameFilters(), QDir::Files | QDir::NoDotAndDotDot);
+	// sorted as QFileSystemModel does: natural, case-insensitive
+	QCollator collator;
+	collator.setNumericMode(true);
+	collator.setCaseSensitivity(Qt::CaseInsensitive);
+	std::sort(files.begin(), files.end(), collator);
+	return files.isEmpty() ? QString() : QFileInfo(files.front()).completeBaseName();
 }
 
 void PickerDialog::showFile(const QModelIndex &index) {

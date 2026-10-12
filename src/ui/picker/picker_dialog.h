@@ -42,6 +42,8 @@ public:
 	~PickerDialog() override;
 
 	void setDirectoryAndFile(const QString& dir, const QString& initialFile);
+	/** The first file of the folder of the game, in the order of the list (none: empty) */
+	QString firstFile(const QString& dir) const;
 
 signals:
 	void fileSelected(QString baseName);

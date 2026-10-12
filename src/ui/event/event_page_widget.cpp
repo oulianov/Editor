@@ -349,7 +349,10 @@ void EventPageWidget::chooseCharacter()
 		m_eventPage->character_pattern = widget->pattern();
 		graphicChanged(was_character);
 	});
-	dialog.setDirectoryAndFile(CHARSET, ToQString(m_eventPage->character_name));
+	// no graphic yet: the first charset of the list, as a start
+	const QString current = m_eventPage->character_name.empty() ? dialog.firstFile(CHARSET)
+		: ToQString(m_eventPage->character_name);
+	dialog.setDirectoryAndFile(CHARSET, current);
 	dialog.exec();
 }
 
@@ -393,6 +396,15 @@ void EventPageWidget::chooseTile()
 		const bool was_character = !m_eventPage->character_name.empty();
 		m_eventPage->character_name = lcf::DBString();
 		m_eventPage->character_index = tile;
+		// the layer of what the tile is in the chipset: above the hero (star),
+		// blocking (the hero's layer), or walked on (below)
+		const auto& chipsets = core().project()->database().chipsets;
+		const int id = core().chipsetId();
+		if (id > 0 && id <= static_cast<int>(chipsets.size())) {
+			const auto& passable = chipsets[id - 1].passable_data_upper;
+			m_eventPage->layer = EventPageDefaults::tileLayer(
+				tile < static_cast<int>(passable.size()) ? passable[tile] : EventPageDefaults::AllDirections);
+		}
 		graphicChanged(was_character);
 	}
 }

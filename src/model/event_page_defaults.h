@@ -55,6 +55,21 @@ inline lcf::rpg::EventPage nextPage(const lcf::rpg::EventPage& shown) {
 	return page;
 }
 
+/** The passability flags of a chipset (Chipset passable_data) */
+enum PassableFlag { Down = 0x01, Left = 0x02, Right = 0x04, Up = 0x08, AllDirections = 0x0F, Above = 0x10 };
+
+/**
+ * The layer of an event shown as a tile of the upper layer, from the
+ * passability of the tile in the chipset: a star is above the hero, a
+ * blocking tile (x) on the hero's layer, a tile walked on (o) below it
+ */
+inline int tileLayer(int flags) {
+	if (flags & Above) {
+		return lcf::rpg::EventPage::Layers_above;
+	}
+	return (flags & AllDirections) == 0 ? lcf::rpg::EventPage::Layers_same : lcf::rpg::EventPage::Layers_below;
+}
+
 /**
  * The graphic of a page changed: between a character and a tile (or none),
  * RPG Maker moves the event between the hero's layer and below it, and
@@ -68,7 +83,9 @@ inline void graphicChanged(lcf::rpg::EventPage& page, bool was_character) {
 	}
 	if (character && page.layer == lcf::rpg::EventPage::Layers_below) {
 		page.layer = lcf::rpg::EventPage::Layers_same;
-	} else if (!character && page.layer == lcf::rpg::EventPage::Layers_same) {
+	} else if (!character && page.layer == lcf::rpg::EventPage::Layers_same
+			&& page.character_index == 0) {
+		// no graphic (a tile has the layer of its passability: tileLayer)
 		page.layer = lcf::rpg::EventPage::Layers_below;
 	}
 	page.animation_type = lcf::rpg::EventPage::AnimType_non_continuous;
