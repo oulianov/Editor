@@ -30,6 +30,7 @@
 #include <QStatusBar>
 #include <QStyleOptionGraphicsItem>
 #include <lcf/rpg/event.h>
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <sstream>
@@ -1685,6 +1686,25 @@ void MapScene::selectCell(int x, int y)
 										  core().tileSize(),core().tileSize())));
 }
 
+void MapScene::moveSelectedCell(int dx, int dy)
+{
+	if (s_tileSize <= 0)
+		return;
+	int x = lst_x + dx, y = lst_y + dy;
+	if (!m_selecting)
+	{
+		// no cell yet: the top left one shown
+		const QPointF top = m_view->mapToScene(m_view->viewport()->rect().topLeft());
+		x = static_cast<int>(std::ceil(top.x() / s_tileSize));
+		y = static_cast<int>(std::ceil(top.y() / s_tileSize));
+	}
+	x = std::clamp(x, 0, m_map->width - 1);
+	y = std::clamp(y, 0, m_map->height - 1);
+	selectCell(x, y);
+	// scrolled only as far as needed to show it
+	m_view->ensureVisible(QRectF(x * s_tileSize, y * s_tileSize, s_tileSize, s_tileSize), 0, 0);
+}
+
 bool MapScene::updateCursor(const QPointF &pos)
 {
 	if (!sceneRect().contains(pos) || s_tileSize <= 0) {
@@ -2176,6 +2196,19 @@ bool MapScene::handleKey(QKeyEvent *event, bool run)
 	}
 	if (core().layer() == Core::EVENT)
 	{
+		// the arrows move the selected cell, as in RPG Maker
+		int dx = 0, dy = 0;
+		if (!slot && no_modifier)
+		{
+			dx = event->key() == Qt::Key_Left ? -1 : event->key() == Qt::Key_Right ? 1 : 0;
+			dy = event->key() == Qt::Key_Up ? -1 : event->key() == Qt::Key_Down ? 1 : 0;
+		}
+		if (dx || dy)
+		{
+			if (run)
+				moveSelectedCell(dx, dy);
+			return true;
+		}
 		// the keys of the event on the cell selected with the mouse; the
 		// selection tool's first
 		if (!slot && !m_selecting)

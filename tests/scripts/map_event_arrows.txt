@@ -1,0 +1,19 @@
+# On the event layer, the arrow keys move the selected cell, as in RPG Maker,
+# without leaving the map.
+open-map 1
+action actionLayerEvents
+map-click 0 0
+expect-cell 0 0
+key Right
+expect-cell 1 0
+key Down
+key Down
+expect-cell 1 2
+key Left
+key Left
+expect-cell 0 2
+key Up
+key Up
+key Up
+expect-cell 0 0
+quit

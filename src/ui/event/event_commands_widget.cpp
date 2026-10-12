@@ -30,6 +30,10 @@
 #include <QMenu>
 #include <QUndoStack>
 #include <functional>
+#include <QApplication>
+#include <QCryptographicHash>
+#include <QDir>
+#include <QSettings>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QTreeWidgetItemIterator>
@@ -101,6 +105,18 @@ EventCommandsWidget::EventCommandsWidget(QWidget* parent) :
 
 	setContextMenuPolicy(Qt::CustomContextMenu);
 
+	m_clickEdit.setSingleShot(true);
+	m_clickEdit.setInterval(QApplication::doubleClickInterval());
+	connect(&m_clickEdit, &QTimer::timeout, this, [this] {
+		QTreeWidgetItem* item = currentItem();
+		const int index = indexOf(item);
+		using Cmd = lcf::rpg::EventCommand::Code;
+		// a command to edit: not the empty line closing a block
+		if (item && isVisible() && !multiSelection() && index >= 0 && index < static_cast<int>(m_commands->size())
+				&& static_cast<Cmd>((*m_commands)[index].code) != Cmd::END) {
+			editEvent(item, 0);
+		}
+	});
 	// As in RPG Maker, a double-click inserts a command before the line, like
 	// Enter (Space edits)
 	connect(this, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem* item) {
@@ -168,6 +184,79 @@ private:
 };
 }
 
+namespace {
+using Cmd = lcf::rpg::EventCommand::Code;
+
+/** Where the last command accepted in the window of each kind is kept, for
+ *  the game (by its folder), across sessions: a new one opens with the same
+ *  settings. Blocks keep their shape (an "else" branch, battle handlers...)
+ *  without the commands inside them. */
+QString lastCommandKey(const QString& project_dir, Cmd code) {
+	const QByteArray game = QCryptographicHash::hash(QDir(project_dir).canonicalPath().toUtf8(), QCryptographicHash::Sha1).toHex();
+	return QStringLiteral("last_commands/%1/%2").arg(QString::fromLatin1(game)).arg(static_cast<int>(code));
+}
+
+/** Commands of text start empty: a message is not written twice */
+bool remembersSettings(Cmd code) {
+	return code != Cmd::ShowMessage && code != Cmd::Comment && code != Cmd::ShowChoice;
+}
+}
+
+void EventCommandsWidget::rememberCommand(int index) {
+	const auto code = static_cast<Cmd>((*m_commands)[index].code);
+	if (!remembersSettings(code)) {
+		return;
+	}
+	const int base = (*m_commands)[index].indent;
+	const auto [start, end] = EventCommandDefaults::range(*m_commands, index);
+	std::vector<lcf::rpg::EventCommand> shape;
+	for (int i = start; i < std::max(end, start + 1); ++i) {
+		auto line = (*m_commands)[i];
+		// the command, the lines of its block, the end of each of its lists
+		if (i == start || line.indent == base || (line.indent == base + 1 && static_cast<Cmd>(line.code) == Cmd::END)) {
+			line.indent -= base;
+			shape.push_back(line);
+		}
+	}
+	QVariantList lines;
+	for (const auto& line : shape) {
+		QVariantList parameters;
+		for (const int32_t parameter : line.parameters) {
+			parameters << parameter;
+		}
+		lines << QVariantMap{
+			{QStringLiteral("code"), line.code},
+			{QStringLiteral("indent"), line.indent},
+			{QStringLiteral("string"), QByteArray(line.string.data(), static_cast<qsizetype>(line.string.size()))},
+			{QStringLiteral("parameters"), parameters},
+		};
+	}
+	QSettings().setValue(lastCommandKey(m_project->project().projectDir().absolutePath(), code), lines);
+}
+
+std::vector<lcf::rpg::EventCommand> EventCommandsWidget::newCommand(Cmd code, int indent) const {
+	const QVariantList saved = QSettings().value(lastCommandKey(m_project->project().projectDir().absolutePath(), code)).toList();
+	std::vector<lcf::rpg::EventCommand> lines;
+	for (const QVariant& value : saved) {
+		const QVariantMap map = value.toMap();
+		lcf::rpg::EventCommand line;
+		line.code = map.value(QStringLiteral("code")).toInt();
+		line.indent = map.value(QStringLiteral("indent")).toInt() + indent;
+		line.string = lcf::DBString(map.value(QStringLiteral("string")).toByteArray().toStdString());
+		std::vector<int32_t> parameters;
+		for (const QVariant& parameter : map.value(QStringLiteral("parameters")).toList()) {
+			parameters.push_back(parameter.toInt());
+		}
+		line.parameters = lcf::DBArray<int32_t>(parameters.begin(), parameters.end());
+		lines.push_back(line);
+	}
+	// nothing kept, or not this command (settings of another version)
+	if (lines.empty() || lines.front().code != static_cast<int>(code)) {
+		return EventCommandDefaults::make(code, indent);
+	}
+	return lines;
+}
+
 void EventCommandsWidget::showCommands(const std::vector<lcf::rpg::EventCommand>& commands) {
 	*m_commands = commands;
 	m_shown = commands;
@@ -197,6 +286,7 @@ void EventCommandsWidget::editEvent(QTreeWidgetItem* item, int column) {
 		return;
 	}
 	if (editCommand(index, false)) {
+		rememberCommand(commandStart(index));
 		refreshList();
 		selectIndex(index);
 	}
@@ -480,12 +570,16 @@ void EventCommandsWidget::insertCommand(int index) {
 	Cmd code = palette.selectedCode();
 
 	int indent = index < static_cast<int>(m_commands->size()) ? (*m_commands)[index].indent : 0;
-	auto lines = EventCommandDefaults::make(code, indent);
+	// the settings of the last one, as left in its window
+	auto lines = newCommand(code, indent);
 	m_commands->insert(m_commands->begin() + index, lines.begin(), lines.end());
 	refreshList();
 
 	// Configure it now; cancelling removes it
 	const bool kept = editCommand(index, true);
+	if (kept) {
+		rememberCommand(index);
+	}
 	auto range = EventCommandDefaults::range(*m_commands, index);
 	range.second = std::max(range.second, range.first + 1);
 	if (!kept) {
@@ -733,6 +827,9 @@ void EventCommandsWidget::selectIndex(int index) {
 
 void EventCommandsWidget::mousePressEvent(QMouseEvent* event) {
 	auto* item = itemAt(event->position().toPoint());
+	m_clickEdit.stop();
+	m_pressOnCurrent = item && item == currentItem() && event->button() == Qt::LeftButton
+		&& event->modifiers() == Qt::NoModifier && !multiSelection();
 	if (item && !(item->flags() & Qt::ItemIsSelectable)) {
 		event->accept();
 		return;
@@ -754,6 +851,22 @@ void EventCommandsWidget::mousePressEvent(QMouseEvent* event) {
 		m_anchor = indexOf(currentItem());
 		highlightCommand(currentItem());
 	}
+}
+
+void EventCommandsWidget::mouseReleaseEvent(QMouseEvent* event) {
+	QTreeWidget::mouseReleaseEvent(event);
+	// released on the line it was pressed on, already the selected one
+	if (m_pressOnCurrent && itemAt(event->position().toPoint()) == currentItem()) {
+		m_clickEdit.start();
+	}
+	m_pressOnCurrent = false;
+}
+
+void EventCommandsWidget::mouseDoubleClickEvent(QMouseEvent* event) {
+	// a double-click inserts: the first click of it edits nothing
+	m_clickEdit.stop();
+	m_pressOnCurrent = false;
+	QTreeWidget::mouseDoubleClickEvent(event);
 }
 
 void EventCommandsWidget::mouseMoveEvent(QMouseEvent* event) {
@@ -828,6 +941,7 @@ void EventCommandsWidget::pageStep(bool up) {
 }
 
 void EventCommandsWidget::keyPressEvent(QKeyEvent* event) {
+	m_clickEdit.stop();
 	QTreeWidgetItem* item = currentItem();
 	if (event->key() == Qt::Key_O && event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier)
 			&& !m_scriptLocation.isEmpty() && ScriptLink::unavailableReason().isEmpty()) {

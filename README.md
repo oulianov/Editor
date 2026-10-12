@@ -83,3 +83,16 @@ the [AUTHORS document](docs/AUTHORS.adoc).
 The files in [resources/icons](resources/icons) are Breeze icons or derivates
 licensed under LGPLv3. See the file
 [COPYING-ICONS](docs/licenses/COPYING-ICONS) for license conditions.
+
+The pixel fonts in [src/common/bitmapfont](src/common/bitmapfont) come from
+EasyRPG Player, to preview text as the Player draws it:
+
+* [Shinonome] font family (Japanese) - Copyright (c) 1999-2000 Yasuyuki
+  Furukawa and contributors, provided under public domain, with the changes
+  of EasyRPG Player (public domain)
+* [ttyp0] font family - Copyright (c) 2012-2015 Uwe Waldmann, provided under
+  ttyp0 license
+* RMG2000-compatible font of EasyRPG Player
+
+[Shinonome]: http://openlab.ring.gr.jp/efont/shinonome
+[ttyp0]: https://people.mpi-inf.mpg.de/~uwe/misc/uw-ttyp0

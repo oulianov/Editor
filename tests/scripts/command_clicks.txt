@@ -1,0 +1,28 @@
+# Clicks on the command list: a click selects a command, a click on the
+# command already selected edits it, a double-click inserts a command before
+# the line (as in RPG Maker 2003), never editing it too.
+# Event 1 of map 1 of TestGame-2003: a message of 2 lines, Change Level, <>.
+open-event 1 1
+select-command 0
+click-item commands Change Level
+wait 900
+expect commands > Change Level
+# the event window still in front: nothing opened
+expect lineName EV0001
+
+click-item commands Change Level
+wait 900
+expect-checked radioInc on
+close
+expect lineName EV0001
+
+double-click-item commands Change Level
+type Wait
+key Return
+click OK
+expect commands Wait: 0.0s
+wait 900
+expect lineName EV0001
+expect commands > Change Level
+close
+quit

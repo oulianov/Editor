@@ -72,6 +72,8 @@ protected:
 private:
 	/** Select Event Graphic: the character, its facing and its frame */
 	void chooseCharacter();
+	/** A tile of the upper layer instead of the graphic */
+	void chooseTile();
 	bool eventFilter(QObject* watched, QEvent* event) override;
 	bool m_sized = false;
 

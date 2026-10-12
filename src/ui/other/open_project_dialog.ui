@@ -120,7 +120,7 @@
      <item>
       <widget class="QPushButton" name="pushRename">
        <property name="text">
-        <string>Rename</string>
+        <string>Settings...</string>
        </property>
       </widget>
      </item>

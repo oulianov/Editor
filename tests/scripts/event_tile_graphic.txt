@@ -1,0 +1,14 @@
+# An event graphic that is a tile: picked with a click in the tiles, and a
+# click on the graphic opens the tiles again (not the characters); a
+# double-click on a tile picks it and closes them.
+open-event 1 1
+click pushSetSprite
+menu Tile...
+view-click tileView 40 8
+click OK
+view-click graphicsSprite 10 10
+expect-enabled tileView on
+view-click tileView 72 40 double
+expect lineName EV0001
+close
+quit

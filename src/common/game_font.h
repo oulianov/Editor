@@ -17,26 +17,17 @@
 
 #pragma once
 
-#include <QDialog>
-#include <QDir>
+#include <QColor>
+#include <QImage>
+#include <QString>
 
-class QLineEdit;
-
-/** RPG Maker's Rename Project: the folder of a game and its title */
-class RenameProjectDialog : public QDialog
-{
-	Q_OBJECT
-
-public:
-	RenameProjectDialog(const QDir& folder, const QString& title, QWidget* parent = nullptr);
-
-	QString folderName() const;
-	QString gameTitle() const;
-
-	void accept() override;
-
-private:
-	QDir m_folder;
-	QLineEdit* m_folderName;
-	QLineEdit* m_title;
-};
+/**
+ * Text drawn the way EasyRPG Player draws it: with a font file of the game
+ * (Font/Font, Font/Font2), else with its pixel fonts (Font::DefaultBitmapFont):
+ * ttyp0 and RMG2000 for western code pages, Shinonome for Asian ones.
+ */
+namespace GameFont {
+	/** font: 0 for font 1 (gothic), 1 for font 2 (mincho); file: a font file, else the pixel font;
+	 *  cjk: the game is in an Asian code page. In pixels of the game (12 high). */
+	QImage render(const QString& text, int font, const QString& file, bool cjk, const QColor& color);
+}

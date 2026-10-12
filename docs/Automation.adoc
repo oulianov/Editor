@@ -90,6 +90,7 @@ at once: the next commands act on the dialog, until `close`.
 | `type TEXT` | Types text in the focused widget.
 | `click TEXT` | Clicks the button with this text or object name (of the pop-up shown first, such as the codes of a message).
 | `click-item NAME TEXT` | Clicks the line of a list or tree (by object name) showing exactly the text, else the first line containing it.
+| `double-click-item NAME TEXT` | Double-clicks the line of a tree, found the same way (a command of the list: inserts a command before it).
 | `expect NAME TEXT` | Fails unless the widget shows the text, the rest of the line with its spaces (for a list: one of its lines; the current line starts with `> `).
 | `expect-not NAME TEXT` | Fails if the widget shows the text.
 | `set-control NAME VALUE` | Sets a control: index of a combo box, number of a spin box, `on`/`off` for a check box, radio button or checkable group box, text of a field, value of a slider, button id of a button group.
@@ -104,6 +105,7 @@ at once: the next commands act on the dialog, until `close`.
 | `palette INDEX [W H]` | Selects tiles of the palette of the current layer (0: the first tile after the eraser row), a block of W x H tiles.
 | `expect-tile lower\|upper X Y ID` | Fails unless the tile of the cell is ID (lower layer: the same terrain).
 | `expect-event X Y ID` | Fails unless the event on the cell has this ID (0: no event).
+| `expect-cell X Y` | Fails unless the cell selected on the event layer is this one.
 | `expect-start party\|boat\|ship\|airship MAP X Y` | Fails unless the start position is there.
 | `wheel NAME STEPS` | A trackpad swipe over the middle of a widget (by object name, else the first one shown of the class NAME, such as `QScrollArea`): STEPS small pixel scrolls (negative: up), momentum, then the end of the swipe, sent to the widget under the pointer like macOS does. Logs the time, the slowest event, how far the widget scrolled and what was painted.
 | `generate-dungeon MODE W H SEED [OPTION=VALUE]...` | Runs the random dungeon generator (MODE 0 winding passage, 1 rooms, 2 maze, 3 open room; options `granularity=1\|2`, `upper-wall`, `surround`, `room=WxH`, `floor-b`, `floor-c`, `extra-b`, `extra-c`, `keep=X,Y`) and logs the dungeon as text.

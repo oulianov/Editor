@@ -84,6 +84,8 @@ public:
 	int tileAt(Core::Layer layer, int x, int y) const;
 	/** The id of the event at a cell, 0 when there is none */
 	int eventIdAt(int x, int y) const;
+	/** The cell selected on the event layer (-1, -1: none) */
+	QPoint selectedCell() const { return m_selecting ? QPoint(lst_x, lst_y) : QPoint(-1, -1); }
 	/** The start position (a Core::StartMarker) at a cell of this map, -1 when there is none */
 	int startAt(int x, int y) const;
 	/** Draw the boundaries of an area (cells) as a dashed rectangle; empty rect: hidden */
@@ -214,6 +216,8 @@ private:
 	bool updateCursor(const QPointF &pos);
 	/** Select the cell of the event layer the actions apply to */
 	void selectCell(int x, int y);
+	/** The arrow keys of the event layer: the cell next to the selected one */
+	void moveSelectedCell(int dx, int dy);
 	/** Run (or only test, for ShortcutOverride) a key of the map view */
 	bool handleKey(QKeyEvent *event, bool run);
 	void pickTile();

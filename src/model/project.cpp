@@ -16,6 +16,7 @@
  */
 
 #include "project.h"
+#include "common/ini_file.h"
 #include "defines.h"
 #include "common/filefinder.h"
 #include "common/scope_guard.h"
@@ -203,7 +204,8 @@ QString Project::create(const QDir& dir, const QString& title, Format format) {
 			"\r\n[EasyRPG]\r\nEncoding=" + encoding + "\r\n";
 		lcf::Encoder encoder(encoding);
 		if (encoder.IsOk()) {
-			encoder.Encode(ini);
+			// from UTF-8 to the code page of the game
+			encoder.Decode(ini);
 		}
 		std::ofstream out(path(RM_INI), std::ios::binary);
 		out << ini;
@@ -422,43 +424,38 @@ bool Project::saveGameTitle(const QString& gameTitle) {
 	std::string title = gameTitle.toStdString();
 	lcf::Encoder encoder(encoding().toStdString());
 	if (encoder.IsOk()) {
-		encoder.Encode(title);
+		// from UTF-8 to the code page of the game
+		encoder.Decode(title);
 	}
-	const QString path = findFileOrDefault(RM_INI);
-	QFile file(path);
-	QByteArray content;
-	if (file.exists()) {
-		if (!file.open(QIODevice::ReadOnly)) {
-			return false;
-		}
-		content = file.readAll();
-		file.close();
-	}
-	QList<QByteArray> lines = content.split('\n');
-	const QByteArray entry = QByteArray(GAMETITLE "=") + QByteArray::fromStdString(title);
-	bool in_section = false, done = false;
-	int section_line = -1;
-	for (int i = 0; i < lines.size() && !done; ++i) {
-		const QByteArray line = lines[i].trimmed();
-		if (line.startsWith('[')) {
-			in_section = line.compare("[RPG_RT]", Qt::CaseInsensitive) == 0;
-			section_line = in_section ? i : section_line;
-		} else if (in_section && line.toLower().startsWith(QByteArray(GAMETITLE "=").toLower())) {
-			lines[i] = entry + (lines[i].endsWith('\r') ? "\r" : "");
-			done = true;
-		}
-	}
-	if (!done) {
-		if (section_line < 0) {
-			lines.prepend("[RPG_RT]\r");
-			section_line = 0;
-		}
-		lines.insert(section_line + 1, entry + "\r");
-	}
-	if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(lines.join('\n')) < 0) {
+	if (!IniFile::write(findFileOrDefault(RM_INI), "RPG_RT", {{GAMETITLE, QByteArray::fromStdString(title)}})) {
 		return false;
 	}
 	setGameTitle(gameTitle);
+	return true;
+}
+
+QString Project::encodingSetting() const {
+	if (projectType() == FileFinder::ProjectType::EasyRpg) {
+		return {};
+	}
+	for (const auto& [key, value] : IniFile::read(findFileOrDefault(RM_INI), "EasyRPG")) {
+		if (key.compare("Encoding", Qt::CaseInsensitive) == 0) {
+			return QString::fromLatin1(value);
+		}
+	}
+	return {};
+}
+
+bool Project::saveEncodingSetting(const QString& codepage) {
+	// [EasyRPG] Encoding of RPG_RT.ini, the code page the Player reads (none: detected)
+	std::optional<QByteArray> value;
+	if (!codepage.isEmpty()) {
+		value = codepage.toLatin1();
+	}
+	if (!IniFile::write(findFileOrDefault(RM_INI), "EasyRPG", {{"Encoding", value}})) {
+		return false;
+	}
+	detectEncoding();
 	return true;
 }
 

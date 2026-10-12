@@ -1,0 +1,43 @@
+# A new command opens with the settings last accepted in its window (as left
+# there): the operation of a variable, the condition of a branch and whether
+# it has an "else" part. Cancelling does not change them.
+open-event 1 1
+focus commands
+key End
+key Return
+type Control Variables
+key Return
+click operationAdd
+click operandRandomRadio
+click OK
+
+key Return
+type Control Variables
+key Return
+expect-checked operationAdd on
+expect-checked operandRandomRadio on
+click operationSet
+close
+
+key Return
+type Control Variables
+key Return
+expect-checked operationAdd on
+close
+
+key Return
+type Conditional Branch
+key Return
+set-control conditionType 1
+set-control conditionElse off
+click OK
+expect-not commands Else
+
+key Return
+type Conditional Branch
+key Return
+expect conditionType Variable
+expect-checked conditionElse off
+close
+close
+quit

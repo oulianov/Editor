@@ -55,7 +55,13 @@ set(EDITOR_SOURCES
 	src/common/logging.h
 	src/common/filefinder.h
 	src/common/exfont.cpp
+	src/common/game_font.cpp
+	src/common/rpg_rt_exe.cpp
+	src/common/ini_file.cpp
+	src/common/ini_file.h
 	src/common/exfont.h
+	src/common/game_font.h
+	src/common/rpg_rt_exe.h
 	src/common/image_loader.cpp
 	src/common/image_loader.h
 	src/common/lcf_widget_binding.cpp
@@ -111,6 +117,8 @@ set(EDITOR_SOURCES
 	src/common/script_link.h
 	src/model/data_merge.cpp
 	src/model/data_merge.h
+	src/model/game_patches.cpp
+	src/model/game_patches.h
 	src/model/project_convert.cpp
 	src/model/project_convert.h
 	src/model/project.cpp
@@ -433,8 +441,8 @@ set(EDITOR_SOURCES
 	src/ui/other/resource_manager_dialog.ui
 	src/ui/other/jukebox_dialog.cpp
 	src/ui/other/jukebox_dialog.h
-	src/ui/other/rename_project_dialog.cpp
-	src/ui/other/rename_project_dialog.h
+	src/ui/other/project_settings_dialog.cpp
+	src/ui/other/project_settings_dialog.h
 	src/ui/other/settings_dialog.cpp
 	src/ui/other/settings_dialog.h
 	src/ui/other/run_game_dialog.cpp

@@ -27,7 +27,7 @@
 #include <QtConcurrentRun>
 #include "core.h"
 #include "model/project.h"
-#include "rename_project_dialog.h"
+#include "project_settings_dialog.h"
 
 OpenProjectDialog::OpenProjectDialog(QWidget *parent) :
 	QDialog(parent),
@@ -137,7 +137,7 @@ std::shared_ptr<Project> OpenProjectDialog::closedProject()
 	const auto& open = core().project();
 	if (open && QDir(open->projectDir().absolutePath()) == QDir(project->projectDir().absolutePath())) {
 		QMessageBox::information(this, windowTitle(),
-			tr("%1 is the project open in the Editor: rename it with Game Project > Rename Project, "
+			tr("%1 is the project open in the Editor: change it with Game Project > Project Settings, "
 				"or close it to delete it.").arg(project->projectDir().dirName()));
 		return nullptr;
 	}
@@ -150,16 +150,15 @@ void OpenProjectDialog::on_pushRename_clicked()
 	if (!project) {
 		return;
 	}
-	RenameProjectDialog dialog(project->projectDir(), project->gameTitle(), this);
+	// the title and the code page as the game is read
+	project->detectEncoding();
+	ProjectSettingsDialog dialog(*project, false, this);
 	if (dialog.exec() != QDialog::Accepted) {
 		return;
 	}
-	if (dialog.gameTitle() != project->gameTitle()) {
-		// the title is written in the code page of the game
-		project->detectEncoding();
-		if (!project->saveGameTitle(dialog.gameTitle())) {
-			QMessageBox::warning(this, windowTitle(), tr("The game title could not be written."));
-		}
+	const QString error = dialog.writeSettings(*project);
+	if (!error.isEmpty()) {
+		QMessageBox::warning(this, windowTitle(), error);
 	}
 	if (dialog.folderName() != project->projectDir().dirName()) {
 		QDir parent = project->projectDir();

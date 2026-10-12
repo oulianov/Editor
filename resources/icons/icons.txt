@@ -8,6 +8,7 @@ exit: application-exit
 save: document-save
 revert: view-refresh
 properties: configure
+settings: a gear, drawn for the Editor (Project Settings)
 layer-low: based on layer-visible-on
 layer-high: based on layer-visible-on
 layer-event: based on layer-visible-on

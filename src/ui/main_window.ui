@@ -63,7 +63,7 @@
     <addaction name="actionProjectOpen"/>
     <addaction name="actionProjectClose"/>
     <addaction name="separator"/>
-    <addaction name="actionProjectRename"/>
+    <addaction name="actionProjectSettings"/>
     <addaction name="actionGameDiskCreate"/>
     <addaction name="actionProjectConvert2003"/>
     <addaction name="separator"/>
@@ -653,12 +653,12 @@
     <string>Ctrl+Shift+S</string>
    </property>
   </action>
-  <action name="actionProjectRename">
+  <action name="actionProjectSettings">
    <property name="text">
-    <string>Rename Project...</string>
+    <string>Project Settings...</string>
    </property>
    <property name="statusTip">
-    <string>Change the folder name and the title of the game</string>
+    <string>The folder, title, engine, text encoding and patches of the game</string>
    </property>
   </action>
   <action name="actionProjectConvert2003">

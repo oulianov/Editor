@@ -18,6 +18,8 @@
 #include "event_page_widget.h"
 #include "model/event_page_defaults.h"
 #include <QMouseEvent>
+#include <QtMath>
+#include <functional>
 #include "ui_event_page_widget.h"
 #include <QDialogButtonBox>
 #include <QMessageBox>
@@ -26,7 +28,6 @@
 #include <algorithm>
 #include <QMenu>
 #include <QVBoxLayout>
-#include "ui/viewer/rpg_graphics_view.h"
 #include <QScrollBar>
 #include <QSettings>
 #include <QSplitter>
@@ -42,6 +43,34 @@
 #include "common/lcf_widget_binding.h"
 
 static const char SPLITTER_KEY[] = "event_page_settings_width";
+
+namespace {
+
+/** The tiles to choose from: a click picks one, a double-click picks it and closes */
+class TileView : public QGraphicsView {
+public:
+	using QGraphicsView::QGraphicsView;
+	std::function<void(const QPointF&)> picked;
+	std::function<void()> chosen;
+
+protected:
+	void mousePressEvent(QMouseEvent* event) override {
+		if (event->button() == Qt::LeftButton && picked) {
+			picked(mapToScene(event->position().toPoint()));
+		}
+		QGraphicsView::mousePressEvent(event);
+	}
+	void mouseDoubleClickEvent(QMouseEvent* event) override {
+		if (event->button() == Qt::LeftButton && picked && chosen) {
+			picked(mapToScene(event->position().toPoint()));
+			chosen();
+			return;
+		}
+		QGraphicsView::mouseDoubleClickEvent(event);
+	}
+};
+
+} // namespace
 
 EventPageWidget::EventPageWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),
@@ -328,7 +357,15 @@ bool EventPageWidget::eventFilter(QObject* watched, QEvent* event)
 {
 	if (watched == ui->graphicsSprite->viewport() && event->type() == QEvent::MouseButtonRelease
 			&& static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton) {
-		chooseCharacter();
+		// a click on the graphic changes it in its kind: the tiles for a tile
+		// (no graphic: tile 0), else the characters
+		const bool tile = m_eventPage->character_name.empty() && m_eventPage->character_index > 0
+			&& !core().chipsetIsNull();
+		if (tile) {
+			chooseTile();
+		} else {
+			chooseCharacter();
+		}
 		return true;
 	}
 	return QWidget::eventFilter(watched, event);
@@ -339,15 +376,7 @@ void EventPageWidget::on_pushSetSprite_clicked()
 	// A character of a charset, a tile of the upper layer, or nothing
 	QMenu menu(this);
 	menu.addAction(tr("Character..."), this, &EventPageWidget::chooseCharacter);
-	menu.addAction(tr("Tile..."), this, [this] {
-		const int tile = pickUpperTile(m_eventPage->character_name.empty() ? m_eventPage->character_index : -1);
-		if (tile >= 0) {
-			const bool was_character = !m_eventPage->character_name.empty();
-			m_eventPage->character_name = lcf::DBString();
-			m_eventPage->character_index = tile;
-			graphicChanged(was_character);
-		}
-	})->setEnabled(!core().chipsetIsNull());
+	menu.addAction(tr("Tile..."), this, &EventPageWidget::chooseTile)->setEnabled(!core().chipsetIsNull());
 	menu.addAction(tr("No Graphic"), this, [this] {
 		const bool was_character = !m_eventPage->character_name.empty();
 		m_eventPage->character_name = lcf::DBString();
@@ -355,6 +384,17 @@ void EventPageWidget::on_pushSetSprite_clicked()
 		graphicChanged(was_character);
 	});
 	menu.exec(ui->pushSetSprite->mapToGlobal(QPoint(0, ui->pushSetSprite->height())));
+}
+
+void EventPageWidget::chooseTile()
+{
+	const int tile = pickUpperTile(m_eventPage->character_name.empty() ? m_eventPage->character_index : -1);
+	if (tile >= 0) {
+		const bool was_character = !m_eventPage->character_name.empty();
+		m_eventPage->character_name = lcf::DBString();
+		m_eventPage->character_index = tile;
+		graphicChanged(was_character);
+	}
 }
 
 int EventPageWidget::pickUpperTile(int current)
@@ -374,7 +414,8 @@ int EventPageWidget::pickUpperTile(int current)
 	if (current >= 0) {
 		frame->setPos((current % columns) * size, (current / columns) * size);
 	}
-	auto* view = new RpgGraphicsViewBase(&dialog);
+	auto* view = new TileView(&dialog);
+	view->setObjectName(QStringLiteral("tileView"));
 	view->setScene(scene);
 	view->setMinimumSize(columns * size + view->verticalScrollBar()->sizeHint().width() + 4, 6 * size);
 	layout->addWidget(view, 1);
@@ -384,15 +425,16 @@ int EventPageWidget::pickUpperTile(int current)
 	connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
 	int chosen = current;
-	connect(view, &RpgGraphicsViewBase::clicked, &dialog, [&](const QPointF& pos) {
-		const int col = static_cast<int>(pos.x()) / size, row = static_cast<int>(pos.y()) / size;
+	view->chosen = [&dialog] { dialog.accept(); };
+	view->picked = [&](const QPointF& pos) {
+		const int col = qFloor(pos.x() / size), row = qFloor(pos.y() / size);
 		if (col < 0 || col >= columns || row < 0 || row * columns + col >= count) {
 			return;
 		}
 		chosen = row * columns + col;
 		frame->setPos(col * size, row * size);
 		frame->setVisible(true);
-	});
+	};
 	if (dialog.exec() != QDialog::Accepted || chosen < 0) {
 		return -1;
 	}

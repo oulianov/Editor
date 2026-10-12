@@ -91,6 +91,10 @@ public:
 	QString detectEncoding();
 	QString encoding() const;
 	void setEncoding(const QString& encoding);
+	/** [EasyRPG] Encoding of RPG_RT.ini, as written (a code page, "1252"); empty: detected */
+	QString encodingSetting() const;
+	/** Writes it (empty: removes it) and detects the encoding again */
+	bool saveEncodingSetting(const QString& codepage);
 
 	QDir projectDir() const;
 	void setProjectDir(const QDir& projectDir);

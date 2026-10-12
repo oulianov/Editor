@@ -16,6 +16,7 @@
  */
 
 #include "event_command_palette.h"
+#include "model/game_patches.h"
 #include <algorithm>
 #include "core.h"
 #include "ui/common/help.h"
@@ -462,43 +463,6 @@ QString EventCommandPalette::commandName(Code code) {
 }
 
 bool EventCommandPalette::usesManiacPatch(const Project& project) {
-	// As EasyRPG Player decides (Game_ConfigGame, Player::CreateGameObjects):
-	// a [Patch] section of EasyRPG.ini overrides the detection, then the
-	// version information of RPG_RT.exe, then accord.dll in the game folder
-	const QString ini = project.findFile(QStringLiteral("EasyRPG.ini"));
-	if (!ini.isEmpty()) {
-		QSettings settings(ini, QSettings::IniFormat);
-		settings.beginGroup(QStringLiteral("Patch"));
-		const QStringList keys = settings.childKeys();
-		if (!keys.isEmpty()) {
-			for (const auto& key : keys) {
-				if (key.compare(QStringLiteral("Maniac"), Qt::CaseInsensitive) == 0) {
-					return settings.value(key).toInt() > 0;
-				}
-			}
-			return false;
-		}
-	}
-
-	const QString exe = project.findFile(QStringLiteral("RPG_RT.exe"));
-	if (!exe.isEmpty()) {
-		// "Maniacs, v" in UTF-16, in the version resource; read once per file version
-		static QHash<QString, bool> known;
-		const QString key = exe + QFileInfo(exe).lastModified().toString(Qt::ISODateWithMs);
-		auto it = known.find(key);
-		if (it == known.end()) {
-			QFile file(exe);
-			bool found = false;
-			if (file.open(QIODevice::ReadOnly)) {
-				const QByteArray marker = QByteArray::fromRawData(reinterpret_cast<const char*>(u"Maniacs, v"), 20);
-				found = file.readAll().contains(marker);
-			}
-			it = known.insert(key, found);
-		}
-		if (*it) {
-			return true;
-		}
-	}
-
-	return !project.findFile(QStringLiteral("accord.dll")).isEmpty();
+	// as EasyRPG Player: chosen in EasyRPG.ini, else detected
+	return GamePatches::usesManiac(project);
 }

@@ -19,7 +19,7 @@
 #include "ui/other/open_project_dialog.h"
 #include "ui/other/import_project_dialog.h"
 #include "ui/other/settings_dialog.h"
-#include "ui/other/rename_project_dialog.h"
+#include "ui/other/project_settings_dialog.h"
 #include "ui/other/convert_project_dialog.h"
 #include "ui/other/export_dialog.h"
 #include "ui/common/stale_file.h"
@@ -639,7 +639,7 @@ void MainWindow::update_actions()
 	ui->actionMapRevert->setEnabled(scene && scene->isModified());
 	ui->actionSearch->setEnabled(has_project);
 	ui->actionJukebox->setEnabled(has_project);
-	ui->actionProjectRename->setEnabled(has_project);
+	ui->actionProjectSettings->setEnabled(has_project);
 	ui->actionProjectConvert2003->setEnabled(has_project && ProjectConvert::canConvert(*core().project()));
 	ui->actionMapSaveAll->setEnabled(has_project);
 	ui->actionUndo->setEnabled(scene && scene->canUndo());
@@ -1137,37 +1137,46 @@ void MainWindow::on_actionMapSaveAll_triggered()
 			scene->Save();
 }
 
-void MainWindow::on_actionProjectRename_triggered()
+void MainWindow::on_actionProjectSettings_triggered()
 {
 	auto project = core().project();
 	if (!project)
 		return;
 	const QDir folder = project->projectDir();
-	RenameProjectDialog dialog(folder, project->gameTitle(), this);
+	ProjectSettingsDialog dialog(*project, true, this);
 	if (dialog.exec() != QDialog::Accepted)
 		return;
-	if (dialog.gameTitle() != project->gameTitle()) {
-		if (!project->saveGameTitle(dialog.gameTitle())) {
-			QMessageBox::warning(this, tr("Rename Project"), tr("The game title could not be written."));
-			return;
-		}
-		setWindowTitle(tr("EasyRPG Editor") + " - " + project->gameTitle());
-	}
-	if (dialog.folderName() == folder.dirName())
-		return;
-	// the folder of the open project: closed (asking to save), renamed, opened again
+	// a new folder or code page: the project is closed (asking to save),
+	// changed, and opened again (its texts read in the new code page)
+	const bool rename = dialog.folderName() != folder.dirName();
+	const bool reload = rename || dialog.encodingChanged();
 	const QString old_path = folder.absolutePath();
-	on_actionProjectClose_triggered();
-	if (core().project())
-		return;
-	QDir parent(old_path);
-	parent.cdUp();
-	if (!parent.rename(folder.dirName(), dialog.folderName())) {
-		QMessageBox::warning(this, tr("Rename Project"), tr("The folder could not be renamed."));
-		LoadProject(old_path);
-		return;
+	if (reload)
+	{
+		on_actionProjectClose_triggered();
+		if (core().project())
+			return;
 	}
-	LoadProject(parent.filePath(dialog.folderName()));
+	const QString error = dialog.writeSettings(*project);
+	if (!error.isEmpty())
+		QMessageBox::warning(this, tr("Project Settings"), error);
+	QString path = old_path;
+	if (rename)
+	{
+		QDir parent(old_path);
+		parent.cdUp();
+		if (parent.rename(folder.dirName(), dialog.folderName()))
+			path = parent.filePath(dialog.folderName());
+		else
+			QMessageBox::warning(this, tr("Project Settings"), tr("The folder could not be renamed."));
+	}
+	project.reset();
+	if (reload)
+		LoadProject(path);
+	else
+		setWindowTitle(tr("EasyRPG Editor") + " - " + core().project()->gameTitle());
+	if (dialog.convertRequested())
+		on_actionProjectConvert2003_triggered();
 }
 
 void MainWindow::on_actionProjectConvert2003_triggered()
@@ -2266,6 +2275,7 @@ void MainWindow::refreshIcons() {
 
 	// Other
 	set(ui->actionGameDiskCreate, "export");
+	set(ui->actionProjectSettings, "settings");
 	set(ui->actionScriptEditor, "code");
 
 	// Game

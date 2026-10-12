@@ -46,6 +46,7 @@
         <file alias="project-new">icons/bright/project-new.svg</file>
         <file alias="project-open">icons/bright/project-open.svg</file>
         <file alias="properties">icons/bright/properties.svg</file>
+        <file alias="settings">icons/bright/settings.svg</file>
         <file alias="resources">icons/bright/resources.svg</file>
         <file alias="revert">icons/bright/revert.svg</file>
         <file alias="save">icons/bright/save.svg</file>
@@ -101,6 +102,7 @@
         <file alias="project-new">icons/dark/project-new.svg</file>
         <file alias="project-open">icons/dark/project-open.svg</file>
         <file alias="properties">icons/dark/properties.svg</file>
+        <file alias="settings">icons/dark/settings.svg</file>
         <file alias="resources">icons/dark/resources.svg</file>
         <file alias="revert">icons/dark/revert.svg</file>
         <file alias="save">icons/dark/save.svg</file>

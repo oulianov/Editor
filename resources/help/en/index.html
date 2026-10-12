@@ -26,6 +26,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <b>Project and maps</b>
 <ul>
 <li><a href="#new-project">New project</a></li>
+<li><a href="#project-settings">Project settings</a></li>
 <li><a href="#maps">Maps and drawing</a></li>
 <li><a href="#map-properties">Map properties</a></li>
 <li><a href="#search">Search</a></li>
@@ -85,6 +86,16 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><b>DB template</b>: the starting database (heroes, items, chipsets...) copied into the new project.</li>
 <li><b>Tile Size</b>: size of one map tile in pixels. RPG Maker 2000/2003 games always use 16; larger sizes only work with EasyRPG Player.</li>
 </ul>
+
+<a name="project-settings"></a>
+<h3>Project settings</h3>
+<p><b>Game Project &gt; Project Settings</b> (or <b>Settings...</b> in the list of projects) has three pages:</p>
+<ul>
+<li><b>General</b>: the <b>Directory Name</b> and <b>Game Name</b> (as RPG Maker's Rename Project), and the <b>Encoding</b> of the texts (<code>[EasyRPG] Encoding</code> of RPG_RT.ini). Texts shown garbled usually mean a wrong one: the project is closed (asking to save it) and opened again in the one chosen.</li>
+<li><b>Engine</b>: the format of the project (<b>Convert to RPG Maker 2003...</b> converts it, after a backup), the players in the game folder with their version (RPG_RT.exe of RPG Maker 2000 or 2003, the Maniac Patch, EasyRPG Player), the <b>Text font</b> of the game (saved in the database, with a sentence drawn as EasyRPG Player draws it), the fonts RPG_RT.exe asks Windows for, and the symbols of messages ($A...).</li>
+<li><b>EasyRPG Player</b>: what only EasyRPG Player reads; RPG_RT.exe is not changed. <b>Patches</b> are detected from the game files as the Player does, chosen (written in the <code>[Patch]</code> section of EasyRPG.ini), or taken as written in EasyRPG.ini, which the Editor then leaves as it is (the choice when EasyRPG.ini sets other options, such as AntiLagSwitch). Point at a patch to see what it changes. The Maniac Patch adds its commands to the <a href="#command-palette">Event Commands</a> window. <b>Fonts</b>: the Player's own, or a font file copied in the Font folder of the game (<b>Choose...</b>).</li>
+</ul>
+<p><b>Open EasyRPG.ini</b> opens the file in the script editor of the Editor settings (created if missing), for the options not shown here; the window reads it again when you come back. Only the lines changed are written: the rest of RPG_RT.ini and EasyRPG.ini stays as it is.</p>
 
 <a name="maps"></a>
 <h3>Maps and drawing</h3>
@@ -149,6 +160,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="event-editor"></a>
 <h3>Event window</h3>
+<p>Events are placed on the <b>event layer</b> of the map: click a cell to select it, or move the selected cell with the <b>arrow keys</b>; <b>Enter</b> then edits its event, or creates one on an empty cell.</p>
 <p>An event is anything on the map that can act: a person, a chest, a door, a hidden trigger. It has one or more <b>pages</b>. During the game, the page with the highest number whose conditions are all met is the active one; if no page qualifies, the event is not there.</p>
 <ul>
 <li><b>Name</b>: for your own reference.</li>
@@ -162,7 +174,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><b>Hero</b>: this hero is in the party.</li>
 <li><b>Timer</b>: the timer is at or below the given minutes and seconds. <b>Timer 2</b> is RPG Maker 2003 only.</li>
 </ul>
-<p><b>Graphic</b>: the charset sprite (or a tile of the upper layer) shown for the event. Leave it empty for an invisible event.</p>
+<p><b>Graphic</b>: the charset sprite (or a tile of the upper layer) shown for the event. Leave it empty for an invisible event. <b>Set</b> chooses a character, a tile or no graphic; a click on the graphic changes it in the same kind (the tiles for a tile). In the tiles, a click selects one and a double-click takes it.</p>
 <p><b>Trigger</b> (what starts the commands):</p>
 <ul>
 <li><b>Action Key</b>: the hero faces the event and presses the action key (or bumps into it, for events on the same layer as the hero).</li>
@@ -177,7 +189,8 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <p><b>Commands</b>: the list on the right is what the event does, from top to bottom.</p>
 <ul>
 <li>Double-click a line or press <b>Enter</b> to insert a command before it (opens the <a href="#command-palette">Event Commands</a> window); on a <code>&lt;&gt;</code> line it goes at the end of the list or block. The selection stays on the line, so the next command goes under the new one.</li>
-<li><b>Space</b> edits the selected command, <b>Delete</b> removes it.</li>
+<li><b>Space</b>, or a click on the command already selected, edits it; <b>Delete</b> removes it.</li>
+<li>A new command opens with the settings last accepted in its window, in this game, also after a restart (the same variable and operation, the same condition, with or without an <i>else</i> part...). Messages, comments and choices start empty.</li>
 <li>The arrow keys go from command to command: the next lines of a message, <code>: Else</code> and <code>: End</code> are skipped, and <b>Left</b> and <b>Right</b> work like <b>Up</b> and <b>Down</b>. <b>Page Up</b> and <b>Page Down</b> move by half a list (pressed elsewhere in the window, they first go back to the list); <b>Ctrl+Tab</b> and <b>Ctrl+Shift+Tab</b> switch event pages (the Control key on macOS too). With <b>Shift</b>, the keys select several commands.</li>
 <li><b>Ctrl+C</b>, <b>Ctrl+X</b> and <b>Ctrl+V</b> copy, cut and paste whole commands; a branch, choice or loop is copied with everything inside it.</li>
 </ul>

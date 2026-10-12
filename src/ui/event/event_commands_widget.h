@@ -18,6 +18,7 @@
 #pragma once
 
 #include <QPalette>
+#include <QTimer>
 #include <QTreeWidget>
 #include <array>
 #include <optional>
@@ -66,6 +67,10 @@ private:
 	void insertCommand(int index);
 	/** Opens the editor of the command; false when cancelled */
 	bool editCommand(int index, bool is_new);
+	/** The settings of the command at index: the next new one of its kind starts from them */
+	void rememberCommand(int index);
+	/** The lines of a new command: the last one accepted of its kind, else the defaults */
+	std::vector<lcf::rpg::EventCommand> newCommand(lcf::rpg::EventCommand::Code code, int indent) const;
 	static bool hasEditor(lcf::rpg::EventCommand::Code code);
 	/** Cut, Copy and Delete act on these lines (first == second: nothing) */
 	void copyLines(std::pair<int, int> range, bool cut);
@@ -112,6 +117,10 @@ private:
 
 	/** Reads the color and stripe options and prepares what lines are drawn with */
 	void updateLook();
+	/** A click on the line already selected edits its command, once no
+	 *  double-click (insert) follows */
+	QTimer m_clickEdit;
+	bool m_pressOnCurrent = false;
 	bool m_colors = true;
 	bool m_stripes = true;
 	QColor m_stripe;
@@ -123,6 +132,8 @@ protected:
 	void keyPressEvent(QKeyEvent* event) override;
 	void mousePressEvent(QMouseEvent* event) override;
 	void mouseMoveEvent(QMouseEvent* event) override;
+	void mouseReleaseEvent(QMouseEvent* event) override;
+	void mouseDoubleClickEvent(QMouseEvent* event) override;
 	QModelIndex moveCursor(CursorAction action, Qt::KeyboardModifiers modifiers) override;
 	void drawRow(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
 	void drawBranches(QPainter* painter, const QRect& rect, const QModelIndex& index) const override;

@@ -153,7 +153,7 @@ private slots:
 	void on_actionMapShift_triggered();
 	void on_actionMapGenerateDungeon_triggered();
 	void on_actionSettings_triggered();
-	void on_actionProjectRename_triggered();
+	void on_actionProjectSettings_triggered();
 	void on_actionProjectConvert2003_triggered();
 	void on_actionGameDiskCreate_triggered();
 	void on_actionMapSaveAll_triggered();

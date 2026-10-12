@@ -590,7 +590,7 @@ bool Automation::run(const QStringList& args) {
 		fail("no menu item " + text);
 		return false;
 	}
-	if (cmd == "click-item" && args.size() >= 3) {
+	if ((cmd == "click-item" || cmd == "double-click-item") && args.size() >= 3) {
 		// a list view (database lists): the lines of its model
 		if (auto* view = qobject_cast<QAbstractItemView*>(findWidget(args[1]));
 				view && !qobject_cast<QTreeWidget*>(view) && view->model()) {
@@ -639,6 +639,11 @@ bool Automation::run(const QStringList& args) {
 		const QPoint global = tree->viewport()->mapToGlobal(pos);
 		QApplication::postEvent(tree->viewport(), new QMouseEvent(QEvent::MouseButtonPress, pos, global, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier));
 		QApplication::postEvent(tree->viewport(), new QMouseEvent(QEvent::MouseButtonRelease, pos, global, Qt::LeftButton, Qt::NoButton, Qt::NoModifier));
+		if (cmd == "double-click-item") {
+			// the second press of a double-click comes as one
+			QApplication::postEvent(tree->viewport(), new QMouseEvent(QEvent::MouseButtonDblClick, pos, global, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier));
+			QApplication::postEvent(tree->viewport(), new QMouseEvent(QEvent::MouseButtonRelease, pos, global, Qt::LeftButton, Qt::NoButton, Qt::NoModifier));
+		}
 		return true;
 	}
 	if (cmd == "set-control" && args.size() >= 3) {
@@ -963,6 +968,10 @@ bool Automation::run(const QStringList& args) {
 			return false;
 		}
 		const Qt::MouseButton button = args.value(3) == "right" ? Qt::RightButton : Qt::LeftButton;
+		// as a click: the map takes the keys
+		if (!scene->views().isEmpty()) {
+			scene->views().first()->setFocus(Qt::MouseFocusReason);
+		}
 		mapMouse(scene, QEvent::MouseMove, a, b, Qt::NoButton, Qt::NoButton);
 		mapMouse(scene, QEvent::MouseButtonPress, a, b, button, button);
 		mapMouse(scene, QEvent::MouseButtonRelease, a, b, button, Qt::NoButton);
@@ -1122,6 +1131,19 @@ bool Automation::run(const QStringList& args) {
 		}
 		if (scene->eventIdAt(a, b) != id) {
 			fail(QString("event at %1,%2 is %3, not %4").arg(a).arg(b).arg(scene->eventIdAt(a, b)).arg(id));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "expect-cell" && args.size() == 3 && toInt(args[1], a) && toInt(args[2], b)) {
+		MapScene* scene = m_window.currentScene();
+		if (!scene) {
+			fail("no map shown");
+			return false;
+		}
+		const QPoint cell = scene->selectedCell();
+		if (cell != QPoint(a, b)) {
+			fail(QString("the cell selected is %1,%2, not %3,%4").arg(cell.x()).arg(cell.y()).arg(a).arg(b));
 			return false;
 		}
 		return true;
