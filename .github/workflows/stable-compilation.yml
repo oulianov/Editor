@@ -477,7 +477,8 @@ jobs:
         run: |
           $version = (Select-String -Path build/vcpkg-liblcf-release/CMakeCache.txt `
             -Pattern '^CMAKE_PROJECT_VERSION:STATIC=(.*)$').Matches[0].Groups[1].Value
-          $app = "dist/EasyRPG Editor"
+          # absolute: Qt's deploy script refuses a relative install prefix
+          $app = Join-Path $PWD "dist/EasyRPG Editor"
           cmake --install build/vcpkg-liblcf-release --prefix $app
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Copy-Item "$env:VCToolsRedistDir/x64/Microsoft.VC*.CRT/*.dll" "$app/bin"
