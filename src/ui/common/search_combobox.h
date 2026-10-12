@@ -35,6 +35,8 @@ public:
 
 	void showPopup() override;
 	void hidePopup() override;
+	/** Shows the list under another widget: a hidden list chosen from a button */
+	void showPopupUnder(QWidget* anchor);
 
 	/** Whether the entry of this text (and number, -1: read from the text) matches the search */
 	static bool matches(const QString& text, int id, const QString& search);

@@ -101,7 +101,7 @@ void bindCombo(QComboBox* combo, QWidget* parent, lcf::rpg::EventCommand* comman
 }
 
 QComboBox* characterCombo(QWidget* parent, lcf::rpg::EventCommand* command, const QString& name, int index) {
-	auto* result = new QComboBox(parent);
+	auto* result = new SearchComboBox(parent);
 	result->setObjectName(name);
 	result->addItem(PictureWidget::tr("Hero"), 10001);
 	result->addItem(PictureWidget::tr("Boat"), 10002);

@@ -49,7 +49,8 @@ std::vector<int32_t> defaultExpression(const char* text) {
 }
 
 QComboBox* listCombo(QWidget* parent, const QString& name, const QList<std::pair<int, QString>>& items) {
-	auto* combo = new QComboBox(parent);
+	// the events of the map can be many: searched by number or name
+	auto* combo = new SearchComboBox(parent);
 	combo->setObjectName(name);
 	for (const auto& item : items) {
 		combo->addItem(item.second, item.first);

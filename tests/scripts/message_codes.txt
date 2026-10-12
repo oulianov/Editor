@@ -1,0 +1,32 @@
+# The codes of a message are typed by the Add Code buttons: a hero or a
+# variable is searched in its list, a number to type over stays selected,
+# symbols come from their own list.
+open-event 1 1
+focus commands
+key End
+key Return
+type Show Message
+key Return
+focus message
+type Hello
+click addCode
+click code \N[1]
+type zack
+key Return
+click addCode
+click code \V[1]
+type playery
+key Return
+click addCode
+click code \C[0]
+type 2
+key Right
+click addCode
+click codeSymbol
+click symbol $a
+click addCode
+click code \.
+expect message Hello\N[1]\V[12]\C[2]$a\.
+close
+close
+quit

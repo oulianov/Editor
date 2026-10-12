@@ -168,7 +168,7 @@ void CallEventWidget::setData(lcf::rpg::EventCommand* cmd) {
 	// map event and page
 	auto* map_page = new QWidget(m_pages);
 	auto* map_form = new QFormLayout(map_page);
-	m_mapEvent = new QComboBox(map_page);
+	m_mapEvent = new SearchComboBox(map_page);
 	m_mapEvent->addItem(tr("This Event"), this_event);
 	if (auto* events = core().currentMapEvents()) {
 		for (auto it = events->cbegin(); it != events->cend(); ++it) {

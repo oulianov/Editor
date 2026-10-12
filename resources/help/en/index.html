@@ -176,8 +176,9 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <p><b>Animation type</b>: Standing animation (steps only while moving), Walking animation (steps all the time), Fixed direction with standing or walking animation (never turns), Fixed graphic (no animation), Spin.</p>
 <p><b>Commands</b>: the list on the right is what the event does, from top to bottom.</p>
 <ul>
-<li>Double-click or press <b>Space</b> on a <code>&lt;&gt;</code> line to insert a command there (opens the <a href="#command-palette">Event Commands</a> window).</li>
-<li><b>Enter</b> edits the selected command, <b>Delete</b> removes it.</li>
+<li>Double-click a line or press <b>Enter</b> to insert a command before it (opens the <a href="#command-palette">Event Commands</a> window); on a <code>&lt;&gt;</code> line it goes at the end of the list or block. The selection stays on the line, so the next command goes under the new one.</li>
+<li><b>Space</b> edits the selected command, <b>Delete</b> removes it.</li>
+<li>The arrow keys go from command to command: the next lines of a message, <code>: Else</code> and <code>: End</code> are skipped, and <b>Left</b> and <b>Right</b> work like <b>Up</b> and <b>Down</b>. <b>Page Up</b> and <b>Page Down</b> move by half a list (pressed elsewhere in the window, they first go back to the list); <b>Ctrl+Tab</b> and <b>Ctrl+Shift+Tab</b> switch event pages. With <b>Shift</b>, the keys select several commands.</li>
 <li><b>Ctrl+C</b>, <b>Ctrl+X</b> and <b>Ctrl+V</b> copy, cut and paste whole commands; a branch, choice or loop is copied with everything inside it.</li>
 </ul>
 
@@ -341,7 +342,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="cmd-ShowMessage"></a>
 <h3>Show Message</h3>
-<p>Shows text in a message window, 4 lines at a time. Codes in the text: <code>\v[n]</code> value of variable n, <code>\n[n]</code> hero name, <code>\c[n]</code> color, <code>\s[n]</code> text speed, <code>\$</code> money window, <code>\!</code> wait for a key, <code>\.</code> and <code>\|</code> short and long pauses, <code>\^</code> close without waiting.</p>
+<p>Shows text in a message window, 4 lines at a time. Codes in the text: <code>\v[n]</code> value of variable n, <code>\n[n]</code> hero name, <code>\c[n]</code> color, <code>\s[n]</code> text speed, <code>\$</code> money window, <code>\!</code> wait for a key, <code>\.</code> and <code>\|</code> short and long pauses, <code>\^</code> close without waiting. <b>Add Code</b> types them for you (each one explained by its tooltip), and the symbols <code>$A</code> to <code>$z</code> of the game's font. The lines in the text mark 38 characters (the width of a message with a face) and 50.</p>
 
 <a name="cmd-MessageOptions"></a>
 <h3>Message Options</h3>

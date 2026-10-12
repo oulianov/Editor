@@ -39,6 +39,7 @@
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QPlainTextEdit>
+#include <QTextEdit>
 #include <QGroupBox>
 #include <QRadioButton>
 #include <QCheckBox>
@@ -505,7 +506,11 @@ bool Automation::run(const QStringList& args) {
 		return true;
 	}
 	if (cmd == "click" && args.size() >= 2) {
-		QWidget* window = Screenshot::activeWindow();
+		// the buttons of a pop-up shown first (the codes of a message)
+		QWidget* window = QApplication::activePopupWidget();
+		if (!window) {
+			window = Screenshot::activeWindow();
+		}
 		const QString name = args.mid(1).join(' ');
 		QAbstractButton* found = nullptr;
 		for (auto* button : window ? window->findChildren<QAbstractButton*>() : QList<QAbstractButton*>()) {
@@ -736,27 +741,30 @@ bool Automation::run(const QStringList& args) {
 		}
 		return true;
 	}
-	if (cmd == "expect-not" && args.size() == 3) {
+	if (cmd == "expect-not" && args.size() >= 3) {
 		QWidget* widget = findWidget(args[1]);
 		if (!widget) {
 			fail("no widget " + args[1]);
 			return false;
 		}
-		if (widgetText(widget).contains(args[2])) {
-			fail(QString("%1 shows \"%2\"").arg(args[1], args[2]));
+		// the text: the rest of the line, spaces included
+		const QString expected = args.mid(2).join(' ');
+		if (widgetText(widget).contains(expected)) {
+			fail(QString("%1 shows \"%2\"").arg(args[1], expected));
 			return false;
 		}
 		return true;
 	}
-	if (cmd == "expect" && args.size() == 3) {
+	if (cmd == "expect" && args.size() >= 3) {
 		QWidget* widget = findWidget(args[1]);
 		if (!widget) {
 			fail("no widget " + args[1]);
 			return false;
 		}
+		const QString expected = args.mid(2).join(' ');
 		QString text = widgetText(widget);
-		if (!text.contains(args[2])) {
-			fail(QString("%1 does not show \"%2\", it shows:\n%3").arg(args[1], args[2], text));
+		if (!text.contains(expected)) {
+			fail(QString("%1 does not show \"%2\", it shows:\n%3").arg(args[1], expected, text));
 			return false;
 		}
 		return true;
@@ -1381,6 +1389,9 @@ QString Automation::widgetText(QWidget* widget) {
 		return names.join(QStringLiteral(" | "));
 	}
 	if (auto* text = qobject_cast<QPlainTextEdit*>(widget)) {
+		return text->toPlainText();
+	}
+	if (auto* text = qobject_cast<QTextEdit*>(widget)) {
 		return text->toPlainText();
 	}
 	if (auto* edit = qobject_cast<QLineEdit*>(widget)) {

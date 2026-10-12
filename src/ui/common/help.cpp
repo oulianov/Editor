@@ -37,7 +37,10 @@ void Help::open(QWidget* from, const QString& topic) {
 	}
 	auto* dialog = window ? window->findChild<QDialog*>(QStringLiteral("helpWindow"), Qt::FindDirectChildrenOnly) : nullptr;
 	if (!dialog) {
-		dialog = new QDialog(window, Qt::Window);
+		// a dialog, not a plain window: on macOS a window stays under the
+		// level of a modal dialog (an event command) and cannot be reached
+		dialog = new QDialog(window, Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint
+			| Qt::WindowMinMaxButtonsHint);
 		dialog->setObjectName(QStringLiteral("helpWindow"));
 		dialog->setWindowTitle(QObject::tr("EasyRPG Editor Help"));
 		dialog->setAttribute(Qt::WA_DeleteOnClose);

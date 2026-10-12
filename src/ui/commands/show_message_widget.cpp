@@ -19,13 +19,32 @@
 #include "ui_show_message_widget.h"
 #include "common/dbstring.h"
 #include "model/event_command_list.h"
+#include "model/project_data.h"
 #include "lcf/rpg/eventcommand.h"
+#include "message_code_popup.h"
+
+#include <QHBoxLayout>
+#include <QToolButton>
 
 ShowMessageWidget::ShowMessageWidget(ProjectData &project, QWidget *parent) :
 	EventCommandBaseWidget(project, parent),
 	ui(new Ui::ShowMessageWidget) {
 
 	ui->setupUi(this);
+
+	// the codes of messages, explained, typed at the cursor
+	auto* codes = new QToolButton(this);
+	codes->setObjectName(QStringLiteral("addCode"));
+	codes->setText(tr("Add Code"));
+	codes->setToolTip(tr("Hero names, variables, colors, pauses, symbols..."));
+	codes->setToolButtonStyle(Qt::ToolButtonTextOnly);
+	auto* row = new QHBoxLayout();
+	row->addWidget(codes);
+	row->addStretch();
+	ui->verticalLayout->addLayout(row);
+	connect(codes, &QToolButton::clicked, this, [this, codes] {
+		MessageCodePopup::showCodes(ui->message, m_project, codes);
+	});
 }
 
 ShowMessageWidget::~ShowMessageWidget() {

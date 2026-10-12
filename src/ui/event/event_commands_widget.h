@@ -45,6 +45,8 @@ public:
 	void selectIndex(int index);
 	/** Selects every command of the list, like Ctrl+A */
 	void selectAllCommands();
+	/** Moves up or down half a page, to the next command, like PgUp and PgDn */
+	void pageStep(bool up);
 	/** Where the rpgsync script writes this list (rpgsync locate arguments:
 	 *  --map 1 --event 2 --page 1...); empty: not in a script */
 	void setScriptLocation(const QStringList& location);
@@ -70,6 +72,9 @@ private:
 	void deleteLines(std::pair<int, int> range);
 	void pasteCommands(int index);
 	int indexOf(QTreeWidgetItem* item) const;
+	/** Whether the keys stop on the line: the first line of a command, not
+	 *  the next lines of a message nor ": Else", ": End"... */
+	bool isCommandLine(QTreeWidgetItem* item) const;
 	/** The first line of the command at index (a message starts before its next lines) */
 	int commandStart(int index) const;
 	/** The lines of the command of item, with its block */

@@ -490,7 +490,7 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 			m_heroPages->setCurrentIndex(std::clamp(m_heroTest->currentData().toInt(), 0, 6));
 		});
 		auto* characterForm = addPage();
-		m_character = new QComboBox(characterForm->parentWidget());
+		m_character = new SearchComboBox(characterForm->parentWidget());
 		m_character->setObjectName(QStringLiteral("conditionCharacter"));
 		const QStringList characters{tr("Hero"), tr("Boat"), tr("Ship"), tr("Airship"), tr("This Event")};
 		for (int i = 0; i < characters.size(); ++i) {

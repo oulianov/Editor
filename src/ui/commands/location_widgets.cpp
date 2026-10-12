@@ -161,7 +161,7 @@ QComboBox* LocationCommandWidget::map(QFormLayout* form, const QString& label,
 QComboBox* LocationCommandWidget::character(QFormLayout* form, const QString& label,
 	const QString& name, int index)
 {
-	auto* value = new QComboBox(this);
+	auto* value = new SearchComboBox(this);
 	value->setObjectName(name);
 	value->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
 	value->setMinimumContentsLength(14);

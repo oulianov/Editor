@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file>app/splash.png</file>
+        <file>app/exfont.png</file>
         <file>help/en/index.html</file>
         <file alias="templates/EASY_RT.edb">../bin/templates/EASY_RT.edb</file>
         <file alias="templates/EASY_RT.emt">../bin/templates/EASY_RT.emt</file>

@@ -88,9 +88,9 @@ at once: the next commands act on the dialog, until `close`.
 | `select-command INDEX` | Selects and focuses an event command by its zero-based list index.
 | `key SEQUENCE` | Presses a key (`Return`, `Space`, `Del`, `Ctrl+C`...) as when typed: in the window of the focused widget, the shortcuts first (menu actions, PgUp/PgDn of the event window...), else the focused widget.
 | `type TEXT` | Types text in the focused widget.
-| `click TEXT` | Clicks the button with this text or object name.
+| `click TEXT` | Clicks the button with this text or object name (of the pop-up shown first, such as the codes of a message).
 | `click-item NAME TEXT` | Clicks the line of a list or tree (by object name) showing exactly the text, else the first line containing it.
-| `expect NAME TEXT` | Fails unless the widget shows the text (for a list: one of its lines; the current line starts with `>`).
+| `expect NAME TEXT` | Fails unless the widget shows the text, the rest of the line with its spaces (for a list: one of its lines; the current line starts with `> `).
 | `expect-not NAME TEXT` | Fails if the widget shows the text.
 | `set-control NAME VALUE` | Sets a control: index of a combo box, number of a spin box, `on`/`off` for a check box, radio button or checkable group box, text of a field, value of a slider, button id of a button group.
 | `expect-enabled NAME on\|off` | Fails unless the control (by object name or button text) or menu action (by object name or text; those of the pop-up menu shown first) is enabled (`on`) or disabled (`off`).

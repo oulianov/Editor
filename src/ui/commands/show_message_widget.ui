@@ -15,14 +15,17 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QTextEdit" name="message">
-     <property name="acceptRichText">
-      <bool>false</bool>
-     </property>
-    </widget>
+    <widget class="MessageTextEdit" name="message"/>
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MessageTextEdit</class>
+   <extends>QTextEdit</extends>
+   <header>ui/common/message_text_edit.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

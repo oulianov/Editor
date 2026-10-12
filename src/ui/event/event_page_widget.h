@@ -27,6 +27,7 @@
 #include "ui/viewer/charset_graphics_item.h"
 #include <QProgressBar>
 #include <QLabel>
+#include <QTimer>
 
 class ProjectData;
 
@@ -66,6 +67,7 @@ private slots:
 
 protected:
 	void showEvent(QShowEvent* event) override;
+	void hideEvent(QHideEvent* event) override;
 
 private:
 	/** Select Event Graphic: the character, its facing and its frame */
@@ -74,6 +76,9 @@ private:
 	bool m_sized = false;
 
 	void updateGraphic();
+	/** The sprite moves as in the game, standing: steps (continuous), turns (spin) or stays */
+	void updateAnimation();
+	void stepAnimation();
 	/** The graphic was replaced: the layer and animation follow (RPG Maker) */
 	void graphicChanged(bool was_character);
 	void sizeSettings();
@@ -87,4 +92,9 @@ private:
 	CharSetGraphicsItem *m_charaItem = nullptr;
 	QGraphicsScene *m_scene = nullptr;
 	QGraphicsOpacityEffect *m_effect = nullptr;
+	// the animation of the sprite, at the 60 frames a second of the game
+	QTimer m_animationTimer;
+	int m_animationCount = 0;
+	int m_animationFrame = 0;
+	int m_animationFacing = 0;
 };

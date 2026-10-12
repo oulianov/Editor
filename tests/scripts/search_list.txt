@@ -39,5 +39,21 @@ type 1
 key Escape
 expect targetVariable 0002
 close
+
+# The events of the map (Move Event and the other commands on events)
+focus commands
+key End
+key Return
+type Move Event
+key Return
+focus moveTarget
+type ev0012
+key Return
+expect moveTarget 0012: EV0012
+focus moveTarget
+type airship
+key Return
+expect moveTarget Airship
+close
 close
 quit

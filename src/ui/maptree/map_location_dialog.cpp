@@ -20,6 +20,7 @@
 #include "common/dbstring.h"
 #include "model/project_data.h"
 #include "ui/common/map_preview.h"
+#include "ui/common/search_combobox.h"
 #include "ui/common/theme_icon.h"
 #include <QButtonGroup>
 #include <QDialogButtonBox>
@@ -27,12 +28,15 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSplitter>
 #include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 #include <algorithm>
+#include <functional>
 
 MapLocationDialog::MapLocationDialog(ProjectData& project, int map_id, int x, int y, int direction,
 	bool fixed_map, QWidget* parent) :
@@ -118,8 +122,44 @@ MapLocationDialog::MapLocationDialog(ProjectData& project, int map_id, int x, in
 			}
 		});
 
+		// the maps searched by number or name, as the lists of maps
+		auto* search = new QLineEdit(this);
+		search->setObjectName(QStringLiteral("searchMaps"));
+		search->setPlaceholderText(tr("Search by number or name"));
+		search->setClearButtonEnabled(true);
+		connect(search, &QLineEdit::textChanged, this, [this, root](const QString& text) {
+			// an area stays while one of its maps matches
+			std::function<bool(QTreeWidgetItem*)> filter = [&](QTreeWidgetItem* item) {
+				bool shown = false;
+				for (int i = 0; i < item->childCount(); ++i) {
+					shown = filter(item->child(i)) || shown;
+				}
+				const int id = item->data(0, Qt::UserRole).toInt();
+				if (id > 0 && SearchComboBox::matches(QStringLiteral("%1: %2").arg(id, 4, 10, QChar('0')).arg(item->text(0)), id, text)) {
+					shown = true;
+				}
+				item->setHidden(!shown && item != root);
+				return shown;
+			};
+			filter(root);
+			m_tree->expandAll();
+		});
+		connect(search, &QLineEdit::returnPressed, this, [this] {
+			// the first map shown
+			for (QTreeWidgetItemIterator it(m_tree, QTreeWidgetItemIterator::NotHidden | QTreeWidgetItemIterator::Selectable); *it; ++it) {
+				m_tree->setCurrentItem(*it);
+				m_tree->setFocus();
+				break;
+			}
+		});
+		auto* maps = new QWidget(this);
+		auto* maps_layout = new QVBoxLayout(maps);
+		maps_layout->setContentsMargins(0, 0, 0, 0);
+		maps_layout->addWidget(search);
+		maps_layout->addWidget(m_tree);
+
 		auto* splitter = new QSplitter(this);
-		splitter->addWidget(m_tree);
+		splitter->addWidget(maps);
 		splitter->addWidget(preview_panel);
 		splitter->setStretchFactor(1, 1);
 		splitter->setSizes({200, 600});

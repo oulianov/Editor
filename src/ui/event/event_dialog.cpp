@@ -102,10 +102,21 @@ EventDialog::EventDialog(ProjectData& project, QWidget *parent, int mapID) :
 		Help::open(this, QStringLiteral("event-editor"));
 	});
 
-	// PgUp / PgDn switch pages like in RPG Maker, Ctrl+Tab as in other tabs
-	connect(new QShortcut(QKeySequence(Qt::Key_PageUp), this), &QShortcut::activated, this, [this] { switchPage(-1); });
+	// As in RPG Maker 2003, Ctrl+Tab switches pages, and PgUp / PgDn move in
+	// the commands, from anywhere in the window: away from them, the first
+	// press only goes back to them
+	auto pageKey = [this](bool up) {
+		QWidget* page = ui->tabEventPages->currentWidget();
+		if (auto* commands = page ? page->findChild<EventCommandsWidget*>(QStringLiteral("commands")) : nullptr) {
+			if (commands->hasFocus()) {
+				commands->pageStep(up);
+			}
+			commands->setFocus();
+		}
+	};
+	connect(new QShortcut(QKeySequence(Qt::Key_PageUp), this), &QShortcut::activated, this, [pageKey] { pageKey(true); });
 	connect(new QShortcut(QKeySequence::PreviousChild, this), &QShortcut::activated, this, [this] { switchPage(-1); });
-	connect(new QShortcut(QKeySequence(Qt::Key_PageDown), this), &QShortcut::activated, this, [this] { switchPage(1); });
+	connect(new QShortcut(QKeySequence(Qt::Key_PageDown), this), &QShortcut::activated, this, [pageKey] { pageKey(false); });
 	connect(new QShortcut(QKeySequence::NextChild, this), &QShortcut::activated, this, [this] { switchPage(1); });
 	updatePageButtons();
 }

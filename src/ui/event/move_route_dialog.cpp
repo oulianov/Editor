@@ -80,7 +80,8 @@ MoveRouteDialog::MoveRouteDialog(ProjectData& project, const lcf::rpg::MoveRoute
 
 	if (move_event) {
 		auto* form = new QFormLayout();
-		m_target = new QComboBox(this);
+		m_target = new SearchComboBox(this);
+		m_target->setObjectName(QStringLiteral("moveTarget"));
 		m_target->addItem(tr("Hero"), 10001);
 		m_target->addItem(tr("Boat"), 10002);
 		m_target->addItem(tr("Ship"), 10003);

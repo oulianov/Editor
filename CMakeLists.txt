@@ -54,6 +54,8 @@ set(EDITOR_SOURCES
 	src/common/logging.cpp
 	src/common/logging.h
 	src/common/filefinder.h
+	src/common/exfont.cpp
+	src/common/exfont.h
 	src/common/image_loader.cpp
 	src/common/image_loader.h
 	src/common/lcf_widget_binding.cpp
@@ -199,6 +201,8 @@ set(EDITOR_SOURCES
 	src/ui/commands/shake_screen_widget.cpp
 	src/ui/commands/shake_screen_widget.h
 	src/ui/commands/shake_screen_widget.ui
+	src/ui/commands/message_code_popup.cpp
+	src/ui/commands/message_code_popup.h
 	src/ui/commands/show_message_widget.cpp
 	src/ui/commands/simple_command_widgets.cpp
 	src/ui/commands/simple_command_widgets.h
@@ -222,6 +226,7 @@ set(EDITOR_SOURCES
 	src/ui/common/edit_actions.h
 	src/ui/common/edit_dialog.cpp
 	src/ui/common/color_sample.h
+	src/ui/common/message_text_edit.h
 	src/ui/common/page_scroll_area.h
 	src/ui/common/preview_zoom.cpp
 	src/ui/common/preview_zoom.h

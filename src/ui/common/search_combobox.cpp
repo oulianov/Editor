@@ -133,7 +133,8 @@ public:
 		});
 	}
 
-	void open(const QString& text) {
+	void open(const QString& text, QWidget* anchor) {
+		m_anchor = anchor;
 		m_filter->setSourceModel(m_combo->model());
 		m_filter->setFilterKeyColumn(m_combo->modelColumn());
 		m_list->setModelColumn(m_combo->modelColumn());
@@ -228,7 +229,7 @@ private:
 
 	/** Under the list (above it near the bottom of the screen), as wide as its longest entry */
 	void place() {
-		const QRect screen = m_combo->screen()->availableGeometry();
+		const QRect screen = m_anchor->screen()->availableGeometry();
 		const int rows = qBound(1, m_combo->count(), qMax(m_combo->maxVisibleItems(), 14));
 		const int rowHeight = m_filter->rowCount() > 0
 			? m_list->sizeHintForRow(0) : m_list->fontMetrics().height() + 4;
@@ -241,12 +242,13 @@ private:
 		const auto margins = contentsMargins() + layout()->contentsMargins();
 		const int extra = margins.left() + margins.right() + 2 * m_list->frameWidth()
 			+ m_list->verticalScrollBar()->sizeHint().width() + m_combo->iconSize().width() + 16;
-		const int width = qBound(m_combo->width(), textWidth + extra, qMax(m_combo->width(), screen.width() / 3));
+		const int least = qMax(m_anchor->width(), 240);
+		const int width = qBound(least, textWidth + extra, qMax(least, screen.width() / 3));
 		int height = margins.top() + margins.bottom() + m_field->sizeHint().height()
 			+ layout()->spacing() + rows * rowHeight + 2 * m_list->frameWidth();
 
-		const QPoint below = m_combo->mapToGlobal(QPoint(0, m_combo->height()));
-		const QPoint top = m_combo->mapToGlobal(QPoint(0, 0));
+		const QPoint below = m_anchor->mapToGlobal(QPoint(0, m_anchor->height()));
+		const QPoint top = m_anchor->mapToGlobal(QPoint(0, 0));
 		int y = below.y();
 		if (y + height > screen.bottom() && top.y() - screen.top() > screen.bottom() - below.y()) {
 			height = qMin(height, top.y() - screen.top());
@@ -259,6 +261,8 @@ private:
 	}
 
 	SearchComboBox* m_combo;
+	// the widget it opens under: the list, or a button using it
+	QWidget* m_anchor = nullptr;
 	QLineEdit* m_field;
 	QListView* m_list;
 	SearchFilter* m_filter;
@@ -280,7 +284,8 @@ bool SearchComboBox::matches(const QString& text, int id, const QString& search)
 		}
 		name = match.captured(2);
 	}
-	const QString number = id >= 0 ? QString::number(id) : QString();
+	// only an entry written with its number has one: "Hero" (10001) does not
+	const QString number = match.hasMatch() && id >= 0 ? QString::number(id) : QString();
 	for (const QString& word : search.split(u' ', Qt::SkipEmptyParts)) {
 		const QString digits = searchNumber(word);
 		if (!digits.isEmpty() && !number.isEmpty() && number.startsWith(digits)) {
@@ -322,6 +327,13 @@ void SearchComboBox::keyPressEvent(QKeyEvent* event) {
 	QComboBox::keyPressEvent(event);
 }
 
+void SearchComboBox::showPopupUnder(QWidget* anchor) {
+	if (!m_popup) {
+		m_popup = new SearchComboPopup(this);
+	}
+	m_popup->open(QString(), anchor);
+}
+
 void SearchComboBox::openSearch(const QString& search) {
 	if (!m_popup) {
 		m_popup = new SearchComboPopup(this);
@@ -330,5 +342,5 @@ void SearchComboBox::openSearch(const QString& search) {
 		m_popup->type(search);
 		return;
 	}
-	m_popup->open(search);
+	m_popup->open(search, this);
 }

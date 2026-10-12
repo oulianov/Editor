@@ -379,7 +379,7 @@
                </widget>
               </item>
               <item row="1" column="1">
-               <widget class="QComboBox" name="comboDeathMap">
+               <widget class="SearchComboBox" name="comboDeathMap">
                 <property name="sizeAdjustPolicy">
                  <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
                 </property>
@@ -460,6 +460,11 @@
    <class>EnemyGroupView</class>
    <extends>QGraphicsView</extends>
    <header>ui/database/enemy_group_view.h</header>
+  </customwidget>
+  <customwidget>
+   <class>SearchComboBox</class>
+   <extends>QComboBox</extends>
+   <header>ui/common/search_combobox.h</header>
   </customwidget>
   <customwidget>
    <class>CommonEventRpgComboBox</class>

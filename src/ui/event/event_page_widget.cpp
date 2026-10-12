@@ -23,6 +23,7 @@
 #include <QMessageBox>
 #include <QDialogButtonBox>
 #include <QGraphicsScene>
+#include <algorithm>
 #include <QMenu>
 #include <QVBoxLayout>
 #include "ui/viewer/rpg_graphics_view.h"
@@ -143,6 +144,11 @@ EventPageWidget::EventPageWidget(ProjectData& project, QWidget *parent) :
 	ui->graphicsSprite->viewport()->installEventFilter(this);
 	ui->graphicsSprite->viewport()->setCursor(Qt::PointingHandCursor);
 	ui->graphicsSprite->setToolTip(tr("Click to choose the character"));
+	m_animationTimer.setTimerType(Qt::PreciseTimer);
+	m_animationTimer.setInterval(1000 / 60);
+	connect(&m_animationTimer, &QTimer::timeout, this, &EventPageWidget::stepAnimation);
+	connect(ui->comboAnimationType, &QComboBox::currentIndexChanged, this, &EventPageWidget::updateAnimation);
+	connect(ui->comboMoveSpeed, &QComboBox::currentIndexChanged, this, &EventPageWidget::updateAnimation);
 
 	ui->comboSwitchA->makeModel(project);
 	ui->comboSwitchB->makeModel(project);
@@ -428,12 +434,66 @@ void EventPageWidget::updateGraphic()
 		m_charaItem->setVisible(true);
 		m_scene->setSceneRect(0,0,48,64);
 	}
+	updateAnimation();
+}
+
+void EventPageWidget::updateAnimation()
+{
+	// from the frame and facing chosen, as the event appears
+	m_animationTimer.stop();
+	if (!m_eventPage) {
+		return;
+	}
+	m_animationCount = 0;
+	m_animationFrame = m_eventPage->character_pattern;
+	m_animationFacing = m_eventPage->character_direction;
+	m_charaItem->setFrame(m_animationFrame);
+	m_charaItem->setFacing(m_animationFacing);
+	using Page = lcf::rpg::EventPage;
+	const int type = ui->comboAnimationType->currentData().toInt();
+	const bool moves = type == Page::AnimType_continuous || type == Page::AnimType_fixed_continuous
+		|| type == Page::AnimType_spin;
+	if (moves && !m_eventPage->character_name.empty() && isVisible()) {
+		m_animationTimer.start();
+	}
+}
+
+void EventPageWidget::stepAnimation()
+{
+	// EasyRPG Player (Game_Character::UpdateAnimation) for an event standing
+	// still: frames per step or quarter turn, by move speed 1 to 6
+	static constexpr int steps[] = {16, 12, 10, 8, 7, 6};
+	static constexpr int turns[] = {24, 16, 12, 8, 6, 4};
+	const int speed = std::clamp(ui->comboMoveSpeed->currentData().toInt(), 1, 6);
+	++m_animationCount;
+	if (ui->comboAnimationType->currentData().toInt() == lcf::rpg::EventPage::AnimType_spin) {
+		if (m_animationCount >= turns[speed - 1]) {
+			m_animationCount = 0;
+			m_animationFacing = (m_animationFacing + 1) % 4;
+			m_charaItem->setFacing(m_animationFacing);
+		}
+		return;
+	}
+	if (m_animationCount >= steps[speed - 1]) {
+		m_animationCount = 0;
+		// left, middle, right, middle
+		m_animationFrame = (m_animationFrame + 1) % 4;
+		m_charaItem->setFrame(m_animationFrame == 3 ? CharSetGraphicsItem::Frame_middle : m_animationFrame);
+	}
+}
+
+void EventPageWidget::hideEvent(QHideEvent* event)
+{
+	// pages not shown do not animate
+	m_animationTimer.stop();
+	QWidget::hideEvent(event);
 }
 
 void EventPageWidget::showEvent(QShowEvent* event)
 {
 	QWidget::showEvent(event);
 	sizeSettings();
+	updateAnimation();
 }
 
 void EventPageWidget::sizeSettings()

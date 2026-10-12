@@ -313,7 +313,7 @@ void RunGameDialog::UpdateModels()
 	{
 		if (tree.maps[i].type == lcf::rpg::TreeMap::MapType_map)
 		{
-			ui->comboMapId->addItem(ToQString(tree.maps[i].name),
+			ui->comboMapId->addItem(QStringLiteral("%1: %2").arg(tree.maps[i].ID, 4, 10, QChar('0')).arg(ToQString(tree.maps[i].name)),
 									tree.maps[i].ID);
 		}
 	}

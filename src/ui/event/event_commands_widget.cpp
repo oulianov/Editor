@@ -101,7 +101,13 @@ EventCommandsWidget::EventCommandsWidget(QWidget* parent) :
 
 	setContextMenuPolicy(Qt::CustomContextMenu);
 
-	connect(this, &QTreeWidget::itemDoubleClicked, this, &EventCommandsWidget::editEvent);
+	// As in RPG Maker, a double-click inserts a command before the line, like
+	// Enter (Space edits)
+	connect(this, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem* item) {
+		if (item && (item->flags() & Qt::ItemIsSelectable)) {
+			insertCommand(insertionIndexFor(item));
+		}
+	});
 	// One line is current, as usual; the other lines of its command (the
 	// lines of a message, a whole branch...) are drawn selected with it, and
 	// with Shift the commands up to the line where the selection started
@@ -414,7 +420,17 @@ void EventCommandsWidget::addRawEvent(QTreeWidgetItem *item) {
 		if (!item || indexOf(item) >= static_cast<int>(m_commands->size())) {
 			m_commands->push_back(cmd);
 		} else {
-			m_commands->insert(m_commands->begin() + item->text(1).toInt() + 1, cmd);
+			// after the line, past the other lines of its message or comment
+			using Code = lcf::rpg::EventCommand::Code;
+			int index = item->text(1).toInt() + 1;
+			while (index < static_cast<int>(m_commands->size())) {
+				const auto code = static_cast<Code>((*m_commands)[index].code);
+				if (code != Code::ShowMessage_2 && code != Code::Comment_2) {
+					break;
+				}
+				++index;
+			}
+			m_commands->insert(m_commands->begin() + index, cmd);
 		}
 		refreshList();
 	}
@@ -469,12 +485,17 @@ void EventCommandsWidget::insertCommand(int index) {
 	refreshList();
 
 	// Configure it now; cancelling removes it
-	if (!editCommand(index, true)) {
-		auto range = EventCommandDefaults::range(*m_commands, index);
-		m_commands->erase(m_commands->begin() + range.first, m_commands->begin() + std::max(range.second, range.first + 1));
+	const bool kept = editCommand(index, true);
+	auto range = EventCommandDefaults::range(*m_commands, index);
+	range.second = std::max(range.second, range.first + 1);
+	if (!kept) {
+		m_commands->erase(m_commands->begin() + range.first, m_commands->begin() + range.second);
+		range.second = range.first;
 	}
 	refreshList();
-	selectIndex(index);
+	// As in RPG Maker, the line stays where it was, after the new command:
+	// Enter again inserts the next one under it
+	selectIndex(range.second);
 }
 
 void EventCommandsWidget::copyLines(std::pair<int, int> range, bool cut) {
@@ -595,7 +616,8 @@ int EventCommandsWidget::insertionIndexFor(QTreeWidgetItem* item) const {
 	if (item && multiSelection() && line >= m_highlight.first && line < m_highlight.second) {
 		return m_highlight.first;
 	}
-	return line;
+	// never between the lines of a message or a comment: before its first one
+	return line >= 0 ? commandStart(line) : line;
 }
 
 void EventCommandsWidget::selectAllCommands() {
@@ -741,37 +763,68 @@ void EventCommandsWidget::mouseMoveEvent(QMouseEvent* event) {
 	m_extending = false;
 }
 
+bool EventCommandsWidget::isCommandLine(QTreeWidgetItem* item) const {
+	if (!item || !(item->flags() & Qt::ItemIsSelectable)) {
+		return false;
+	}
+	const int index = indexOf(item);
+	if (!m_commands || index <= 0 || index >= static_cast<int>(m_commands->size())) {
+		return true;
+	}
+	using Cmd = lcf::rpg::EventCommand::Code;
+	const auto code = static_cast<Cmd>((*m_commands)[index].code);
+	return code != Cmd::ShowMessage_2 && code != Cmd::Comment_2;
+}
+
 QModelIndex EventCommandsWidget::moveCursor(CursorAction action, Qt::KeyboardModifiers modifiers) {
+	// As in RPG Maker 2003: Left and Right move like Up and Down, from command
+	// to command (a message and its lines are one), without wrapping
+	if (action == MoveLeft) {
+		action = MoveUp;
+	} else if (action == MoveRight) {
+		action = MoveDown;
+	}
+	const QModelIndex current = currentIndex();
+	if (m_commands && current.isValid() && (action == MoveUp || action == MoveDown
+			|| action == MovePageUp || action == MovePageDown)) {
+		const bool up = action == MoveUp || action == MovePageUp;
+		auto step = [this, up](const QModelIndex& index) { return up ? indexAbove(index) : indexBelow(index); };
+		// Page Up and Page Down: half a page, then on to the next command
+		QModelIndex target = current;
+		if (action == MovePageUp || action == MovePageDown) {
+			const int lines = viewport()->height() / std::max(1, rowHeight(current));
+			for (int i = 0; i < std::max(1, lines / 2) && step(target).isValid(); ++i) {
+				target = step(target);
+			}
+		}
+		for (QModelIndex next = step(target); next.isValid(); next = step(next)) {
+			if (isCommandLine(itemFromIndex(next))) {
+				return next;
+			}
+		}
+		// none further: the first or last line a page reached, else no move
+		return target != current && isCommandLine(itemFromIndex(target)) ? target : current;
+	}
 	QModelIndex next = QTreeWidget::moveCursor(action, modifiers);
 	if (!next.isValid()) {
 		return next;
 	}
+	// Home, End...: the nearest line that can be selected
 	QTreeWidgetItemIterator it(itemFromIndex(next));
-	const bool backwards = action == MoveUp || action == MovePrevious || action == MovePageUp
-		|| action == MoveLeft || action == MoveEnd;
-	const bool by_command = m_commands && (action == MoveUp || action == MoveDown);
-	const int current_start = by_command ? commandStart(indexOf(currentItem())) : -1;
-	while (*it) {
-		bool selectable = (*it)->flags() & Qt::ItemIsSelectable;
-		if (by_command) {
-			// Messages and comments highlight as a whole, so arrow keys must
-			// leave the whole command, even after clicking a continuation line.
-			const int index = indexOf(*it);
-			if (index == current_start) {
-				selectable = false;
-			} else if (index > 0 && index < static_cast<int>(m_commands->size())) {
-				using Cmd = lcf::rpg::EventCommand::Code;
-				const auto code = static_cast<Cmd>((*m_commands)[index].code);
-				if (code == Cmd::ShowMessage_2 || code == Cmd::Comment_2) {
-					selectable = false;
-				}
-			}
-		}
-		if (selectable) break;
+	const bool backwards = action == MovePrevious || action == MoveEnd;
+	while (*it && !((*it)->flags() & Qt::ItemIsSelectable)) {
 		if (backwards) --it;
 		else ++it;
 	}
-	return *it ? indexFromItem(*it) : currentIndex();
+	return *it ? indexFromItem(*it) : current;
+}
+
+void EventCommandsWidget::pageStep(bool up) {
+	const QModelIndex next = moveCursor(up ? MovePageUp : MovePageDown, Qt::NoModifier);
+	if (next.isValid() && next != currentIndex()) {
+		setCurrentIndex(next);
+		scrollTo(next);
+	}
 }
 
 void EventCommandsWidget::keyPressEvent(QKeyEvent* event) {
