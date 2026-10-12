@@ -1,0 +1,40 @@
+# Copied commands are also text for other programs: the lines of the list,
+# as RPG Maker shows them. The command list still pastes the commands.
+open-event 1 1
+focus commands
+key End
+key Return
+type Show Message
+key Return
+focus message
+type one
+key Return
+type two
+click OK
+select-command 2
+key Shift+Down
+key Ctrl+C
+# the text, seen in the box of a new message
+key End
+key Return
+type Show Message
+key Return
+focus message
+key Ctrl+V
+expect message <>Change Level: Zack, +98
+expect message <>Message: one
+expect message          : two
+close
+# the commands themselves in the list
+select-command 2
+key Ctrl+V
+select-command 2
+expect commands > Change Level: Zack, +98
+select-command 3
+expect commands > Message: one
+select-command 5
+expect commands > Change Level: Zack, +98
+select-command 6
+expect commands > Message: one
+close
+quit

@@ -18,7 +18,9 @@
 #pragma once
 
 #include <QFontDatabase>
+#include <QKeyEvent>
 #include <QPainter>
+#include <QTextBlock>
 #include <QScrollBar>
 #include <QTextEdit>
 #include <QtMath>
@@ -26,7 +28,8 @@
 /**
  * The text of a message, in a monospaced font and not wrapped, with a line
  * after the 38th character (the width of a message with a face) and one after
- * the 50th (without a face). Longer lines can still be typed.
+ * the 50th (without a face). Longer lines can still be typed. Ctrl+Backspace
+ * (Cmd or Control on macOS) deletes the line before the cursor, as in VS Code.
  */
 class MessageTextEdit : public QTextEdit {
 public:
@@ -49,6 +52,28 @@ public:
 	}
 
 protected:
+	void keyPressEvent(QKeyEvent* event) override {
+		const auto modifiers = event->modifiers() & ~Qt::KeypadModifier;
+		const bool line_key = event->key() == Qt::Key_Backspace
+			&& (modifiers == Qt::ControlModifier || modifiers == Qt::MetaModifier);
+		if (!line_key || isReadOnly()) {
+			QTextEdit::keyPressEvent(event);
+			return;
+		}
+		// the selection, else the line up to the cursor, else (at its start) the line break before it
+		QTextCursor cursor = textCursor();
+		if (!cursor.hasSelection()) {
+			if (cursor.atBlockStart()) {
+				cursor.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
+			} else {
+				cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
+			}
+		}
+		cursor.removeSelectedText();
+		setTextCursor(cursor);
+		event->accept();
+	}
+
 	void paintEvent(QPaintEvent* event) override {
 		QTextEdit::paintEvent(event);
 		QPainter painter(viewport());

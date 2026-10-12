@@ -192,7 +192,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><b>Space</b>, or a click on the command already selected, edits it; <b>Delete</b> removes it.</li>
 <li>A new command opens with the settings last accepted in its window, in this game, also after a restart (the same variable and operation, the same condition, with or without an <i>else</i> part...). Messages, comments and choices start empty.</li>
 <li>The arrow keys go from command to command: the next lines of a message, <code>: Else</code> and <code>: End</code> are skipped, and <b>Left</b> and <b>Right</b> work like <b>Up</b> and <b>Down</b>. <b>Page Up</b> and <b>Page Down</b> move by half a list (pressed elsewhere in the window, they first go back to the list); <b>Ctrl+Tab</b> and <b>Ctrl+Shift+Tab</b> switch event pages (the Control key on macOS too). With <b>Shift</b>, the keys select several commands.</li>
-<li><b>Ctrl+C</b>, <b>Ctrl+X</b> and <b>Ctrl+V</b> copy, cut and paste whole commands; a branch, choice or loop is copied with everything inside it.</li>
+<li><b>Ctrl+C</b>, <b>Ctrl+X</b> and <b>Ctrl+V</b> copy, cut and paste whole commands; a branch, choice or loop is copied with everything inside it. The commands copied can also be pasted as text in a text editor, as the lines of the list.</li>
 </ul>
 
 <a name="command-palette"></a>
@@ -355,7 +355,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="cmd-ShowMessage"></a>
 <h3>Show Message</h3>
-<p>Shows text in a message window, 4 lines at a time. Codes in the text: <code>\v[n]</code> value of variable n, <code>\n[n]</code> hero name, <code>\c[n]</code> color, <code>\s[n]</code> text speed, <code>\$</code> money window, <code>\!</code> wait for a key, <code>\.</code> and <code>\|</code> short and long pauses, <code>\^</code> close without waiting. <b>Add Code</b> types them for you (each one explained by its tooltip), and the symbols <code>$A</code> to <code>$z</code> of the game's font. The lines in the text mark 38 characters (the width of a message with a face) and 50.</p>
+<p>Shows text in a message window, 4 lines at a time. Codes in the text: <code>\v[n]</code> value of variable n, <code>\n[n]</code> hero name, <code>\c[n]</code> color, <code>\s[n]</code> text speed, <code>\$</code> money window, <code>\!</code> wait for a key, <code>\.</code> and <code>\|</code> short and long pauses, <code>\^</code> close without waiting. <b>Add Code</b> types them for you (each one explained by its tooltip), and the symbols <code>$A</code> to <code>$z</code> of the game's font. The lines in the text mark 38 characters (the width of a message with a face) and 50. <b>Ctrl+Backspace</b> (Cmd or Control on macOS) deletes the line before the cursor, as in VS Code; at the start of a line, it joins it to the line above.</p>
 
 <a name="cmd-MessageOptions"></a>
 <h3>Message Options</h3>

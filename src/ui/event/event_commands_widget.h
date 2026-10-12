@@ -74,6 +74,8 @@ private:
 	static bool hasEditor(lcf::rpg::EventCommand::Code code);
 	/** Cut, Copy and Delete act on these lines (first == second: nothing) */
 	void copyLines(std::pair<int, int> range, bool cut);
+	/** Commands as text: the lines of the list, as RPG Maker shows them */
+	QString commandsText(const std::vector<lcf::rpg::EventCommand>& commands) const;
 	void deleteLines(std::pair<int, int> range);
 	void pasteCommands(int index);
 	int indexOf(QTreeWidgetItem* item) const;

@@ -1,0 +1,29 @@
+# The text of a message: Ctrl+Backspace (Cmd on macOS) deletes the line
+# before the cursor, then, at the start of a line, joins it to the one above.
+open-event 1 1
+focus commands
+key End
+key Return
+type Show Message
+key Return
+focus message
+type one
+key Return
+type two
+key Ctrl+Backspace
+expect-not message two
+expect message one
+type deux
+key Home
+key Ctrl+Backspace
+key Ctrl+Backspace
+expect message deux
+expect-not message one
+# the Control key of macOS too
+key End
+type trois
+key Meta+Backspace
+expect-not message trois
+close
+close
+quit

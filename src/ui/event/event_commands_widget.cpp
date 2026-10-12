@@ -31,6 +31,7 @@
 #include <QUndoStack>
 #include <functional>
 #include <QApplication>
+#include <QClipboard>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QSettings>
@@ -597,9 +598,42 @@ void EventCommandsWidget::copyLines(std::pair<int, int> range, bool cut) {
 		return;
 	}
 	s_clipboard.assign(m_commands->begin() + range.first, m_commands->begin() + range.second);
+	// as text too, for text editors (the command list pastes the commands themselves)
+	QApplication::clipboard()->setText(commandsText(s_clipboard));
 	if (cut) {
 		deleteLines(range);
 	}
+}
+
+QString EventCommandsWidget::commandsText(const std::vector<lcf::rpg::EventCommand>& commands) const {
+	using Cmd = lcf::rpg::EventCommand::Code;
+	auto code = [](const lcf::rpg::EventCommand& cmd) { return static_cast<Cmd>(cmd.code); };
+	// the lines of the list, as RPG Maker shows them: "<>" before a command,
+	// ":" before the other lines of a command, indented by their depth
+	int base = std::numeric_limits<int>::max();
+	for (const auto& cmd : commands) {
+		base = std::min(base, cmd.indent);
+	}
+	QStringList lines;
+	int text_column = 0;
+	for (const auto& cmd : commands) {
+		const QString indent(2 * std::max(0, cmd.indent - base), QLatin1Char(' '));
+		QString line;
+		if (code(cmd) == Cmd::END) {
+			line = QStringLiteral("<>");
+		} else if (code(cmd) == Cmd::ShowMessage_2 || code(cmd) == Cmd::Comment_2) {
+			// under the text of the first line
+			line = QString(text_column, QLatin1Char(' ')) + QStringLiteral(": ") + ToQString(cmd.string);
+		} else if (hasEditor(code(cmd))) {
+			line = QStringLiteral("<>") + Stringizer::stringize(cmd);
+			const QString first = code(cmd) == Cmd::ShowMessage ? Stringizer::tr("Message") : Stringizer::tr("Comment");
+			text_column = 2 + first.size();
+		} else {
+			line = QStringLiteral(": ") + Stringizer::stringize(cmd);
+		}
+		lines << indent + line;
+	}
+	return lines.join(QLatin1Char('\n'));
 }
 
 void EventCommandsWidget::pasteCommands(int index) {
