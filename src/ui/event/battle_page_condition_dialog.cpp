@@ -208,7 +208,7 @@ BattlePageConditionDialog::BattlePageConditionDialog(ProjectData& project, const
 	m_checkCommand = check(tr("Hero"), QStringLiteral("checkCommand"), c.flags.command_actor);
 	m_comboCommandActor = setup(new ActorRpgComboBox(group), QStringLiteral("comboCommandActor"));
 	selectId(m_comboCommandActor, c.command_actor_id);
-	m_comboCommand = new QComboBox(group);
+	m_comboCommand = new SearchComboBox(group);
 	m_comboCommand->setObjectName(QStringLiteral("comboCommand"));
 	for (const auto& command : database.battlecommands.commands) {
 		m_comboCommand->addItem(idName(ToQString(command.name), command.ID), command.ID);

@@ -636,7 +636,7 @@ void EnableComboWidget::setData(lcf::rpg::EventCommand* cmd) {
 	m_cmd = cmd;
 	auto* layout = new QVBoxLayout(this);
 	auto* form = section(layout, tr("Parameters"));
-	auto* command = new QComboBox(this);
+	auto* command = new SearchComboBox(this);
 	command->setObjectName(QStringLiteral("comboBattleCommand"));
 	for (const auto& entry : m_project.database().battlecommands.commands) {
 		command->addItem(QStringLiteral("%1: %2").arg(entry.ID, 4, 10, QChar('0')).arg(ToQString(entry.name)), entry.ID);

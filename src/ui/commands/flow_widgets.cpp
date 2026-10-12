@@ -399,7 +399,7 @@ void ConditionalBranchWidget::setData(EventCommandList* commands) {
 		commandHero->makeModel(m_project);
 		registerDatabase(commandHero, QStringLiteral("conditionCommandHero"), first);
 		m_commandHero = commandHero;
-		m_battleCommand = new QComboBox(commandForm->parentWidget());
+		m_battleCommand = new SearchComboBox(commandForm->parentWidget());
 		m_battleCommand->setObjectName(QStringLiteral("conditionBattleCommand"));
 		for (const auto& command : m_project.database().battlecommands.commands) {
 			m_battleCommand->addItem(QStringLiteral("%1: %2").arg(command.ID, 4, 10, QChar('0')).arg(ToQString(command.name)), command.ID);

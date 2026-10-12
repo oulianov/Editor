@@ -256,6 +256,8 @@ set(EDITOR_SOURCES
 	src/ui/common/picker_scene.cpp
 	src/ui/common/picker_scene.h
 	src/ui/common/rpg_combobox.h
+	src/ui/common/search_combobox.cpp
+	src/ui/common/search_combobox.h
 	src/ui/common/rpg_model.h
 	src/ui/common/rpg_audio_lineedit.cpp
 	src/ui/common/rpg_audio_lineedit.h

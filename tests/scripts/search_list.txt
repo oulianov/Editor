@@ -1,0 +1,43 @@
+# The lists of database entries are searched by number or name.
+open-event 1 1
+focus commands
+key End
+key Return
+type Control Variables
+key Return
+
+# By number: the entry of the number typed, leading zeros or not
+focus targetVariable
+type 12
+key Return
+expect targetVariable 0012
+focus targetVariable
+type 0003
+key Return
+expect targetVariable 0003
+
+# By name, each word anywhere in it; the arrows move in what matches
+focus targetVariable
+type player m
+key Return
+expect targetVariable 0013
+focus targetVariable
+type var
+key Down
+key Return
+expect targetVariable 0002
+
+# Nothing matches, or Escape: the entry stays
+focus targetVariable
+type zzz
+key Return
+key Escape
+expect targetVariable 0002
+focus targetVariable
+key Space
+type 1
+key Escape
+expect targetVariable 0002
+close
+close
+quit

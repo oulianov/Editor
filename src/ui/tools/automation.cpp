@@ -398,8 +398,9 @@ bool Automation::run(const QStringList& args) {
 		return !Screenshot::save(nullptr, args.value(1)).isEmpty();
 	}
 	if (cmd == "screenshot-menu" && args.size() == 2) {
-		// the menu shown: a window of its own, outside the window's screenshot
-		auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+		// the menu (or the searchable list) shown: a window of its own,
+		// outside the window's screenshot
+		QWidget* menu = QApplication::activePopupWidget();
 		if (!menu || !menu->grab().save(args[1])) {
 			fail("no menu shown");
 			return false;
@@ -1306,6 +1307,10 @@ bool Automation::run(const QStringList& args) {
 }
 
 QWidget* Automation::keyTarget() {
+	// a pop-up shown takes the keys (the search field of a list), as typed
+	if (QWidget* popup = QApplication::activePopupWidget()) {
+		return popup->focusWidget() ? popup->focusWidget() : popup;
+	}
 	// Not QApplication::focusWidget(): it is null while another application
 	// is active, keys go to the focused widget of the dialog or window
 	QWidget* window = Screenshot::activeWindow();

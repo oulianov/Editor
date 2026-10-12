@@ -21,9 +21,9 @@
 #include <QComboBox>
 #include <QAbstractItemModel>
 #include <QSortFilterProxyModel>
-#include <QCompleter>
 #include <QToolButton>
 #include "ui/common/path_field.h"
+#include "ui/common/search_combobox.h"
 #include <functional>
 #include <vector>
 #include <QHBoxLayout>
@@ -78,13 +78,6 @@ public:
 
 		m_comboBox->setModel(m_model);
 		watchModel();
-		m_comboBox->setEditable(true);
-
-		QCompleter *comp = new QCompleter(m_model, this);
-		comp->setCaseSensitivity(Qt::CaseInsensitive);
-		comp->setFilterMode(Qt::MatchContains);
-		comp->setCompletionMode(QCompleter::PopupCompletion);
-		m_comboBox->setCompleter(comp);
 	}
 
 	void setFilter(QSortFilterProxyModel* filter) {
@@ -139,7 +132,8 @@ template <class LCF>
 RpgComboBox<LCF>::RpgComboBox(QWidget *parent, QAbstractItemModel *model) :
 	RpgComboBoxBase(parent)
 {
-	m_comboBox = new QComboBox(this);
+	// its list is searched by number or name (typing opens it)
+	m_comboBox = new SearchComboBox(this);
 	m_editButton = new QToolButton(this);
 	m_editButton->setObjectName(QStringLiteral("editButton"));
 	m_editButton->setToolTip(QObject::tr("Edit in the database"));

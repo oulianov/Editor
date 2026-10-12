@@ -121,7 +121,7 @@ at once: the next commands act on the dialog, until `close`.
 | `expect-tab NAME TEXT` | Fails unless the tab widget shows the tab TEXT.
 | `pinch map\|NAME FACTOR` | A trackpad pinch on the map or an image view (`graphicsView`...): the fingers spreading (FACTOR above 1) or closing; logs the zoom reached.
 | `import-image-dialog FILE` | Opens the image import window (transparent color, zoom) on FILE, without the file chooser before it.
-| `screenshot-menu FILE` | Saves the menu shown as a PNG.
+| `screenshot-menu FILE` | Saves the menu shown (or the pop-up of a searchable list) as a PNG.
 | `close-menu` | Closes the menu shown.
 | `resize WIDTH HEIGHT` | Resizes the dialog or window.
 | `screenshot [FILE]` | Saves the dialog or window as a PNG (default: Pictures/EasyRPG Editor).
