@@ -313,11 +313,16 @@ bool Project::saveMap(lcf::rpg::Map& map, int index, bool incSavecount) {
 	if (incSavecount) {
 		lcf::LMU_Reader::PrepareSave(map);
 	}
-	return writeFile(mapFile(index), [&](std::ostream& out) {
+	const bool saved = writeFile(mapFile(index), [&](std::ostream& out) {
 		return projectType() == FileFinder::ProjectType::EasyRpg
 			? lcf::LMU_Reader::SaveXml(out, map, lcf_engine)
 			: lcf::LMU_Reader::Save(out, map, lcf_engine, encoding().toStdString());
 	});
+	// not written: not counted, a second try counts once
+	if (!saved && incSavecount) {
+		--map.save_count;
+	}
+	return saved;
 }
 
 void Project::relocate(const QDir& newDir, FileFinder::ProjectType newProjectType) {
@@ -500,11 +505,16 @@ bool Project::saveDatabase(bool inc_savecount) {
 		lcf::LDB_Reader::PrepareSave(m_data.database());
 	}
 
-	return writeFile(databaseFile(), [&](std::ostream& out) {
+	const bool saved = writeFile(databaseFile(), [&](std::ostream& out) {
 		return projectType() == FileFinder::ProjectType::Legacy
 			? lcf::LDB_Reader::Save(out, m_data.database(), encoding().toStdString())
 			: lcf::LDB_Reader::SaveXml(out, m_data.database());
 	});
+	// not written: not counted, a second try counts once
+	if (!saved && inc_savecount) {
+		--m_data.database().system.save_count;
+	}
+	return saved;
 }
 
 bool Project::saveTreeMap() {

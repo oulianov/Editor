@@ -10,8 +10,10 @@ close
 tab tabOld_Pages 8
 click pushAnimationFile
 wait 300
-# an RTP file: the picker is open on the folder
+# an RTP file, which the list does not show: the first file of the list is
+# selected instead (a file is always selected)
 expect-enabled filesystemView on
+expect filesystemView > 25test.png
 close
 tab tabOld_Pages 9
 click pushPoseFile

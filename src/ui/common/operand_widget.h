@@ -24,6 +24,7 @@
 #include <QGridLayout>
 #include <QRadioButton>
 #include <QButtonGroup>
+#include <QCoreApplication>
 
 class EventCommandBaseWidget;
 

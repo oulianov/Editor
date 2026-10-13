@@ -25,6 +25,7 @@
 #include "ui/viewer/battle_animation_graphics_item.h"
 #include "ui/viewer/stat_curve_graphics_item.h"
 #include "model/actor.h"
+#include "model/rpg_metatypes.h"
 #include "class_editors.h"
 
 class ProjectData;

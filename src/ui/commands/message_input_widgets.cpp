@@ -29,6 +29,7 @@
 #include "ui/picker/picker_faceset_widget.h"
 #include "ui/viewer/faceset_graphics_item.h"
 #include "ui/viewer/rpg_graphics_view.h"
+#include "model/project.h"
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QFormLayout>

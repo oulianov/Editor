@@ -20,6 +20,9 @@
 
 #include "ui/picker/picker_dialog.h"
 #include "ui/picker/picker_faceset_widget.h"
+#include "common/dbstring.h"
+#include "defines.h"
+#include "model/project_data.h"
 
 #include <lcf/reader_util.h>
 

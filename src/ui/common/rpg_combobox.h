@@ -27,13 +27,21 @@
 #include <functional>
 #include <vector>
 #include <QHBoxLayout>
-#include <QMessageBox>
-#include "rpg_model.h"
-#include "model/rpg_reflect.h"
-#include "edit_dialog.h"
-#include "ui/common/widget_as_dialog_wrapper.h"
-#include "ui/common/widget_as_dialog_model_wrapper.h"
-#include "ui/database/database_split_widget.h"
+#include <lcf/rpg/fwd.h>
+
+class ProjectData;
+
+/** Built once for each database type, in rpg_combobox.cpp: the files using
+ *  the combo boxes do not depend on the database windows they open */
+namespace RpgComboBoxDetail {
+	/** The list of the entries of LCF in the project */
+	template <typename LCF>
+	QAbstractItemModel* makeModel(ProjectData& project, QObject* parent);
+	/** The list of LCF in a window ("Edit in the database"), on the entry
+	 *  id; OK or Apply give the entry selected to chosen */
+	template <typename LCF>
+	void editInDatabase(ProjectData& project, int id, QWidget* parent, const std::function<void(int)>& chosen);
+}
 
 class RpgComboBoxBase : public QWidget {
 	Q_OBJECT
@@ -74,7 +82,7 @@ public:
 
 	void makeModel(ProjectData& project) {
 		m_project = &project;
-		m_model = new RpgModel<LCF>(project, this);
+		m_model = RpgComboBoxDetail::makeModel<LCF>(project, this);
 
 		m_comboBox->setModel(m_model);
 		watchModel();
@@ -121,7 +129,7 @@ private:
 
 	QToolButton* m_editButton;
 	ProjectData* m_project = nullptr;
-	RpgModel<LCF>* m_model = nullptr;
+	QAbstractItemModel* m_model = nullptr;
 	std::vector<QMetaObject::Connection> m_watch;
 	int m_held = 0;
 	bool m_heldBlocked = false;
@@ -155,17 +163,14 @@ RpgComboBox<LCF>::RpgComboBox(QWidget *parent, QAbstractItemModel *model) :
 		if (!m_project) {
 			return;
 		}
-		// "none" (0) opens the list on its first entry.
-		// FIXME: This copies the entire project, kinda slow
-		WidgetAsDialogModelWrapper<LCF> dialog(*m_project, m_comboBox->currentData().toInt(), this);
-		QObject::connect(&dialog, &WidgetAsDialogWrapperBase::valueSelected, this, [this](int id) {
+		// "none" (0) opens the list on its first entry
+		RpgComboBoxDetail::editInDatabase<LCF>(*m_project, m_comboBox->currentData().toInt(), this, [this](int id) {
 			// a filtered combo box (equipment) keeps its entry when the one chosen does not fit
 			const int index = m_comboBox->findData(id);
 			if (index >= 0) {
 				m_comboBox->setCurrentIndex(index);
 			}
 		});
-		dialog.exec();
 	});
 }
 

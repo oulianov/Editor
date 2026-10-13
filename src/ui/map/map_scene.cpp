@@ -930,11 +930,11 @@ void MapScene::updateBrush()
 	m_brushInner->setRect(rect);
 }
 
-void MapScene::Save(bool properties_changed)
+bool MapScene::Save(bool properties_changed)
 {
 	commitFloating();
 	if (!isModified() && !properties_changed)
-		return;
+		return true;
 
 	// Another program (rpgsync...) changed the map since it was read:
 	// never replace its changes without asking
@@ -944,10 +944,11 @@ void MapScene::Save(bool properties_changed)
 	if (watcher.isStale(project.mapFile(n_mapInfo.ID)) && !mergeFromDisk(&conflicts)) {
 		switch (askStale(m_view, tr("The map \u201C%1\u201D").arg(mapName()), true, conflicts)) {
 		case StaleChoice::Cancel:
-			return;
+			return false;
 		case StaleChoice::Reload:
+			// the edits are discarded on purpose: nothing is left to save
 			reloadFromDisk(false);
-			return;
+			return true;
 		case StaleChoice::Overwrite:
 			break;
 		}
@@ -978,11 +979,15 @@ void MapScene::Save(bool properties_changed)
 				choice = askStale(m_view, tr("The map tree"), true, tree_conflicts);
 		}
 		if (choice == StaleChoice::Cancel)
-			return;
+			return false;
 		if (choice == StaleChoice::Reload) {
 			watcher.requestReload(ProjectWatcher::TreeMap);
 		} else {
-			project.saveTreeMap();
+			if (!project.saveTreeMap()) {
+				// the map stays modified: saving can be tried again
+				QMessageBox::critical(m_view, tr("Save Map"), tr("The map tree could not be written."));
+				return false;
+			}
 			// the tree shown takes what the other program changed in it
 			if (merged)
 				watcher.requestReload(ProjectWatcher::TreeMap);
@@ -1005,10 +1010,15 @@ void MapScene::Save(bool properties_changed)
 	repair(m_lower, m_upper);
 	// FIXME: ProjectData.Project is Const
 	// saveMap increases the save count
-	if (core().project()->saveMap(*m_map, n_mapInfo.ID))
-		m_savedMap = *m_map;
+	if (!core().project()->saveMap(*m_map, n_mapInfo.ID)) {
+		// the edits stay, modified and undoable: saving can be tried again
+		QMessageBox::critical(m_view, tr("Save Map"), tr("%1 could not be written.").arg(mapName()));
+		return false;
+	}
+	m_savedMap = *m_map;
 	m_undoStack->clear();
 	emit mapSaved();
+	return true;
 }
 
 void MapScene::Load(bool revert)

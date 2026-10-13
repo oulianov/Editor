@@ -11,6 +11,8 @@ easyrpg-editor
 /debug
 /release
 Makefile*
+# the Makefile of the repository (README: git clone, then make)
+!/Makefile
 .qmake.stash
 /.project
 *_autogen/

@@ -42,7 +42,8 @@ std::string decodeString(It& it, It end, const std::string& encoding) {
 	}
 	lcf::Encoder encoder(encoding);
 	if (encoder.IsOk()) {
-		encoder.Decode(text);
+		// from the code page of the game to UTF-8, like liblcf's reader
+		encoder.Encode(text);
 	}
 	return text;
 }
@@ -62,7 +63,8 @@ void encodeInt(std::vector<int32_t>& out, int value) {
 void encodeString(std::vector<int32_t>& out, std::string text, const std::string& encoding) {
 	lcf::Encoder encoder(encoding);
 	if (encoder.IsOk()) {
-		encoder.Encode(text);
+		// from UTF-8 to the code page of the game, like liblcf's writer
+		encoder.Decode(text);
 	}
 	encodeInt(out, static_cast<int>(text.size()));
 	for (unsigned char c : text) {

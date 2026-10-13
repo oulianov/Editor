@@ -24,21 +24,9 @@
 #include <QAbstractItemModel>
 #include <type_traits>
 #include <lcf/rpg/fwd.h>
-#include "model/project.h"
 #include "ui/common/help.h"
-#include "ui/database/actor_widget.h"
-#include "ui/database/attribute_widget.h"
-#include "ui/database/battle_animation2_widget.h"
-#include "ui/database/battle_animation_widget.h"
-#include "ui/database/chipset_widget.h"
-#include "ui/database/class_widget.h"
-#include "ui/database/common_event_widget.h"
-#include "ui/database/enemy_group_widget.h"
-#include "ui/database/enemy_widget.h"
-#include "ui/database/item_widget.h"
-#include "ui/database/skill_widget.h"
-#include "ui/database/state_widget.h"
-#include "ui/database/terrain_widget.h"
+
+class ProjectData;
 
 class WidgetAsDialogWrapperBase : public QDialog {
 	Q_OBJECT

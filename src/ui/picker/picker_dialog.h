@@ -41,6 +41,8 @@ public:
 	explicit PickerDialog(ProjectData& project, FileFinder::FileType file_type = FileFinder::FileType::Default, PickerChildWidget* wrappedWidget = nullptr, QWidget *parent = nullptr);
 	~PickerDialog() override;
 
+	/** Lists dir and selects initialFile; without one (empty, or missing),
+	 *  the first file of the list */
 	void setDirectoryAndFile(const QString& dir, const QString& initialFile);
 	/** The first file of the folder of the game, in the order of the list (none: empty) */
 	QString firstFile(const QString& dir) const;

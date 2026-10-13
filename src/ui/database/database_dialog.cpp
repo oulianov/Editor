@@ -35,7 +35,6 @@
 #include <QDialogButtonBox>
 #include <QTimer>
 #include <QTreeWidgetItemIterator>
-#include <lcf/ldb/reader.h>
 #include "database_split_widget.h"
 
 DatabaseDialog::DatabaseDialog(ProjectData& project, QWidget *parent) :
@@ -263,8 +262,6 @@ void DatabaseDialog::on_buttonBox_clicked(QAbstractButton *button)
 		case QDialogButtonBox::Apply:
 		case QDialogButtonBox::Ok: {
 			// Another program (rpgsync...) changed the database since it was
-			// read: never replace its changes without asking
-			// Another program (rpgsync...) changed the database since it was
 			// read: what it changed is merged entry by entry; an entry both
 			// sides changed is asked, never replaced silently
 			auto& watcher = core().watcher();
@@ -283,11 +280,14 @@ void DatabaseDialog::on_buttonBox_clicked(QAbstractButton *button)
 			}
 			// the windows showing the project list what changed again
 			DatabaseListNotifier::assign(m_project, m_projectDataCopy, this);
-			lcf::LDB_Reader::PrepareSave(m_project.database());
+			// saveDatabase counts the save
 			if (!core().project()->saveDatabase()) {
 				QMessageBox::critical(this, tr("Database"), tr("The database could not be written."));
 				return;
 			}
+			// the copy edited takes the count saved: the next Apply neither
+			// writes it back nor sees it as a change of the system to merge
+			m_projectDataCopy.database().system.save_count = m_project.database().system.save_count;
 			m_base = m_project.database();
 			if (ui->buttonBox->standardButton(button) == QDialogButtonBox::Ok) {
 				accept();

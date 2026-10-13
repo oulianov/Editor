@@ -128,9 +128,10 @@ release.
 
 ## Tests
 
-`make test` builds the Editor with the tests and runs them. By hand, with a
-copy of [TestGame-2003](https://github.com/EasyRPG/TestGame) (the tests
-change it):
+`make test` builds the Editor with the tests and runs them, on macOS and
+Linux; the first time, `builds/testgame.sh` downloads the game they run on.
+By hand, with a copy of [TestGame-2003](https://github.com/EasyRPG/TestGame)
+(the tests change it):
 
 ```bash
 cmake -B build -DEDITOR_TEST_PROJECT=/path/to/testgame2003
@@ -140,6 +141,8 @@ cmake --build build && ctest --test-dir build -j 8
 | Test | What it checks |
 |---|---|
 | `script_*` | the scripts of `tests/scripts`, offscreen (see [Automation](Automation.adoc)) |
+| `web_player` | the web Player folders the export accepts |
+| `move_route_codec` | the texts of Move Event routes, in the code page of the game |
 
 
 ## Troubleshooting

@@ -119,18 +119,18 @@ if command -v ccache >/dev/null; then
 	options+=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
 fi
 if [ "$TESTS" = ON ]; then
-	# the game the GUI tests change: a copy of TestGame-2003, made once
-	if [ -z "${EDITOR_TEST_PROJECT:-}" ] && ! grep -qs "^EDITOR_TEST_PROJECT:PATH=." "$BUILD_DIR/CMakeCache.txt"; then
-		EDITOR_TEST_PROJECT="$BUILD_DIR/testgame2003"
-		if [ ! -d "$EDITOR_TEST_PROJECT" ]; then
-			step "TestGame-2003"
-			mkdir -p "$BUILD_DIR"
-			curl -fsSL https://github.com/EasyRPG/TestGame/archive/refs/heads/master.tar.gz \
-				| tar -xz -C "$BUILD_DIR" --strip-components 1 TestGame-master/TestGame-2003
-			mv "$BUILD_DIR/TestGame-2003" "$EDITOR_TEST_PROJECT"
+	# the game the GUI tests change: a copy of TestGame-2003, made once. The
+	# one of an earlier build is kept while its folder exists
+	if [ -z "${EDITOR_TEST_PROJECT:-}" ]; then
+		cached="$(sed -n 's/^EDITOR_TEST_PROJECT:PATH=//p' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null || true)"
+		if [ -n "$cached" ] && [ -d "$cached" ]; then
+			EDITOR_TEST_PROJECT="$cached"
+		else
+			EDITOR_TEST_PROJECT="$BUILD_DIR/testgame2003"
 		fi
 	fi
-	[ -n "${EDITOR_TEST_PROJECT:-}" ] && options+=(-DEDITOR_TEST_PROJECT="$EDITOR_TEST_PROJECT")
+	"$REPO/builds/testgame.sh" "$EDITOR_TEST_PROJECT"
+	options+=(-DEDITOR_TEST_PROJECT="$EDITOR_TEST_PROJECT")
 fi
 
 step "EasyRPG Editor"

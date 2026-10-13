@@ -456,12 +456,22 @@ void MainWindow::ImportProject(const QDir& src_dir, QDir& target_dir, bool conve
 	progress.setWindowModality(Qt::WindowModal);
 
 	std::vector<std::tuple<int, std::unique_ptr<lcf::rpg::Map>>> loaded_maps;
+	// the maps not imported: unreadable, or not written (named as in the
+	// source game: core().project() is not this project yet)
+	QStringList skipped_maps;
+	auto source_name = [](int id) { return QString("Map%1.lmu").arg(id, 4, 10, QChar('0')); };
 
 	for (size_t i = 1; i < maps.maps.size(); i++) {
 		progress.setValue(static_cast<int>(i));
 		if (maps.maps[i].type == lcf::rpg::TreeMap::MapType_area)
 			continue;
-		loaded_maps.push_back(std::make_tuple(maps.maps[i].ID, prj->loadMap(maps.maps[i].ID)));
+		const int id = maps.maps[i].ID;
+		auto map = prj->loadMap(id);
+		if (!map) {
+			skipped_maps << source_name(id);
+			continue;
+		}
+		loaded_maps.push_back(std::make_tuple(id, std::move(map)));
 	}
 
 	// Save new database and treemap
@@ -469,14 +479,18 @@ void MainWindow::ImportProject(const QDir& src_dir, QDir& target_dir, bool conve
 	progress.setLabelText(tr("Importing database and map tree..."));
 	progress.setValue(0);
 	progress.setMaximum(0);
-	prj->saveDatabase(false);
-	prj->saveTreeMap();
+	if (!prj->saveDatabase(false) || !prj->saveTreeMap()) {
+		QMessageBox::critical(this, tr("Error importing project"),
+			tr("The database or the map tree could not be written to %1.").arg(QDir::toNativeSeparators(target_dir.path())));
+		return;
+	}
 
 	progress.setLabelText(tr("Importing maps..."));
 	progress.setMaximum(static_cast<int>(loaded_maps.size()));
 	int i = 1;
 	for (auto& [id, map] : loaded_maps) {
-		prj->saveMap(*map, id, false);
+		if (!prj->saveMap(*map, id, false))
+			skipped_maps << source_name(id);
 		progress.setValue(i++);
 	}
 	loaded_maps.clear();
@@ -537,6 +551,11 @@ void MainWindow::ImportProject(const QDir& src_dir, QDir& target_dir, bool conve
 
 	}
 	progress.setValue(entries.count());
+
+	if (!skipped_maps.isEmpty()) {
+		QMessageBox::warning(this, tr("Import Project"),
+			tr("These maps could not be imported: %1.").arg(skipped_maps.join(QStringLiteral(", "))));
+	}
 
 	// opened like any project (map tree, search, watcher, workspace)
 	LoadProject(prj->projectDir().absolutePath());
@@ -1055,7 +1074,9 @@ void MainWindow::on_tabMap_tabCloseRequested(int index)
 		switch (result)
 		{
 		case (QMessageBox::Yes):
-			getTabScene(index)->Save();
+			// not saved (cancelled, or failed): the tab stays open
+			if (!getTabScene(index)->Save())
+				return;
 			break;
 		case (QMessageBox::No):
 			break;
@@ -1341,7 +1362,8 @@ bool MainWindow::saveModifiedMaps(const QString& title, const QString& question)
 		return false;
 	if (result == QMessageBox::Yes)
 		for (int i = 0; i < ui->tabMap->count(); i++)
-			getTabScene(i)->Save();
+			if (!getTabScene(i)->Save())
+				return false;
 	return true;
 }
 
@@ -1382,7 +1404,8 @@ void MainWindow::on_mapUnchanged()
 			onTreeMapFileChanged(); // its order is the one of the file
 			return;
 		}
-		core().project()->saveTreeMap();
+		if (!core().project()->saveTreeMap())
+			QMessageBox::critical(this, tr("Map Tree"), tr("The map tree could not be written."));
 		if (stale)
 			onTreeMapFileChanged();
 	}
@@ -1392,6 +1415,25 @@ void MainWindow::refreshTreeMap()
 {
 	if (core().project() && core().watcher().isStale(core().project()->treeMapFile()))
 		onTreeMapFileChanged();
+}
+
+bool MainWindow::writeTreeMap()
+{
+	auto& project = *core().project();
+	QStringList conflicts;
+	const bool stale = core().watcher().isStale(project.treeMapFile());
+	const bool merged = stale && project.mergeTreeMap(&conflicts);
+	if (stale && !merged && askStale(this, tr("The map tree"), true, conflicts) != StaleChoice::Overwrite) {
+		onTreeMapFileChanged(); // the tree of the file, without this change
+		return false;
+	}
+	if (!project.saveTreeMap()) {
+		QMessageBox::critical(this, tr("Map Tree"), tr("The map tree could not be written."));
+		return false;
+	}
+	if (merged)
+		onTreeMapFileChanged(); // the tree shown takes the other program's changes
+	return true;
 }
 
 void MainWindow::on_actionUndo_triggered()
@@ -1581,8 +1623,10 @@ bool MainWindow::saveAll()
 		switch (result)
 		{
 		case (QMessageBox::Yes):
+			// a map not saved (cancelled, or failed) keeps its changes open
 			for (int i = 0; i < ui->tabMap->count(); i++)
-				getTabScene(i)->Save();
+				if (!getTabScene(i)->Save())
+					return false;
 			break;
  //		case (No): do nothing;
 		case (QMessageBox::Cancel):
@@ -1668,8 +1712,9 @@ int MainWindow::freeMapId() const
 	std::set<int> used;
 	for (const auto& info : core().project()->treeMap().maps)
 		used.insert(info.ID);
+	// a file without its tree entry (another program's new map) is kept
 	int id = 1;
-	while (used.count(id))
+	while (used.count(id) || QFileInfo::exists(core().project()->mapFile(id)))
 		id++;
 	return id;
 }
@@ -1702,8 +1747,11 @@ QTreeWidgetItem* MainWindow::insertMapInfo(const lcf::rpg::MapInfo& info)
 	parent->addChild(item);
 	parent->setExpanded(true);
 	syncTreeOrder();
-	core().project()->saveTreeMap();
-	ui->treeMap->setCurrentItem(item);
+	writeTreeMap();
+	// read again (merged, or the file's tree kept): the items are new ones
+	item = m_treeItems.value(info.ID);
+	if (item)
+		ui->treeMap->setCurrentItem(item);
 	return item;
 }
 
@@ -1802,18 +1850,7 @@ void MainWindow::onMapTreeDropped()
 		return;
 	if (syncTreeOrder())
 	{
-		// another program changed the tree meanwhile: what it changed is
-		// merged, and a conflict asked, never replaced silently
-		QStringList conflicts;
-		const bool stale = core().watcher().isStale(core().project()->treeMapFile());
-		const bool merged = stale && core().project()->mergeTreeMap(&conflicts);
-		if (stale && !merged && askStale(this, tr("The map tree"), true, conflicts) != StaleChoice::Overwrite) {
-			onTreeMapFileChanged(); // the tree of the file, without the move
-			return;
-		}
-		core().project()->saveTreeMap();
-		if (merged)
-			onTreeMapFileChanged(); // the tree shown takes the other program's changes
+		writeTreeMap();
 		// the open maps keep a copy of their tree entry
 		for (int i = 0; i < ui->tabMap->count(); i++)
 			getTabScene(i)->refreshMapInfo();
@@ -1834,8 +1871,8 @@ void MainWindow::on_actionMapCopy_triggered()
 			QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 		if (result == QMessageBox::Cancel)
 			return;
-		if (result == QMessageBox::Yes)
-			scene->Save();
+		if (result == QMessageBox::Yes && !scene->Save())
+			return;
 	}
 	auto map = core().project()->loadMap(id);
 	const lcf::rpg::MapInfo* info = mapInfo(id);
@@ -1874,14 +1911,18 @@ void MainWindow::on_actionMapNew_triggered()
 	MapPropertiesDialog dlg(core().project()->projectData(), info, map, this);
 	if (dlg.exec() != QDialog::Accepted)
 		return;
+	// another program can have added a map while the dialog was open
+	refreshTreeMap();
+	if (mapInfo(info.ID) || QFileInfo::exists(core().project()->mapFile(info.ID)))
+		info.ID = freeMapId();
 
 	if (!core().project()->saveMap(map, info.ID))
 	{
 		QMessageBox::critical(this, tr("New Map"), tr("The file %1 cannot be written.").arg(mapFileName(info.ID)));
 		return;
 	}
-	QTreeWidgetItem* item = insertMapInfo(info);
-	on_treeMap_itemDoubleClicked(item, 0);
+	if (QTreeWidgetItem* item = insertMapInfo(info))
+		on_treeMap_itemDoubleClicked(item, 0);
 }
 
 void MainWindow::on_actionMapPaste_triggered()
@@ -1922,8 +1963,8 @@ void MainWindow::on_actionMapPaste_triggered()
 		QMessageBox::critical(this, tr("Paste Map"), tr("The file %1 cannot be written.").arg(mapFileName(info.ID)));
 		return;
 	}
-	QTreeWidgetItem* item = insertMapInfo(info);
-	on_treeMap_itemDoubleClicked(item, 0);
+	if (QTreeWidgetItem* item = insertMapInfo(info))
+		on_treeMap_itemDoubleClicked(item, 0);
 }
 
 void MainWindow::on_actionMapDelete_triggered()
@@ -1941,9 +1982,14 @@ void MainWindow::on_actionMapDelete_triggered()
 	if (result != QMessageBox::Yes)
 		return;
 
+	// read again after the question: the file deleted and the tree written
+	// stay together (no dialog between them)
+	refreshTreeMap();
+	if (!mapInfo(id))
+		return;
 	removeMap(id);
 	syncTreeOrder();
-	core().project()->saveTreeMap();
+	writeTreeMap();
 	update_actions();
 }
 
@@ -2009,7 +2055,10 @@ void MainWindow::on_actionMapProperties_triggered()
 		return;
 	}
 
-	// a map that is not open is edited on disk
+	// a map that is not open is edited on disk; its version before reading
+	// it: another program can write it while the dialog is open
+	const QString file = core().project()->mapFile(id);
+	const ProjectWatcher::Stamp read_stamp = ProjectWatcher::stampOf(file);
 	auto map = core().project()->loadMap(id);
 	if (!map || !mapInfo(id))
 	{
@@ -2020,12 +2069,19 @@ void MainWindow::on_actionMapProperties_triggered()
 	MapPropertiesDialog dlg(core().project()->projectData(), info, *map, this);
 	if (dlg.exec() != QDialog::Accepted)
 		return;
-	*mapInfo(id) = info;
+	if (ProjectWatcher::stampOf(file) != read_stamp
+			&& askStale(this, tr("The map \u201C%1\u201D").arg(ToQString(info.name)), false) != StaleChoice::Overwrite)
+		return;
 	if (!core().project()->saveMap(*map, id))
+	{
 		QMessageBox::critical(this, tr("Map Properties"), tr("The file %1 cannot be written.").arg(mapFileName(id)));
-	core().project()->saveTreeMap();
+		return;
+	}
+	if (lcf::rpg::MapInfo* stored = mapInfo(id))
+		*stored = info;
 	if (QTreeWidgetItem* item = m_treeItems.value(id))
 		item->setText(0, ToQString(info.name));
+	writeTreeMap();
 }
 
 void MainWindow::on_actionMapGenerateDungeon_triggered()
@@ -2064,13 +2120,17 @@ void MainWindow::on_actionMapGenerateDungeon_triggered()
 		return;
 	info.name = ToDBString(dlg.name());
 	lcf::rpg::Map map = dlg.map();
+	// another program can have added a map while the dialog was open
+	refreshTreeMap();
+	if (mapInfo(info.ID) || QFileInfo::exists(core().project()->mapFile(info.ID)))
+		info.ID = freeMapId();
 	if (!core().project()->saveMap(map, info.ID))
 	{
 		QMessageBox::critical(this, tr("Generate Dungeon"), tr("The file %1 cannot be written.").arg(mapFileName(info.ID)));
 		return;
 	}
-	QTreeWidgetItem* item = insertMapInfo(info);
-	on_treeMap_itemDoubleClicked(item, 0);
+	if (QTreeWidgetItem* item = insertMapInfo(info))
+		on_treeMap_itemDoubleClicked(item, 0);
 }
 
 void MainWindow::on_actionMapShift_triggered()
@@ -2122,7 +2182,7 @@ void MainWindow::on_actionMapShift_triggered()
 	shiftStart(start.ship_map_id, start.ship_x, start.ship_y);
 	shiftStart(start.airship_map_id, start.airship_x, start.airship_y);
 	if (start_moved)
-		core().project()->saveTreeMap();
+		writeTreeMap();
 }
 
 void MainWindow::on_actionAreaNew_triggered()
@@ -2149,6 +2209,12 @@ void MainWindow::on_actionAreaNew_triggered()
 	AreaPropertiesDialog dlg(core().project()->projectData(), info, size.width(), size.height(), this);
 	if (dlg.exec() != QDialog::Accepted)
 		return;
+	// another program can have added a map while the dialog was open
+	refreshTreeMap();
+	if (!mapInfo(parent_id))
+		return;
+	if (mapInfo(info.ID))
+		info.ID = freeMapId();
 	insertMapInfo(info);
 }
 
@@ -2170,10 +2236,11 @@ void MainWindow::on_actionAreaProperties_triggered()
 	AreaPropertiesDialog dlg(core().project()->projectData(), info, size.width(), size.height(), this);
 	if (dlg.exec() != QDialog::Accepted)
 		return;
-	*mapInfo(id) = info;
-	core().project()->saveTreeMap();
+	if (lcf::rpg::MapInfo* current = mapInfo(id))
+		*current = info;
 	if (QTreeWidgetItem* item = m_treeItems.value(id))
 		item->setText(0, ToQString(info.name));
+	writeTreeMap();
 }
 
 void MainWindow::on_actionAreaDelete_triggered()
@@ -2186,9 +2253,12 @@ void MainWindow::on_actionAreaDelete_triggered()
 	if (QMessageBox::question(this, tr("Delete Area"),
 			tr("%1 will be deleted. Proceed?").arg(m_treeItems.value(id)->text(0))) != QMessageBox::Yes)
 		return;
+	refreshTreeMap();
+	if (!mapInfo(id))
+		return;
 	removeMap(id);
 	syncTreeOrder();
-	core().project()->saveTreeMap();
+	writeTreeMap();
 	update_actions();
 }
 

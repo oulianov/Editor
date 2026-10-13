@@ -31,6 +31,7 @@ class QGroupBox;
 #include <QButtonGroup>
 #include <QMetaObject>
 #include <string>
+#include <lcf/dbstring.h>
 
 #include "ui/common/rpg_combobox.h"
 #include "signal_blocker.h"

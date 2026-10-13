@@ -234,6 +234,11 @@ private:
 	/** Reads the map tree again when another program changed it, before an
 	 *  action that changes and writes it */
 	void refreshTreeMap();
+	/** Writes the map tree after an action changed it. What another program
+	 *  changed in its file meanwhile (a dialog was open) is merged, a
+	 *  conflict asked, never replaced silently. false: not written (the tree
+	 *  shown is then the one of the file, or a write error was shown) */
+	bool writeTreeMap();
 	/** Asks to save the modified maps; false when cancelled */
 	bool saveModifiedMaps(const QString& title, const QString& question);
 	MapScene* senderScene();

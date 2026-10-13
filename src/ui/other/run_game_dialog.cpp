@@ -23,7 +23,6 @@
 #include "ui_run_game_dialog.h"
 #include "model/project.h"
 #include "ui/database/test_battle_party_widget.h"
-#include <lcf/ldb/reader.h>
 #include <QApplication>
 #include <QComboBox>
 #include <QDir>
@@ -246,8 +245,11 @@ void RunGameDialog::accept()
 			return;
 		}
 		m_battleParty->save();
-		lcf::LDB_Reader::PrepareSave(m_project.database());
-		core().project()->saveDatabase();
+		// saveDatabase counts the save
+		if (!core().project()->saveDatabase()) {
+			QMessageBox::critical(this, tr("Test Battle"), tr("The database could not be written."));
+			return;
+		}
 	} else if (mode != 2 && ui->groupInitialParty->isChecked()) {
 		QStringList party;
 		for (int row = 0; row < ui->tableInitialParty->rowCount(); row++) {

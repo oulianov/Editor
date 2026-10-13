@@ -10,6 +10,12 @@ if(APPLE)
 	enable_language(OBJCXX)
 endif()
 
+# a Makefile generated here would replace the Makefile of the repository
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR AND CMAKE_GENERATOR MATCHES "Makefiles")
+	message(FATAL_ERROR "Build in a folder of its own (cmake -B build), or run make. "
+		"Remove the CMakeCache.txt and CMakeFiles written here.")
+endif()
+
 set(REQUIRED_QT_VERSION "6.10.1")
 # A dependency missing: where to get it (docs/Building.md)
 macro(editor_find_package name)
@@ -130,6 +136,7 @@ set(EDITOR_SOURCES
 	src/model/rpg_base.cpp
 	src/model/rpg_base.h
 	src/model/rpg_reflect.h
+	src/model/rpg_metatypes.h
 	src/model/skill.cpp
 	src/model/skill.h
 	src/model/state.cpp
@@ -269,6 +276,7 @@ set(EDITOR_SOURCES
 	src/ui/common/map_preview.h
 	src/ui/common/picker_scene.cpp
 	src/ui/common/picker_scene.h
+	src/ui/common/rpg_combobox.cpp
 	src/ui/common/rpg_combobox.h
 	src/ui/common/search_combobox.cpp
 	src/ui/common/search_combobox.h
@@ -609,10 +617,12 @@ if(EDITOR_BUILD_LIBLCF)
 		# liblcf's vsprintf, deprecated by Apple's SDK: not ours to change
 		target_compile_options(lcf PRIVATE -Wno-deprecated-declarations)
 	endif()
+	set(EDITOR_LCF_TARGET lcf)
 	target_link_libraries(${EXE_NAME} PRIVATE lcf)
 else()
 	# Use system package
 	find_package(liblcf REQUIRED)
+	set(EDITOR_LCF_TARGET liblcf::liblcf)
 	target_link_libraries(${EXE_NAME} PRIVATE liblcf::liblcf)
 endif()
 
@@ -651,6 +661,11 @@ add_executable(editor_web_player_test tests/web_player_test.cpp src/model/web_pl
 target_include_directories(editor_web_player_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(editor_web_player_test PRIVATE Qt6::Core)
 add_test(NAME web_player COMMAND editor_web_player_test)
+# the texts of Move Event routes, in the code page of the game
+add_executable(editor_move_route_test tests/move_route_codec_test.cpp src/model/move_route_codec.cpp)
+target_include_directories(editor_move_route_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(editor_move_route_test PRIVATE ${EDITOR_LCF_TARGET})
+add_test(NAME move_route_codec COMMAND editor_move_route_test)
 set(EDITOR_TEST_PROJECT "" CACHE PATH "Game the script tests run on (TestGame-2003 of https://github.com/EasyRPG/TestGame)")
 if(EDITOR_TEST_PROJECT)
 	file(GLOB EDITOR_TEST_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/scripts/*.txt")

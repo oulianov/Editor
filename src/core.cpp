@@ -16,6 +16,7 @@
  */
 
 #include "core.h"
+#include "ui/other/run_game_dialog.h"
 #include <QApplication>
 #include <QBitmap>
 #include <QBrush>

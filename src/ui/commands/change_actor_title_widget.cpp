@@ -18,6 +18,7 @@
 #include "change_actor_title_widget.h"
 #include "ui_change_actor_title_widget.h"
 #include "common/dbstring.h"
+#include "model/project_data.h"
 
 #include <lcf/reader_util.h>
 

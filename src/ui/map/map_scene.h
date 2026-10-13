@@ -130,7 +130,9 @@ public slots:
 
 	void onToolChanged();
 
-	void Save(bool properties_changed = false);
+	/** false: not saved (cancelled, or a file could not be written), the
+	 *  map stays modified */
+	bool Save(bool properties_changed = false);
 
 	void Load(bool revert = false);
 

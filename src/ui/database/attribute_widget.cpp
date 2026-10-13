@@ -21,6 +21,7 @@
 #include "common/lcf_widget_binding.h"
 #include "model/attribute.h"
 #include "ui/common/text_limit.h"
+#include "model/project_data.h"
 
 AttributeWidget::AttributeWidget(ProjectData& project, QWidget *parent) :
 	QWidget(parent),

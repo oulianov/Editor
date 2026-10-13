@@ -1390,14 +1390,18 @@ QString Automation::widgetText(QWidget* widget) {
 	}
 	if (auto* view = qobject_cast<QAbstractItemView*>(widget); view && view->model()) {
 		// a list or a table: its lines, the cells of a line separated by " | "
+		// (those of the folder a picker shows: the root of the view)
 		QStringList lines;
 		const auto* model = view->model();
-		for (int row = 0; row < model->rowCount(); ++row) {
+		const QModelIndex root = view->rootIndex();
+		const QModelIndex current = view->currentIndex();
+		for (int row = 0; row < model->rowCount(root); ++row) {
 			QStringList cells;
-			for (int column = 0; column < model->columnCount(); ++column) {
-				cells << model->index(row, column).data().toString();
+			for (int column = 0; column < model->columnCount(root); ++column) {
+				cells << model->index(row, column, root).data().toString();
 			}
-			lines << (row == view->currentIndex().row() ? "> " : "  ") + cells.join(" | ");
+			const bool is_current = current.isValid() && current.row() == row && current.parent() == root;
+			lines << (is_current ? "> " : "  ") + cells.join(" | ");
 		}
 		return lines.join('\n');
 	}

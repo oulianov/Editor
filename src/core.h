@@ -36,9 +36,10 @@
 #include <QVariantMap>
 #include <lcf/rpg/map.h>
 #include <lcf/rpg/chipset.h>
-#include "ui/other/run_game_dialog.h"
 #include "model/project.h"
 #include "model/project_watcher.h"
+
+class RunGameDialog;
 
 class Core : public QObject
 {

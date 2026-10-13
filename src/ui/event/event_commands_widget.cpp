@@ -45,6 +45,7 @@
 #include <QHeaderView>
 #include <QAction>
 #include "ui/common/edit_actions.h"
+#include "model/project.h"
 #include <QStyledItemDelegate>
 #include <memory>
 

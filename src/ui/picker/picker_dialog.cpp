@@ -145,8 +145,25 @@ void PickerDialog::setDirectoryAndFile(const QString &dir, const QString& initia
 	m_model->setRootPath(path);
 	ui->filesystemView->setRootIndex(m_model->index(path));
 
+	// A file of the list is always selected: the current one, else the first
+	// of the list (no file yet, a missing one, or one of the RTP, which the
+	// list does not show). Cancel keeps the file as it was.
+	const QFileInfo current(file);
+	const bool listed = !initialFile.isEmpty() && current.isFile()
+		&& current.absolutePath() == QFileInfo(path).absoluteFilePath();
+	if (!listed) {
+		const QString first = firstFile(dir);
+		if (!first.isEmpty()) {
+			file = m_project.project().findFile(dir, first, m_file_type);
+		}
+	}
 	QModelIndex index = m_model->index(file);
 	ui->filesystemView->setCurrentIndex(index);
+	ui->filesystemView->scrollTo(index);
+	// the folder is read in the background: the file is shown once it is listed
+	QObject::connect(m_model, &QFileSystemModel::directoryLoaded, this, [this] {
+		ui->filesystemView->scrollTo(ui->filesystemView->currentIndex());
+	}, Qt::SingleShotConnection);
 
 	m_currentFile = QFileInfo(file);
 	showInfo();

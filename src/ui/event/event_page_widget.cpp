@@ -349,10 +349,8 @@ void EventPageWidget::chooseCharacter()
 		m_eventPage->character_pattern = widget->pattern();
 		graphicChanged(was_character);
 	});
-	// no graphic yet: the first charset of the list, as a start
-	const QString current = m_eventPage->character_name.empty() ? dialog.firstFile(CHARSET)
-		: ToQString(m_eventPage->character_name);
-	dialog.setDirectoryAndFile(CHARSET, current);
+	// no graphic yet: the picker starts on the first charset of the list
+	dialog.setDirectoryAndFile(CHARSET, ToQString(m_eventPage->character_name));
 	dialog.exec();
 }
 

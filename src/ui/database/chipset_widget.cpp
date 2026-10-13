@@ -58,6 +58,29 @@ enum Flag {
 	Above = 0x10, Wall = 0x20, Counter = 0x40,
 	AllDirections = Down | Left | Right | Up
 };
+
+/** A mark of the Directions mode, as RPG Maker 2003 draws it in a square of
+ *  16 pixels: an arrow where the hero can walk out of the tile, a dot where
+ *  not; white, the one under the mouse yellow */
+void drawDirection(QPainter& painter, QPoint at, int side, bool open, bool hovered) {
+	// pointing up; on pixel centers, for a crisp outline
+	static const QPolygonF arrow({{8, 0.5}, {14.5, 7.5}, {10.5, 7.5}, {10.5, 12.5},
+		{5.5, 12.5}, {5.5, 7.5}, {1.5, 7.5}});
+	painter.save();
+	painter.translate(at);
+	painter.setPen(QPen(hovered ? QColor(128, 0, 0) : QColor(Qt::black), 1));
+	painter.setBrush(hovered ? QColor(255, 255, 0) : QColor(Qt::white));
+	if (open) {
+		const int angle = side == Right ? 90 : side == Down ? 180 : side == Left ? 270 : 0;
+		painter.translate(8, 8);
+		painter.rotate(angle);
+		painter.translate(-8, -8);
+		painter.drawPolygon(arrow);
+	} else {
+		painter.drawRect(QRectF(5.5, 5.5, 5, 5));
+	}
+	painter.restore();
+}
 }
 
 ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
@@ -81,6 +104,8 @@ ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
 	// (the page scrolls when it is taller than the window)
 	m_view->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Ignored);
 	m_view->viewport()->installEventFilter(this);
+	// the side under the mouse is shown in the Directions mode
+	m_view->viewport()->setMouseTracking(true);
 	tiles->addWidget(m_view, 1);
 	layout->addLayout(tiles);
 
@@ -139,7 +164,7 @@ ChipsetWidget::ChipsetWidget(ProjectData& project, QWidget *parent) :
 		switch (static_cast<Mode>(m_mode->checkedId())) {
 			case Mode::Terrain: hint->setText(tr("Click or drag over tiles to give them the terrain above.")); break;
 			case Mode::Passability: hint->setText(tr("Click a tile: passable (○), blocked (×), above the hero (☆). Right click goes back. Drag to paint the same.")); break;
-			case Mode::Directions: hint->setText(tr("Click a side of a tile to let the hero walk through it or not. Drag to do the same on other tiles.")); break;
+			case Mode::Directions: hint->setText(tr("An arrow: the hero can walk out of the tile that way; a dot: not. Click a side of a tile to change it. Drag to do the same on other tiles.")); break;
 			case Mode::Counter: hint->setText(tr("Click a tile to make it a counter: events can be talked to across it (□). Drag to paint the same.")); break;
 		}
 	};
@@ -290,7 +315,9 @@ void ChipsetWidget::redraw() {
 			const QPoint pos = tilePosition(lower, i);
 			painter.drawPixmap(target, m_graphic, QRect(pos.x() * size, pos.y() * size, size, size));
 		}
+		// the outline only: the dots of Directions leave their brush set
 		painter.setPen(QColor(0, 0, 0, 60));
+		painter.setBrush(Qt::NoBrush);
 		painter.drawRect(target.adjusted(0, 0, -1, -1));
 
 		// marks with a dark outline, readable on any tile
@@ -318,18 +345,13 @@ void ChipsetWidget::redraw() {
 				}
 				break;
 			case Mode::Directions: {
-				const QPoint c = target.center();
-				auto arrow = [&](bool open, QPoint at) {
-					painter.setPen(Qt::NoPen);
-					painter.setBrush(QColor(0, 0, 0, 200));
-					painter.drawEllipse(at, 5, 5);
-					painter.setBrush(open ? QColor(120, 200, 255) : QColor(255, 110, 110));
-					painter.drawEllipse(at, 3, 3);
-				};
-				arrow(flags & Up, c + QPoint(0, -10));
-				arrow(flags & Down, c + QPoint(0, 10));
-				arrow(flags & Left, c + QPoint(-10, 0));
-				arrow(flags & Right, c + QPoint(10, 0));
+				// where RPG Maker 2003 puts them in its tiles of 32 pixels
+				static const std::pair<int, QPoint> sides[] = {
+					{Down, {8, 16}}, {Left, {0, 8}}, {Right, {16, 8}}, {Up, {8, 0}}};
+				for (const auto& [side, at] : sides) {
+					drawDirection(painter, target.topLeft() + at, side, flags & side,
+						i == m_hover.tile && side == m_hover.side);
+				}
 				break;
 			}
 			case Mode::Counter:
@@ -355,11 +377,27 @@ bool ChipsetWidget::eventFilter(QObject* watched, QEvent* event) {
 		case QEvent::MouseButtonDblClick:
 			tileClicked(m_view->mapToScene(mouse->position().toPoint()), mouse->button() == Qt::RightButton);
 			return true;
-		case QEvent::MouseMove:
+		case QEvent::MouseMove: {
+			const QPointF pos = m_view->mapToScene(mouse->position().toPoint());
+			const bool hover_changed = hoverAt(pos);
 			// dragging paints what the click did on the other tiles
 			if (m_stroke.tile >= 0 && (mouse->buttons() & (Qt::LeftButton | Qt::RightButton))) {
-				tileDragged(m_view->mapToScene(mouse->position().toPoint()));
+				const int tile = m_stroke.tile;
+				tileDragged(pos);
+				if (hover_changed && m_stroke.tile == tile) {
+					redraw();
+				}
 				return true;
+			}
+			if (hover_changed) {
+				redraw();
+			}
+			break;
+		}
+		case QEvent::Leave:
+			if (m_hover.tile >= 0) {
+				m_hover = {};
+				redraw();
 			}
 			break;
 		case QEvent::MouseButtonRelease:
@@ -381,6 +419,28 @@ int ChipsetWidget::tileAt(const QPointF& pos) const {
 	return index;
 }
 
+int ChipsetWidget::sideAt(const QPointF& pos, int index) {
+	// the tile is cut along its diagonals, as in RPG Maker
+	const QPointF offset = pos - QPointF((index % columns) * cell + cell / 2.0, (index / columns) * cell + cell / 2.0);
+	if (std::abs(offset.x()) > std::abs(offset.y())) {
+		return offset.x() < 0 ? Left : Right;
+	}
+	return offset.y() < 0 ? Up : Down;
+}
+
+bool ChipsetWidget::hoverAt(const QPointF& pos) {
+	Hover hover;
+	if (m_chipset && static_cast<Mode>(m_mode->checkedId()) == Mode::Directions) {
+		hover.tile = tileAt(pos);
+		if (hover.tile >= 0) {
+			hover.side = sideAt(pos, hover.tile);
+		}
+	}
+	const bool changed = hover.tile != m_hover.tile || hover.side != m_hover.side;
+	m_hover = hover;
+	return changed;
+}
+
 void ChipsetWidget::tileClicked(const QPointF& pos, bool right_button) {
 	m_stroke.tile = -1;
 	if (!m_chipset) {
@@ -390,8 +450,6 @@ void ChipsetWidget::tileClicked(const QPointF& pos, bool right_button) {
 	if (index < 0) {
 		return;
 	}
-	const int col = index % columns;
-	const int row = index / columns;
 	const bool lower = lowerLayer();
 	auto& passable = lower ? m_chipset->passable_data_lower : m_chipset->passable_data_upper;
 	uint8_t& flags = passable[index];
@@ -411,17 +469,10 @@ void ChipsetWidget::tileClicked(const QPointF& pos, bool right_button) {
 			if (next == 2) flags |= AllDirections | Above;
 			break;
 		}
-		case Mode::Directions: {
-			// the side of the tile that was clicked
-			const QPointF offset = pos - QPointF(col * cell + cell / 2.0, row * cell + cell / 2.0);
-			if (std::abs(offset.x()) > std::abs(offset.y())) {
-				m_stroke.side = offset.x() < 0 ? Left : Right;
-			} else {
-				m_stroke.side = offset.y() < 0 ? Up : Down;
-			}
+		case Mode::Directions:
+			m_stroke.side = sideAt(pos, index);
 			flags ^= m_stroke.side;
 			break;
-		}
 		case Mode::Counter:
 			flags ^= Counter;
 			break;

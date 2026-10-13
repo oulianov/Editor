@@ -62,6 +62,11 @@ private:
 	void redraw();
 	/** The tile under a position of the scene, -1 when none */
 	int tileAt(const QPointF& pos) const;
+	/** The side of a tile (Up, Down, Left, Right) a position is closest to */
+	static int sideAt(const QPointF& pos, int index);
+	/** Directions: keeps the side under the mouse, shown as RPG Maker does;
+	 *  true when it changed (the tiles are to be drawn again) */
+	bool hoverAt(const QPointF& pos);
 	void tileClicked(const QPointF& pos, bool right_button);
 	void tileDragged(const QPointF& pos);
 	/** RPG Maker's "Set Uniform Terrain": one terrain on all lower tiles */
@@ -90,4 +95,9 @@ private:
 		uint8_t flags = 0;
 		int side = 0;
 	} m_stroke;
+	/** The side under the mouse in the Directions mode (tile -1: none) */
+	struct Hover {
+		int tile = -1;
+		int side = 0;
+	} m_hover;
 };

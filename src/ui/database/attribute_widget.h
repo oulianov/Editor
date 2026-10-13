@@ -20,6 +20,7 @@
 #include <QWidget>
 #include <lcf/rpg/attribute.h>
 #include "model/attribute.h"
+#include "model/rpg_metatypes.h"
 #include <QButtonGroup>
 
 class ProjectData;

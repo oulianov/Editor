@@ -16,6 +16,7 @@
  */
 
 #include "project_settings_dialog.h"
+#include "core.h"
 #include "common/exfont.h"
 #include "common/game_font.h"
 #include "common/ini_file.h"
@@ -728,6 +729,12 @@ QString ProjectSettingsDialog::writeSettings(Project& project) const
 {
 	// the font of the game: in the database
 	if (m_textFont && m_textFont->currentData().toInt() != project.database().system.font_id) {
+		// another program (rpgsync...) changed the database since it was
+		// read: the font goes in its version, never over it. Outside the
+		// Database window the Editor has no unsaved database edits to lose.
+		if (core().watcher().isStale(project.databaseFile()) && !project.reloadDatabase()) {
+			return tr("The database changed on disk and could not be read again.");
+		}
 		project.database().system.font_id = m_textFont->currentData().toInt();
 		if (!project.saveDatabase()) {
 			return tr("The database could not be saved.");

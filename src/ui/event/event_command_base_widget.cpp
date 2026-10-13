@@ -21,6 +21,7 @@
 #include "ui/common/rpg_slider.h"
 #include "ui/common/rpg_spinbox.h"
 #include "model/event_command_list.h"
+#include "common/dbstring.h"
 #include <QDebug>
 #include <QLineEdit>
 #include <QButtonGroup>

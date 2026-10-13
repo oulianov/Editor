@@ -523,10 +523,11 @@ bool GameExporter::prepare()
 		if (legacy) {
 			// in the code page of the game, which must be able to write it
 			lcf::Encoder encoder(encoding);
+			// Decode: from UTF-8 to the code page, Encode: back to UTF-8
 			std::string check = title;
-			encoder.Encode(check);
+			encoder.Decode(check);
 			std::string back = check;
-			encoder.Decode(back);
+			encoder.Encode(back);
 			if (encoder.IsOk() && back == title) {
 				title = check;
 			} else {
