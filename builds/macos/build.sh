@@ -92,7 +92,9 @@ download() {
 # ICU and inih: for both kinds of Mac, whatever the Editor is built for
 if [ -n "$QT_DIR" ]; then
 	flags="-arch arm64 -arch x86_64 -mmacosx-version-min=$TARGET"
-	if [ -e "$DEPS_DIR/install/lib/libicuuc.a" ]; then
+	# each is built again when its version changes (DEPS_DIR may come from an
+	# older build.sh)
+	if grep -qx "Version: $ICU_VERSION" "$DEPS_DIR/install/lib/pkgconfig/icu-uc.pc" 2>/dev/null; then
 		echo "ICU: already installed"
 	else
 		step "ICU"
@@ -104,7 +106,7 @@ if [ -n "$QT_DIR" ]; then
 				--disable-tests --disable-samples --disable-extras --with-data-packaging=static \
 			&& make -j "$JOBS" && make install)
 	fi
-	if [ -e "$DEPS_DIR/install/share/glaze/glazeConfig.cmake" ]; then
+	if grep -q "\"${GLAZE#v}\"" "$DEPS_DIR/install/share/glaze/glazeConfigVersion.cmake" 2>/dev/null; then
 		echo "glaze: already installed"
 	else
 		step "glaze"
@@ -114,7 +116,7 @@ if [ -n "$QT_DIR" ]; then
 			-DCMAKE_INSTALL_PREFIX="$DEPS_DIR/install" -Dglaze_DEVELOPER_MODE=OFF -Dglaze_BUILD_EXAMPLES=OFF
 		cmake --install "$DEPS_DIR/src/glaze/build"
 	fi
-	if [ -e "$DEPS_DIR/install/lib/libinih.a" ]; then
+	if [ "$(cat "$DEPS_DIR/install/lib/inih.version" 2>/dev/null)" = "$INIH" ]; then
 		echo "inih: already installed"
 	else
 		step "inih"
@@ -124,6 +126,7 @@ if [ -n "$QT_DIR" ]; then
 		clang $flags -O2 -c "$DEPS_DIR/src/inih/ini.c" -o "$DEPS_DIR/src/inih/ini.o"
 		ar rcs "$DEPS_DIR/install/lib/libinih.a" "$DEPS_DIR/src/inih/ini.o"
 		cp "$DEPS_DIR/src/inih/ini.h" "$DEPS_DIR/install/include"
+		echo "$INIH" > "$DEPS_DIR/install/lib/inih.version"
 	fi
 fi
 

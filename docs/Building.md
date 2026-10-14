@@ -153,10 +153,14 @@ Each job runs the start-up test (below) on what it built, offscreen; the
 AppImage, the macOS application and the Windows zip are also started on the
 test game from the package itself, and fail if they carry Qt Widgets.
 
-The workflow runs by hand (Actions, "Run workflow") or when a release is
-published on GitHub: it then builds the release's tag, notarizes the macOS
-application, and attaches the Flatpak, the AppImage, the disk image and the
-Windows zip to the release.
+The workflow runs by hand only (Actions, "Run workflow"), from `editor-ux`:
+a run reads the caches of its own branch and of the default branch, and
+those of a tag would start empty. To release: publish the release on GitHub
+(tag `v` and the version of `CMakeLists.txt`), then run the workflow with
+"Attach to the latest release". It notarizes the macOS application and
+attaches the packages built to that release, replacing files of the same
+name. It checks first: it builds nothing when the latest release has another
+version.
 
 
 ## CMake options

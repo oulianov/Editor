@@ -6,7 +6,7 @@ on:
       git-ref:
         description: Git Ref (Optional)
         required: false
-      # the platforms built (a release builds them all)
+      # the platforms built
       flatpak:
         description: Linux Flatpak (x86_64)
         type: boolean
@@ -31,10 +31,12 @@ on:
         description: Windows zip (x64)
         type: boolean
         default: true
-  # a release (published, not a draft): built from its tag, the macOS app
-  # notarized, and what is built attached to it
-  release:
-    types: [published]
+      # run from editor-ux, whose caches it uses (a run of a tag would start
+      # with none): the latest release must have the version of what is built
+      attach-to-latest-release:
+        description: Attach to the latest release (notarizes the macOS app)
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -59,9 +61,45 @@ env:
   # gives ccache its settings)
 
 jobs:
+  # First, with "Attach to the latest release": the latest published
+  # release's tag must be "v" and the version of CMakeLists.txt, or nothing is
+  # built. Without it, nothing to check
+  check-release:
+    name: "Check the latest release"
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - name: Read the version to build
+        if: inputs.attach-to-latest-release
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.git-ref || github.sha }}
+          sparse-checkout: CMakeLists.txt
+          sparse-checkout-cone-mode: false
+
+      - name: Compare it with the latest release
+        id: check
+        if: inputs.attach-to-latest-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(sed -n 's/^project(EasyRPG_Editor VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+          tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          echo "To build: $version ($(git rev-parse --short HEAD)); latest release: $tag"
+          if [ "$tag" != "v$version" ]; then
+            echo "::error::The latest release is $tag, the version to build $version"
+            exit 1
+          fi
+          tagged="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)"
+          [ "$tagged" = "$(git rev-parse HEAD)" ] \
+            || echo "::warning::$tag is the commit ${tagged:0:7}, the one built $(git rev-parse --short HEAD)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
   flatpak:
     name: "Flatpak (x86_64)"
-    if: github.event_name == 'release' || inputs.flatpak
+    if: inputs.flatpak
+    needs: check-release
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
@@ -78,7 +116,7 @@ jobs:
   # The x86_64 build is the AppImage's
   docker:
     name: ${{ matrix.image }} (${{ matrix.os.arch }})
-    if: github.event_name == 'release' || inputs.linux-arm64
+    if: inputs.linux-arm64
     runs-on: ${{ matrix.os.name }}
     container:
       image: ${{ matrix.image }}
@@ -226,7 +264,8 @@ jobs:
 
   appimage:
     name: "AppImage (x86_64)"
-    if: github.event_name == 'release' || inputs.appimage
+    if: inputs.appimage
+    needs: check-release
     runs-on: ubuntu-latest
     container:
       image: ubuntu:24.04
@@ -351,13 +390,16 @@ jobs:
   # the newest macOS only
   macos:
     name: "macOS"
-    if: github.event_name == 'release' || inputs.macos
+    if: inputs.macos
+    needs: check-release
     runs-on: macos-26
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
       MACOSX_DEPLOYMENT_TARGET: "13.3"
-      # a release is always notarized
-      NOTARIZE: ${{ github.event_name == 'release' || inputs.notarize-macos }}
+      # both kinds of Mac in each object file: 500M holds only part of a build
+      CCACHE_MAXSIZE: 2G
+      # what is attached to a release is always notarized
+      NOTARIZE: ${{ inputs.notarize-macos || inputs.attach-to-latest-release }}
       MACOS_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_BASE64 }}
       MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
 
@@ -411,7 +453,9 @@ jobs:
       # ICU, inih and glaze, and Kirigami, Breeze and KDDockWidgets (for this
       # Qt), built by build.sh for both kinds of Mac: Homebrew's are for the
       # newest macOS only. Saved right after the build, not at the end of the
-      # job: a failed test or package keeps them
+      # job: a failed test or package keeps them. After a change of build.sh,
+      # the ones of an earlier build.sh: it builds again only those whose
+      # version changed
       - name: Restore the dependencies
         id: deps
         uses: actions/cache/restore@v6
@@ -420,6 +464,8 @@ jobs:
             ${{ env.DEPS_DIR }}/install
             ${{ env.DEPS_DIR }}/kde
           key: editor-deps-macos${{ env.MACOSX_DEPLOYMENT_TARGET }}-qt${{ env.QT_VERSION }}-${{ hashFiles('builds/macos/build.sh') }}
+          restore-keys: |
+            editor-deps-macos${{ env.MACOSX_DEPLOYMENT_TARGET }}-qt${{ env.QT_VERSION }}-
 
       - name: Restore the compiled files
         uses: actions/cache/restore@v6
@@ -506,7 +552,8 @@ jobs:
   # liblcf reads the encodings of the games with the ICU of Windows
   windows:
     name: "Windows (x64)"
-    if: github.event_name == 'release' || inputs.windows
+    if: inputs.windows
+    needs: check-release
     runs-on: windows-2025
     env:
       # the libraries of vcpkg linked in the Editor, with the runtime of Qt
@@ -660,12 +707,14 @@ jobs:
           name: EasyRPG-Editor-Windows
           path: dist/*.zip
 
-  # On a release: the Flatpak, the AppImage, the disk image and the zip attached to it
-  # (replacing files of the same name, for a run started again)
+  # With "Attach to the latest release": the packages built (the Flatpak, the
+  # AppImage, the disk image, the zip) attached to the latest published release
+  # (checked first), replacing files of the same name, once every platform
+  # asked for built
   release:
-    name: "Attach to the release"
-    if: github.event_name == 'release'
-    needs: [flatpak, appimage, macos, windows]
+    name: "Attach to the latest release"
+    if: ${{ !cancelled() && inputs.attach-to-latest-release && !contains(needs.*.result, 'failure') }}
+    needs: [check-release, flatpak, appimage, macos, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -679,10 +728,10 @@ jobs:
       - name: Attach them
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ needs.check-release.outputs.tag }}
         run: |
           shopt -s nullglob
           files=(artifacts/*.flatpak artifacts/*.AppImage artifacts/*.dmg artifacts/*.zip)
+          [ ${#files[@]} -gt 0 ] || { echo "::error::No package was built"; exit 1; }
           ls -l "${files[@]}"
-          [ ${#files[@]} = 4 ] || { echo "::error::Expected a Flatpak, an AppImage, a disk image and a zip"; exit 1; }
           gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
