@@ -26,6 +26,7 @@ namespace {
 	constexpr const char* COMMAND_COLORS_KEY = "event_command_colors";
 	constexpr const char* COMMAND_STRIPES_KEY = "event_command_stripes";
 	constexpr const char* SEARCH_CACHE_KEY = "search_cache";
+	constexpr const char* CHECK_UPDATES_KEY = "check_for_updates";
 }
 
 EditorSettings& EditorSettings::instance() {
@@ -77,6 +78,9 @@ void EditorSettings::setCommandStripes(bool on) { setValue(COMMAND_STRIPES_KEY, 
 
 bool EditorSettings::searchCache() const { return value(SEARCH_CACHE_KEY, false).toBool(); }
 void EditorSettings::setSearchCache(bool on) { setValue(SEARCH_CACHE_KEY, on); }
+
+bool EditorSettings::checkForUpdates() const { return value(CHECK_UPDATES_KEY, true).toBool(); }
+void EditorSettings::setCheckForUpdates(bool on) { setValue(CHECK_UPDATES_KEY, on); }
 
 void EditorSettings::resetLocalState() {
 	QCoreApplication::instance()->setProperty("local_state_resetting", true);

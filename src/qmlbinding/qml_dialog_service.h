@@ -34,6 +34,7 @@ public:
 
 	StaleChoice askStale(const QString& what, bool can_reload, const QStringList& conflicts) override;
 	Answer question(const QString& title, const QString& text, Buttons buttons = Buttons::YesNo) override;
+	bool confirm(const QString& title, const QString& text, const QString& accept, const QString& reject) override;
 	void information(const QString& title, const QString& text) override;
 	void warning(const QString& title, const QString& text) override;
 	void error(const QString& title, const QString& text) override;

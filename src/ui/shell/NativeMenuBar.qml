@@ -9,8 +9,10 @@ import org.easyrpg.editor as Ez
 
 /**
  * The menu bar of the main window on macOS: the native one, its menus as
- * the catalog lists them (MainMenuBar elsewhere). Only Quit, About and
- * Settings go to the application menu (their roles): macOS would guess
+ * the catalog lists them (MainMenuBar elsewhere). Only Quit, About,
+ * Check for Updates (right under About: the place of Qt's About Qt, which
+ * keeps the text given) and Settings go to the application menu (their
+ * roles): macOS would guess
  * others from their texts, wrongly in some languages ("Options du test du
  * jeu..." as Preferences). Test Play Options is there too, beside
  * Settings. Its menus and items are the platform's (PlatformMenuBar).
@@ -22,7 +24,7 @@ Ez.PlatformMenuBar {
     required property Actions actions
     readonly property Ez.ActionCatalog catalog: actions.shell.actions
     /** The items of the actions, as made: {name, role ("quit", "about",
-     *  "preferences", "application", "" for none), menu (its objectName), item} */
+     *  "preferences", "updates", "application", "" for none), menu (its objectName), item} */
     property var entries: []
     property bool built: false
 
@@ -35,6 +37,8 @@ Ez.PlatformMenuBar {
             return "about"
         case Ez.PlatformMenuItem.PreferencesRole:
             return "preferences"
+        case Ez.PlatformMenuItem.AboutQtRole:
+            return "updates"
         case Ez.PlatformMenuItem.ApplicationSpecificRole:
             return "application"
         default:
@@ -130,6 +134,7 @@ Ez.PlatformMenuBar {
             role: catalogAction.menuRole === Ez.ActionCatalog.MenuRole.Quit ? Ez.PlatformMenuItem.QuitRole
                 : catalogAction.menuRole === Ez.ActionCatalog.MenuRole.About ? Ez.PlatformMenuItem.AboutRole
                 : catalogAction.menuRole === Ez.ActionCatalog.MenuRole.Preferences ? Ez.PlatformMenuItem.PreferencesRole
+                : catalogAction.menuRole === Ez.ActionCatalog.MenuRole.Updates ? Ez.PlatformMenuItem.AboutQtRole
                 : Ez.PlatformMenuItem.NoRole
             onTriggered: catalogAction.trigger()
         }

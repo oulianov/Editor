@@ -34,6 +34,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><a href="#rtp">RTP path</a></li>
 <li><a href="#reload">Reload files changed on disk</a></li>
 <li><a href="#screenshots">Screenshots</a></li>
+<li><a href="#updates">Updates</a></li>
 </ul>
 <b>Events</b>
 <ul>
@@ -154,6 +155,17 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <a name="screenshots"></a>
 <h3>Screenshots</h3>
 <p>Press <b>Ctrl+Alt+S</b> (<b>Cmd+Option+S</b> on macOS) to save a picture of the active window, dialog included. The file is written in the <b>Pictures/EasyRPG Editor</b> folder of your user account.</p>
+
+<a name="updates"></a>
+<h3>Updates</h3>
+<p>The Editor looks for a newer version a few seconds after it starts, then every hour while it runs, without interrupting you: nothing is shown when there is none or when the check fails. Turn <b>Check for updates automatically</b> off in <b>Settings</b> to stop these checks. <b>Check for Updates...</b>, just below <b>About EasyRPG Editor</b> (in the <b>Help</b> menu; on macOS, in the <b>EasyRPG Editor</b> menu), checks at once and tells you the result.</p>
+<p>When a newer version is found, the menu item becomes <b>Install Update</b> with its version, and an <b>Update</b> button appears at the right end of the toolbar. Click either one to install it: the button shows the progress of the download, then <b>Restart to Update</b>. Restarting asks about unsaved maps as quitting does; if you cancel, or choose <b>Later</b>, the update is installed the next time you quit the Editor.</p>
+<ul>
+<li><b>macOS</b>: the disk image is downloaded, its application is checked (its signature, from the same developer) and copied next to the Editor, then put in its place once the Editor has quit. If the Editor cannot replace itself (its folder cannot be written, or macOS runs it from a temporary copy because it was opened where it was downloaded), the disk image is downloaded and opened instead: quit the Editor and drag the new one to its folder.</li>
+<li><b>Windows</b>: the zip is downloaded and extracted next to the Editor's folder, which is replaced once the Editor has quit. If that folder cannot be written (Program Files), the page of the release opens instead.</li>
+<li><b>Linux AppImage</b>: the new AppImage is downloaded next to the one running, and replaces it once the Editor has quit.</li>
+<li><b>Flatpak and other builds</b>: <b>Download Update</b> opens the page of the release in your browser. Flatpak updates the Editor itself (<code>flatpak update</code>).</li>
+</ul>
 
 <!-- ============================================================ -->
 <h2>Events</h2>

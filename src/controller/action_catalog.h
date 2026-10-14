@@ -48,8 +48,9 @@ public:
 	 *  checked at the scales between them */
 	enum class Group { None, Layer, Tool, Zoom };
 	Q_ENUM(Group)
-	/** Where macOS puts it (the application menu); None: in its menu */
-	enum class MenuRole { None, Quit, About, Preferences };
+	/** Where macOS puts it (the application menu); None: in its menu.
+	 *  Updates: right under About (the place of Qt's About Qt) */
+	enum class MenuRole { None, Quit, About, Preferences, Updates };
 	Q_ENUM(MenuRole)
 
 	enum Roles {
@@ -109,7 +110,10 @@ public:
 	/** Its keys work in the map tree only (ShortcutCatalog::Context::MapTree) */
 	Q_INVOKABLE bool isTreeShortcut(const QString& name) const;
 	Q_INVOKABLE bool isCheckable(const QString& name) const;
+	/** Shown in the menus and toolbars: as the catalog lists it, unless
+	 *  setVisible() said otherwise (before the window is made) */
 	Q_INVOKABLE bool isVisible(const QString& name) const;
+	void setVisible(const QString& name, bool visible);
 	Group group(const QString& name) const;
 	Q_INVOKABLE ActionCatalog::MenuRole menuRole(const QString& name) const;
 	/** The actions of a group, in their order */
@@ -118,6 +122,9 @@ public:
 	Q_INVOKABLE bool isEnabled(const QString& name) const;
 	Q_INVOKABLE bool isChecked(const QString& name) const;
 	void setEnabled(const QString& name, bool enabled);
+	/** A text of the moment instead of the catalog's (Check for Updates
+	 *  becoming Install Update), already translated; empty: the catalog's */
+	void setText(const QString& name, const QString& text);
 	/** Checking an action of a group unchecks the others */
 	void setChecked(const QString& name, bool checked);
 
@@ -153,6 +160,9 @@ private:
 	struct State {
 		bool enabled = true;
 		bool checked = false;
+		bool visible = true;
+		/** Instead of the catalog's text, empty for none */
+		QString text;
 	};
 	std::vector<State> m_states;
 };

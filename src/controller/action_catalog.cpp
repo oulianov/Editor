@@ -99,6 +99,10 @@ const Info actions[] = {
 	{.name = "actionAbout", .text = QT_TRANSLATE_NOOP("MainWindow", "&About EasyRPG Editor"),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "About EasyRPG Editor"), .icon = "help-about",
 		.role = MenuRole::About},
+	// its text follows the updates (EditorUpdater): Install Update...
+	{.name = "actionCheckUpdates", .text = QT_TRANSLATE_NOOP("MainWindow", "Check for &Updates..."),
+		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Look for a newer version of EasyRPG Editor, and install it"),
+		.role = MenuRole::Updates},
 	// not written yet
 	{.name = "actionScriptEditor", .text = QT_TRANSLATE_NOOP("MainWindow", "&Script Editor"),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Open Script Editor"), .icon = "code", .visible = false},
@@ -213,7 +217,7 @@ const MenuInfo menu_infos[] = {
 		"actionJukebox", "actionSearch", "actionScriptEditor", "", "actionSettings"}},
 	{"menuGame2", QT_TRANSLATE_NOOP("MainWindow", "Game"), {"actionPlayTest", "actionPlayTestOptions", "",
 		"actionFullScreenToggle", "actionTitleBackgroundToggle"}},
-	{"menuHelp", QT_TRANSLATE_NOOP("MainWindow", "Help"), {"actionContents", "", "actionAbout"}},
+	{"menuHelp", QT_TRANSLATE_NOOP("MainWindow", "Help"), {"actionContents", "", "actionAbout", "actionCheckUpdates"}},
 	// submenus
 	{"menuMapZoom", QT_TRANSLATE_NOOP("MainWindow", "Map &Zoom"), {"actionZoom1_1", "actionZoom1_2",
 		"actionZoom1_4", "actionZoom1_8"}},
@@ -277,8 +281,10 @@ ActionCatalog::ActionCatalog(QObject* parent) :
 	QAbstractListModel(parent),
 	m_states(action_count)
 {
-	for (int i = 0; i < action_count; i++)
+	for (int i = 0; i < action_count; i++) {
 		m_states[i].checked = actions[i].checked;
+		m_states[i].visible = actions[i].visible;
+	}
 }
 
 int ActionCatalog::rowCount(const QModelIndex& parent) const
@@ -295,7 +301,7 @@ QVariant ActionCatalog::data(const QModelIndex& index, int role) const
 	switch (role) {
 	case Qt::DisplayRole:
 	case TextRole:
-		return translated(info.text);
+		return text(name);
 	case NameRole:
 		return name;
 	case ToolTipRole:
@@ -319,7 +325,7 @@ QVariant ActionCatalog::data(const QModelIndex& index, int role) const
 	case EnabledRole:
 		return m_states[index.row()].enabled;
 	case VisibleRole:
-		return info.visible;
+		return m_states[index.row()].visible;
 	case GroupRole:
 		return static_cast<int>(info.group);
 	case MenuRoleRole:
@@ -370,7 +376,9 @@ int ActionCatalog::indexOf(const QString& name) const
 QString ActionCatalog::text(const QString& name) const
 {
 	const int row = indexOf(name);
-	return row < 0 ? QString() : translated(actions[row].text);
+	if (row < 0)
+		return QString();
+	return m_states[row].text.isEmpty() ? translated(actions[row].text) : m_states[row].text;
 }
 
 QString ActionCatalog::toolTip(const QString& name) const
@@ -429,7 +437,27 @@ bool ActionCatalog::isCheckable(const QString& name) const
 bool ActionCatalog::isVisible(const QString& name) const
 {
 	const int row = indexOf(name);
-	return row >= 0 && actions[row].visible;
+	return row >= 0 && m_states[row].visible;
+}
+
+void ActionCatalog::setVisible(const QString& name, bool visible)
+{
+	const int row = indexOf(name);
+	if (row < 0 || m_states[row].visible == visible)
+		return;
+	m_states[row].visible = visible;
+	emit dataChanged(index(row), index(row), {VisibleRole});
+	emit stateChanged(name);
+}
+
+void ActionCatalog::setText(const QString& name, const QString& text)
+{
+	const int row = indexOf(name);
+	if (row < 0 || m_states[row].text == text)
+		return;
+	m_states[row].text = text;
+	emit dataChanged(index(row), index(row), {Qt::DisplayRole, TextRole});
+	emit stateChanged(name);
 }
 
 ActionCatalog::Group ActionCatalog::group(const QString& name) const

@@ -424,7 +424,7 @@ bool Automation::run(const QStringList& args) {
 		const QString& role = args[2];
 		using Role = ActionCatalog::MenuRole;
 		const Role expected = role == "quit" ? Role::Quit : role == "about" ? Role::About
-			: role == "preferences" ? Role::Preferences : Role::None;
+			: role == "preferences" ? Role::Preferences : role == "updates" ? Role::Updates : Role::None;
 		if (!shell->actions()->contains(name) || shell->actions()->menuRole(name) != expected) {
 			fail(QString("the catalog gives %1 no role %2").arg(name, role));
 			return false;

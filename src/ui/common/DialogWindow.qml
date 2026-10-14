@@ -113,8 +113,9 @@ Controls.ApplicationWindow {
         Ez.ButtonBox {
             id: box
             Layout.fillWidth: true
-            // a window with buttons of its own elsewhere has none here
-            visible: root.standardButtons !== Controls.DialogButtonBox.NoButton || root.buttons.length > 0
+            // a window with buttons of its own elsewhere has none here; those
+            // added to the box (MessageWindow's named answers) count too
+            visible: root.standardButtons !== Controls.DialogButtonBox.NoButton || root.buttons.length > 0 || count > 0
             standardButtons: Controls.DialogButtonBox.Ok | Controls.DialogButtonBox.Cancel
             onAccepted: root.accept()
             onRejected: root.reject()

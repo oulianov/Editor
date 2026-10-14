@@ -211,7 +211,12 @@ private:
 	void openDatabase();
 	void openSearch();
 	void testPlayOptions();
-	void quit();
+	/** Quits, once the unsaved changes are saved or dropped; false: the user stayed */
+	bool quit();
+	/** The update made ready is installed: the Editor quits and starts again */
+	void restartForUpdate();
+	/** Check for Updates as the updates are (Install Update, Restart to Update) */
+	void updateUpdateAction();
 
 	// the workspace
 	void onProjectOpened();

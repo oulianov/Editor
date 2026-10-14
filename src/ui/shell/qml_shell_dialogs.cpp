@@ -49,6 +49,11 @@ DialogService::Answer QmlShellDialogService::question(const QString& title, cons
 	return front()->question(title, text, buttons);
 }
 
+bool QmlShellDialogService::confirm(const QString& title, const QString& text, const QString& accept, const QString& reject)
+{
+	return front()->confirm(title, text, accept, reject);
+}
+
 void QmlShellDialogService::information(const QString& title, const QString& text)
 {
 	front()->information(title, text);

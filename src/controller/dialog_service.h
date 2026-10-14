@@ -48,6 +48,9 @@ public:
 	 *  changed differently */
 	virtual StaleChoice askStale(const QString& what, bool can_reload, const QStringList& conflicts);
 	virtual Answer question(const QString& title, const QString& text, Buttons buttons = Buttons::YesNo);
+	/** A question with buttons of its own (Install, Later): true for the
+	 *  first (accept), false for the other or when closed */
+	virtual bool confirm(const QString& title, const QString& text, const QString& accept, const QString& reject);
 	virtual void information(const QString& title, const QString& text);
 	virtual void warning(const QString& title, const QString& text);
 	virtual void error(const QString& title, const QString& text);

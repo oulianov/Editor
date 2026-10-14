@@ -187,6 +187,8 @@ set(EDITOR_SOURCES
 	src/model/launcher_download.h
 	src/model/player_download.cpp
 	src/model/player_download.h
+	src/model/editor_update.cpp
+	src/model/editor_update.h
 	src/model/web_player.cpp
 	src/model/web_player.h
 	src/model/resource_library.cpp
@@ -654,6 +656,14 @@ set(EDITOR_CORE_REGEX "^src/(model|common|render|controller)/|^src/(core|stringi
 list(FILTER EDITOR_CORE_SOURCES INCLUDE REGEX "${EDITOR_CORE_REGEX}")
 list(FILTER EDITOR_SOURCES EXCLUDE REGEX "${EDITOR_CORE_REGEX}")
 qt_add_library(editor_core STATIC ${EDITOR_CORE_SOURCES})
+# Where the Editor looks for its new versions (Help > Check for Updates, the
+# Settings): the latest release of a GitHub repository; empty: never.
+# EDITOR_UPDATE_FEED, in the environment, replaces it (mirrors, tests)
+set(EDITOR_UPDATE_REPOSITORY "oulianov/Editor" CACHE STRING
+	"GitHub repository (owner/name) whose latest release updates the Editor; empty disables update checks")
+set_source_files_properties(src/model/editor_update.cpp PROPERTIES
+	COMPILE_DEFINITIONS EDITOR_UPDATE_REPOSITORY="${EDITOR_UPDATE_REPOSITORY}"
+	SKIP_PRECOMPILE_HEADERS ON)
 set_target_properties(editor_core PROPERTIES AUTOMOC ON)
 target_include_directories(editor_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(editor_core PUBLIC

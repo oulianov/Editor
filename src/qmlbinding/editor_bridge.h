@@ -41,6 +41,8 @@ class EditorBridge : public QObject {
 	Q_PROPERTY(QString scriptEditor READ scriptEditor WRITE setScriptEditor NOTIFY settingsChanged)
 	Q_PROPERTY(bool reloadExternalChanges READ reloadExternalChanges WRITE setReloadExternalChanges NOTIFY settingsChanged)
 	Q_PROPERTY(bool searchCache READ searchCache WRITE setSearchCache NOTIFY settingsChanged)
+	/** A newer Editor looked for at start-up and every hour (Ez.Updater) */
+	Q_PROPERTY(bool checkForUpdates READ checkForUpdates WRITE setCheckForUpdates NOTIFY settingsChanged)
 	Q_PROPERTY(bool animateTiles READ animateTiles WRITE setAnimateTiles NOTIFY settingsChanged)
 	Q_PROPERTY(bool commandColors READ commandColors WRITE setCommandColors NOTIFY settingsChanged)
 	Q_PROPERTY(bool commandStripes READ commandStripes WRITE setCommandStripes NOTIFY settingsChanged)
@@ -70,6 +72,8 @@ public:
 	void setReloadExternalChanges(bool on);
 	bool searchCache() const;
 	void setSearchCache(bool on);
+	bool checkForUpdates() const;
+	void setCheckForUpdates(bool on);
 	bool animateTiles() const;
 	void setAnimateTiles(bool on);
 	bool commandColors() const;

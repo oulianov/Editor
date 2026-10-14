@@ -34,6 +34,7 @@ Ez.DialogWindow {
         animateTiles.checked = Ez.Editor.animateTiles
         commandColors.checked = Ez.Editor.commandColors
         commandStripes.checked = Ez.Editor.commandStripes
+        checkUpdates.checked = Ez.Editor.checkForUpdates
     }
 
     onAccepted: {
@@ -50,6 +51,7 @@ Ez.DialogWindow {
         const animate = animateTiles.checked
         const colors = commandColors.checked
         const stripes = commandStripes.checked
+        const updates = checkUpdates.checked
         const code = language.currentValue
         Ez.Editor.reloadExternalChanges = reload
         Ez.Editor.searchCache = cache
@@ -59,6 +61,7 @@ Ez.DialogWindow {
         Ez.Editor.animateTiles = animate
         Ez.Editor.commandColors = colors
         Ez.Editor.commandStripes = stripes
+        Ez.Editor.checkForUpdates = updates
         Ez.Editor.language = code
     }
 
@@ -75,6 +78,15 @@ Ez.DialogWindow {
                 valueRole: "code"
                 model: [{ code: "", name: qsTr("System Language") }].concat(Ez.Editor.languages)
             }
+        }
+        // none without a place to look for them (Ez.Updater)
+        Ez.CheckBox {
+            id: checkUpdates
+            objectName: "checkCheckUpdates"
+            visible: Ez.Updater.enabled
+            text: qsTr("Check for updates automatically")
+            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.text: qsTr("A few seconds after start-up, then every hour while the Editor runs.")
         }
     }
 

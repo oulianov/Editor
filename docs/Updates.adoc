@@ -1,0 +1,82 @@
+= Updates
+
+The Editor updates itself from the releases of a GitHub repository
+(`EditorUpdater`, `src/model/editor_update.*`). The guide (Help > Contents,
+"Updates") says what users see; this page is for packagers and developers.
+
+== Where updates come from
+
+`EDITOR_UPDATE_REPOSITORY`, a CMake cache variable, names the repository
+(`owner/name`, default `oulianov/Editor`). The Editor asks GitHub's REST API
+for its latest release (`GET https://api.github.com/repos/<repository>/releases/latest`:
+published, neither a draft nor a pre-release). An empty repository disables
+updates: no checks, no Check for Updates menu item, no setting.
+
+----
+cmake -B build -DEDITOR_UPDATE_REPOSITORY=          # no updates
+cmake -B build -DEDITOR_UPDATE_REPOSITORY=me/Editor # a fork's releases
+----
+
+The release's tag (`v0.10.0`, the leading `v` optional) is compared number by
+number with the version of the Editor (`project(... VERSION)` of
+`CMakeLists.txt`): 0.10.0 is newer than 0.9.1. Its files are found by name:
+
+[cols="1,2"]
+|===
+| Platform | File of the release
+
+| macOS | `*.dmg` (the one with `mac` in its name first), holding `EasyRPG Editor.app`
+| Windows | `*-Windows.zip`, holding the folder `EasyRPG Editor` with the program in `bin`
+| Linux AppImage | `*.AppImage` for the processor (`x86_64`, `aarch64`...)
+|===
+
+A release without the file of a platform opens its page instead.
+
+== Testing with another feed
+
+`EDITOR_UPDATE_FEED`, in the environment, replaces GitHub: a URL (`http://`,
+`file://`) or a local file giving JSON of the same shape (`tag_name`,
+`html_url`, `assets[].name`, `assets[].browser_download_url`, `assets[].size`;
+a list of releases works too). It works even when the repository is empty.
+
+----
+EDITOR_UPDATE_FEED=/tmp/release.json "EasyRPG Editor.app/Contents/MacOS/EasyRPG Editor"
+----
+
+Scripts (`--script`, see link:Automation.adoc[Automation]) check
+automatically only with `EDITOR_UPDATE_FEED`, never GitHub. The update's
+toolbar button is `updateButton`, the menu item `actionCheckUpdates`, the
+setting `checkCheckUpdates`; `--verbose` logs what the updater does
+(`editor.update`).
+
+== How each build is replaced
+
+How the Editor installs an update depends on how it runs, found at start:
+
+* *macOS*, an application bundle not in a build folder (no `CMakeCache.txt`
+  beside it): the disk image is downloaded into `.<bundle>.update`, a hidden
+  folder beside the bundle (the same volume), attached (`hdiutil attach
+  -nobrowse -readonly`), its application copied there with `ditto`, then
+  checked with `codesign --verify --deep --strict`. A running Editor signed by
+  a team (`TeamIdentifier`) only takes an update signed by the same team.
+* *Windows*, the program in a `bin` folder (the zip's layout): the zip is
+  downloaded into `.<folder>.update` beside the Editor's folder and extracted
+  there (PowerShell's `Expand-Archive`).
+* *Linux*, an AppImage (`$APPIMAGE`, outside Flatpak): the new AppImage is
+  downloaded into `.<name>.update` beside it and made executable.
+* *Anything else* (Flatpak, `$FLATPAK_ID`; a build from source, Homebrew, a
+  build folder...): the release's page opens in the browser.
+
+Once the update is ready, the Editor offers to restart. Restarting quits as
+usual (unsaved maps are asked about; cancelling keeps the update ready). When
+the Editor quits with an update ready, it starts a small helper (`/bin/sh`, or
+PowerShell on Windows) that waits for it to end, moves the old copy into the
+`.update` folder (a rename on the same volume), moves the new one in its
+place, removes the folder, and starts the new Editor after a restart (`open`
+on macOS). A failed move puts the old copy back.
+
+Where the Editor cannot replace itself, it does not try: on macOS (a folder it
+cannot write, such as a disk image, or App Translocation: an application run
+from where it was downloaded) the disk image is downloaded to the Downloads
+folder and opened for the user to copy; on Windows (Program Files) and Linux
+the release's page opens.

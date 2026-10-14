@@ -35,6 +35,7 @@
 #include "controller/project_controller.h"
 #include "controller/shell_controller.h"
 #include "model/export_controller.h"
+#include "model/editor_update.h"
 #include "model/map_document.h"
 #include "model/map_tree_model.h"
 #include "model/project.h"
@@ -94,6 +95,12 @@ QmlShell::QmlShell(QObject* parent) :
 			m_search->enableCache(EditorSettings::instance().searchCache());
 	});
 	connect(&EditorSettings::instance(), &EditorSettings::localStateReset, this, &QmlShell::resetLocalState);
+	// Check for Updates: shown when updates are looked for, its text as they are
+	EditorUpdater& updater = EditorUpdater::instance();
+	m_actions->setVisible(QStringLiteral("actionCheckUpdates"), updater.isEnabled());
+	connect(&updater, &EditorUpdater::stateChanged, this, &QmlShell::updateUpdateAction);
+	connect(m_actions, &ActionCatalog::retranslated, this, &QmlShell::updateUpdateAction);
+	connect(&updater, &EditorUpdater::restartRequested, this, &QmlShell::restartForUpdate);
 	connect(qApp, &QCoreApplication::aboutToQuit, this, &QmlShell::saveWorkspace);
 	connect(qApp, &QGuiApplication::focusWindowChanged, this, &QmlShell::windowFocusedChanged);
 	m_shell->updateActions();
@@ -401,6 +408,8 @@ void QmlShell::trigger(const QString& name, bool checked)
 		m_dialogs->help(QStringLiteral("top"));
 	else if (is("actionAbout"))
 		m_dialogs->about();
+	else if (is("actionCheckUpdates"))
+		EditorUpdater::instance().activate();
 	// the map tree's
 	else if (is("actionMapNew"))
 		m_shell->newMap();
@@ -815,12 +824,30 @@ void QmlShell::testPlayOptions()
 	QmlHost::exec(QStringLiteral("RunGameWindow"), m_window, {{QStringLiteral("options"), QVariant::fromValue(&options)}});
 }
 
-void QmlShell::quit()
+bool QmlShell::quit()
 {
 	if (!m_project->saveAll())
-		return;
+		return false;
 	m_closing = true;
 	qApp->quit();
+	return true;
+}
+
+void QmlShell::restartForUpdate()
+{
+	// a quit the user cancels keeps the update for later (Restart to Update)
+	EditorUpdater& updater = EditorUpdater::instance();
+	updater.setRelaunchOnQuit(true);
+	if (!quit())
+		updater.setRelaunchOnQuit(false);
+}
+
+void QmlShell::updateUpdateAction()
+{
+	const EditorUpdater& updater = EditorUpdater::instance();
+	const QString name = QStringLiteral("actionCheckUpdates");
+	m_actions->setText(name, updater.actionText());
+	m_actions->setEnabled(name, updater.actionEnabled());
 }
 
 /*

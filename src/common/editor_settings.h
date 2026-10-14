@@ -68,6 +68,10 @@ public:
 	bool searchCache() const;
 	void setSearchCache(bool on);
 
+	/** A newer Editor is looked for at start-up, then every hour (on by default) */
+	bool checkForUpdates() const;
+	void setCheckForUpdates(bool on);
+
 	/** Reset saved UI state and all open views, keeping preferences and game data. */
 	void resetLocalState();
 

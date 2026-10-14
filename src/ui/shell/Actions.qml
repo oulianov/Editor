@@ -136,6 +136,7 @@ Item {
     CatalogAction { name: "actionTitleBackgroundToggle" }
     CatalogAction { name: "actionContents" }
     CatalogAction { name: "actionAbout" }
+    CatalogAction { name: "actionCheckUpdates" }
     CatalogAction { name: "actionScriptEditor" }
     CatalogAction { name: "actionPaletteToggle" }
     CatalogAction { name: "actionMapTreeToggle" }

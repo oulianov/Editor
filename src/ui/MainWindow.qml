@@ -5,6 +5,7 @@ pragma Translator: "MainWindow"
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 // KDDockWidgets registers its types from C++, with no qmldir: qmllint cannot
@@ -175,6 +176,36 @@ Kirigami.ApplicationWindow {
     header: MainToolBar {
         actions: windowActions
         toolbarName: "mainToolBar"
+        // a newer Editor (Ez.Updater): at the right edge until it is installed
+        trailing: Component {
+            Ez.Button {
+                id: updateButton
+
+                readonly property string tip: Ez.Updater.ready
+                    ? qsTr("Restart the Editor to install version %1").arg(Ez.Updater.latestVersion)
+                    : Ez.Updater.busy ? qsTr("Downloading version %1").arg(Ez.Updater.latestVersion)
+                    : Ez.Updater.installsInPlace ? qsTr("Install version %1").arg(Ez.Updater.latestVersion)
+                    : qsTr("Download version %1").arg(Ez.Updater.latestVersion)
+
+                objectName: "updateButton"
+                visible: Ez.Updater.updateAvailable
+                accent: true
+                text: Ez.Updater.ready ? qsTr("Restart to Update")
+                    : !Ez.Updater.busy ? qsTr("Update")
+                    : Ez.Updater.progress >= 0 ? qsTr("Updating %1%").arg(Ez.Updater.progress)
+                    : qsTr("Updating...")
+                // as high as the buttons of the toolbar
+                implicitHeight: Ez.Metrics.toolIconSize + 2 * Ez.Metrics.toolButtonPadding
+                verticalPadding: 0
+                focusPolicy: Qt.NoFocus
+                Controls.ToolTip.text: updateButton.tip
+                Controls.ToolTip.visible: updateButton.hovered
+                Controls.ToolTip.delay: 600
+                onHoveredChanged: windowActions.hint = updateButton.hovered ? updateButton.tip : ""
+                // nothing while it downloads
+                onClicked: Ez.Updater.activate()
+            }
+        }
     }
     footer: StatusBar {
         shell: root.shell

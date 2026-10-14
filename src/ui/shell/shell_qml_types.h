@@ -20,11 +20,13 @@
 // The controllers of the main window in the QML module, registered from
 // here: editor_core does not link QtQml
 
+#include <QJSEngine>
 #include <QObject>
 #include <QtQmlIntegration>
 #include "controller/action_catalog.h"
 #include "controller/map_tabs_controller.h"
 #include "controller/shell_controller.h"
+#include "model/editor_update.h"
 #include "model/map_tree_model.h"
 
 /** What the main window does (ShellController): its title, its status texts */
@@ -61,4 +63,23 @@ struct MapTreeModelForeign
 	QML_FOREIGN(MapTreeModel)
 	QML_NAMED_ELEMENT(MapTreeModel)
 	QML_UNCREATABLE("The map tree is the project's")
+};
+
+/** The updates of the Editor (EditorUpdater), the singleton Ez.Updater: the
+ *  menu, the toolbar's Update button and the Settings show it */
+struct EditorUpdaterForeign
+{
+	Q_GADGET
+	QML_FOREIGN(EditorUpdater)
+	QML_NAMED_ELEMENT(Updater)
+	QML_SINGLETON
+
+public:
+	static EditorUpdater* create(QQmlEngine*, QJSEngine*)
+	{
+		EditorUpdater* updater = &EditorUpdater::instance();
+		// the Editor's, not the engine's
+		QJSEngine::setObjectOwnership(updater, QJSEngine::CppOwnership);
+		return updater;
+	}
 };

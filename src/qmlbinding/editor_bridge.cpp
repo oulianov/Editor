@@ -55,6 +55,8 @@ bool EditorBridge::reloadExternalChanges() const { return EditorSettings::instan
 void EditorBridge::setReloadExternalChanges(bool on) { EditorSettings::instance().setReloadExternalChanges(on); }
 bool EditorBridge::searchCache() const { return EditorSettings::instance().searchCache(); }
 void EditorBridge::setSearchCache(bool on) { EditorSettings::instance().setSearchCache(on); }
+bool EditorBridge::checkForUpdates() const { return EditorSettings::instance().checkForUpdates(); }
+void EditorBridge::setCheckForUpdates(bool on) { EditorSettings::instance().setCheckForUpdates(on); }
 bool EditorBridge::animateTiles() const { return EditorSettings::instance().animateTiles(); }
 void EditorBridge::setAnimateTiles(bool on) { EditorSettings::instance().setAnimateTiles(on); }
 bool EditorBridge::commandColors() const { return EditorSettings::instance().commandColors(); }

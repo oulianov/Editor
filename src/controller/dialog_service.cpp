@@ -50,6 +50,12 @@ DialogService::Answer DialogService::question(const QString&, const QString&, Bu
 	return buttons == Buttons::YesNoCancel ? Answer::Cancel : Answer::No;
 }
 
+bool DialogService::confirm(const QString&, const QString&, const QString&, const QString&)
+{
+	// nobody to ask: nothing is done
+	return false;
+}
+
 void DialogService::information(const QString& title, const QString& text)
 {
 	qInfo().noquote() << title << ":" << text;

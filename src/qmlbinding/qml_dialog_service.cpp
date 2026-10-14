@@ -30,6 +30,7 @@ constexpr int Cancel = 0x00400000;
 constexpr int Yes = 0x00004000;
 constexpr int No = 0x00010000;
 constexpr int AcceptRole = 0;
+constexpr int RejectRole = 1;
 constexpr int DestructiveRole = 2;
 
 QString staleTr(const char* text) {
@@ -94,6 +95,14 @@ DialogService::Answer QmlDialogService::question(const QString& title, const QSt
 		return Answer::No;
 	}
 	return cancel ? Answer::Cancel : Answer::No;
+}
+
+bool QmlDialogService::confirm(const QString& title, const QString& text, const QString& accept, const QString& reject) {
+	const QVariantList buttons = {
+		QVariantMap{{QStringLiteral("answer"), QStringLiteral("accept")}, {QStringLiteral("text"), accept}, {QStringLiteral("role"), AcceptRole}},
+		QVariantMap{{QStringLiteral("answer"), QStringLiteral("reject")}, {QStringLiteral("text"), reject}, {QStringLiteral("role"), RejectRole}},
+	};
+	return ask(QStringLiteral("question"), title, text, 0, buttons) == QLatin1String("accept");
 }
 
 void QmlDialogService::information(const QString& title, const QString& text) {

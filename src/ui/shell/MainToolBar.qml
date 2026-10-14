@@ -13,7 +13,8 @@ import org.easyrpg.editor as Ez
  * (mainToolBar) or the palette's (toolBar). Buttons show the icons of
  * their actions, their texts as tips and their hints in the status bar,
  * as RPG Maker's small buttons. Those that do not fit go to the menu of
- * the "»" button.
+ * the "»" button. What `trailing` makes stays at its right edge (the
+ * window's Update button), the buttons beside it.
  */
 Controls.ToolBar {
     id: root
@@ -24,6 +25,8 @@ Controls.ToolBar {
     required property string toolbarName
     /** The size of the icons (RPG Maker's 16 pixels, a quarter larger) */
     property int iconSize: Ez.Metrics.toolIconSize
+    /** Made at the right edge, after the buttons (null for nothing); hidden, it takes no room */
+    property Component trailing: null
     readonly property var items: {
         const list = actions.shell.actions.toolBar(toolbarName)
         // no separator at the end
@@ -45,7 +48,7 @@ Controls.ToolBar {
     // the actions whose buttons do not fit, in their order
     function hiddenActions() {
         const hidden = []
-        const limit = content.width - (more.visible ? more.width : 0)
+        const limit = buttonsArea.width - (more.visible ? more.width : 0)
         for (let i = 0; i < buttons.count; i++) {
             const item = buttons.itemAt(i)
             // the action of the slot (none: a separator)
@@ -72,79 +75,100 @@ Controls.ToolBar {
     contentItem: Item {
         id: content
 
-        implicitWidth: row.implicitWidth
-        implicitHeight: row.implicitHeight
-        clip: true
+        /** What `trailing` made, shown; null for none */
+        readonly property Item trailingItem: trailingLoader.item && (trailingLoader.item as Item).visible
+            ? trailingLoader.item as Item : null
+        /** Its room, with the gap before it */
+        readonly property real trailingWidth: trailingItem ? trailingItem.implicitWidth + Ez.Metrics.columnSpacing : 0
 
-        Row {
-            id: row
+        implicitWidth: row.implicitWidth + trailingWidth
+        implicitHeight: Math.max(row.implicitHeight, trailingItem ? trailingItem.implicitHeight : 0)
 
-            Repeater {
-                id: buttons
-                model: root.items
+        Item {
+            id: buttonsArea
 
-                delegate: Item {
-                    id: slot
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Math.max(0, content.width - content.trailingWidth)
+            clip: true
 
-                    required property string modelData
-                    readonly property var action: modelData === "" ? null : root.actions.action(modelData)
+            Row {
+                id: row
 
-                    visible: action === null || action.shown
-                    width: !visible ? 0 : action ? button.implicitWidth : separator.implicitWidth
-                    height: Math.max(button.implicitHeight, separator.implicitHeight)
+                Repeater {
+                    id: buttons
+                    model: root.items
 
-                    Controls.ToolSeparator {
-                        id: separator
-                        visible: slot.action === null
-                        anchors.verticalCenter: parent.verticalCenter
-                        topPadding: 2
-                        bottomPadding: 2
+                    delegate: Item {
+                        id: slot
+
+                        required property string modelData
+                        readonly property var action: modelData === "" ? null : root.actions.action(modelData)
+
+                        visible: action === null || action.shown
+                        width: !visible ? 0 : action ? button.implicitWidth : separator.implicitWidth
+                        height: Math.max(button.implicitHeight, separator.implicitHeight)
+
+                        Controls.ToolSeparator {
+                            id: separator
+                            visible: slot.action === null
+                            anchors.verticalCenter: parent.verticalCenter
+                            topPadding: 2
+                            bottomPadding: 2
+                        }
+                        Controls.ToolButton {
+                            id: button
+                            visible: slot.action !== null
+                            action: slot.action
+                            display: Controls.AbstractButton.IconOnly
+                            icon.width: root.iconSize
+                            icon.height: root.iconSize
+                            padding: Ez.Metrics.toolButtonPadding
+                            focusPolicy: Qt.NoFocus
+                            Controls.ToolTip.text: slot.action ? (slot.action.toolTip !== "" ? slot.action.toolTip : slot.action.text.replace("&", "")) : ""
+                            Controls.ToolTip.visible: hovered && Controls.ToolTip.text !== ""
+                            Controls.ToolTip.delay: 600
+                            onHoveredChanged: root.actions.hint = hovered && slot.action ? slot.action.statusTip : ""
+                        }
                     }
-                    Controls.ToolButton {
-                        id: button
-                        visible: slot.action !== null
-                        action: slot.action
-                        display: Controls.AbstractButton.IconOnly
-                        icon.width: root.iconSize
-                        icon.height: root.iconSize
-                        padding: Ez.Metrics.toolButtonPadding
-                        focusPolicy: Qt.NoFocus
-                        Controls.ToolTip.text: slot.action ? (slot.action.toolTip !== "" ? slot.action.toolTip : slot.action.text.replace("&", "")) : ""
-                        Controls.ToolTip.visible: hovered && Controls.ToolTip.text !== ""
-                        Controls.ToolTip.delay: 600
-                        onHoveredChanged: root.actions.hint = hovered && slot.action ? slot.action.statusTip : ""
+                }
+            }
+
+            Controls.ToolButton {
+                id: more
+                objectName: root.toolbarName + "More"
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                visible: row.implicitWidth > buttonsArea.width
+                text: "»"
+                padding: Ez.Metrics.toolButtonPadding
+                focusPolicy: Qt.NoFocus
+                background: Rectangle {
+                    color: root.palette.window
+                }
+                onClicked: {
+                    // removeItem() destroys them (the items of addAction() are the
+                    // menu's: destroy() refuses them, the menu would not open)
+                    while (overflow.count > 0) {
+                        overflow.removeItem(overflow.itemAt(0))
                     }
+                    for (const action of root.hiddenActions()) {
+                        if (action) {
+                            overflow.addAction(action)
+                        } else {
+                            overflow.addItem(separatorComponent.createObject(overflow.contentItem))
+                        }
+                    }
+                    overflow.popup(more, 0, more.height)
                 }
             }
         }
-
-        Controls.ToolButton {
-            id: more
-            objectName: root.toolbarName + "More"
+        Loader {
+            id: trailingLoader
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            visible: row.implicitWidth > content.width
-            text: "»"
-            padding: Ez.Metrics.toolButtonPadding
-            focusPolicy: Qt.NoFocus
-            background: Rectangle {
-                color: root.palette.window
-            }
-            onClicked: {
-                // removeItem() destroys them (the items of addAction() are the
-                // menu's: destroy() refuses them, the menu would not open)
-                while (overflow.count > 0) {
-                    overflow.removeItem(overflow.itemAt(0))
-                }
-                for (const action of root.hiddenActions()) {
-                    if (action) {
-                        overflow.addAction(action)
-                    } else {
-                        overflow.addItem(separatorComponent.createObject(overflow.contentItem))
-                    }
-                }
-                overflow.popup(more, 0, more.height)
-            }
+            sourceComponent: root.trailing
         }
         Controls.Menu {
             id: overflow

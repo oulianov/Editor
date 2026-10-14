@@ -3659,6 +3659,155 @@ Die Dateien von RPG Maker 2000 befinden sich in:
     </message>
 </context>
 <context>
+    <name>EditorUpdater</name>
+    <message>
+        <location filename="../src/model/editor_update.cpp" line="+309"/>
+        <source>No release was found.</source>
+        <translation>Es wurde keine Version gefunden.</translation>
+    </message>
+    <message>
+        <location line="+132"/>
+        <source>Checking for Updates...</source>
+        <translation>Suche nach Updates...</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Install Update (v%1)...</source>
+        <translation>Update installieren (v%1)...</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Download Update (v%1)...</source>
+        <translation>Update herunterladen (v%1)...</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Downloading Update...</source>
+        <translation>Update wird heruntergeladen...</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Restart to Update</source>
+        <translation>Zum Aktualisieren neu starten</translation>
+    </message>
+    <message>
+        <location line="+76"/>
+        <source>Check for Updates</source>
+        <translation>Nach Updates suchen</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Cannot check for updates: %1</source>
+        <translation>Die Suche nach Updates ist fehlgeschlagen: %1</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>EasyRPG Editor is up to date (version %1).</source>
+        <translation>EasyRPG Editor ist auf dem neuesten Stand (Version %1).</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Version %1 is available (you have %2).</source>
+        <translation>Version %1 ist verfügbar (installiert ist %2).</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Install</source>
+        <translation>Installieren</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Download</source>
+        <translation>Herunterladen</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <location line="+298"/>
+        <source>Later</source>
+        <translation>Später</translation>
+    </message>
+    <message>
+        <location line="-249"/>
+        <location line="+92"/>
+        <location line="+157"/>
+        <location line="+23"/>
+        <source>Update</source>
+        <translation>Update</translation>
+    </message>
+    <message>
+        <location line="-272"/>
+        <source>EasyRPG Editor cannot replace itself in %1: the page of version %2 opens, to download it.</source>
+        <translation>EasyRPG Editor kann sich in %1 nicht selbst ersetzen: Die Seite der Version %2 wird zum Herunterladen geöffnet.</translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <location line="+80"/>
+        <location line="+131"/>
+        <source>Cannot write %1.</source>
+        <translation>%1 kann nicht geschrieben werden.</translation>
+    </message>
+    <message>
+        <location line="-178"/>
+        <source>Download of %1 failed: %2</source>
+        <translation>Download von %1 fehlgeschlagen: %2</translation>
+    </message>
+    <message>
+        <location line="+37"/>
+        <source>EasyRPG Editor cannot replace itself in %1. The disk image of version %2 was downloaded (%3) and opened: quit the Editor and drag EasyRPG Editor from it to that folder to replace this one.</source>
+        <translation>EasyRPG Editor kann sich in %1 nicht selbst ersetzen. Das Disk-Image der Version %2 wurde heruntergeladen (%3) und geöffnet: Beenden Sie den Editor und ziehen Sie EasyRPG Editor daraus in diesen Ordner, um diese Version zu ersetzen.</translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>The disk image cannot be opened: %1</source>
+        <translation>Das Disk-Image kann nicht geöffnet werden: %1</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>The disk image has no application.</source>
+        <translation>Das Disk-Image enthält keine Anwendung.</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>The application cannot be copied: %1</source>
+        <translation>Die Anwendung kann nicht kopiert werden: %1</translation>
+    </message>
+    <message>
+        <location line="+40"/>
+        <source>The update is not signed correctly: %1</source>
+        <translation>Das Update ist nicht korrekt signiert: %1</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>The update is signed by another developer.</source>
+        <translation>Das Update ist von einem anderen Entwickler signiert.</translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>The archive cannot be extracted: %1</source>
+        <translation>Das Archiv kann nicht entpackt werden: %1</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>The archive has no EasyRPG Editor.</source>
+        <translation>Das Archiv enthält keinen EasyRPG Editor.</translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Version %1 is ready. Restart now to finish the update?</source>
+        <translation>Version %1 ist bereit. Jetzt neu starten, um das Update abzuschließen?</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Restart Now</source>
+        <translation>Jetzt neu starten</translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>The update cannot be installed: %1</source>
+        <translation>Das Update kann nicht installiert werden: %1</translation>
+    </message>
+</context>
+<context>
     <name>EnableComboWidget</name>
     <message>
         <location filename="../src/model/command_schema.cpp" line="-1846"/>
@@ -5813,7 +5962,7 @@ Neue Version anzeigen und Ihre Änderungen verwerfen?</translation>
     <message>
         <location line="+39"/>
         <location filename="../src/ui/other/PlayerMissingWindow.qml" line="+31"/>
-        <location filename="../src/ui/other/SettingsWindow.qml" line="+125"/>
+        <location filename="../src/ui/other/SettingsWindow.qml" line="+137"/>
         <source>Download EasyRPG Player %1</source>
         <translation>EasyRPG Player %1 herunterladen</translation>
     </message>
@@ -8646,7 +8795,7 @@ http://localhost:8000
         <translation>EasyRPG Editor</translation>
     </message>
     <message>
-        <location filename="../src/controller/action_catalog.cpp" line="+205"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+209"/>
         <source>Game &amp;Project</source>
         <translation>Spiel / &amp;Projekt</translation>
     </message>
@@ -8696,7 +8845,7 @@ http://localhost:8000
         <translation>Werkzeugleiste</translation>
     </message>
     <message>
-        <location line="-200"/>
+        <location line="-204"/>
         <source>&amp;Open Project</source>
         <translation>Projekt &amp;öffnen</translation>
     </message>
@@ -8893,7 +9042,7 @@ http://localhost:8000
         <translation>Hilfeinhalt anzeigen</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+9"/>
         <source>&amp;Script Editor</source>
         <translation>&amp;Skripteditor</translation>
     </message>
@@ -9167,7 +9316,7 @@ http://localhost:8000
         <translation>Karteneigenschaften</translation>
     </message>
     <message>
-        <location line="-53"/>
+        <location line="-57"/>
         <source>&amp;About EasyRPG Editor</source>
         <translation>Ü&amp;ber EasyRPG Editor</translation>
     </message>
@@ -9208,9 +9357,19 @@ http://localhost:8000
     </message>
     <message>
         <location line="+27"/>
-        <location filename="../src/ui/shell/qml_shell_dialogs.cpp" line="+198"/>
+        <location filename="../src/ui/shell/qml_shell_dialogs.cpp" line="+203"/>
         <source>About EasyRPG Editor</source>
         <translation>Über EasyRPG Editor</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Check for &amp;Updates...</source>
+        <translation>Nach &amp;Updates suchen...</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Look for a newer version of EasyRPG Editor, and install it</source>
+        <translation>Nach einer neueren Version von EasyRPG Editor suchen und sie installieren</translation>
     </message>
     <message>
         <location line="+17"/>
@@ -9418,7 +9577,7 @@ Möchten Sie sie vor dem Schließen speichern?</translation>
         <translation>&lt;h3&gt;EasyRPG Editor %1&lt;/h3&gt;&lt;p&gt;Ein Spieleditor für EasyRPG- und RPG-Maker-2000/2003-Projekte.&lt;/p&gt;&lt;p&gt;Erstellt mit Qt %2.&lt;/p&gt;&lt;p&gt;Freie Software, lizenziert unter der GNU General Public License (Version 3 oder neuer).&lt;/p&gt;&lt;p&gt;&lt;a href=&quot;https://easyrpg.org/&quot;&gt;EasyRPG-Website&lt;/a&gt;&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../src/ui/shell/qml_shell.cpp" line="+492"/>
+        <location filename="../src/ui/shell/qml_shell.cpp" line="+501"/>
         <source>Open in Script Editor</source>
         <translation>Im Skripteditor öffnen</translation>
     </message>
@@ -9469,6 +9628,46 @@ Möchten Sie sie vor dem Schließen speichern?</translation>
 Save them before the export?</source>
         <translation>Einige Karten haben ungespeicherte Änderungen.
 Vor dem Export speichern?</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/MainWindow.qml" line="+185"/>
+        <source>Restart the Editor to install version %1</source>
+        <translation>Den Editor neu starten, um Version %1 zu installieren</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Downloading version %1</source>
+        <translation>Version %1 wird heruntergeladen</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Install version %1</source>
+        <translation>Version %1 installieren</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Download version %1</source>
+        <translation>Version %1 herunterladen</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Restart to Update</source>
+        <translation>Zum Aktualisieren neu starten</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Update</source>
+        <translation>Aktualisieren</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Updating %1%</source>
+        <translation>Aktualisierung %1 %</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Updating...</source>
+        <translation>Aktualisierung...</translation>
     </message>
 </context>
 <context>
@@ -16186,12 +16385,12 @@ Legen Sie ihn neben den Editor oder in den PATH, oder geben Sie sein Programm an
         <translation>Lokaler Zustand auf Standardwerte zurückgesetzt.</translation>
     </message>
     <message>
-        <location line="-169"/>
+        <location line="-181"/>
         <source>Settings</source>
         <translation>Einstellungen</translation>
     </message>
     <message>
-        <location line="+44"/>
+        <location line="+47"/>
         <source>General</source>
         <translation>Allgemein</translation>
     </message>
@@ -16206,7 +16405,17 @@ Legen Sie ihn neben den Editor oder in den PATH, oder geben Sie sein Programm an
         <translation>Sprache</translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+15"/>
+        <source>Check for updates automatically</source>
+        <translation>Automatisch nach Updates suchen</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>A few seconds after start-up, then every hour while the Editor runs.</source>
+        <translation>Einige Sekunden nach dem Start, dann stündlich, solange der Editor läuft.</translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>Project</source>
         <translation>Projekt</translation>
     </message>
@@ -16909,7 +17118,7 @@ Legen Sie ihn neben den Editor oder in den PATH, oder geben Sie sein Programm an
 <context>
     <name>StaleFile</name>
     <message>
-        <location filename="../src/qmlbinding/qml_dialog_service.cpp" line="+58"/>
+        <location filename="../src/qmlbinding/qml_dialog_service.cpp" line="+59"/>
         <source>%1 was changed by another program since the Editor read it.
 Saving now replaces those changes.</source>
         <translation>%1 wurde von einem anderen Programm geändert, seit der Editor es gelesen hat.
@@ -22651,7 +22860,7 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
 <context>
     <name>main</name>
     <message>
-        <location filename="../src/main.cpp" line="+73"/>
+        <location filename="../src/main.cpp" line="+74"/>
         <source>Project folder to open (EasyRPG or RPG Maker 2000/2003).</source>
         <translation>Zu öffnender Projektordner (EasyRPG oder RPG Maker 2000/2003).</translation>
     </message>

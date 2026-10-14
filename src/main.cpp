@@ -22,6 +22,7 @@
 #endif
 #include "common/translations.h"
 #include "common/editor_settings.h"
+#include "model/editor_update.h"
 #include "ui/shell/qml_shell.h"
 #include "ui/tools/automation.h"
 #include "ui/tools/screenshot.h"
@@ -153,6 +154,9 @@ int main(int argc, char *argv[]) {
 		qCritical().noquote() << "Cannot make the main window of the QML interface";
 		return 1;
 	}
+
+	// a newer Editor, looked for in a few seconds, then every hour (Settings)
+	EditorUpdater::instance().startAutomaticChecks(automation);
 
 	// Ctrl+Alt+S: where the screenshot went, in the status bar (a script's
 	// in its folder)
