@@ -96,10 +96,16 @@ jobs:
     name: "Flatpak (x86_64)"
     if: inputs.flatpak
     needs: check-release
+    # to attach its package to a release
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
       options: --privileged
+    env:
+      # what is attached to the release
+      PACKAGES: "EasyRPG-Editor.flatpak"
     steps:
       - uses: actions/checkout@v7
       # without a cache-key, the cache of the libraries is named after the
@@ -109,6 +115,44 @@ jobs:
           bundle: EasyRPG-Editor.flatpak
           manifest-path: builds/flatpak/org.easyrpg.editor.yml
 
+      # With "Attach to the latest release": the package attached to the
+      # release as soon as this job has it, whatever the other jobs do (a file
+      # of the same name replaced). A script action: it runs in containers too
+      - &attach
+        name: Attach to the latest release
+        if: inputs.attach-to-latest-release && needs.check-release.outputs.tag != ''
+        uses: actions/github-script@v7
+        env:
+          TAG: ${{ needs.check-release.outputs.tag }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const files = await (await glob.create(process.env.PACKAGES)).glob();
+            if (files.length === 0) {
+              core.setFailed(`No package matches ${process.env.PACKAGES}`);
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const tag = process.env.TAG;
+            const release = (await github.rest.repos.getReleaseByTag({ owner, repo, tag })).data;
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets,
+              { owner, repo, release_id: release.id, per_page: 100 });
+            for (const file of files) {
+              const name = path.basename(file);
+              for (const asset of assets.filter(a => a.name === name))
+                await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: asset.id });
+              core.info(`Attaching ${name} to ${tag}`);
+              await github.rest.repos.uploadReleaseAsset({
+                owner, repo, release_id: release.id, name,
+                data: fs.readFileSync(file),
+                headers: {
+                  'content-type': 'application/octet-stream',
+                  'content-length': fs.statSync(file).size,
+                },
+              });
+            }
+
   # The AppImages, for PCs (x86_64) and ARM computers (aarch64), each built on
   # a runner of its kind. linuxdeploy names them after the processor
   # (EasyRPG_Editor-x86_64.AppImage), which the Editor's updater reads
@@ -116,11 +160,16 @@ jobs:
     name: "AppImage (${{ matrix.os.arch }})"
     if: inputs.appimage
     needs: check-release
+    # to attach its package to a release
+    permissions:
+      contents: write
     runs-on: ${{ matrix.os.runner }}
     container:
       image: ubuntu:24.04
       options: --privileged
     env:
+      # what is attached to the release
+      PACKAGES: "EasyRPG*.AppImage"
       VCPKG_DEFAULT_BINARY_CACHE: /vcpkg-cache/archives
       VCPKG_DOWNLOADS: /vcpkg-cache/downloads
       CCACHE_DIR: /ccache
@@ -330,14 +379,21 @@ jobs:
           name: EasyRPG-Editor-AppImage-${{ matrix.os.arch }}
           path: ./EasyRPG*.AppImage
 
+      - *attach
+
   # Built with the official Qt, for macOS 13.3 and later: Homebrew's runs on
   # the newest macOS only
   macos:
     name: "macOS"
     if: inputs.macos
     needs: check-release
+    # to attach its package to a release
+    permissions:
+      contents: write
     runs-on: macos-26
     env:
+      # what is attached to the release
+      PACKAGES: "build/dist/*.dmg"
       HOMEBREW_NO_INSTALL_CLEANUP: 1
       MACOSX_DEPLOYMENT_TARGET: "13.3"
       # both kinds of Mac in each object file: 500M holds only part of a build
@@ -492,14 +548,21 @@ jobs:
           name: EasyRPG-Editor-macOS
           path: build/dist/*.dmg
 
+      - *attach
+
   # Built with MSVC and the official Qt, for Windows 10 1903 and later:
   # liblcf reads the encodings of the games with the ICU of Windows
   windows:
     name: "Windows (x64)"
     if: inputs.windows
     needs: check-release
+    # to attach its package to a release
+    permissions:
+      contents: write
     runs-on: windows-2025
     env:
+      # what is attached to the release
+      PACKAGES: "dist/*.zip"
       # the libraries of vcpkg linked in the Editor, with the runtime of Qt;
       # release builds only, as on Linux (the debug ones doubled the time)
       TRIPLET: x64-windows-static-md-release
@@ -652,31 +715,4 @@ jobs:
           name: EasyRPG-Editor-Windows
           path: dist/*.zip
 
-  # With "Attach to the latest release": the packages built (the Flatpak, the
-  # AppImage, the disk image, the zip) attached to the latest published release
-  # (checked first), replacing files of the same name, once every platform
-  # asked for built
-  release:
-    name: "Attach to the latest release"
-    if: ${{ !cancelled() && inputs.attach-to-latest-release && !contains(needs.*.result, 'failure') }}
-    needs: [check-release, flatpak, appimage, macos, windows]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download the artifacts
-        uses: actions/download-artifact@v7
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Attach them
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.check-release.outputs.tag }}
-        run: |
-          shopt -s nullglob
-          files=(artifacts/*.flatpak artifacts/*.AppImage artifacts/*.dmg artifacts/*.zip)
-          [ ${#files[@]} -gt 0 ] || { echo "::error::No package was built"; exit 1; }
-          ls -l "${files[@]}"
-          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+      - *attach
