@@ -12,11 +12,7 @@ on:
         type: boolean
         default: true
       appimage:
-        description: Linux AppImage (x86_64)
-        type: boolean
-        default: true
-      linux-arm64:
-        description: Linux build check (arm64, no package)
+        description: Linux AppImages (x86_64, aarch64)
         type: boolean
         default: true
       macos:
@@ -62,8 +58,8 @@ env:
 
 jobs:
   # First, with "Attach to the latest release": the latest published
-  # release's tag must be "v" and the version of CMakeLists.txt, or nothing is
-  # built. Without it, nothing to check
+  # release's tag must be "v" and the version of CMakeLists.txt, or no job
+  # runs. Without it, nothing to check
   check-release:
     name: "Check the latest release"
     runs-on: ubuntu-latest
@@ -113,28 +109,30 @@ jobs:
           bundle: EasyRPG-Editor.flatpak
           manifest-path: builds/flatpak/org.easyrpg.editor.yml
 
-  # The x86_64 build is the AppImage's
-  docker:
-    name: ${{ matrix.image }} (${{ matrix.os.arch }})
-    if: inputs.linux-arm64
-    runs-on: ${{ matrix.os.name }}
+  # The AppImages, for PCs (x86_64) and ARM computers (aarch64), each built on
+  # a runner of its kind. linuxdeploy names them after the processor
+  # (EasyRPG_Editor-x86_64.AppImage), which the Editor's updater reads
+  appimage:
+    name: "AppImage (${{ matrix.os.arch }})"
+    if: inputs.appimage
+    needs: check-release
+    runs-on: ${{ matrix.os.runner }}
     container:
-      image: ${{ matrix.image }}
+      image: ubuntu:24.04
+      options: --privileged
     env:
       VCPKG_DEFAULT_BINARY_CACHE: /vcpkg-cache/archives
       VCPKG_DOWNLOADS: /vcpkg-cache/downloads
       CCACHE_DIR: /ccache
-
     strategy:
       fail-fast: false
       matrix:
-        image:
-          #   version of: # CMake  | g++    | Qt        |  support end  #
-          # -------------------------------------------------------------
-          - ubuntu:24.04 # 3.28.3 | 13.2.0 | (too old) | LTS    (4/29) #
         os:
-          - arch: arm64
-            name: ubuntu-24.04-arm
+          - arch: x86_64
+            runner: ubuntu-latest
+            triplet: x64-linux-release
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
             triplet: arm64-linux-release
 
     steps:
@@ -215,18 +213,42 @@ jobs:
         run: |
           builds/testgame.sh "$PWD/build/testgame2003"
 
-      # The libraries in Release only: the Editor is built in Release.
-      # Configuring builds the libraries of vcpkg
+      - name: Install linuxdeploy dependencies
+        run: |
+          export DEBIAN_FRONTEND="noninteractive"
+          # linuxdeploy copies into the AppImage the libraries Qt and its
+          # plugins use (windows on X11 and Wayland, ffmpeg, sound): they must
+          # be installed
+          apt-get install -yqq --no-install-recommends --no-install-suggests \
+            file fuse libsm6 libice6 \
+            libgl1 libegl1 libfontconfig1 libfreetype6 libdbus-1-3 libglib2.0-0t64 \
+            libx11-6 libx11-xcb1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 \
+            libxkbcommon0 libxkbcommon-x11-0 libxcb1 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-util1 libxcb-xfixes0 \
+            libxcb-xinerama0 libxcb-xkb1 \
+            libwayland-client0 libwayland-cursor0 libwayland-egl1 \
+            libdrm2 libva2 libva-drm2 libva-x11-2 libpulse0
+
+      - name: Download linuxdeploy
+        run: |
+          curl -LO https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.os.arch }}.AppImage
+          chmod +x linuxdeploy-${{ matrix.os.arch }}.AppImage
+
+      - name: Download linuxdeploy qt plugin
+        run: |
+          curl -LO https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${{ matrix.os.arch }}.AppImage
+          chmod +x linuxdeploy-plugin-qt-${{ matrix.os.arch }}.AppImage
+
       - name: Configure
         id: configure
         run: |
           export VCPKG_ROOT=$PWD/../vcpkg
           export Qt6_Path=$QT_ROOT_DIR
-          cmake --preset vcpkg-liblcf-release -DCMAKE_INSTALL_PREFIX=/usr \
-            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" -DLIBLCF_WITH_ICU=OFF \
+          cmake --preset vcpkg-liblcf-release -DCMAKE_INSTALL_PREFIX=AppDir \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" \
             -DVCPKG_TARGET_TRIPLET=${{ matrix.os.triplet }} -DVCPKG_HOST_TRIPLET=${{ matrix.os.triplet }} \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DEDITOR_TEST_PROJECT="$PWD/build/testgame2003"
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - &build
         name: Compile
@@ -253,84 +275,6 @@ jobs:
           path: /ccache
           key: ccache-${{ matrix.os.triplet }}-${{ github.sha }}
 
-      # the Editor opens the test game, offscreen (no display here)
-      - name: Test
-        run: |
-          ctest --test-dir build/vcpkg-liblcf-release --output-on-failure --no-tests=error
-
-      - name: Install
-        run: |
-          cmake --build --preset vcpkg-liblcf-release --target install
-
-  appimage:
-    name: "AppImage (x86_64)"
-    if: inputs.appimage
-    needs: check-release
-    runs-on: ubuntu-latest
-    container:
-      image: ubuntu:24.04
-      options: --privileged
-    env:
-      VCPKG_DEFAULT_BINARY_CACHE: /vcpkg-cache/archives
-      VCPKG_DOWNLOADS: /vcpkg-cache/downloads
-      CCACHE_DIR: /ccache
-    strategy:
-      matrix:
-        os:
-          - triplet: x64-linux-release
-
-    steps:
-      - *deps
-
-      - name: Install linuxdeploy dependencies
-        run: |
-          export DEBIAN_FRONTEND="noninteractive"
-          # linuxdeploy copies into the AppImage the libraries Qt and its
-          # plugins use (windows on X11 and Wayland, ffmpeg, sound): they must
-          # be installed
-          apt-get install -yqq --no-install-recommends --no-install-suggests \
-            file fuse libsm6 libice6 \
-            libgl1 libegl1 libfontconfig1 libfreetype6 libdbus-1-3 libglib2.0-0t64 \
-            libx11-6 libx11-xcb1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 \
-            libxkbcommon0 libxkbcommon-x11-0 libxcb1 libxcb-cursor0 libxcb-icccm4 \
-            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
-            libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-util1 libxcb-xfixes0 \
-            libxcb-xinerama0 libxcb-xkb1 \
-            libwayland-client0 libwayland-cursor0 libwayland-egl1 \
-            libdrm2 libva2 libva-drm2 libva-x11-2 libpulse0
-
-      - *qt6
-      - *vcpkg
-      - *vcpkgcache
-      - *ccache
-      - *clone
-      - *cloneref
-      - *testgame
-
-      - name: Download linuxdeploy
-        run: |
-          curl -LO https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage
-
-      - name: Download linuxdeploy qt plugin
-        run: |
-          curl -LO https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-          chmod +x linuxdeploy-plugin-qt-x86_64.AppImage
-
-      - name: Configure
-        id: configure
-        run: |
-          export VCPKG_ROOT=$PWD/../vcpkg
-          export Qt6_Path=$QT_ROOT_DIR
-          cmake --preset vcpkg-liblcf-release -DCMAKE_INSTALL_PREFIX=AppDir \
-            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" \
-            -DVCPKG_TARGET_TRIPLET=${{ matrix.os.triplet }} -DVCPKG_HOST_TRIPLET=${{ matrix.os.triplet }} \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-
-      - *build
-      - *vcpkgsave
-      - *ccachesave
-
       - name: Install
         run: |
           cmake --build --preset vcpkg-liblcf-release --target install
@@ -355,7 +299,7 @@ jobs:
           kirigami="$(find "$PWD/build" -type d -path '*vcpkg_installed*/org/kde/kirigami' | head -1)"
           export QML_MODULES_PATHS="${kirigami%/org/kde/kirigami}"
           export EXTRA_PLATFORM_PLUGINS="libqoffscreen.so"
-          ./linuxdeploy-x86_64.AppImage \
+          ./linuxdeploy-${{ matrix.os.arch }}.AppImage \
             --appdir AppDir \
             --executable AppDir/bin/easyrpg-editor \
             --desktop-file AppDir/share/applications/easyrpg-editor.desktop \
@@ -383,7 +327,7 @@ jobs:
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v7
         with:
-          name: EasyRPG-Editor-AppImage
+          name: EasyRPG-Editor-AppImage-${{ matrix.os.arch }}
           path: ./EasyRPG*.AppImage
 
   # Built with the official Qt, for macOS 13.3 and later: Homebrew's runs on

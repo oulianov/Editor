@@ -149,9 +149,12 @@ version) and ccache's files between runs. To move to a newer vcpkg, change
 Flatpak, `builds/flatpak/org.easyrpg.editor.yml` and its container image, to
 a KDE runtime with that Qt).
 
-Each job runs the start-up test (below) on what it built, offscreen; the
-AppImage, the macOS application and the Windows zip are also started on the
-test game from the package itself, and fail if they carry Qt Widgets.
+The packages: the Flatpak, two AppImages (x86_64 and aarch64, each built on
+a runner of its kind), the macOS disk image (both kinds of Mac) and the
+Windows zip. The start-up test (below) runs on what each job built,
+offscreen; the AppImages, the macOS application and the Windows zip are also
+started on the test game from the package itself, and fail if they carry Qt
+Widgets.
 
 The workflow runs by hand only (Actions, "Run workflow"), from `editor-ux`:
 a run reads the caches of its own branch and of the default branch, and
