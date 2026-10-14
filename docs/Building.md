@@ -160,9 +160,10 @@ The workflow runs by hand only (Actions, "Run workflow"), from `editor-ux`:
 a run reads the caches of its own branch and of the default branch, and
 those of a tag would start empty. To release: publish the release on GitHub
 (tag `v` and the version of `CMakeLists.txt`), then run the workflow with
-"Attach to the latest release". It notarizes the macOS application, and
-each job attaches its package to that release as soon as it has it, whatever
-the other jobs do, replacing a file of the same name. It checks first: it builds nothing when the latest release has another
+"Attach to the latest release". It notarizes the macOS application, and a
+job per package attaches it to that release as soon as its build succeeded,
+whatever the other builds do, replacing a file of the same name (the two
+AppImages, one build, together). It checks first: it builds nothing when the latest release has another
 version.
 
 
