@@ -14,7 +14,7 @@ import org.easyrpg.editor as Ez
  * curve; the skills it learns and its resistances. A hero takes all this
  * from its class with Apply on the Characters page.
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     readonly property int maxLevel: rpg2k3 ? 99 : 50

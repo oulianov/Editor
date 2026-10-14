@@ -63,6 +63,7 @@
         <file alias="icons/ezbright/icons/draw-rectangle.svg">icons/bright/draw-rectangle.svg</file>
         <file alias="icons/ezbright/icons/edit-copy.svg">icons/bright/edit-copy.svg</file>
         <file alias="icons/ezbright/icons/edit-delete.svg">icons/bright/edit-delete.svg</file>
+        <file alias="icons/ezbright/icons/edit-clear.svg">icons/bright/edit-clear.svg</file>
         <file alias="icons/ezbright/icons/edit-find.svg">icons/bright/edit-find.svg</file>
         <file alias="icons/ezbright/icons/edit-paste.svg">icons/bright/edit-paste.svg</file>
         <file alias="icons/ezbright/icons/edit-redo.svg">icons/bright/edit-redo.svg</file>
@@ -108,6 +109,7 @@
         <file alias="icons/ezdark/icons/draw-rectangle.svg">icons/dark/draw-rectangle.svg</file>
         <file alias="icons/ezdark/icons/edit-copy.svg">icons/dark/edit-copy.svg</file>
         <file alias="icons/ezdark/icons/edit-delete.svg">icons/dark/edit-delete.svg</file>
+        <file alias="icons/ezdark/icons/edit-clear.svg">icons/dark/edit-clear.svg</file>
         <file alias="icons/ezdark/icons/edit-find.svg">icons/dark/edit-find.svg</file>
         <file alias="icons/ezdark/icons/edit-paste.svg">icons/dark/edit-paste.svg</file>
         <file alias="icons/ezdark/icons/edit-redo.svg">icons/dark/edit-redo.svg</file>
@@ -155,6 +157,7 @@
         <file alias="edit-copy">icons/bright/edit-copy.svg</file>
         <file alias="edit-cut">icons/bright/edit-cut.svg</file>
         <file alias="edit-delete">icons/bright/edit-delete.svg</file>
+        <file alias="edit-clear">icons/bright/edit-clear.svg</file>
         <file alias="edit-find">icons/bright/edit-find.svg</file>
         <file alias="edit-paste">icons/bright/edit-paste.svg</file>
         <file alias="edit-redo">icons/bright/edit-redo.svg</file>
@@ -211,6 +214,7 @@
         <file alias="edit-copy">icons/dark/edit-copy.svg</file>
         <file alias="edit-cut">icons/dark/edit-cut.svg</file>
         <file alias="edit-delete">icons/dark/edit-delete.svg</file>
+        <file alias="edit-clear">icons/dark/edit-clear.svg</file>
         <file alias="edit-find">icons/dark/edit-find.svg</file>
         <file alias="edit-paste">icons/dark/edit-paste.svg</file>
         <file alias="edit-redo">icons/dark/edit-redo.svg</file>

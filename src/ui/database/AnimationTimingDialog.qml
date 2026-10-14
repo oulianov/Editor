@@ -70,16 +70,17 @@ Ez.DialogWindow {
                 readOnly: true
                 text: root.se.name ?? ""
                 Layout.fillWidth: true
-                Layout.minimumWidth: 140
-            }
-            Ez.FieldButton {
-                objectName: "lineSoundPicker"
-                onClicked: {
-                    const choice = Ez.Pickers.pickFile({ folder: "Sound", preview: "Sound", name: root.se.name ?? "",
-                                                         volume: root.se.volume, tempo: root.se.tempo,
-                                                         balance: root.se.balance }, this)
-                    if (choice) {
-                        root.se = { name: choice.name, volume: choice.volume, tempo: choice.tempo, balance: choice.balance }
+                Layout.minimumWidth: 140 + buttonsWidth
+                buttons: Ez.FieldButton {
+                    objectName: "lineSoundPicker"
+                    fused: true
+                    onClicked: {
+                        const choice = Ez.Pickers.pickFile({ folder: "Sound", preview: "Sound", name: root.se.name ?? "",
+                                                             volume: root.se.volume, tempo: root.se.tempo,
+                                                             balance: root.se.balance }, this)
+                        if (choice) {
+                            root.se = { name: choice.name, volume: choice.volume, tempo: choice.tempo, balance: choice.balance }
+                        }
                     }
                 }
             }

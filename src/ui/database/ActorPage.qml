@@ -16,7 +16,7 @@ import org.easyrpg.editor as Ez
  * curve, EasyRPG settings and battle commands. Classes, battle graphics and
  * battle commands are RPG Maker 2003's: greyed in a 2000 game.
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     readonly property int maxLevel: rpg2k3 ? 99 : 50

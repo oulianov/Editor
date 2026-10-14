@@ -158,8 +158,12 @@ public:
 	/** Writes the map tree after a map saved its entry: what another
 	 *  program changed is merged, else the tree of the file is taken */
 	void writeTreeMapAfterSave();
-	/** Reads the map tree again from its file (treeMapReloaded) */
+	/** Reads the map tree again from its file (treeMapReloaded): its view
+	 *  keeps its rows, what they show expanded and its scroll */
 	bool reloadTreeMap();
+	/** The node in place of id after the map tree was read again: id when
+	 *  it stays, else the nearest node above it that stays (0: the project) */
+	int keptNode(int id) const;
 	/** A map was saved or read again: its copy of its tree entry was
 	 *  written, the tree keeps its parents, its order and the nodes the
 	 *  interface shows expanded */
@@ -249,6 +253,9 @@ private:
 	QSize mapSize(int id) const;
 
 	MapTreeModel m_tree;
+	// the nodes the last reload of the tree removed, with the node above
+	// each that stayed
+	QHash<int, int> m_treeRemoved;
 	QMap<int, MapDocument*> m_documents;
 	std::function<QList<int>()> m_documentOrder;
 	std::function<bool()> m_viewSync;

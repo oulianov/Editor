@@ -72,18 +72,20 @@ ColumnLayout {
             text: page.triggerText
             // the whole text when the line is too short for it
             Layout.fillWidth: true
-            Controls.ToolTip.visible: hovered && text !== ""
+            Controls.ToolTip.visible: hovered && !trigger.hovered && text !== ""
             Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
             Controls.ToolTip.text: text
             onTextChanged: cursorPosition = 0
-        }
-        Ez.FieldButton {
-            objectName: "pushTrigger"
-            enabled: page.valid
-            Controls.ToolTip.visible: hovered
-            Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
-            Controls.ToolTip.text: qsTr("Define Battle Event Triggers")
-            onClicked: page.editTrigger(this)
+            buttons: Ez.FieldButton {
+                id: trigger
+                objectName: "pushTrigger"
+                fused: true
+                enabled: page.valid
+                Controls.ToolTip.visible: hovered
+                Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
+                Controls.ToolTip.text: qsTr("Define Battle Event Triggers")
+                onClicked: page.editTrigger(this)
+            }
         }
     }
 

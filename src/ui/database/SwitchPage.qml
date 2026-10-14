@@ -8,7 +8,7 @@ import QtQuick.Layouts
 import org.easyrpg.editor as Ez
 
 /** A switch of the game: its name (the event commands show it) */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     ColumnLayout {

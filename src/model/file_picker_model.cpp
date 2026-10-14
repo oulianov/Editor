@@ -157,6 +157,21 @@ int FilePickerModel::rowOf(const QString& name) const
 	return -1;
 }
 
+int FilePickerModel::rowStartingWith(const QString& text, int from) const
+{
+	const int count = m_entries.size();
+	if (text.isEmpty() || count == 0) {
+		return -1;
+	}
+	for (int i = 0; i < count; ++i) {
+		const int row = (std::max(0, from) + i) % count;
+		if (m_entries[row].name.startsWith(text, Qt::CaseInsensitive)) {
+			return row;
+		}
+	}
+	return -1;
+}
+
 QString FilePickerModel::currentName() const
 {
 	return m_current >= 0 ? m_entries[m_current].name : QString();

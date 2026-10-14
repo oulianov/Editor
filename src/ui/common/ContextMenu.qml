@@ -3,6 +3,7 @@
 
 import QtQuick
 import QtQuick.Controls as Controls
+import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
 /**
@@ -16,9 +17,18 @@ import org.easyrpg.editor as Ez
  * away from the pointer; Qt pushes a menu window inside the screen the same
  * way, and only knows its size once its items are laid out: the menu is
  * placed again when its size changes.
+ *
+ * Its items show the Editor's icons, the same for an action in every menu
+ * (resources/icons): icon.source: menu.iconFolder + "edit-copy". Cut, Copy,
+ * Paste: edit-cut, edit-copy, edit-paste; Delete (removed): edit-delete;
+ * Clear (emptied): edit-clear; Edit... and Properties: properties; Insert,
+ * New: new; Select All: select-all; Undo, Redo: edit-undo, edit-redo.
  */
 Controls.Menu {
     id: root
+
+    /** The icons drawn for the colors of the menu, light or dark */
+    readonly property string iconFolder: Kirigami.Theme.backgroundColor.hslLightness < 0.5 ? "qrc:/dark/" : "qrc:/bright/"
 
     /** The point the menu opens at: an item of no size in the item clicked
      *  (the menu takes its colors from there), hidden (a layout leaves it) */

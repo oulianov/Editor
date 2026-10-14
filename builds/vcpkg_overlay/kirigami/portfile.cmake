@@ -12,7 +12,7 @@ vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}"
     OPTIONS
         -DBUILD_EXAMPLES=OFF
-        -DCMAKE_PREFIX_PATH="$ENV{Qt6_Path}"
+        "-DCMAKE_PREFIX_PATH=$ENV{Qt6_Path}"
 )
 
 vcpkg_cmake_install()

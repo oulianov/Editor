@@ -17,8 +17,10 @@ import org.easyrpg.editor as Ez
  * battle events: pages of commands, each with its trigger. The test battle
  * against it opens from here (TestBattleDialog.qml).
  */
-RichPage {
+DatabaseEntryPage {
     id: root
+    // its canvas or list as large as the page
+    fillHeight: true
 
     /** Its index in the troops */
     readonly property int troopIndex: entry ? Number(entry.pathPrefix.split("/")[2] ?? -1) : -1

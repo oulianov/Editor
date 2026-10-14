@@ -79,6 +79,7 @@ Ez.ArrayTable {
     columns: [{ title: qsTr("Monster Groups"), text: row => root.encounters.text(row) }]
     onActivated: (row) => edit(row)
     onRemoveRequested: (row) => remove()
+    contextMenu: menu
 
     // only while the list has the focus: the window has other fields
     Shortcut {
@@ -97,16 +98,6 @@ Ez.ArrayTable {
         onActivated: root.paste()
     }
 
-    MouseArea {
-        id: rightClick
-        anchors.fill: parent
-        acceptedButtons: Qt.RightButton
-        onPressed: (mouse) => {
-            root.forceActiveFocus()
-            menu.popupAt(rightClick, mouse.x, mouse.y)
-        }
-    }
-
     Ez.ContextMenu {
         id: menu
 
@@ -117,30 +108,35 @@ Ez.ArrayTable {
         Controls.MenuItem {
             objectName: "actionEncounterEdit"
             text: qsTr("Edit...")
+            icon.source: menu.iconFolder + "properties"
             onTriggered: root.edit(root.currentIndex)
         }
         Controls.MenuSeparator {}
         Controls.MenuItem {
             objectName: "actionEncounterCut"
             text: qsTr("Cut")
+            icon.source: menu.iconFolder + "edit-cut"
             enabled: menu.selected
             onTriggered: root.cut()
         }
         Controls.MenuItem {
             objectName: "actionEncounterCopy"
             text: qsTr("Copy")
+            icon.source: menu.iconFolder + "edit-copy"
             enabled: menu.selected
             onTriggered: root.copy()
         }
         Controls.MenuItem {
             objectName: "actionEncounterPaste"
             text: qsTr("Paste")
+            icon.source: menu.iconFolder + "edit-paste"
             enabled: root.encounters !== null && root.encounters.canPaste
             onTriggered: root.paste()
         }
         Controls.MenuItem {
             objectName: "actionEncounterDelete"
             text: qsTr("Delete")
+            icon.source: menu.iconFolder + "edit-delete"
             enabled: menu.selected
             onTriggered: root.remove()
         }

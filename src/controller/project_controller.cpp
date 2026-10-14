@@ -168,6 +168,7 @@ void ProjectController::open(const std::shared_ptr<Project>& project)
 	core().project() = project;
 	m_tree.setRootName(project->gameTitle());
 	m_tree.setTreeMap(&project->treeMap());
+	m_treeRemoved.clear();
 	emit projectChanged();
 }
 
@@ -523,16 +524,26 @@ bool ProjectController::reloadTreeMap()
 {
 	if (!core().project())
 		return false;
+	// the names shown before, for the rows renamed
+	const lcf::rpg::TreeMap before = core().project()->treeMap();
 	if (!core().project()->reloadTreeMap()) {
 		emit statusMessage(tr("The map tree changed on disk but could not be read"), 5000);
 		return false;
 	}
 	m_tree.setRootName(core().project()->gameTitle());
-	m_tree.reset();
+	m_treeRemoved = m_tree.update(before);
 	emit treeMapReloaded();
 	emit statusMessage(tr("Map tree reloaded"), 3000);
 	qCInfo(lcReload) << "map tree reloaded";
 	return true;
+}
+
+int ProjectController::keptNode(int id) const
+{
+	if (m_tree.contains(id))
+		return id;
+	const int above = m_treeRemoved.value(id, 0);
+	return m_tree.contains(above) ? above : 0;
 }
 
 void ProjectController::keepTreeAfterMapSave()

@@ -12,7 +12,7 @@ import org.easyrpg.editor as Ez
  * once the size is accepted; the owner resizes the list (list.resize(count)) and
  * selects what it shows.
  *
- *   Ez.ArraySizeDialog { id: arraySize; list: pane.list; onConfirmed: (count) => pane.resize(count) }
+ *   Ez.ArraySizeDialog { id: arraySize; list: listPage.jsonData; onConfirmed: (count) => listPage.resize(count) }
  *   ...
  *   onClicked: arraySize.ask()
  */

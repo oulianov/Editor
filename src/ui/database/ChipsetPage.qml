@@ -16,8 +16,10 @@ import org.easyrpg.editor as Ez
  * RPG Maker 2003's arrows and dots, counters) on the lower or upper layer,
  * and the animation of its water.
  */
-RichPage {
+DatabaseEntryPage {
     id: root
+    // its canvas or list as large as the page
+    fillHeight: true
 
     readonly property alias canvas: canvas
 

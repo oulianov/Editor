@@ -19,8 +19,10 @@ import org.easyrpg.editor as Ez
  * frame tools are Mass Copy/Clear, Autocomplete and Mass Modify. What is
  * done to the animation is the canvas's (Ez.AnimationCanvas).
  */
-RichPage {
+DatabaseEntryPage {
     id: root
+    // its canvas or list as large as the page
+    fillHeight: true
 
     readonly property alias canvas: canvas
 
@@ -194,32 +196,33 @@ RichPage {
                         }
                         event.accepted = true
                     }
-                    TapHandler {
-                        acceptedButtons: Qt.RightButton
-                        onTapped: (eventPoint) => frameMenu.popupAt(parent, eventPoint.position.x, eventPoint.position.y)
-                    }
+                    contextMenu: frameMenu
                     Ez.ContextMenu {
                         id: frameMenu
                         font: Ez.Metrics.font
                         Controls.MenuItem {
                             objectName: "actionFrameCopy"
                             text: qsTranslate("EditActions", "Copy")
+                            icon.source: frameMenu.iconFolder + "edit-copy"
                             onTriggered: canvas.copyFrame()
                         }
                         Controls.MenuItem {
                             objectName: "actionFramePaste"
                             text: qsTranslate("EditActions", "Paste")
+                            icon.source: frameMenu.iconFolder + "edit-paste"
                             enabled: frameMenu.visible && canvas.canPasteFrame()
                             onTriggered: canvas.pasteFrame()
                         }
                         Controls.MenuItem {
                             objectName: "actionFrameClear"
                             text: qsTranslate("EditActions", "Clear")
+                            icon.source: frameMenu.iconFolder + "edit-clear"
                             onTriggered: canvas.clearFrame()
                         }
                         Controls.MenuItem {
                             objectName: "actionFrameCut"
                             text: qsTranslate("EditActions", "Cut")
+                            icon.source: frameMenu.iconFolder + "edit-cut"
                             onTriggered: canvas.cutFrame()
                         }
                         Controls.MenuSeparator {}
@@ -227,12 +230,14 @@ RichPage {
                         Controls.MenuItem {
                             objectName: "actionFrameInsert"
                             text: qsTr("Insert")
+                            icon.source: frameMenu.iconFolder + "new"
                             enabled: canvas.frameCount < 999
                             onTriggered: canvas.insertFrame()
                         }
                         Controls.MenuItem {
                             objectName: "actionFrameDelete"
                             text: qsTranslate("EditActions", "Delete")
+                            icon.source: frameMenu.iconFolder + "edit-delete"
                             enabled: canvas.frameCount > 1
                             onTriggered: canvas.deleteFrame()
                         }
@@ -322,6 +327,7 @@ RichPage {
                         Controls.MenuItem {
                             objectName: "actionCelProperties"
                             text: qsTr("Cel Properties")
+                            icon.source: celMenu.iconFolder + "properties"
                             enabled: canvas.cellEditable
                             onTriggered: root.editCel()
                         }
@@ -329,24 +335,28 @@ RichPage {
                         Controls.MenuItem {
                             objectName: "actionCelCut"
                             text: qsTranslate("EditActions", "Cut")
+                            icon.source: celMenu.iconFolder + "edit-cut"
                             enabled: canvas.cellEditable
                             onTriggered: canvas.cutCell()
                         }
                         Controls.MenuItem {
                             objectName: "actionCelCopy"
                             text: qsTranslate("EditActions", "Copy")
+                            icon.source: celMenu.iconFolder + "edit-copy"
                             enabled: canvas.cellEditable
                             onTriggered: canvas.copyCell()
                         }
                         Controls.MenuItem {
                             objectName: "actionCelPaste"
                             text: qsTranslate("EditActions", "Paste")
+                            icon.source: celMenu.iconFolder + "edit-paste"
                             enabled: celMenu.visible && canvas.canPasteCell()
                             onTriggered: canvas.pasteCell()
                         }
                         Controls.MenuItem {
                             objectName: "actionCelDelete"
                             text: qsTranslate("EditActions", "Delete")
+                            icon.source: celMenu.iconFolder + "edit-delete"
                             enabled: canvas.cellEditable
                             onTriggered: canvas.deleteCell()
                         }
@@ -633,10 +643,7 @@ RichPage {
                             }
                             event.accepted = true
                         }
-                        TapHandler {
-                            acceptedButtons: Qt.RightButton
-                            onTapped: (eventPoint) => timingMenu.popupAt(parent, eventPoint.position.x, eventPoint.position.y)
-                        }
+                        contextMenu: timingMenu
                         Ez.ContextMenu {
                             id: timingMenu
                             readonly property bool onTiming: canvas.currentTiming >= 0
@@ -644,30 +651,35 @@ RichPage {
                             Controls.MenuItem {
                                 objectName: "actionTimingEdit"
                                 text: qsTranslate("EditActions", "Edit...")
+                                icon.source: timingMenu.iconFolder + "properties"
                                 onTriggered: root.editTiming(canvas.currentTiming)
                             }
                             Controls.MenuSeparator {}
                             Controls.MenuItem {
                                 objectName: "actionTimingCut"
                                 text: qsTranslate("EditActions", "Cut")
+                                icon.source: timingMenu.iconFolder + "edit-cut"
                                 enabled: timingMenu.onTiming
                                 onTriggered: canvas.cutTiming()
                             }
                             Controls.MenuItem {
                                 objectName: "actionTimingCopy"
                                 text: qsTranslate("EditActions", "Copy")
+                                icon.source: timingMenu.iconFolder + "edit-copy"
                                 enabled: timingMenu.onTiming
                                 onTriggered: canvas.copyTiming()
                             }
                             Controls.MenuItem {
                                 objectName: "actionTimingPaste"
                                 text: qsTranslate("EditActions", "Paste")
+                                icon.source: timingMenu.iconFolder + "edit-paste"
                                 enabled: timingMenu.visible && canvas.canPasteTiming()
                                 onTriggered: canvas.pasteTiming()
                             }
                             Controls.MenuItem {
                                 objectName: "actionTimingDelete"
                                 text: qsTranslate("EditActions", "Delete")
+                                icon.source: timingMenu.iconFolder + "edit-delete"
                                 enabled: timingMenu.onTiming
                                 onTriggered: canvas.deleteTiming()
                             }

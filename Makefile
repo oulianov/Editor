@@ -5,9 +5,9 @@
 #   make test     build with the tests, then run them
 #   make clean    remove the build
 #
-#   QT_DIR=...    an official Qt 6 (qt.io or aqt), e.g. ~/Qt/6.10.1/macos
+#   QT_DIR=...    an official Qt 6 (qt.io or aqt), e.g. ~/Qt/6.11.2/macos
 #                 (macOS: instead of Homebrew's; Linux: required unless
-#                 CMake finds a Qt 6.10 itself)
+#                 CMake finds a Qt 6.10 or later itself)
 #
 # See docs/Building.md for what each platform needs and the options.
 
@@ -18,11 +18,16 @@ ifeq ($(OS),Darwin)
 APP := $(BUILD_DIR)/EasyRPG Editor.app
 TEST_DIR := $(BUILD_DIR)
 else
-# Linux: the vcpkg preset of upstream; vcpkg builds zlib, inih and expat
+# Linux: the vcpkg preset of upstream; vcpkg builds zlib, inih, expat, glaze,
+# Kirigami, Breeze and KDDockWidgets
 PRESET := vcpkg-liblcf-release
 QT_PREFIX := $(if $(QT_DIR),-DCMAKE_PREFIX_PATH="$(QT_DIR)")
+# the KDE ports of vcpkg (builds/vcpkg_overlay) build against this Qt too
+ifneq ($(QT_DIR),)
+export Qt6_Path := $(abspath $(QT_DIR))
+endif
 TEST_DIR := build/$(PRESET)
-# the game the GUI tests change: a copy of TestGame-2003, downloaded once
+# the game the start-up test opens: a copy of TestGame-2003, downloaded once
 EDITOR_TEST_PROJECT ?= $(TEST_DIR)/testgame2003
 endif
 

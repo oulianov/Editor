@@ -61,6 +61,9 @@ private:
 	/** edit-database-file, expect-database-file: a value of the database file on
 	 *  disk; expect-database: of the project's, in memory */
 	bool databaseFile(const QStringList& args);
+	/** edit-tree-file: the map tree file on disk changed apart from the
+	 *  Editor, as rpgsync changes it */
+	bool treeFile(const QStringList& args);
 
 	QmlShell& m_window;
 	/** The commands on the windows (their items, the mouse, the keys) */

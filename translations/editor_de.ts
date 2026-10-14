@@ -56,6 +56,7 @@
     </message>
     <message>
         <location line="+12"/>
+        <location filename="../src/ui/picker/CharSetPicker.qml" line="+59"/>
         <source>Options</source>
         <translation>Optionen</translation>
     </message>
@@ -121,6 +122,7 @@
     </message>
     <message>
         <location line="+14"/>
+        <location filename="../src/ui/picker/CharSetPicker.qml" line="+3"/>
         <source>Translucent</source>
         <translation>Durchscheinend</translation>
     </message>
@@ -530,7 +532,7 @@
 <context>
     <name>BattleAnimation2Widget</name>
     <message>
-        <location filename="../src/ui/database/BattleAnimation2Page.qml" line="+131"/>
+        <location filename="../src/ui/database/BattleAnimation2Page.qml" line="+133"/>
         <location line="+187"/>
         <location line="+23"/>
         <source>Name</source>
@@ -663,7 +665,7 @@
 <context>
     <name>BattleAnimationWidget</name>
     <message>
-        <location filename="../src/ui/database/BattleAnimationPage.qml" line="+64"/>
+        <location filename="../src/ui/database/BattleAnimationPage.qml" line="+66"/>
         <source>Name</source>
         <translation>Name</translation>
     </message>
@@ -718,7 +720,7 @@
         <translation>Y-Achse</translation>
     </message>
     <message>
-        <location filename="../src/ui/database/AnimationTimingDialog.qml" line="+101"/>
+        <location filename="../src/ui/database/AnimationTimingDialog.qml" line="+102"/>
         <location line="+74"/>
         <location filename="../src/ui/database/BattleAnimationPage.qml" line="+11"/>
         <location filename="../src/model/animation_editor.cpp" line="+541"/>
@@ -727,12 +729,12 @@
     </message>
     <message>
         <location filename="../src/ui/database/BattleAnimationPage.qml" line="+24"/>
-        <location line="+551"/>
+        <location line="+561"/>
         <source>Frames</source>
         <translation>Bilder</translation>
     </message>
     <message>
-        <location line="-465"/>
+        <location line="-472"/>
         <source>Number of Frames...</source>
         <translation>Anzahl der Bilder...</translation>
     </message>
@@ -742,7 +744,7 @@
         <translation>Ersetzt die Zellen dieses Bildes durch die des vorherigen Bildes</translation>
     </message>
     <message>
-        <location line="+117"/>
+        <location line="+122"/>
         <source>&amp;Back</source>
         <translation>&amp;Zurück</translation>
     </message>
@@ -758,12 +760,12 @@
     </message>
     <message>
         <location line="+40"/>
-        <location line="+197"/>
+        <location line="+199"/>
         <source>Delete</source>
         <translation>Löschen</translation>
     </message>
     <message>
-        <location line="-193"/>
+        <location line="-195"/>
         <source>Pattern</source>
         <translation>Muster</translation>
     </message>
@@ -816,7 +818,7 @@
         <translation>Effekt-Timing</translation>
     </message>
     <message>
-        <location filename="../src/ui/database/AnimationTimingDialog.qml" line="-84"/>
+        <location filename="../src/ui/database/AnimationTimingDialog.qml" line="-85"/>
         <location filename="../src/ui/database/BattleAnimationPage.qml" line="+10"/>
         <source>Frame</source>
         <translation>Bild</translation>
@@ -828,7 +830,7 @@
         <translation>Soundeffekt</translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+28"/>
         <location filename="../src/ui/database/BattleAnimationPage.qml" line="+1"/>
         <source>Flash</source>
         <translation>Blitz</translation>
@@ -839,7 +841,7 @@
         <translation>Wackeln</translation>
     </message>
     <message>
-        <location line="+75"/>
+        <location line="+77"/>
         <source>Add</source>
         <translation>Hinzufügen</translation>
     </message>
@@ -864,7 +866,7 @@
         <translation>Zelle %1: Muster %2</translation>
     </message>
     <message>
-        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-327"/>
+        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-329"/>
         <source>Frame %1 / %2</source>
         <translation>Bild %1 / %2</translation>
     </message>
@@ -888,12 +890,12 @@
         <translation>%1 (%2, %3, %4, %5)</translation>
     </message>
     <message>
-        <location filename="../src/ui/database/AnimationTimingDialog.qml" line="-142"/>
+        <location filename="../src/ui/database/AnimationTimingDialog.qml" line="-143"/>
         <source>Animation Effect Timing</source>
         <translation>Effekt-Timing der Animation</translation>
     </message>
     <message>
-        <location line="+61"/>
+        <location line="+62"/>
         <source>Flash Scope</source>
         <translation>Blitzbereich</translation>
     </message>
@@ -918,17 +920,17 @@
         <translation>Stopp</translation>
     </message>
     <message>
-        <location line="-141"/>
+        <location line="-146"/>
         <source>Clone Previous</source>
         <translation>Vorheriges klonen</translation>
     </message>
     <message>
-        <location line="+141"/>
+        <location line="+146"/>
         <source>Play</source>
         <translation>Abspielen</translation>
     </message>
     <message>
-        <location line="-295"/>
+        <location line="-303"/>
         <source>Large</source>
         <translation>Groß</translation>
     </message>
@@ -938,7 +940,7 @@
         <translation>Eine große Animation: Zellen mit 128x128 Pixeln aus dem Ordner Battle2 (RPG Maker 2003)</translation>
     </message>
     <message>
-        <location line="+167"/>
+        <location line="+170"/>
         <source>Autocomplete...</source>
         <translation>Automatisch ergänzen...</translation>
     </message>
@@ -948,7 +950,7 @@
         <translation>Zelleigenschaften</translation>
     </message>
     <message>
-        <location line="+262"/>
+        <location line="+267"/>
         <source>Cels are placed and moved by steps of %1 pixels</source>
         <translation>Zellen werden in Schritten von %1 Pixeln platziert und verschoben</translation>
     </message>
@@ -958,12 +960,12 @@
         <translation>Klicken Sie auf die Vorschau, um eine Zelle des gewählten Musters zu platzieren, ziehen Sie eine Zelle, um sie zu verschieben (mit Umschalt: alle Zellen), Rechtsklick öffnet ihr Menü. Die Pfeiltasten verschieben sie.</translation>
     </message>
     <message>
-        <location line="-179"/>
+        <location line="-184"/>
         <source>Copies the cels of a range of frames to other frames, or removes them</source>
         <translation>Kopiert die Zellen eines Bildbereichs in andere Bilder oder entfernt sie</translation>
     </message>
     <message>
-        <location line="+96"/>
+        <location line="+101"/>
         <source>Decrement Image ID</source>
         <translation>Bildnummer verringern</translation>
     </message>
@@ -973,17 +975,17 @@
         <translation>Bildnummer erhöhen</translation>
     </message>
     <message>
-        <location line="-72"/>
+        <location line="-77"/>
         <source>Gives a pattern, zoom, transparency or color to cels of a range of frames</source>
         <translation>Gibt den Zellen eines Bildbereichs ein Muster, einen Zoom, eine Transparenz oder eine Farbe</translation>
     </message>
     <message>
-        <location line="-55"/>
+        <location line="-57"/>
         <source>Insert</source>
         <translation>Einfügen</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+35"/>
         <source>Mass Copy/Clear...</source>
         <translation>Massenhaft kopieren/leeren...</translation>
     </message>
@@ -998,7 +1000,7 @@
         <translation>Platziert die Zellen zwischen zwei Bildern, vom ersten zum letzten Bild bewegt</translation>
     </message>
     <message>
-        <location line="+305"/>
+        <location line="+310"/>
         <source>Use Grid</source>
         <translation>Raster verwenden</translation>
     </message>
@@ -1174,7 +1176,7 @@
         <translation>Auslöser</translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location line="+20"/>
         <source>Define Battle Event Triggers</source>
         <translation>Auslöser für Kampfereignis festlegen</translation>
     </message>
@@ -2225,7 +2227,7 @@
 <context>
     <name>ChipsetWidget</name>
     <message>
-        <location filename="../src/ui/database/ChipsetPage.qml" line="+52"/>
+        <location filename="../src/ui/database/ChipsetPage.qml" line="+54"/>
         <source>Lower Layer</source>
         <translation>Untere Ebene</translation>
     </message>
@@ -2509,7 +2511,7 @@
 <context>
     <name>CommonEventWidget</name>
     <message>
-        <location filename="../src/ui/database/CommonEventPage.qml" line="+70"/>
+        <location filename="../src/ui/database/CommonEventPage.qml" line="+72"/>
         <source>Name:</source>
         <translation>Name:</translation>
     </message>
@@ -3394,7 +3396,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Datenbank</translation>
     </message>
     <message>
-        <location filename="../src/ui/database/DatabaseView.qml" line="+41"/>
+        <location filename="../src/ui/database/DatabasePage.qml" line="+51"/>
         <location filename="../src/ui/picker/EntryPicker.qml" line="-18"/>
         <source>Characters</source>
         <translation>Helden</translation>
@@ -3504,7 +3506,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Variablen</translation>
     </message>
     <message>
-        <location filename="../src/ui/database/DatabaseSplit.qml" line="+83"/>
+        <location filename="../src/ui/database/DatabaseEntryListPage.qml" line="+500"/>
         <source>This page is not available in the QML database yet.</source>
         <translation>Diese Seite ist in der QML-Datenbank noch nicht verfügbar.</translation>
     </message>
@@ -3512,14 +3514,14 @@ Die Dateien von RPG Maker 2000 befinden sich in:
 <context>
     <name>DatabaseSplitWidget</name>
     <message>
-        <location filename="../src/ui/common/EntryListPane.qml" line="+122"/>
+        <location line="-309"/>
         <location filename="../src/ui/picker/EntryPicker.qml" line="+40"/>
         <source>Filter</source>
         <translation>Filter</translation>
     </message>
     <message>
-        <location line="+140"/>
-        <location filename="../src/ui/common/RefComboBox.qml" line="+576"/>
+        <location filename="../src/ui/common/RefComboBox.qml" line="+607"/>
+        <location filename="../src/ui/database/DatabaseEntryListPage.qml" line="+144"/>
         <location filename="../src/ui/picker/EntryPicker.qml" line="+48"/>
         <source>Array Size...</source>
         <translation>Arraygröße...</translation>
@@ -3558,7 +3560,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         </translation>
     </message>
     <message>
-        <location filename="../src/ui/common/EntryListPane.qml" line="+93"/>
+        <location filename="../src/ui/database/DatabaseEntryListPage.qml" line="+74"/>
         <source>Multiple Copy...</source>
         <translation>Mehrfach kopieren...</translation>
     </message>
@@ -3576,7 +3578,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
 <context>
     <name>EditActions</name>
     <message>
-        <location filename="../src/ui/event/CommandList.qml" line="+535"/>
+        <location filename="../src/ui/event/CommandList.qml" line="+538"/>
         <source>Undo</source>
         <translation>Rückgängig</translation>
     </message>
@@ -3591,31 +3593,31 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Einfügen...</translation>
     </message>
     <message>
-        <location filename="../src/ui/database/BattleAnimationPage.qml" line="+66"/>
-        <location filename="../src/ui/database/EnemyPage.qml" line="+430"/>
+        <location filename="../src/ui/database/BattleAnimationPage.qml" line="+63"/>
+        <location filename="../src/ui/database/EnemyPage.qml" line="+427"/>
         <location filename="../src/ui/event/CommandList.qml" line="+6"/>
         <source>Edit...</source>
         <translation>Bearbeiten...</translation>
     </message>
     <message>
-        <location filename="../src/ui/commands/MoveEventEditor.qml" line="+408"/>
-        <location filename="../src/ui/common/EntryListPane.qml" line="-59"/>
-        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-424"/>
-        <location line="+109"/>
-        <location line="+321"/>
-        <location filename="../src/ui/database/EnemyPage.qml" line="+6"/>
+        <location filename="../src/ui/commands/MoveEventEditor.qml" line="+409"/>
+        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-429"/>
+        <location line="+113"/>
+        <location line="+323"/>
+        <location filename="../src/ui/database/DatabaseEntryListPage.qml" line="-59"/>
+        <location filename="../src/ui/database/EnemyPage.qml" line="+7"/>
         <location filename="../src/ui/event/CommandList.qml" line="+7"/>
-        <location filename="../src/ui/event/MoveRouteEditor.qml" line="+406"/>
+        <location filename="../src/ui/event/MoveRouteEditor.qml" line="+407"/>
         <source>Cut</source>
         <translation>Ausschneiden</translation>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../src/ui/common/EntryListPane.qml" line="-36"/>
-        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-446"/>
-        <location line="+131"/>
-        <location line="+321"/>
-        <location filename="../src/ui/database/EnemyPage.qml" line="+6"/>
+        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-455"/>
+        <location line="+139"/>
+        <location line="+323"/>
+        <location filename="../src/ui/database/DatabaseEntryListPage.qml" line="-36"/>
+        <location filename="../src/ui/database/EnemyPage.qml" line="+7"/>
         <location filename="../src/ui/event/CommandList.qml" line="+6"/>
         <location filename="../src/ui/event/MoveRouteEditor.qml" line="+6"/>
         <source>Copy</source>
@@ -3623,11 +3625,11 @@ Die Dateien von RPG Maker 2000 befinden sich in:
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../src/ui/common/EntryListPane.qml" line="+11"/>
-        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-447"/>
-        <location line="+132"/>
-        <location line="+321"/>
-        <location filename="../src/ui/database/EnemyPage.qml" line="+6"/>
+        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-456"/>
+        <location line="+140"/>
+        <location line="+323"/>
+        <location filename="../src/ui/database/DatabaseEntryListPage.qml" line="+11"/>
+        <location filename="../src/ui/database/EnemyPage.qml" line="+7"/>
         <location filename="../src/ui/event/CommandList.qml" line="+6"/>
         <location filename="../src/ui/event/MoveRouteEditor.qml" line="+6"/>
         <source>Paste</source>
@@ -3635,18 +3637,18 @@ Die Dateien von RPG Maker 2000 befinden sich in:
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-429"/>
-        <location line="+114"/>
-        <location line="+321"/>
-        <location filename="../src/ui/database/EnemyPage.qml" line="+6"/>
+        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-435"/>
+        <location line="+119"/>
+        <location line="+323"/>
+        <location filename="../src/ui/database/EnemyPage.qml" line="+7"/>
         <location filename="../src/ui/event/CommandList.qml" line="+6"/>
         <location filename="../src/ui/event/MoveRouteEditor.qml" line="+6"/>
         <source>Delete</source>
         <translation>Löschen</translation>
     </message>
     <message>
-        <location filename="../src/ui/common/EntryListPane.qml" line="+13"/>
-        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-453"/>
+        <location filename="../src/ui/database/BattleAnimationPage.qml" line="-463"/>
+        <location filename="../src/ui/database/DatabaseEntryListPage.qml" line="+13"/>
         <source>Clear</source>
         <translation>Leeren</translation>
     </message>
@@ -3705,33 +3707,33 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Truppen</translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="+31"/>
         <source>Edit...</source>
         <translation>Bearbeiten...</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Cut</source>
         <translation>Ausschneiden</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Copy</source>
         <translation>Kopieren</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Paste</source>
         <translation>Einfügen</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Delete</source>
         <translation>Löschen</translation>
     </message>
     <message>
         <location filename="../src/ui/maptree/EncounterDialog.qml" line="+25"/>
-        <location filename="../src/ui/maptree/EncounterTable.qml" line="+26"/>
+        <location filename="../src/ui/maptree/EncounterTable.qml" line="+27"/>
         <source>Define Encounter</source>
         <translation>Begegnung festlegen</translation>
     </message>
@@ -3750,7 +3752,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
     <name>EnemyActionDialog</name>
     <message>
         <location filename="../src/ui/database/EnemyActionDialog.qml" line="+219"/>
-        <location filename="../src/ui/database/EnemyPage.qml" line="-426"/>
+        <location filename="../src/ui/database/EnemyPage.qml" line="-427"/>
         <source>Attack</source>
         <translation>Angriff</translation>
     </message>
@@ -4113,7 +4115,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
 <context>
     <name>EnemyGroupView</name>
     <message>
-        <location filename="../src/ui/database/TroopPage.qml" line="+131"/>
+        <location filename="../src/ui/database/TroopPage.qml" line="+133"/>
         <source>Invisible</source>
         <translation>Unsichtbar</translation>
     </message>
@@ -4234,7 +4236,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
 <context>
     <name>EnemyPickerWidget</name>
     <message>
-        <location filename="../src/ui/picker/FilePicker.qml" line="+271"/>
+        <location filename="../src/ui/picker/MonsterPicker.qml" line="+21"/>
         <source>Color Alteration</source>
         <translation>Farbänderung</translation>
     </message>
@@ -4347,12 +4349,12 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Verhalten</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+36"/>
         <source>Double-click a line to edit it, or the empty line to add an action</source>
         <translation>Doppelklicken Sie auf eine Zeile, um sie zu bearbeiten, oder auf die leere Zeile, um eine Aktion hinzuzufügen</translation>
     </message>
     <message>
-        <location line="-28"/>
+        <location line="-25"/>
         <source>Action</source>
         <translation>Aktion</translation>
     </message>
@@ -4367,12 +4369,12 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Priorität</translation>
     </message>
     <message>
-        <location line="+80"/>
+        <location line="+82"/>
         <source>Attribute Resist</source>
         <translation>Attributsresistenz</translation>
     </message>
     <message>
-        <location line="-106"/>
+        <location line="-108"/>
         <source>Option</source>
         <translation>Option</translation>
     </message>
@@ -4387,12 +4389,12 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Fliegend</translation>
     </message>
     <message>
-        <location line="+275"/>
+        <location line="+277"/>
         <source>Condition Resist</source>
         <translation>Zustandsresistenz</translation>
     </message>
     <message>
-        <location line="-167"/>
+        <location line="-169"/>
         <source>(None)</source>
         <translation>(Keine)</translation>
     </message>
@@ -5388,7 +5390,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
 <context>
     <name>EventDialog</name>
     <message>
-        <location filename="../src/ui/event/EventEditorWindow.qml" line="+227"/>
+        <location filename="../src/ui/event/EventEditorWindow.qml" line="+243"/>
         <source>Name:</source>
         <translation>Name:</translation>
     </message>
@@ -5418,7 +5420,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Seite leeren</translation>
     </message>
     <message>
-        <location line="-94"/>
+        <location line="-95"/>
         <source>Event removed</source>
         <translation>Ereignis entfernt</translation>
     </message>
@@ -5428,7 +5430,7 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Dieses Ereignis wurde von einem anderen Programm von der Karte entfernt.</translation>
     </message>
     <message>
-        <location line="-9"/>
+        <location line="-11"/>
         <source>Event changed on disk</source>
         <translation>Ereignis auf der Festplatte geändert</translation>
     </message>
@@ -5440,7 +5442,7 @@ Show the new version and discard your changes?</source>
 Neue Version anzeigen und Ihre Änderungen verwerfen?</translation>
     </message>
     <message>
-        <location line="-48"/>
+        <location line="-58"/>
         <source>Open Script</source>
         <translation>Skript öffnen</translation>
     </message>
@@ -8217,7 +8219,7 @@ http://localhost:8000
 <context>
     <name>LocationCommandWidget</name>
     <message>
-        <location filename="../src/ui/commands/SchemaField.qml" line="+298"/>
+        <location filename="../src/ui/commands/SchemaField.qml" line="+302"/>
         <source>Unknown Map (%1)</source>
         <translation>Unbekannte Karte (%1)</translation>
     </message>
@@ -8638,7 +8640,7 @@ http://localhost:8000
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/controller/shell_controller.cpp" line="+664"/>
+        <location filename="../src/controller/shell_controller.cpp" line="+666"/>
         <location line="+1"/>
         <source>EasyRPG Editor</source>
         <translation>EasyRPG Editor</translation>
@@ -9369,7 +9371,7 @@ http://localhost:8000
         <translation>%1: %2</translation>
     </message>
     <message>
-        <location filename="../src/controller/map_tabs_controller.cpp" line="+152"/>
+        <location filename="../src/controller/map_tabs_controller.cpp" line="+153"/>
         <source>Open Map</source>
         <translation>Karte öffnen</translation>
     </message>
@@ -9379,7 +9381,7 @@ http://localhost:8000
         <translation>Die Datei der Karte %1 (%2) fehlt oder kann nicht gelesen werden.</translation>
     </message>
     <message>
-        <location line="+136"/>
+        <location line="+149"/>
         <source>Save map changes</source>
         <translation>Kartenänderungen speichern</translation>
     </message>
@@ -9401,7 +9403,7 @@ Möchten Sie sie vor dem Schließen speichern?</translation>
         <translation>Die Kartendaten werden auf den Stand der letzten Speicherung zurückgesetzt. Fortfahren?</translation>
     </message>
     <message>
-        <location filename="../src/controller/map_tabs_controller.cpp" line="-155"/>
+        <location filename="../src/controller/map_tabs_controller.cpp" line="-168"/>
         <source>%1 (deleted)</source>
         <translation>%1 (gelöscht)</translation>
     </message>
@@ -11973,7 +11975,7 @@ Vor dem Export speichern?</translation>
 <context>
     <name>MapScene</name>
     <message>
-        <location filename="../src/ui/map/MapContextMenu.qml" line="+169"/>
+        <location filename="../src/ui/map/MapContextMenu.qml" line="+176"/>
         <source>Start Game Here</source>
         <translation>Spiel hier starten</translation>
     </message>
@@ -12058,7 +12060,7 @@ Vor dem Export speichern?</translation>
         <translation>Luftschiff</translation>
     </message>
     <message>
-        <location line="+86"/>
+        <location line="+91"/>
         <source>Place Vehicle Starting Position</source>
         <translation>Startposition eines Fahrzeugs platzieren</translation>
     </message>
@@ -12216,7 +12218,7 @@ Vor dem Export speichern?</translation>
         <translation>Soundeffekt</translation>
     </message>
     <message>
-        <location filename="../src/ui/commands/SchemaField.qml" line="-144"/>
+        <location filename="../src/ui/commands/SchemaField.qml" line="-146"/>
         <source>(OFF)</source>
         <translation>(AUS)</translation>
     </message>
@@ -12476,8 +12478,8 @@ Vor dem Export speichern?</translation>
 <context>
     <name>MoveRouteDialog</name>
     <message>
-        <location filename="../src/ui/commands/MoveEventEditor.qml" line="-399"/>
-        <location filename="../src/ui/event/MoveRouteEditor.qml" line="-215"/>
+        <location filename="../src/ui/commands/MoveEventEditor.qml" line="-400"/>
+        <location filename="../src/ui/event/MoveRouteEditor.qml" line="-214"/>
         <location filename="../src/model/command_schema.cpp" line="+54"/>
         <source>Move Event</source>
         <translation>Ereignis bewegen</translation>
@@ -12532,7 +12534,7 @@ Vor dem Export speichern?</translation>
         <translation>Frequenz</translation>
     </message>
     <message>
-        <location line="+165"/>
+        <location line="+167"/>
         <location filename="../src/ui/event/MoveRouteEditor.qml" line="+109"/>
         <location filename="../src/model/command_schema.cpp" line="+5"/>
         <source>Repeat the moves</source>
@@ -12946,7 +12948,7 @@ Vor dem Export speichern?</translation>
 <context>
     <name>PickerAudioWidget</name>
     <message>
-        <location filename="../src/ui/picker/FilePicker.qml" line="+95"/>
+        <location filename="../src/ui/picker/SoundPicker.qml" line="+81"/>
         <source>Play</source>
         <translation>Abspielen</translation>
     </message>
@@ -12956,27 +12958,27 @@ Vor dem Export speichern?</translation>
         <translation>Stopp</translation>
     </message>
     <message>
-        <location line="-68"/>
+        <location line="-61"/>
         <source>Fade In Time</source>
         <translation>Einblendzeit</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+13"/>
         <source>Volume</source>
         <translation>Lautstärke</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+13"/>
         <source>Tempo</source>
         <translation>Tempo</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+13"/>
         <source>Balance</source>
         <translation>Balance</translation>
     </message>
     <message>
-        <location filename="../src/model/file_picker_model.cpp" line="+291"/>
+        <location filename="../src/model/file_picker_model.cpp" line="+306"/>
         <source>Choose a file to play.</source>
         <translation>Wählen Sie eine abzuspielende Datei.</translation>
     </message>
@@ -12989,34 +12991,34 @@ Vor dem Export speichern?</translation>
 <context>
     <name>PickerCharsetWidget</name>
     <message>
-        <location filename="../src/ui/picker/FilePicker.qml" line="-130"/>
+        <location filename="../src/ui/picker/CharSetPicker.qml" line="+9"/>
         <source>Facing</source>
         <translation>Blickrichtung</translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+24"/>
         <source>Frame</source>
         <translation>Bild</translation>
     </message>
     <message>
-        <location line="-21"/>
+        <location line="-20"/>
         <source>Up</source>
         <translation>Oben</translation>
     </message>
     <message>
         <location line="+0"/>
-        <location line="+26"/>
+        <location line="+25"/>
         <source>Right</source>
         <translation>Rechts</translation>
     </message>
     <message>
-        <location line="-25"/>
+        <location line="-24"/>
         <source>Down</source>
         <translation>Unten</translation>
     </message>
     <message>
         <location line="+0"/>
-        <location line="+24"/>
+        <location line="+23"/>
         <source>Left</source>
         <translation>Links</translation>
     </message>
@@ -13029,7 +13031,7 @@ Vor dem Export speichern?</translation>
 <context>
     <name>PickerDialog</name>
     <message>
-        <location line="-204"/>
+        <location filename="../src/ui/picker/PickerBase.qml" line="+70"/>
         <source>Select from %1</source>
         <translation>Aus %1 wählen</translation>
     </message>
@@ -13664,13 +13666,13 @@ Vor dem Export speichern?</translation>
     <name>PreviewZoom</name>
     <message>
         <location filename="../src/ui/common/ZoomButtons.qml" line="+21"/>
-        <location filename="../src/ui/picker/FilePicker.qml" line="+156"/>
+        <location filename="../src/ui/picker/PickerBase.qml" line="+212"/>
         <source>Zoom Out</source>
         <translation>Verkleinern</translation>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../src/ui/picker/FilePicker.qml" line="+8"/>
+        <location filename="../src/ui/picker/PickerBase.qml" line="+8"/>
         <source>Zoom In</source>
         <translation>Vergrößern</translation>
     </message>
@@ -13704,21 +13706,21 @@ Vor dem Export speichern?</translation>
     <message>
         <location line="+42"/>
         <location line="+5"/>
-        <location line="+41"/>
+        <location line="+42"/>
         <location line="+8"/>
         <location line="+5"/>
         <source>Error loading project</source>
         <translation>Fehler beim Laden des Projekts</translation>
     </message>
     <message>
-        <location line="-59"/>
-        <location line="+54"/>
+        <location line="-60"/>
+        <location line="+55"/>
         <source>Failed to load project %1</source>
         <translation>Projekt %1 konnte nicht geladen werden</translation>
     </message>
     <message>
-        <location line="-49"/>
-        <location line="+55"/>
+        <location line="-50"/>
+        <location line="+56"/>
         <source>Failed to load database or maptree of %1</source>
         <translation>Datenbank oder Kartenbaum von %1 konnte nicht geladen werden</translation>
     </message>
@@ -13866,7 +13868,7 @@ Vor dem Testspiel speichern?</translation>
         <translation>Der Kartenbaum konnte nicht geschrieben werden.</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+12"/>
         <source>The map tree changed on disk but could not be read</source>
         <translation>Der Kartenbaum wurde auf der Festplatte geändert, konnte aber nicht gelesen werden</translation>
     </message>
@@ -13876,7 +13878,7 @@ Vor dem Testspiel speichern?</translation>
         <translation>Kartenbaum neu geladen</translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+45"/>
         <source>New Map</source>
         <translation>Neue Karte</translation>
     </message>
@@ -15133,7 +15135,7 @@ Aktivieren Sie zuerst „Zufalls-Dungeon-Generator verwenden“ in den Karteneig
         <translation>Dieses Spiel hat noch keinen Ordner %1: Importieren erstellt ihn.</translation>
     </message>
     <message>
-        <location filename="../src/model/file_picker_model.cpp" line="-254"/>
+        <location filename="../src/model/file_picker_model.cpp" line="-269"/>
         <location filename="../src/model/resource_library.cpp" line="+77"/>
         <source>%1 (RTP)</source>
         <translation>%1 (RTP)</translation>
@@ -15951,7 +15953,7 @@ Legen Sie ihn neben den Editor oder in den PATH, oder geben Sie sein Programm an
 <context>
     <name>SearchComboBox</name>
     <message>
-        <location filename="../src/ui/common/RefComboBox.qml" line="-517"/>
+        <location filename="../src/ui/common/RefComboBox.qml" line="-548"/>
         <source>Opens the window of the switches, to choose one or to rename them</source>
         <translation>Öffnet das Fenster der Schalter, um einen auszuwählen oder sie umzubenennen</translation>
     </message>
@@ -15966,7 +15968,7 @@ Legen Sie ihn neben den Editor oder in den PATH, oder geben Sie sein Programm an
         <translation>Öffnet das Fenster der Liste, um einen Eintrag auszuwählen oder die Einträge umzubenennen</translation>
     </message>
     <message>
-        <location line="+376"/>
+        <location line="+407"/>
         <source>Search by number or name</source>
         <translation>Nach Nummer oder Name suchen</translation>
     </message>
@@ -20372,7 +20374,7 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
 <context>
     <name>SystemWidget</name>
     <message>
-        <location filename="../src/ui/database/SystemPage.qml" line="+195"/>
+        <location filename="../src/ui/database/SystemPage.qml" line="+196"/>
         <source>Starting Party</source>
         <translation>Startgruppe</translation>
     </message>
@@ -21137,7 +21139,7 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
         <translation>Per Variable</translation>
     </message>
     <message>
-        <location filename="../src/ui/commands/SchemaField.qml" line="-75"/>
+        <location filename="../src/ui/commands/SchemaField.qml" line="-77"/>
         <source>Seconds</source>
         <translation>Sekunden</translation>
     </message>
@@ -22649,7 +22651,7 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
 <context>
     <name>main</name>
     <message>
-        <location filename="../src/main.cpp" line="+74"/>
+        <location filename="../src/main.cpp" line="+73"/>
         <source>Project folder to open (EasyRPG or RPG Maker 2000/2003).</source>
         <translation>Zu öffnender Projektordner (EasyRPG oder RPG Maker 2000/2003).</translation>
     </message>

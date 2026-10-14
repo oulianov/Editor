@@ -137,4 +137,8 @@ private:
 	QList<int> m_ids;
 	int m_current = 0;
 	int m_temporary = 0;
+	/** Rows are inserted, removed or moved: the index a tab bar passes meanwhile is its own */
+	bool m_rowsChanging = false;
+	/** The temporary tab is replaced: the map that takes its place is shown, not the tab beside it first */
+	bool m_replacing = false;
 };

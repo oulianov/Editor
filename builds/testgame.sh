@@ -1,6 +1,6 @@
 #!/bin/sh
 # Downloads TestGame-2003 (https://github.com/EasyRPG/TestGame), the game the
-# GUI tests run on, into DIR, once (nothing to do when DIR exists):
+# start-up test opens, into DIR, once (nothing to do when DIR exists):
 #
 #   builds/testgame.sh DIR
 #

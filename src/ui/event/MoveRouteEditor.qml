@@ -68,12 +68,8 @@ Ez.DialogWindow {
         MouseArea {
             id: lineMouse
             anchors.fill: parent
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
             onPressed: (event) => {
                 list.forceActiveFocus()
-                if (event.button === Qt.RightButton && move.selected) {
-                    return
-                }
                 if (event.modifiers & Qt.ShiftModifier) {
                     root.extend(move.index, false)
                 } else if (event.modifiers & (Qt.ControlModifier | Qt.MetaModifier)) {
@@ -82,9 +78,15 @@ Ez.DialogWindow {
                     root.select(move.index)
                 }
             }
-            onClicked: (event) => {
-                if (event.button === Qt.RightButton) {
-                    menu.popupAt(lineMouse, event.x, event.y)
+            // the menu on the right press: on the line pressed, or on the
+            // selection pressed (kept)
+            Ez.ContextMenuHandler {
+                contextMenu: menu
+                onRequested: {
+                    list.forceActiveFocus()
+                    if (!move.selected) {
+                        root.select(move.index)
+                    }
                 }
             }
             onDoubleClicked: (event) => {
@@ -398,7 +400,6 @@ Ez.DialogWindow {
         id: menu
 
         readonly property bool selection: root.selectedMoves().length > 0
-        readonly property string iconFolder: Kirigami.Theme.backgroundColor.hslLightness < 0.5 ? "qrc:/dark/" : "qrc:/bright/"
 
         font: Ez.Metrics.font
 

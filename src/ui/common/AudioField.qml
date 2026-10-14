@@ -13,7 +13,9 @@ import org.easyrpg.editor as Ez
  *
  *   Ez.AudioField { jsonData: system; key: "title_music"; music: true; fieldName: "lineTitleMusic" }
  *
- * The field is named fieldName, its button fieldName + "Picker".
+ * The "..." is in the frame of the field (Ez.TextField.buttons); a click on
+ * the name, Space and Alt+Down open the picker too. The field is named
+ * fieldName, its button fieldName + "Picker".
  */
 RowLayout {
     id: root
@@ -99,11 +101,12 @@ RowLayout {
         key: root.prefix + "name"
         readOnly: true
         Layout.fillWidth: true
-        Layout.minimumWidth: 100
-    }
-    Ez.FieldButton {
-        id: button
-        objectName: root.buttonName
-        onClicked: root.pick()
+        Layout.minimumWidth: 100 + buttonsWidth
+        buttons: Ez.FieldButton {
+            id: button
+            objectName: root.buttonName
+            fused: true
+            onClicked: root.pick()
+        }
     }
 }

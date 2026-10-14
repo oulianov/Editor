@@ -17,7 +17,7 @@ import org.easyrpg.editor as Ez
  * monster group and a background shown here only), the heroes' own
  * commands, the commands themselves, and what a lost random battle does.
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     /** The hero shown on the battle screen (an index), with their commands */

@@ -77,6 +77,19 @@ FocusScope {
         }
         applyExpanded(ids)
     }
+    /** After the map tree was read again (another program changed it): the
+     *  nodes show what they showed, moved ones too; a new node as its data
+     *  said (onDataChanged). The rows kept stay, so does the scroll. */
+    function keepExpanded() {
+        for (const id of shell.treeIds()) {
+            const row = rowOf(id)
+            const expanded = expandedSet[id] === true
+            if (row >= 0 && view.isExpanded(row) !== expanded) {
+                expanded ? view.expand(row) : view.collapse(row)
+            }
+        }
+        revision++
+    }
     function rowOf(id) {
         return view.rowAtIndex(shell.treeIndex(id))
     }
@@ -115,6 +128,31 @@ FocusScope {
             lines.push((id === selectedId ? "> " : "  ") + shell.treeName(id))
         }
         return lines.join("\n")
+    }
+    /** What the tree shows, for the scripts (log-tree): the nodes expanded,
+     *  the scroll, the first node shown, the node selected */
+    function automationState() {
+        const shown = []
+        for (const id of shell.treeIds()) {
+            const row = rowOf(id)
+            if (row >= 0 && view.isExpanded(row)) {
+                shown.push(id)
+            }
+        }
+        const first = view.cellAtPosition(Qt.point(1, view.contentY + 1), true).y
+        // the lines drawn that do not show their node
+        let wrong = 0
+        for (let row = 0; row < view.rows; row++) {
+            const item = view.itemAtCell(Qt.point(0, row))
+            if (item && (item.nodeId !== idAt(row) || item.model.name !== shell.treeName(idAt(row)))) {
+                wrong++
+            }
+        }
+        return "expanded: " + shown.join(" ") + " | rows: " + view.rows
+            + " | contentY: " + Math.round(view.contentY) + " of " + Math.round(Math.max(0, view.contentHeight - view.height))
+            + " | first shown: " + (first >= 0 && first < view.rows ? shell.treeName(idAt(first)) : "none")
+            + " | selected: " + selectedId + " " + (selectedId >= 0 ? shell.treeName(selectedId) : "")
+            + " | visible: " + (root.visible && root.height > 0) + " | lines wrong: " + wrong
     }
     /** The line of a node by its text, scrolled to (the scripts' click-item) */
     function automationItem(text) {
@@ -263,6 +301,12 @@ FocusScope {
         }
     }
     Connections {
+        target: root.shell ? root.shell.controller : null
+        function onTreeMapReloaded() {
+            root.keepExpanded()
+        }
+    }
+    Connections {
         target: root.shell
         function onTreeSelectRequested(id) {
             root.reveal(id)
@@ -397,17 +441,9 @@ FocusScope {
         return id
     }
 
-    // the right-click menu, on the press as the menus of macOS: a click with
-    // two fingers on a trackpad scrolls a little before its release, which
-    // cancels a tap
-    TapHandler {
-        acceptedButtons: Qt.RightButton
-        onPressedChanged: {
-            if (pressed) {
-                const at = point.pressPosition
-                root.showMenu(root.clickAt(at.x, at.y), at.x, at.y)
-            }
-        }
+    // the right-click menu, on the press (the node pressed selected first)
+    Ez.ContextMenuHandler {
+        onRequested: (x, y) => root.showMenu(root.clickAt(x, y), x, y)
     }
     // the mouse on the nodes: a click, a double-click
     TapHandler {

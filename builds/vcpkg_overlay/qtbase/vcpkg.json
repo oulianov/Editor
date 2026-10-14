@@ -1,10 +1,6 @@
 {
   "name": "qtbase",
   "version": "6.8.0",
-  "port-version": 2,
-  "features": {
-    "widgets": {
-      "description": ""
-    }
-  }
+  "port-version": 3,
+  "description": "Empty: the Qt installed outside vcpkg (aqt, qt.io) is used, found through Qt6_Path"
 }

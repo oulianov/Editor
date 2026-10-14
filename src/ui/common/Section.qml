@@ -14,7 +14,7 @@ import org.easyrpg.editor as Ez
  * content is enabled while checked, greyed otherwise. checked is set by the
  * page, or with jsonData and key it is a bool of the project's data (as
  * Ez.CheckBox). Automation finds the check box by its objectName (checkName,
- * or checkBox.objectName).
+ * or checkBox.objectName). Only a checkable one makes its check box.
  */
 ColumnLayout {
     id: root
@@ -25,10 +25,11 @@ ColumnLayout {
     readonly property alias body: body
     property bool checkable: false
     property bool checked: false
-    property alias jsonData: check.jsonData
-    property alias key: check.key
-    property alias checkName: check.objectName
-    readonly property alias checkBox: check
+    property var jsonData: null
+    property string key: ""
+    property string checkName: ""
+    /** The check box of a checkable one (made only for it), else null */
+    readonly property Ez.CheckBox checkBox: check.item as Ez.CheckBox
     /** checked changed by the user (not by the data) */
     signal toggled()
 
@@ -56,25 +57,32 @@ ColumnLayout {
         font: Ez.Metrics.sectionTitleFont
         opacity: enabled ? 1 : Ez.Metrics.disabledTitleOpacity
     }
-    Ez.CheckBox {
+    Loader {
         id: check
-        text: root.title
+        active: root.checkable
         visible: root.checkable
-        padding: 0
-        font: Ez.Metrics.sectionTitleFont
-        onToggled: {
-            root.checked = checked
-            root.toggled()
-        }
-        // without data: the box shows the section's state; with data: the
-        // section follows the box
-        Binding on checked {
-            value: root.checked
-            when: !check.jsonData
-        }
-        onCheckedChanged: {
-            if (check.jsonData) {
+        sourceComponent: Ez.CheckBox {
+            id: box
+            objectName: root.checkName
+            text: root.title
+            padding: 0
+            font: Ez.Metrics.sectionTitleFont
+            jsonData: root.jsonData
+            key: root.key
+            onToggled: {
                 root.checked = checked
+                root.toggled()
+            }
+            // without data: the box shows the section's state; with data: the
+            // section follows the box
+            Binding on checked {
+                value: root.checked
+                when: !box.jsonData
+            }
+            onCheckedChanged: {
+                if (box.jsonData) {
+                    root.checked = checked
+                }
             }
         }
     }

@@ -2,21 +2,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import QtQuick
-import QtQuick.Layouts
-import QtQuick.Controls as Controls
-import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
+/**
+ * The picker of an image shown whole, as in its file: backdrops, panoramas,
+ * pictures, battle animations and charsets, chipsets, system graphics,
+ * title and game over screens...
+ */
 PickerBase {
     id: root
 
-    Ez.SpritePaintedItem {
+    previewContent: Ez.SpritePaintedItem {
         id: sprite
-
+        pickerMode: true
         directory: root.directory
-        filename: root.filename
-        projectData: Ez.ProjectData
-
-        Layout.fillWidth: true
+        path: root.picker.currentPath
+        width: implicitWidth * root.zoom
+        height: implicitHeight * root.zoom
     }
 }

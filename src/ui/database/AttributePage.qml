@@ -12,7 +12,7 @@ import org.easyrpg.editor as Ez
  * it, and the damage it does to each resistance rank (A to E; RPG Maker
  * 2003 allows a negative E rate, which heals).
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     /** The picture of a resistance rank (0: A) */

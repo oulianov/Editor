@@ -384,25 +384,34 @@ FocusScope {
         anchors.fill: view
         anchors.rightMargin: vbar.visible ? vbar.width : 0
         anchors.bottomMargin: hbar.visible ? hbar.height : 0
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
 
-        onPressed: (event) => {
+        // a press of either button on a line
+        function press(y, button, modifiers) {
             view.forceActiveFocus()
             editTimer.stop()
-            const line = lineAt(event.y)
-            pressOnCurrent = line >= 0 && line === view.currentIndex && event.button === Qt.LeftButton
-                             && event.modifiers === Qt.NoModifier && !root.multiSelection
+            const line = lineAt(y)
+            pressOnCurrent = line >= 0 && line === view.currentIndex && button === Qt.LeftButton
+                             && modifiers === Qt.NoModifier && !root.multiSelection
             if (line < 0 || !root.editor.isSelectable(line)) {
                 return
             }
             // a right click in the selection keeps it, for its menu
-            if (event.button === Qt.RightButton && root.multiSelection
+            if (button === Qt.RightButton && root.multiSelection
                     && line >= root.highlightFirst && line < root.highlightEnd) {
                 return
             }
             // Shift+click selects the commands from the current line to this one
-            root.setCurrent(line, (event.modifiers & Qt.ShiftModifier) && event.button === Qt.LeftButton)
+            root.setCurrent(line, (modifiers & Qt.ShiftModifier) && button === Qt.LeftButton)
+        }
+        onPressed: (event) => press(event.y, event.button, event.modifiers)
+        // the menu on the right press, on the line pressed
+        Ez.ContextMenuHandler {
+            contextMenu: menu
+            onRequested: (x, y) => {
+                mouse.press(y, Qt.RightButton, Qt.NoModifier)
+                menu.line = mouse.lineAt(y)
+            }
         }
         onPositionChanged: (event) => {
             hovered = lineAt(event.y)
@@ -418,12 +427,6 @@ FocusScope {
                 editTimer.start()
             }
             pressOnCurrent = false
-        }
-        onClicked: (event) => {
-            if (event.button === Qt.RightButton) {
-                menu.line = lineAt(event.y)
-                menu.popupAt(mouse, event.x, event.y)
-            }
         }
         // as in RPG Maker, a double-click inserts a command before the line, like Enter
         onDoubleClicked: (event) => {

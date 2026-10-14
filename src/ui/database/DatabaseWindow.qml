@@ -23,11 +23,11 @@ Ez.DialogWindow {
 
     /** One list instead of the pages ("": the pages) */
     property alias list: view.list
-    /** The page and the entry shown at first (DatabaseView.start) */
+    /** The page and the entry shown at first (DatabasePage.start) */
     property alias start: view.start
     readonly property alias view: view
 
-    /** Shows a page and an entry of it (DatabaseView.showEntry) */
+    /** Shows a page and an entry of it (DatabasePage.showEntry) */
     function showEntry(start) {
         view.showEntry(start)
     }
@@ -88,7 +88,7 @@ Ez.DialogWindow {
         }
     }
 
-    DatabaseView {
+    DatabasePage {
         id: view
         Layout.fillWidth: true
         Layout.fillHeight: true

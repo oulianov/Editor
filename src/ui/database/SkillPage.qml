@@ -18,7 +18,7 @@ import org.easyrpg.editor as Ez
  * battles. The texts follow the target: a skill on allies increases and
  * removes, on enemies it decreases and inflicts.
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     /** 2003 games can use the battles of RPG Maker 2000, and their messages */

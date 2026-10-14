@@ -2,26 +2,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import QtQuick
-import QtQuick.Layouts
-import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
+/** The picker of a FaceSet: its 16 faces, the one chosen (clicked) framed */
 PickerBase {
     id: root
 
-    directory: "FaceSet"
-
-    Ez.FaceSetPaintedItem {
+    previewContent: Ez.FaceSetPaintedItem {
         id: facesetGrid
         pickerMode: true
-        projectData: Ez.ProjectData
-        filename: root.filename
-        cellIndex: root.pickerData.index
-        onCellIndexChanged: {
-            root.pickerData.index = cellIndex
+        path: root.picker.currentPath
+        width: implicitWidth * root.zoom
+        height: implicitHeight * root.zoom
+        onCellIndexChanged: root.pickerData.index = facesetGrid.cellIndex
+        Binding on cellIndex {
+            value: Math.max(0, Math.min(15, root.pickerData.index))
         }
-        Layout.fillWidth: true
-        implicitWidth: 192
-        implicitHeight: 192
     }
 }

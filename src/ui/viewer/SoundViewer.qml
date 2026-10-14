@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import QtQuick
-import org.easyrpg.editor as Ez
 
+/** A sound effect, which opens the sound picker (SoundPicker) */
 FileViewerBase {
     id: root
 
-    pickerComponent: Component {
-        Ez.SoundPicker {
-            onAccepted: root.accepted()
-        }
-    }
+    folder: "Sound"
+    preview: "Sound"
 }
-

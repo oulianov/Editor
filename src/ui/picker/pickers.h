@@ -35,7 +35,8 @@ namespace lcf::rpg {
 }
 
 /**
- * The pickers of the Editor (FilePicker.qml, EntryPicker.qml), modal, over
+ * The pickers of the Editor (PickerBase.qml and the pickers of each kind of
+ * file made on it: CharSetPicker.qml..., EntryPicker.qml), modal, over
  * the window of the control that opens them (a QML item or a
  * window): they return the choice, nothing when cancelled.
  *
@@ -200,7 +201,7 @@ signals:
 	void applied(const QVariant& value);
 };
 
-/** The model of FilePicker.qml (made by Pickers::pickFile): its enums, Ez.FilePickerModel.CharSet... */
+/** The model of the file pickers (PickerBase.qml, made by Pickers::pickFile): its enums, Ez.FilePickerModel.CharSet... */
 struct FilePickerModelForeign
 {
 	Q_GADGET

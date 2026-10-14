@@ -36,6 +36,9 @@ import org.easyrpg.editor as Ez
  * Return on a line: activated(row) (rows on the empty line, or below the
  * lines); Delete (Backspace on macOS): removeRequested(row); a click on a
  * line, or Space: clicked(row) (a rank changed by a click...).
+ *
+ * contextMenu: the menu of the right button, opened on its press, on the
+ * line pressed selected first (Ez.ContextMenuHandler).
  */
 FocusScope {
     id: root
@@ -54,6 +57,8 @@ FocusScope {
     property int visibleRows: 6
     /** The titles of the columns above the lines (false: a plain list) */
     property bool showHeader: true
+    /** The menu of the right button (none: no menu) */
+    property Ez.ContextMenu contextMenu: null
 
     signal activated(int row)
     signal removeRequested(int row)
@@ -141,6 +146,21 @@ FocusScope {
     FontMetrics {
         id: lineMetrics
         font: Ez.Metrics.font
+    }
+
+    // the menu on the right press, on the line pressed (below the lines and
+    // on the titles: on the current one)
+    Ez.ContextMenuHandler {
+        enabled: !!root.contextMenu
+        contextMenu: root.contextMenu
+        onRequested: (x, y) => {
+            view.forceActiveFocus()
+            const point = view.contentItem.mapFromItem(root, x, y)
+            const line = view.indexAt(point.x, point.y)
+            if (line >= 0) {
+                view.currentIndex = line
+            }
+        }
     }
 
     Rectangle {

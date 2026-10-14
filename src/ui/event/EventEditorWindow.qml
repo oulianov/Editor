@@ -42,6 +42,9 @@ Ez.DialogWindow {
 
     /** The view of each page: its line and scroll */
     property var pageViews: []
+    /** The page to show is known (Component.onCompleted): the pages load
+     *  from then on, not while the tabs are made (they pass by every page) */
+    property bool pagesReady: false
     /** The page shown (its editor), null while it loads */
     readonly property var currentEditor: pageRepeater.count > tabs.currentIndex && tabs.currentIndex >= 0
                                          ? (pageRepeater.itemAt(tabs.currentIndex) as Loader)?.item ?? null : null
@@ -159,6 +162,7 @@ Ez.DialogWindow {
         pageViews = viewState.views ?? []
         const page = Number(viewState.page ?? 0)
         controller.currentPage = Math.max(0, Math.min(page, controller.pageCount - 1))
+        pagesReady = true
         Qt.callLater(() => root.lineName.forceActiveFocus())
     }
     readonly property alias lineName: name
@@ -168,26 +172,38 @@ Ez.DialogWindow {
         target: root.controller
         function onReloadPendingChanged() {
             if (root.controller.reloadPending) {
-                reloadQuestion.open()
+                root.showMessage("reload", reloadQuestion)
             }
         }
         function onRemoved() {
-            removedMessage.open()
+            root.showMessage("removed", removedMessage)
         }
     }
-    Ez.MessageDialog {
-        id: reloadQuestion
-        title: qsTr("Event changed on disk")
-        text: qsTr("This event was changed by another program.\nShow the new version and discard your changes?")
-        standardButtons: Controls.Dialog.Yes | Controls.Dialog.No
-        onAccepted: root.controller.acceptReload()
-        onRejected: root.controller.rejectReload()
+    // the messages are made the first time they are shown (rarely)
+    property var messages: ({})
+    function showMessage(name, component) {
+        if (!messages[name]) {
+            messages[name] = component.createObject(root.contentItem)
+        }
+        messages[name].open()
     }
-    Ez.MessageDialog {
+    Component {
+        id: reloadQuestion
+        Ez.MessageDialog {
+            title: qsTr("Event changed on disk")
+            text: qsTr("This event was changed by another program.\nShow the new version and discard your changes?")
+            standardButtons: Controls.Dialog.Yes | Controls.Dialog.No
+            onAccepted: root.controller.acceptReload()
+            onRejected: root.controller.rejectReload()
+        }
+    }
+    Component {
         id: removedMessage
-        title: qsTr("Event removed")
-        text: qsTr("This event was removed from the map by another program.")
-        onClosed: root.reject()
+        Ez.MessageDialog {
+            title: qsTr("Event removed")
+            text: qsTr("This event was removed from the map by another program.")
+            onClosed: root.reject()
+        }
     }
 
     // Ctrl+Tab switches pages, PgUp / PgDn move in the commands
@@ -334,14 +350,15 @@ Ez.DialogWindow {
                 id: pageRepeater
                 model: root.controller.pageCount
 
-                // a page is made when first shown, then kept
+                // a page is made when first shown, then kept (its changes
+                // are the controller's: a page not made yet loses none)
                 Loader {
                     id: loader
 
                     required property int index
                     property bool loaded: false
 
-                    active: tabs.currentIndex === index || loaded
+                    active: root.pagesReady && (root.controller.currentPage === index || loaded)
                     onLoaded: {
                         loaded = true
                         const page = item as EventPageEditor

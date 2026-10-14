@@ -63,7 +63,7 @@ Item {
             Repeater {
                 model: table.pages
 
-                Ez.EntryPage {
+                DatabaseEntryPage {
                     id: page
 
                     required property var modelData

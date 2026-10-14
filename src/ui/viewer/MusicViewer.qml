@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import QtQuick
-import org.easyrpg.editor as Ez
 
+/** A music, which opens the music picker (MusicPicker) */
 FileViewerBase {
     id: root
 
-    pickerComponent: Component {
-        Ez.MusicPicker {
-            onAccepted: root.accepted()
-        }
-    }
+    folder: "Music"
+    preview: "Music"
 }
-

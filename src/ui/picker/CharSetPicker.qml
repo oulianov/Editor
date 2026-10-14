@@ -1,94 +1,117 @@
 // SPDX-FileCopyrightText: EasyRPG Editor Authors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls as Controls
-import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
+/**
+ * The picker of a CharSet: the 8 characters of the sheet, the one chosen
+ * framed (preview CharSet); or every pose of the sheet, a click choosing the
+ * character, its facing and its frame, also chosen below it (CharSetPose).
+ */
 PickerBase {
     id: root
 
-    directory: "CharSet"
-    property bool showTransparency: true
+    /** The poses of the sheet, a pose chosen (else a character) */
+    readonly property bool poseMode: picker.preview === Ez.FilePickerModel.CharSetPose
+    /** The option Transparent (shown in the preview) */
+    property bool showTransparency: false
 
-    Ez.CharSetPaintedItem {
+    zoom: poseMode ? 1 : 2
+
+    previewContent: Ez.CharSetPaintedItem {
         id: charsetPainted
         pickerMode: true
-        projectData: Ez.ProjectData
-        filename: root.filename
-        cellIndex: root.pickerData.index
+        poseMode: root.poseMode
+        path: root.picker.currentPath
         transparent: root.pickerData.transparent
-        onCellIndexChanged: {
-            root.pickerData.index = cellIndex
+        width: implicitWidth * root.zoom
+        height: implicitHeight * root.zoom
+        onCellIndexChanged: root.pickerData.index = charsetPainted.cellIndex
+        onFacingChanged: {
+            if (root.poseMode) {
+                root.pickerData.direction = charsetPainted.facing
+            }
         }
-        Layout.fillWidth: true
-        implicitWidth: 192
-        implicitHeight: 192
+        onFrameChanged: {
+            if (root.poseMode) {
+                root.pickerData.pattern = charsetPainted.frame
+            }
+        }
+        Binding on cellIndex {
+            value: Math.max(0, Math.min(7, root.pickerData.index))
+        }
+        Binding on facing {
+            when: root.poseMode
+            value: root.pickerData.direction
+        }
+        Binding on frame {
+            when: root.poseMode
+            value: root.pickerData.pattern
+        }
     }
 
-    Kirigami.Separator {
+    Ez.Section {
         visible: root.showTransparency
-        Kirigami.FormData.isSection: true
-        Kirigami.FormData.label: "Options"
-    }
-
-    Controls.CheckBox {
-        visible: root.showTransparency
-        text: "Transparent"
-        checked: root.pickerData.transparent
-        onClicked: root.pickerData.transparent = checked
-    }
-
-    Kirigami.Separator {
-        Kirigami.FormData.isSection: true
-        Kirigami.FormData.label: "Facing (Preview Only)"
-    }
-
-    ColumnLayout {
-        Controls.RadioButton {
-            text: "Up"
-            checked: charsetPainted.facing === Ez.CharSetPaintedItem.Direction_up
-            onClicked: charsetPainted.facing = Ez.CharSetPaintedItem.Direction_up
-        }
-        Controls.RadioButton {
-            text: "Right"
-            checked: charsetPainted.facing === Ez.CharSetPaintedItem.Direction_right
-            onClicked: charsetPainted.facing = Ez.CharSetPaintedItem.Direction_right
-        }
-        Controls.RadioButton {
-            text: "Down"
-            checked: charsetPainted.facing === Ez.CharSetPaintedItem.Direction_down
-            onClicked: charsetPainted.facing = Ez.CharSetPaintedItem.Direction_down
-        }
-        Controls.RadioButton {
-            text: "Left"
-            checked: charsetPainted.facing === Ez.CharSetPaintedItem.Direction_left
-            onClicked: charsetPainted.facing = Ez.CharSetPaintedItem.Direction_left
+        title: qsTranslate("ActorWidget", "Options")
+        Ez.CheckBox {
+            objectName: "checkTransparent"
+            text: qsTranslate("ActorWidget", "Translucent")
+            checked: root.pickerData.transparent
+            onToggled: root.pickerData.transparent = checked
         }
     }
 
-    Kirigami.Separator {
-        Kirigami.FormData.isSection: true
-        Kirigami.FormData.label: "Pattern (Preview Only)"
+    // the facing and the frame of a pose (also clicked in the sheet)
+    Ez.Section {
+        visible: root.poseMode
+        title: qsTranslate("PickerCharsetWidget", "Facing")
+        RowLayout {
+            spacing: Ez.Metrics.columnSpacing
+            Repeater {
+                model: [qsTranslate("PickerCharsetWidget", "Up"), qsTranslate("PickerCharsetWidget", "Right"),
+                        qsTranslate("PickerCharsetWidget", "Down"), qsTranslate("PickerCharsetWidget", "Left")]
+                delegate: Ez.RadioButton {
+                    id: facing
+                    required property int index
+                    required property string modelData
+                    objectName: "radioFacing" + index
+                    text: modelData
+                    onToggled: root.pickerData.direction = index
+                    Binding {
+                        target: facing
+                        property: "checked"
+                        value: root.pickerData.direction === facing.index
+                    }
+                }
+            }
+        }
     }
-
-    ColumnLayout {
-        Controls.RadioButton {
-            text: "Left"
-            checked: charsetPainted.frame === Ez.CharSetPaintedItem.Frame_left
-            onClicked: charsetPainted.frame = Ez.CharSetPaintedItem.Frame_left
-        }
-        Controls.RadioButton {
-            text: "Middle"
-            checked: charsetPainted.frame === Ez.CharSetPaintedItem.Frame_middle
-            onClicked: charsetPainted.frame = Ez.CharSetPaintedItem.Frame_middle
-        }
-        Controls.RadioButton {
-            text: "Right"
-            checked: charsetPainted.frame === Ez.CharSetPaintedItem.Frame_right
-            onClicked: charsetPainted.frame = Ez.CharSetPaintedItem.Frame_right
+    Ez.Section {
+        visible: root.poseMode
+        title: qsTranslate("PickerCharsetWidget", "Frame")
+        RowLayout {
+            spacing: Ez.Metrics.columnSpacing
+            Repeater {
+                model: [qsTranslate("PickerCharsetWidget", "Left"), qsTranslate("PickerCharsetWidget", "Middle"),
+                        qsTranslate("PickerCharsetWidget", "Right")]
+                delegate: Ez.RadioButton {
+                    id: frameOption
+                    required property int index
+                    required property string modelData
+                    objectName: "radioFrame" + index
+                    text: modelData
+                    onToggled: root.pickerData.pattern = index
+                    Binding {
+                        target: frameOption
+                        property: "checked"
+                        value: root.pickerData.pattern === frameOption.index
+                    }
+                }
+            }
         }
     }
 }

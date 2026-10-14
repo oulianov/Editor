@@ -2,50 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import QtQuick
-import org.kde.kirigami as Kirigami
-import org.easyrpg.editor as Ez
 
-PickerBase {
+/**
+ * The picker of a music: the settings of a sound effect (SoundPicker) and
+ * its fade-in (lcf::rpg::Music), heard at once
+ */
+SoundPicker {
     id: root
 
-    directory: "Music"
-
-    Ez.SpinBox {
-        id: fadeinInput
-        from: 0
-        to: 10000
-        value: root.pickerData.fadein
-        Kirigami.FormData.label: "Fade In:"
-    }
-
-    Ez.SpinBox {
-        id: volumeInput
-        from: 0
-        to: 100
-        value: root.pickerData.volume
-        Kirigami.FormData.label: "Volume:"
-    }
-
-    Ez.SpinBox {
-        id: tempoInput
-        from: 50
-        to: 150
-        value: root.pickerData.tempo
-        Kirigami.FormData.label: "Pitch:"
-    }
-
-    Ez.SpinBox {
-        id: balanceInput
-        from: 0
-        to: 100
-        value: root.pickerData.balance
-        Kirigami.FormData.label: "Balance:"
-    }
-
-    onAccepted: {
-        root.pickerData.fadein = fadeinInput.value
-        root.pickerData.volume = volumeInput.value
-        root.pickerData.tempo = tempoInput.value
-        root.pickerData.balance = balanceInput.value
-    }
+    music: true
 }

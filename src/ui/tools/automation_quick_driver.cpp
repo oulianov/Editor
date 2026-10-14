@@ -25,6 +25,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -1078,17 +1079,56 @@ bool AutomationQuickDriver::run(QQuickWindow* window, const QStringList& args, b
 		}
 		return true;
 	}
-	if (cmd == "view-wheel" && args.size() == 5 && toInt(args[2], a) && toInt(args[3], b)) {
-		// the wheel turned over a point of an item (a notch is 120)
+	if ((cmd == "view-press" || cmd == "view-release") && (args.size() == 4 || args.size() == 5)
+			&& toInt(args[2], a) && toInt(args[3], b)) {
+		// half a click on a point of an item, in its own coordinates: what
+		// the press does is seen before the release (a right-click menu
+		// opens on the press)
+		QQuickItem* item = findItem(window, args[1]);
+		if (!item || (args.size() == 5 && args[4] != QLatin1String("right"))) {
+			m_fail("usage: " + cmd + " NAME X Y [right]");
+			return false;
+		}
+		const Qt::MouseButton button = args.size() == 5 ? Qt::RightButton : Qt::LeftButton;
+		const bool press = cmd == "view-press";
+		if (press) {
+			scrollTo(item, QRectF(a - 1, b - 1, 2, 2));
+		}
+		const QPointF scene = item->mapToScene(QPointF(a, b));
+		const QPointF local = QHighDpi::toNativeLocalPosition(scene, window);
+		const QPointF global = QHighDpi::toNativeGlobalPosition(window->mapToGlobal(scene), window);
+		if (press) {
+			QWindowSystemInterface::handleMouseEvent(window, m_timestamp += 10, local, global, Qt::NoButton, Qt::NoButton,
+				QEvent::MouseMove, Qt::NoModifier);
+		}
+		QWindowSystemInterface::handleMouseEvent(window, m_timestamp += 10, local, global, press ? button : Qt::NoButton,
+			button, press ? QEvent::MouseButtonPress : QEvent::MouseButtonRelease, Qt::NoModifier);
+		return true;
+	}
+	if (cmd == "view-wheel" && (args.size() == 5 || args.size() == 6) && toInt(args[2], a) && toInt(args[3], b)) {
+		// the wheel turned over a point of an item (a notch is 120); with a
+		// phase, the fingers on a trackpad, in pixels (a click with two
+		// fingers scrolls a little between its press and its release)
 		QQuickItem* item = findItem(window, args[1]);
 		int delta = 0;
-		if (!item || !toInt(args[4], delta)) {
-			m_fail("usage: view-wheel NAME X Y DELTA");
+		static const QHash<QString, Qt::ScrollPhase> phases = {
+			{ QStringLiteral("begin"), Qt::ScrollBegin },
+			{ QStringLiteral("update"), Qt::ScrollUpdate },
+			{ QStringLiteral("end"), Qt::ScrollEnd },
+		};
+		if (!item || !toInt(args[4], delta) || (args.size() == 6 && !phases.contains(args[5]))) {
+			m_fail("usage: view-wheel NAME X Y DELTA [begin|update|end]");
 			return false;
 		}
 		const QPointF scene = item->mapToScene(QPointF(a, b));
 		const QPointF local = QHighDpi::toNativeLocalPosition(scene, window);
 		const QPointF global = QHighDpi::toNativeGlobalPosition(window->mapToGlobal(scene), window);
+		if (args.size() == 6) {
+			// the pointer stays where it is (a button may be held)
+			QWindowSystemInterface::handleWheelEvent(window, m_timestamp += 10, local, global, QPoint(0, delta),
+				QPoint(0, delta), Qt::NoModifier, phases.value(args[5]));
+			return true;
+		}
 		QWindowSystemInterface::handleMouseEvent(window, m_timestamp += 10, local, global, Qt::NoButton, Qt::NoButton,
 			QEvent::MouseMove, Qt::NoModifier);
 		QWindowSystemInterface::handleWheelEvent(window, m_timestamp += 10, local, global, QPoint(), QPoint(0, delta),

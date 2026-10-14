@@ -42,16 +42,59 @@ lcf::rpg::TreeMap* MapTreeModel::treeMap() const
 	return m_tree;
 }
 
-void MapTreeModel::reset()
-{
-	setTreeMap(m_tree);
-}
-
 void MapTreeModel::setRootName(const QString& name)
 {
 	m_rootName = name;
 	if (const QModelIndex root = indexOf(0); root.isValid())
 		emit dataChanged(root, root);
+}
+
+std::unordered_map<int, std::vector<int>> MapTreeModel::layout() const
+{
+	std::unordered_map<int, std::vector<int>> children;
+	if (!m_tree)
+		return children;
+	children[0];
+	// a node per map and area (the first entry is the project's)
+	std::set<int> ids;
+	const auto& maps = m_tree->maps;
+	for (size_t i = 1; i < maps.size(); i++) {
+		if (maps[i].ID != 0)
+			ids.insert(maps[i].ID);
+	}
+	// the parent of each node placed
+	std::unordered_map<int, int> parents;
+	auto place = [&](int id, int parent) {
+		children[parent].push_back(id);
+		parents[id] = parent;
+	};
+	// The parents, in the tree order
+	for (size_t i = 1; i < m_tree->tree_order.size(); i++) {
+		const int id = m_tree->tree_order[i];
+		const lcf::rpg::MapInfo* map = info(id);
+		if (!ids.count(id) || !map || parents.count(id))
+			continue;
+		// a map whose parent is gone (older versions left some) goes under
+		// the project, as one that would hold its own parent
+		int parent = ids.count(map->parent_map) ? map->parent_map : 0;
+		for (int above = parent; above != 0;) {
+			if (above == id) {
+				parent = 0;
+				break;
+			}
+			auto placed = parents.find(above);
+			if (placed == parents.end())
+				break;
+			above = placed->second;
+		}
+		place(id, parent);
+	}
+	// The maps missing from the tree order, by id
+	for (int id : ids) {
+		if (!parents.count(id))
+			place(id, 0);
+	}
+	return children;
 }
 
 void MapTreeModel::build()
@@ -62,52 +105,154 @@ void MapTreeModel::build()
 	if (!m_tree)
 		return;
 
-	// The project, then a node per map and area (the first entry is the
-	// project's)
+	// The project, then the maps and areas under it
+	const auto children = layout();
 	auto project = std::make_unique<Node>();
 	project->parent = &m_top;
 	m_top.children.push_back(project.get());
-	Node* root = project.get();
 	m_nodes[0] = std::move(project);
-	const auto& maps = m_tree->maps;
-	for (size_t i = 1; i < maps.size(); i++) {
-		const int id = maps[i].ID;
-		auto& entry = m_nodes[id];
-		if (!entry) {
-			entry = std::make_unique<Node>();
-			entry->id = id;
-		}
-	}
-	// The parents, in the tree order
-	for (size_t i = 1; i < m_tree->tree_order.size(); i++) {
-		const int id = m_tree->tree_order[i];
-		Node* child = node(id);
-		const lcf::rpg::MapInfo* map = info(id);
-		if (!child || !map || child->parent || id == 0)
+	std::vector<Node*> todo{node(0)};
+	while (!todo.empty()) {
+		Node* above = todo.back();
+		todo.pop_back();
+		auto found = children.find(above->id);
+		if (found == children.end())
 			continue;
-		// a map whose parent is gone (older versions left some) goes under
-		// the project, as one that would hold its own parent
-		Node* parent = node(map->parent_map);
-		for (Node* above = parent; above && parent != root; above = above->parent) {
-			if (above == child)
-				parent = root;
+		for (int id : found->second) {
+			auto child = std::make_unique<Node>();
+			child->id = id;
+			child->parent = above;
+			above->children.push_back(child.get());
+			todo.push_back(child.get());
+			m_nodes[id] = std::move(child);
 		}
-		parent = parent ? parent : root;
-		parent->children.push_back(child);
-		child->parent = parent;
 	}
-	// The maps missing from the tree order, by id
-	std::vector<int> missing;
+}
+
+QHash<int, int> MapTreeModel::update(const lcf::rpg::TreeMap& before)
+{
+	QHash<int, int> removed;
+	if (!m_tree || !node(0)) {
+		setTreeMap(m_tree);
+		return removed;
+	}
+	m_infoIndex.clear();
+	const auto wanted = layout();
+	// the parent of each node of the new tree
+	std::unordered_map<int, int> parents{{0, -1}};
+	for (const auto& [parent, ids] : wanted) {
+		for (int id : ids)
+			parents[id] = parent;
+	}
+	auto wantedChildren = [&wanted](int id) {
+		static const std::vector<int> none;
+		auto found = wanted.find(id);
+		return found == wanted.end() ? none : found->second;
+	};
+	// The ids removed, with the nearest node above them that stays
+	std::set<int> old_ids;
 	for (const auto& [id, entry] : m_nodes) {
-		if (id != 0 && !entry->parent)
-			missing.push_back(id);
+		old_ids.insert(id);
+		if (parents.count(id))
+			continue;
+		const Node* above = entry->parent;
+		while (above && !isTop(above) && !parents.count(above->id))
+			above = above->parent;
+		removed.insert(id, above && !isTop(above) ? above->id : 0);
 	}
-	std::sort(missing.begin(), missing.end());
-	for (int id : missing) {
-		Node* child = node(id);
-		root->children.push_back(child);
-		child->parent = root;
+
+	// Under each node that stays, the children that stay in their order
+	// (the longest run of them in both orders) keep their rows; the others
+	// go, with what they hold. A node under another parent, or in another
+	// place, comes back below: the views move expanded nodes badly, and
+	// show them again as they had them.
+	std::vector<Node*> todo{node(0)};
+	while (!todo.empty()) {
+		Node* above = todo.back();
+		todo.pop_back();
+		auto& children = above->children;
+		const std::vector<int>& ids = wantedChildren(above->id);
+		const size_t n = children.size(), m = ids.size();
+		std::vector<std::vector<int>> common(n + 1, std::vector<int>(m + 1, 0));
+		for (size_t i = n; i-- > 0;) {
+			for (size_t j = m; j-- > 0;) {
+				common[i][j] = children[i]->id == ids[j] ? common[i + 1][j + 1] + 1
+					: std::max(common[i + 1][j], common[i][j + 1]);
+			}
+		}
+		std::vector<bool> keep(n, false);
+		for (size_t i = 0, j = 0; i < n && j < m;) {
+			if (children[i]->id == ids[j]) {
+				keep[i++] = true;
+				j++;
+			} else if (common[i + 1][j] >= common[i][j + 1]) {
+				i++;
+			} else {
+				j++;
+			}
+		}
+		const QModelIndex at = indexOf(above);
+		for (size_t i = n; i-- > 0;) {
+			if (keep[i]) {
+				todo.push_back(children[i]);
+				continue;
+			}
+			QList<int> gone;
+			collect(children[i], gone, true);
+			const int row = static_cast<int>(i);
+			beginRemoveRows(at, row, row);
+			children.erase(children.begin() + row);
+			for (int id : gone)
+				m_nodes.erase(id);
+			endRemoveRows();
+		}
 	}
+	// The nodes missing, in their places, parents first
+	std::vector<int> added;
+	std::vector<int> walk{0};
+	while (!walk.empty()) {
+		Node* above = node(walk.back());
+		walk.pop_back();
+		const std::vector<int>& ids = wantedChildren(above->id);
+		const QModelIndex at = indexOf(above);
+		for (size_t row = 0; row < ids.size(); row++) {
+			auto& children = above->children;
+			if (row < children.size() && children[row]->id == ids[row])
+				continue;
+			if (node(ids[row])) {
+				// not expected: the tree as read, from the start
+				setTreeMap(m_tree);
+				return removed;
+			}
+			beginInsertRows(at, static_cast<int>(row), static_cast<int>(row));
+			auto entry = std::make_unique<Node>();
+			entry->id = ids[row];
+			entry->parent = above;
+			children.insert(children.begin() + row, entry.get());
+			m_nodes[ids[row]] = std::move(entry);
+			endInsertRows();
+			if (!old_ids.count(ids[row]))
+				added.push_back(ids[row]);
+		}
+		walk.insert(walk.end(), ids.rbegin(), ids.rend());
+	}
+
+	// The names and types changed (what the rows show expanded stays the
+	// views'; the views mix up the rows of a change of several rows), a
+	// new node expanded as its data says
+	for (const auto& map : before.maps) {
+		const lcf::rpg::MapInfo* now = map.ID > 0 && node(map.ID) ? info(map.ID) : nullptr;
+		if (now && (now->name != map.name || now->type != map.type)) {
+			const QModelIndex changed = indexOf(map.ID);
+			emit dataChanged(changed, changed, {Qt::DisplayRole, NameRole, TypeRole});
+		}
+	}
+	for (int id : added) {
+		const lcf::rpg::MapInfo* map = info(id);
+		if (const QModelIndex changed = indexOf(id); map && map->expanded_node)
+			emit dataChanged(changed, changed, {ExpandedRole});
+	}
+	return removed;
 }
 
 MapTreeModel::Node* MapTreeModel::node(int id) const

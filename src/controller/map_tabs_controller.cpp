@@ -17,6 +17,7 @@
 
 #include "map_tabs_controller.h"
 #include <QCoreApplication>
+#include <QScopedValueRollback>
 #include "core.h"
 #include "dialog_service.h"
 #include "project_controller.h"
@@ -162,14 +163,20 @@ bool MapTabsController::openMap(int id, bool keep)
 		const MapDocument* temporary = m_temporary ? m_project->document(m_temporary) : nullptr;
 		if (temporary && !temporary->isModified()) {
 			index = indexOf(m_temporary);
+			// the map shown at once (setCurrentMap below), not the tab
+			// beside it first: it would be loaded for nothing
+			QScopedValueRollback<bool> replacing(m_replacing, true);
 			closeMap(m_temporary);
 		}
 		setTemporaryMap(0);
 		m_project->openDocument(id);
 		// the view of the tab is made now: it reads the document
-		beginInsertRows(QModelIndex(), index, index);
-		m_ids.insert(index, id);
-		endInsertRows();
+		{
+			QScopedValueRollback<bool> changing(m_rowsChanging, true);
+			beginInsertRows(QModelIndex(), index, index);
+			m_ids.insert(index, id);
+			endInsertRows();
+		}
 		emit countChanged();
 		connectDocument(id);
 		if (!keep)
@@ -191,9 +198,12 @@ QList<int> MapTabsController::restoreMaps(const QList<int>& ids)
 		if (m_project->treeModel()->type(id) != TreeMap::MapType_map || isOpen(id) || !core().project()->loadMap(id))
 			continue;
 		m_project->openDocument(id);
-		beginInsertRows(QModelIndex(), count(), count());
-		m_ids.append(id);
-		endInsertRows();
+		{
+			QScopedValueRollback<bool> changing(m_rowsChanging, true);
+			beginInsertRows(QModelIndex(), count(), count());
+			m_ids.append(id);
+			endInsertRows();
+		}
 		emit countChanged();
 		connectDocument(id);
 		opened.append(id);
@@ -267,6 +277,9 @@ void MapTabsController::setCurrentMap(int id)
 
 void MapTabsController::setCurrentIndex(int index)
 {
+	// a tab bar moves its index with the rows: the user did not choose it
+	if (m_rowsChanging)
+		return;
 	setCurrentMap(mapAt(index));
 }
 
@@ -274,6 +287,7 @@ void MapTabsController::moveTab(int from, int to)
 {
 	if (from == to || from < 0 || to < 0 || from >= count() || to >= count())
 		return;
+	QScopedValueRollback<bool> changing(m_rowsChanging, true);
 	beginMoveRows(QModelIndex(), from, from, QModelIndex(), to > from ? to + 1 : to);
 	m_ids.move(from, to);
 	endMoveRows();
@@ -310,12 +324,15 @@ void MapTabsController::removeTab(int id)
 	// the tab shown goes: the one on its right is shown, else on its left
 	// (as a tab bar does)
 	const bool current = id == m_current;
-	beginRemoveRows(QModelIndex(), row, row);
-	m_ids.removeAt(row);
-	endRemoveRows();
+	{
+		QScopedValueRollback<bool> changing(m_rowsChanging, true);
+		beginRemoveRows(QModelIndex(), row, row);
+		m_ids.removeAt(row);
+		endRemoveRows();
+	}
 	emit countChanged();
 	emit mapClosing(id);
-	if (current)
+	if (current && !m_replacing)
 		setCurrentMap(m_ids.value(std::min(row, static_cast<int>(m_ids.size()) - 1), 0));
 }
 

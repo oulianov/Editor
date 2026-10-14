@@ -27,6 +27,14 @@ Rectangle {
     property string textRole: "display"
     /** The role of a line shown dimmed (a file of the RTP); "": none */
     property string dimRole: ""
+    /**
+     * Typing selects a row starting with the letters typed, as the file
+     * lists of the systems: (text, from) => the first such row from the row
+     * from on (wrapping), -1 for none. null: no search
+     */
+    property var findRow: null
+    /** The letters typed so far (a pause starts a new search) */
+    property string typed: ""
 
     signal picked(int row)
     signal activated(int row)
@@ -46,6 +54,11 @@ Rectangle {
     radius: 2
     implicitWidth: 160
     implicitHeight: 160
+
+    Timer {
+        id: typing
+        interval: 1000
+    }
 
     ListView {
         id: list
@@ -72,6 +85,22 @@ Rectangle {
         }
         Keys.onReturnPressed: root.activated(currentIndex)
         Keys.onEnterPressed: root.activated(currentIndex)
+        Keys.onPressed: event => {
+            if (!root.findRow || event.text === "" || event.text.charCodeAt(0) < 32
+                    || (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+                    || (event.text === " " && !typing.running)) {
+                return
+            }
+            // a new search starts past the row selected, a longer one on it
+            const from = typing.running ? Math.max(0, currentIndex) : currentIndex + 1
+            root.typed = typing.running ? root.typed + event.text : event.text
+            typing.restart()
+            const row = root.findRow(root.typed, from)
+            if (row >= 0) {
+                root.show(row)
+            }
+            event.accepted = true
+        }
 
         delegate: Controls.ItemDelegate {
             id: line

@@ -8,8 +8,9 @@ import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
 /**
- * A path (or any text) with a "..." button beside it to choose it
- * (browse()). The button is named after the field: objectName + "Browse".
+ * A path (or any text) with a "..." in its frame to choose it (browse(),
+ * also Alt+Down: Ez.TextField.buttons). The button is named after
+ * the field: fieldName + "Browse".
  */
 RowLayout {
     id: root
@@ -40,20 +41,21 @@ RowLayout {
         id: field
         objectName: root.fieldName
         Layout.fillWidth: true
-        Layout.minimumWidth: 160
-        Controls.ToolTip.visible: hovered && root.toolTip !== ""
+        Layout.minimumWidth: 160 + buttonsWidth
+        Controls.ToolTip.visible: hovered && !button.hovered && root.toolTip !== ""
         Controls.ToolTip.text: root.toolTip
         onTextEdited: root.textEdited()
-    }
-    Ez.FieldButton {
-        id: button
-        objectName: root.buttonName
-        Controls.ToolTip.visible: hovered && root.buttonToolTip !== ""
-        Controls.ToolTip.text: root.buttonToolTip
-        onClicked: root.browse()
-        text: root.buttonIcon === "" ? "..." : ""
-        // drawn for the background it is on
-        icon.source: root.buttonIcon === "" ? ""
-            : "qrc:/" + (Kirigami.Theme.backgroundColor.hslLightness >= 0.5 ? "bright" : "dark") + "/" + root.buttonIcon
+        buttons: Ez.FieldButton {
+            id: button
+            objectName: root.buttonName
+            fused: true
+            Controls.ToolTip.visible: hovered && root.buttonToolTip !== ""
+            Controls.ToolTip.text: root.buttonToolTip
+            onClicked: root.browse()
+            text: root.buttonIcon === "" ? "..." : ""
+            // drawn for the background it is on
+            icon.source: root.buttonIcon === "" ? ""
+                : "qrc:/" + (Kirigami.Theme.backgroundColor.hslLightness >= 0.5 ? "bright" : "dark") + "/" + root.buttonIcon
+        }
     }
 }

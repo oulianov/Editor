@@ -14,7 +14,7 @@ import org.easyrpg.editor as Ez
  * backdrop or two frames. RPG Maker 2000 only has the backdrop: the rest is
  * greyed in its games.
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     /** The background is made of frames (RPG Maker 2003) */

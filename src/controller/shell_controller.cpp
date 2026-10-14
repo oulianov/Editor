@@ -52,9 +52,11 @@ ShellController::ShellController(QObject* parent) :
 	m_tabs(new MapTabsController(m_project, this)),
 	m_actions(new ActionCatalog(this))
 {
-	// The map tree read again: its view first (a new tree), then the tabs
-	// of the maps removed close
+	// The map tree read again: the node selected (removed: the one above it
+	// that stays), its view, then the tabs of the maps removed close
 	connect(m_project, &ProjectController::treeMapReloaded, this, [this] {
+		if (m_selectedMap >= 0)
+			setSelectedMap(m_project->keptNode(m_selectedMap));
 		emit treeMapReloaded();
 		m_tabs->followTreeMap();
 	});

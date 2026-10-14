@@ -15,7 +15,7 @@ import org.easyrpg.editor as Ez
  * the members without a hero are left out), formation, condition and
  * background.
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     readonly property var system: database ? database.subtree("system") : null

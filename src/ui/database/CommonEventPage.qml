@@ -12,8 +12,10 @@ import org.easyrpg.editor as Ez
  * automatically while its switch is on) and its commands, edited in the
  * window's copy of the database. The command list fills the page.
  */
-RichPage {
+DatabaseEntryPage {
     id: root
+    // its canvas or list as large as the page
+    fillHeight: true
 
     /** The command list (its keys, its line selected) */
     readonly property alias commandList: commands

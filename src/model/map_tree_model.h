@@ -36,7 +36,7 @@
  * children).
  *
  * The TreeMap stays the project's: when it is replaced (read again, merged),
- * reset() reads it again. Reading and writing its file is the controller's.
+ * update() reads it again. Reading and writing its file is the controller's.
  */
 class MapTreeModel : public QAbstractItemModel
 {
@@ -59,8 +59,15 @@ public:
 	/** The tree shown, nullptr for none; it is read at once */
 	void setTreeMap(lcf::rpg::TreeMap* tree);
 	lcf::rpg::TreeMap* treeMap() const;
-	/** Reads the tree again, after it was replaced */
-	void reset();
+	/** Reads the tree again, after it was replaced (read again from its
+	 *  file, merged): row by row, as the tree changed. The rows kept stay,
+	 *  so do the views' expanded nodes and scroll; a new node is shown
+	 *  expanded when its data says so (ExpandedRole changes), the others
+	 *  as the views had them (the data's expanded flags are not shown
+	 *  again). before: the tree data it replaced, for the names and types
+	 *  changed. The ids removed, each with the nearest node above it that
+	 *  stays. */
+	QHash<int, int> update(const lcf::rpg::TreeMap& before);
 	/** The name of the project row (the game title) */
 	void setRootName(const QString& name);
 
@@ -136,6 +143,9 @@ private:
 	};
 
 	void build();
+	/** The children of the nodes of the tree data, by id (0: the
+	 *  project), as the tree shows them */
+	std::unordered_map<int, std::vector<int>> layout() const;
 	Node* node(int id) const;
 	/** The tree has no other root than the project row */
 	bool isTop(const Node* node) const;

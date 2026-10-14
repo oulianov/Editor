@@ -1,0 +1,6 @@
+# The Editor starts on the test game (TestGame-2003 of
+# https://github.com/EasyRPG/TestGame): its main window shows the map tree
+# with the game's maps, then it quits
+wait 500
+expect treeMap Picture events
+quit

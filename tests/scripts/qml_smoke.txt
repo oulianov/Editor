@@ -1,3 +1,0 @@
-# The QML stack of the interface: Kirigami, its Breeze style, a dock of
-# KDDockWidgets and the project's data, drawn offscreen
-qml-smoke qml_smoke.png

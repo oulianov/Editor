@@ -38,6 +38,12 @@
 #include "ui/shell/qml_engine.h"
 #include "ui/shell/qml_shell.h"
 #include <lcf/ldb/reader.h>
+#include <lcf/lmt/reader.h>
+#include <lcf/lmu/reader.h>
+#include <lcf/reader_util.h>
+#include <private/qhooks_p.h>
+#include <private/qqmlcontextdata_p.h>
+#include <private/qqmldata_p.h>
 #include <QDir>
 #include <QDirIterator>
 #include <QEventLoop>
@@ -45,16 +51,21 @@
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QMutex>
+#include <QSet>
 #include <QMetaEnum>
 #include <QPalette>
 #include <QPointer>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
+#include <QQuickItem>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QStyleHints>
 #include <QTimer>
+#include <algorithm>
 #include <array>
+#include <functional>
 #include <memory>
 
 namespace {
@@ -94,6 +105,68 @@ QStringList splitLine(const QString& line) {
 		words << word;
 	}
 	return words;
+}
+
+// The QObjects made since objects-mark that are still there (objects-log):
+// what a repeated action leaves behind. Qt's hooks (as GammaRay's) see every
+// QObject made and deleted, in any thread
+struct ObjectCensus {
+	QMutex mutex;
+	QSet<QObject*> objects;
+	bool installed = false;
+	QHooks::AddQObjectCallback add = nullptr;
+	QHooks::RemoveQObjectCallback remove = nullptr;
+};
+ObjectCensus& census() {
+	static ObjectCensus instance;
+	return instance;
+}
+void censusAdd(QObject* object) {
+	ObjectCensus& c = census();
+	{
+		QMutexLocker locker(&c.mutex);
+		c.objects.insert(object);
+	}
+	if (c.add)
+		c.add(object);
+}
+void censusRemove(QObject* object) {
+	ObjectCensus& c = census();
+	{
+		QMutexLocker locker(&c.mutex);
+		c.objects.remove(object);
+	}
+	if (c.remove)
+		c.remove(object);
+}
+
+// Deleted later and JavaScript garbage: gone, as they would be in time
+void collectGarbage() {
+	for (int i = 0; i < 3; ++i) {
+		QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+		QmlEngine::instance()->collectGarbage();
+	}
+	QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+}
+
+// Where an object comes from: its QML file and line, its parents
+QString describeObject(QObject* object) {
+	QStringList parts;
+	for (QObject* o = object; o && parts.size() < 24; o = o->parent()) {
+		QString part = QString::fromLatin1(o->metaObject()->className());
+		if (!o->objectName().isEmpty())
+			part += '"' + o->objectName() + '"';
+		if (const QQmlData* data = QQmlData::get(o); data && data->outerContext)
+			part += QStringLiteral("@%1:%2").arg(data->outerContext->url().fileName()).arg(data->lineNumber);
+		parts << part;
+	}
+	if (auto* item = qobject_cast<QQuickItem*>(object)) {
+		parts << QStringLiteral("[visual parent: %1, window: %2]")
+			.arg(item->parentItem() ? QString::fromLatin1(item->parentItem()->metaObject()->className()) : QStringLiteral("none"))
+			.arg(item->window() ? QString::fromLatin1(item->window()->metaObject()->className()) : QStringLiteral("none"));
+	}
+	parts << (QQmlEngine::objectOwnership(object) == QQmlEngine::JavaScriptOwnership ? QStringLiteral("[js]") : QStringLiteral("[cpp]"));
+	return parts.join(QStringLiteral(" < "));
 }
 
 // The map of the last generate-dungeon, for the expect-dungeon-* commands
@@ -218,6 +291,76 @@ bool Automation::run(const QStringList& args) {
 
 	if (cmd == "log") {
 		qCInfo(lcAutomation).noquote() << args.mid(1).join(' ');
+		return true;
+	}
+	if (cmd == "gc" && args.size() == 1) {
+		collectGarbage();
+		return true;
+	}
+	if (cmd == "objects-mark" && args.size() == 1) {
+		collectGarbage();
+		ObjectCensus& c = census();
+		if (!c.installed) {
+			c.add = reinterpret_cast<QHooks::AddQObjectCallback>(qtHookData[QHooks::AddQObject]);
+			c.remove = reinterpret_cast<QHooks::RemoveQObjectCallback>(qtHookData[QHooks::RemoveQObject]);
+			qtHookData[QHooks::AddQObject] = reinterpret_cast<quintptr>(&censusAdd);
+			qtHookData[QHooks::RemoveQObject] = reinterpret_cast<quintptr>(&censusRemove);
+			c.installed = true;
+		}
+		QMutexLocker locker(&c.mutex);
+		c.objects.clear();
+		return true;
+	}
+	if (cmd == "expect-objects" && args.size() == 3 && toInt(args[2], a)) {
+		// as many objects of a class (part of its name) made since objects-mark still there
+		collectGarbage();
+		ObjectCensus& c = census();
+		QMutexLocker locker(&c.mutex);
+		int found = 0;
+		for (QObject* object : std::as_const(c.objects))
+			found += QString::fromLatin1(object->metaObject()->className()).contains(args[1]) ? 1 : 0;
+		if (found != a) {
+			fail(QStringLiteral("%1 object(s) %2 made since objects-mark are there, not %3").arg(found).arg(args[1]).arg(a));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "objects-log" && args.size() <= 4) {
+		// the objects made since objects-mark still there, by class (the
+		// N most numerous); with a class: where some of them come from
+		int top = 20;
+		if (args.size() >= 2 && !toInt(args[1], top))
+			return false;
+		collectGarbage();
+		ObjectCensus& c = census();
+		QMutexLocker locker(&c.mutex);
+		QHash<QString, int> counts;
+		for (QObject* object : std::as_const(c.objects))
+			++counts[QString::fromLatin1(object->metaObject()->className())];
+		QList<QPair<int, QString>> sorted;
+		for (auto it = counts.cbegin(); it != counts.cend(); ++it)
+			sorted.append({it.value(), it.key()});
+		std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+		qCInfo(lcAutomation).noquote() << QStringLiteral("objects: %1 made since objects-mark still there").arg(c.objects.size());
+		for (int i = 0; i < std::min<int>(top, sorted.size()); ++i)
+			qCInfo(lcAutomation).noquote() << QStringLiteral("  %1 %2").arg(sorted[i].first, 6).arg(sorted[i].second);
+		if (args.size() >= 3) {
+			// the places they come from, the most frequent first (PLACES of them)
+			int shown = 30;
+			if (args.size() == 4 && !toInt(args[3], shown))
+				return false;
+			QHash<QString, int> places;
+			for (QObject* object : std::as_const(c.objects)) {
+				if (QString::fromLatin1(object->metaObject()->className()).contains(args[2]))
+					++places[describeObject(object)];
+			}
+			QList<QPair<int, QString>> where;
+			for (auto it = places.cbegin(); it != places.cend(); ++it)
+				where.append({it.value(), it.key()});
+			std::sort(where.begin(), where.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+			for (int i = 0; i < std::min<int>(shown, where.size()); ++i)
+				qCInfo(lcAutomation).noquote() << QStringLiteral("  %1x %2").arg(where[i].first).arg(where[i].second);
+		}
 		return true;
 	}
 	if (cmd == "expect-locks" && args.size() >= 2) {
@@ -357,6 +500,21 @@ bool Automation::run(const QStringList& args) {
 	}
 	if ((cmd == "edit-database-file" || cmd == "expect-database-file" || cmd == "expect-database") && args.size() >= 3) {
 		return databaseFile(args);
+	}
+	if (cmd == "edit-tree-file" && args.size() >= 2) {
+		return treeFile(args);
+	}
+	if (cmd == "log-tree" && args.size() == 1) {
+		// what the map tree of the main window shows
+		QObject* tree = m_window.window() ? m_window.window()->property("mapTree").value<QObject*>() : nullptr;
+		QVariant text, dock;
+		if (!tree || !QMetaObject::invokeMethod(tree, "automationState", Q_RETURN_ARG(QVariant, text))) {
+			fail("no map tree");
+			return false;
+		}
+		QMetaObject::invokeMethod(m_window.window(), "dockState", Q_RETURN_ARG(QVariant, dock), Q_ARG(QVariant, QStringLiteral("dockMapTree")));
+		qCInfo(lcAutomation).noquote() << "map tree:" << dock.toString() << "|" << text.toString();
+		return true;
 	}
 	if (cmd == "qml-map" && args.size() == 2 && toInt(args[1], a)) {
 		// the QML map canvas and its palette on a map, in a window over the
@@ -921,5 +1079,113 @@ bool Automation::databaseFile(const QStringList& args) {
 		return false;
 	}
 	qCInfo(lcAutomation).noquote() << "database file changed:" << pointer << "=" << value;
+	return true;
+}
+
+bool Automation::treeFile(const QStringList& args) {
+	// as another program (rpgsync) reads and writes it, apart from the Editor
+	auto project = core().project();
+	std::unique_ptr<lcf::rpg::TreeMap> tree = project ? project->readTreeMap() : nullptr;
+	if (!tree) {
+		fail("cannot read the map tree file");
+		return false;
+	}
+	auto entry = [&tree](int id) -> lcf::rpg::MapInfo* {
+		for (auto& map : tree->maps) {
+			if (map.ID == id)
+				return &map;
+		}
+		return nullptr;
+	};
+	const QString& op = args[1];
+	int id = 0, other = 0;
+	lcf::rpg::MapInfo* map = args.size() >= 3 && toInt(args[2], id) && id > 0 ? entry(id) : nullptr;
+	QString usage;
+	if (op == "rename" && args.size() == 4 && map) {
+		map->name = ToDBString(args[3]);
+	} else if (op == "expanded" && args.size() == 4 && map && (args[3] == "on" || args[3] == "off")) {
+		map->expanded_node = args[3] == "on";
+	} else if (op == "add" && (args.size() == 3 || args.size() == 4) && toInt(args[2], other)
+			&& (other == 0 || entry(other))) {
+		// a new map, last under its parent, with a blank map file
+		id = 1;
+		while (entry(id) || QFileInfo::exists(project->mapFile(id)))
+			id++;
+		lcf::rpg::MapInfo info;
+		info.ID = id;
+		info.name = ToDBString(args.size() == 4 ? args[3] : QString("MAP%1").arg(id, 4, 10, QChar(u'0')));
+		info.parent_map = other;
+		info.type = lcf::rpg::TreeMap::MapType_map;
+		tree->maps.push_back(info);
+		std::sort(tree->maps.begin(), tree->maps.end(),
+			[](const lcf::rpg::MapInfo& a, const lcf::rpg::MapInfo& b) { return a.ID < b.ID; });
+		tree->tree_order.push_back(id);
+		lcf::rpg::Map blank = MapTools::newMap();
+		const std::string file = project->mapFile(id).toStdString();
+		const auto engine = lcf::GetEngineVersion(project->database());
+		if (project->projectType() == FileFinder::ProjectType::EasyRpg
+				? !lcf::LMU_Reader::SaveXml(file, blank, engine)
+				: !lcf::LMU_Reader::Save(file, blank, engine, project->encoding().toStdString())) {
+			fail("cannot write the map file");
+			return false;
+		}
+	} else if (op == "remove" && args.size() == 3 && map) {
+		// with what it holds; its files stay
+		std::vector<int> gone{id};
+		for (size_t i = 0; i < gone.size(); i++) {
+			for (const auto& child : tree->maps) {
+				if (child.ID != 0 && child.parent_map == gone[i])
+					gone.push_back(child.ID);
+			}
+		}
+		auto removed = [&gone](int map_id) { return std::find(gone.begin(), gone.end(), map_id) != gone.end(); };
+		tree->maps.erase(std::remove_if(tree->maps.begin(), tree->maps.end(),
+			[&](const lcf::rpg::MapInfo& info) { return removed(info.ID); }), tree->maps.end());
+		tree->tree_order.erase(std::remove_if(tree->tree_order.begin(), tree->tree_order.end(), removed),
+			tree->tree_order.end());
+	} else if (op == "move" && args.size() == 4 && map && toInt(args[3], other) && other != id
+			&& (other == 0 || entry(other))) {
+		// last under its new parent (not under itself)
+		for (int above = other; above != 0; above = entry(above) ? entry(above)->parent_map : 0) {
+			if (above == id) {
+				fail("a map cannot go under itself");
+				return false;
+			}
+		}
+		map->parent_map = other;
+		auto& order = tree->tree_order;
+		order.erase(std::remove(order.begin(), order.end(), id), order.end());
+		order.push_back(id);
+	} else if (op != "rewrite" || args.size() != 2) {
+		fail("usage: edit-tree-file rename ID NAME | expanded ID on|off | add PARENT [NAME] | remove ID | move ID PARENT | rewrite");
+		return false;
+	}
+	if (op == "add" || op == "remove" || op == "move") {
+		// the tree order as RPG Maker writes it: depth first, the children
+		// in their order, with their depths
+		std::vector<int32_t> order{0};
+		std::function<void(int, int)> walk = [&](int parent, int depth) {
+			for (int32_t child : tree->tree_order) {
+				lcf::rpg::MapInfo* info = child != 0 ? entry(child) : nullptr;
+				if (info && info->parent_map == parent) {
+					info->indentation = depth;
+					order.push_back(child);
+					walk(child, depth + 1);
+				}
+			}
+		};
+		walk(0, 1);
+		tree->tree_order = order;
+	}
+	const std::string path = project->treeMapFile().toStdString();
+	const auto engine = lcf::GetEngineVersion(project->database());
+	const bool saved = project->projectType() == FileFinder::ProjectType::Legacy
+		? lcf::LMT_Reader::Save(path, *tree, engine, project->encoding().toStdString())
+		: lcf::LMT_Reader::SaveXml(path, *tree, engine);
+	if (!saved) {
+		fail("cannot write the map tree file");
+		return false;
+	}
+	qCInfo(lcAutomation).noquote() << "map tree file changed:" << args.mid(1).join(u' ') << (op == "add" ? QString("(map %1)").arg(id) : QString());
 	return true;
 }

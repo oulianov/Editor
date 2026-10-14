@@ -133,6 +133,8 @@ public:
 	void setCurrentRow(int row);
 	/** The row of a file (any case), -1 when it is not listed */
 	Q_INVOKABLE int rowOf(const QString& name) const;
+	/** The first row from the row from on (wrapping) whose file starts with text (any case), -1 when none */
+	Q_INVOKABLE int rowStartingWith(const QString& text, int from) const;
 	QString currentName() const;
 	QString currentPath() const;
 	bool currentIsRtp() const;

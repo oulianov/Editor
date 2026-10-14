@@ -15,7 +15,7 @@ import org.easyrpg.editor as Ez
  * last line adds one) and its resistances (a click gives a line the next
  * rank, A to E).
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     readonly property var actions: entry ? entry.list("actions") : null
@@ -408,10 +408,7 @@ Ez.EntryPage {
                         }
                         event.accepted = true
                     }
-                    TapHandler {
-                        acceptedButtons: Qt.RightButton
-                        onTapped: (eventPoint) => actionMenu.popupAt(parent, eventPoint.position.x, eventPoint.position.y)
-                    }
+                    contextMenu: actionMenu
 
                     Controls.ToolTip.visible: actionHover.hovered && !actionMenu.visible
                     Controls.ToolTip.delay: 600
@@ -428,30 +425,35 @@ Ez.EntryPage {
                         Controls.MenuItem {
                             objectName: "actionEdit"
                             text: qsTranslate("EditActions", "Edit...")
+                            icon.source: actionMenu.iconFolder + "properties"
                             onTriggered: root.editAction(actionTable.currentIndex < 0 ? root.actions.count : actionTable.currentIndex)
                         }
                         Controls.MenuSeparator {}
                         Controls.MenuItem {
                             objectName: "actionCut"
                             text: qsTranslate("EditActions", "Cut")
+                            icon.source: actionMenu.iconFolder + "edit-cut"
                             enabled: actionMenu.onAction
                             onTriggered: root.copyAction(true)
                         }
                         Controls.MenuItem {
                             objectName: "actionCopy"
                             text: qsTranslate("EditActions", "Copy")
+                            icon.source: actionMenu.iconFolder + "edit-copy"
                             enabled: actionMenu.onAction
                             onTriggered: root.copyAction(false)
                         }
                         Controls.MenuItem {
                             objectName: "actionPaste"
                             text: qsTranslate("EditActions", "Paste")
+                            icon.source: actionMenu.iconFolder + "edit-paste"
                             enabled: !!root.clipboard
                             onTriggered: root.pasteAction()
                         }
                         Controls.MenuItem {
                             objectName: "actionDelete"
                             text: qsTranslate("EditActions", "Delete")
+                            icon.source: actionMenu.iconFolder + "edit-delete"
                             enabled: actionMenu.onAction
                             onTriggered: root.deleteAction()
                         }

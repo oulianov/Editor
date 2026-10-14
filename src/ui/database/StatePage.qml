@@ -15,7 +15,7 @@ import org.easyrpg.editor as Ez
  * battle messages (RPG Maker 2000) and the pose of the heroes (RPG Maker
  * 2003). As in RPG Maker, most of the first condition (Death) is fixed.
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     readonly property int entryId: entry ? entry.num("ID") : 0

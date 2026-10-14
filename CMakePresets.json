@@ -261,13 +261,13 @@
 		{
 			"name": "macos-parent",
 			"cacheVariables": {
-				"EDITOR_PREFIX_PATH_APPEND": "$env{EASYRPG_BUILDSCRIPTS}/macos/qt/6.10.1/macos",
+				"EDITOR_PREFIX_PATH_APPEND": "$env{EASYRPG_BUILDSCRIPTS}/macos/qt/6.11.2/macos",
 				"CMAKE_OSX_DEPLOYMENT_TARGET": "13.3",
 				"CMAKE_OSX_ARCHITECTURES": "arm64",
 				"CMAKE_OSX_SYSROOT": "macosx"
 			},
 			"environment": {
-				"Qt6_Path": "$env{EASYRPG_BUILDSCRIPTS}/macos/qt/6.10.1/macos"
+				"Qt6_Path": "$env{EASYRPG_BUILDSCRIPTS}/macos/qt/6.11.2/macos"
 			},
 			"condition": {
 				"type": "equals",

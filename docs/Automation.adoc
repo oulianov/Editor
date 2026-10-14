@@ -5,18 +5,8 @@ a change, to check that dialogs fit small screens, or to take screenshots.
 
 == Building
 
-Every build of the Editor has the script runner. The scripts of
-`tests/scripts` are tests when the build is given a game to run them on:
-
-----
-cmake -B build -DEDITOR_TEST_PROJECT=/path/to/TestGame-2003
-cmake --build build
-ctest --test-dir build --output-on-failure -j 8
-----
-
-`EDITOR_TEST_PROJECT` is a game the tests run on, such as `TestGame-2003` of
-https://github.com/EasyRPG/TestGame; the scripts in `tests/scripts` become
-tests, run without a display. They change nothing on disk.
+Every build of the Editor has the script runner. The start-up test
+(`tests/startup.txt`, see link:Building.md[Building]) is a script.
 
 == Running a script
 
@@ -85,6 +75,8 @@ at once: the next commands act on the dialog, until `close`.
 | `float-dock DOCK on\|off` | Puts a dock of the main window (`dockPalette`, `dockMapTree`) in a window of its own, or back.
 | `expect-dock DOCK docked\|floating\|closed` | Fails unless the dock of the main window is in that state.
 | `edit-database-file POINTER VALUE` | Writes a value of the database file on disk, apart from the Editor, as another program (rpgsync) does: POINTER is a JSON pointer of the database (`terms/victory`, `attributes/1/name`).
+| `edit-tree-file rename ID NAME\|expanded ID on\|off\|add PARENT [NAME]\|remove ID\|move ID PARENT\|rewrite` | Changes the map tree file on disk, apart from the Editor, as another program (rpgsync) does: renames a map or area, sets the flag of a node shown expanded, adds a map (the first free id, with a blank map file) as the last child of PARENT (0: the project), removes a node with what it holds (their map files stay), moves a map with what it holds as the last child of PARENT, or writes the file again unchanged. What the Editor shows of it is read again with the files changed by other programs (Settings, `checkReloadExternal`): the map tree keeps its expanded nodes, its scroll and its selection.
+| `log-tree` | Logs what the map tree of the main window shows: its dock (`docked`, `floating`, `closed`), the nodes shown expanded, its rows, its scroll, the first node shown, the node selected, and the lines drawn that do not show their node (`lines wrong`, 0).
 | `expect-database-file POINTER VALUE` | Fails unless the database file on disk has this value (what Apply or OK saved).
 | `expect-database POINTER VALUE` | Fails unless the project's database, in memory, has this value (what it read again after `edit-database-file`, with the files changed by other programs read again: Settings, `checkReloadExternal`).
 | `expect-locks KIND...` | Fails unless the editors open hold these edit locks, in the order taken (`none`: no lock): `dialog` for a modal window (a dialog, a question, a picker), `database` for the database window, `event:MAP` for the event window of an event of map MAP. What another program changes in the project is read again only once they are given back (an event window lets the maps through).
@@ -128,7 +120,8 @@ at once: the next commands act on the dialog, until `close`.
 | `preview-drag NAME X1 Y1 X2 Y2` | Drags a rectangle on a map preview or tile chooser.
 | `view-click NAME X Y [right\|double]` | Clicks a point of an item (a tile view, a graphic), in its own coordinates (`double`: a double-click, which opens a hero's curve).
 | `view-drag NAME X1 Y1 X2 Y2 [right] [shift] [ctrl] [escape]` | Drags between two points of an item, in small steps (on a spin box: scrubs it from a button, or from its number with `ctrl`); `shift`, `ctrl`: the keys held during the drag; `escape`: Escape pressed before the button is released.
-| `view-wheel NAME X Y DELTA` | Turns the wheel over a point of an item, in its own coordinates (a notch is 120, negative: down).
+| `view-press NAME X Y [right]`, `view-release NAME X Y [right]` | Presses a button on a point of an item, in its own coordinates, or releases it there: what the press does is seen before the release (a right-click menu opens on the press, `expect-menu-at`).
+| `view-wheel NAME X Y DELTA [begin\|update\|end]` | Turns the wheel over a point of an item, in its own coordinates (a notch is 120, negative: down). With a phase: two fingers on a trackpad, DELTA in pixels, the pointer and a button held staying as they are (a click with two fingers sends `begin` and `end` between its press and its release).
 | `menu TEXT` | Chooses an item of the pop-up menu shown, by its text (with or without "...").
 | `expect-menu shown\|none` | Fails unless a pop-up menu (or a pop-up in a window of its own, such as the codes of a message) is shown over the window in front (`shown`), or none is (`none`).
 | `context-menu NAME` | Opens the right-click menu of a control, at the current line of a list.
@@ -156,6 +149,10 @@ at once: the next commands act on the dialog, until `close`.
 | `check-layout` | Fails for every control smaller than it needs to be (clipped text...) and for overlapping radio options.
 | `set-enabled NAME on\|off` | Enables or disables a control (or a section, with its controls) of a QML window, by its object name or button text: to see how the windows draw what cannot be changed.
 | `check-disabled` | Fails for every disabled button, check box, radio button, combo box, spin box, slider, field or label of a QML window drawn as an enabled one (not faded, as the Ez controls draw them).
+| `gc` | Deletes what waits to be deleted (`deleteLater()`) and collects the JavaScript garbage, as the Editor does in time: what memory stays after it is kept.
+| `objects-mark` | Runs `gc`, then counts from there the objects (QObjects) made: the start of what `objects-log` shows.
+| `objects-log [N [CLASS [PLACES]]]` | Runs `gc`, then logs how many objects made since `objects-mark` are still there, with the N classes (default 20) that have the most; with CLASS (part of a class name: `QQuickText`; `""`: all), where those objects come from, the PLACES (default 30) most frequent first: each object and its parents, with their QML file and line, its parent item and window, and whether QML or C++ owns it. An action repeated between the two that leaves objects behind leaks them.
+| `expect-objects CLASS N` | Runs `gc`, then fails unless N objects whose class name has CLASS (`EventPageEditor`) made since `objects-mark` are still there.
 | `wait MILLISECONDS` | Waits, for example for a file change.
 | `log TEXT` | Writes the text in the log.
 | `close` | Closes the dialog (like Cancel): the modal one, else the window in front (the search window).
@@ -173,7 +170,7 @@ or one opened by `qml-open`, else the main window): `click`, `double-click`,
 `expect-checked`, `expect-enabled`, `set-enabled`, `inspect-controls`, `check-layout`, `check-disabled`,
 `check-option-spacing`, `resize`, `screenshot`, `screenshot-menu` (a menu or
 pop-up shown in it), `select-command` (the command list shown),
-`view-click`, `view-drag` and `view-wheel` (a point of an item, in its own coordinates)
+`view-click`, `view-drag`, `view-press`, `view-release` and `view-wheel` (a point of an item, in its own coordinates)
 and `close`. A dialog drawn in the window (Array Size, a warning) is
 searched first: `click OK` is its button while it is shown. So is a pop-up
 shown in a window of its own past the window's edges (the codes of a
@@ -310,9 +307,8 @@ or sound `groupFadeIn`, `sliderFadeIn`, `sliderVolume`, `sliderTempo`,
 buttons `resetFadeIn`..., `buttonPlay`,
 `buttonStop` and `labelStatus`) and the entry picker (`EntryPicker`: the
 list `list`, `listFilter`, `lineName`, `pushMax` and its `spinArraySize`).
-A file or entry is clicked by its text (`click Actor2.png`, `click (None)`).
-`qml-open PickerFieldsWindow` shows the fields opening them, bound to the
-first hero, monster and terrain and the system.
+A file or entry is clicked by its text (`click Actor2.png`, `click (None)`);
+in the file list, typing selects the file starting with the letters typed.
 
 `check-layout` reports, in a QML window: a button, combo box, spin box or
 check box narrower than its text, a control lower than it needs, a control

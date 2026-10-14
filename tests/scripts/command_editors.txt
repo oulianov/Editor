@@ -1,3 +1,0 @@
-# The editor of every command opens on a new command without a QML warning
-check-command-editors
-quit

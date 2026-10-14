@@ -71,6 +71,10 @@ done < <(find "$platform" "$APP/Contents/Resources/qml/org/kde/breeze" \( -name 
 # the style of Qt Widgets macdeployqt always adds, and Qt Widgets with it:
 # the Editor has no widgets (Qt Quick only)
 rm -rf "$APP/Contents/PlugIns/styles" "$APP/Contents/Frameworks/QtWidgets.framework"
+# the database drivers, there for QtQuick.LocalStorage (macdeployqt copies
+# every module under QtQuick): the Editor uses no database, and the drivers
+# of the official Qt need client libraries the application does not carry
+rm -rf "$APP/Contents/PlugIns/sqldrivers"
 
 # every program and library of the application
 machos=()

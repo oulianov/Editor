@@ -42,11 +42,11 @@
 			"hidden": true,
 			"toolchainFile": "$env{EASYRPG_BUILDSCRIPTS}/windows/vcpkg/scripts/buildsystems/vcpkg.cmake",
 			"cacheVariables": {
-				"EDITOR_PREFIX_PATH_APPEND": "$env{EASYRPG_BUILDSCRIPTS}/windows/qt/6.10.1/msvc2022_64",
+				"EDITOR_PREFIX_PATH_APPEND": "$env{EASYRPG_BUILDSCRIPTS}/windows/qt/6.11.2/msvc2022_64",
 				"VCPKG_OVERLAY_PORTS": "${sourceDir}/builds/vcpkg_overlay"
 			},
 			"environment": {
-				"Qt6_Path": "$env{EASYRPG_BUILDSCRIPTS}/windows/qt/6.10.1/msvc2022_64"
+				"Qt6_Path": "$env{EASYRPG_BUILDSCRIPTS}/windows/qt/6.11.2/msvc2022_64"
 			},
 			"inherits": ["base"],
 			"condition": {

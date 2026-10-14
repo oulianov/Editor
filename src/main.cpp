@@ -40,14 +40,13 @@
 int main(int argc, char *argv[]) {
 	QGuiApplication app(argc, argv);
 	// The QML interface: KDE's Breeze style, as upstream (Qt's Fusion when it
-	// is missing)
+	// is missing). Kirigami.Theme follows the system palette through
+	// Kirigami's own styles/org.kde.desktop/Theme.qml, static Kirigami (vcpkg)
+	// or not: Breeze's Kirigami platform plugin, which needs KDE's colour
+	// schemes, is left out (builds/vcpkg_overlay/qqc2-breeze-style). No
+	// KIRIGAMI_FORCE_STYLE: it would look for a Theme.qml of Breeze, which
+	// has none, and fall back to fixed colours
 	if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
-#if defined(KIRIGAMI_STATIC)
-		// a static Kirigami loads a style only when told to
-		if (qEnvironmentVariableIsEmpty("KIRIGAMI_FORCE_STYLE")) {
-			qputenv("KIRIGAMI_FORCE_STYLE", "1");
-		}
-#endif
 		QQuickStyle::setStyle(QStringLiteral("org.kde.breeze"));
 	}
 	QQuickStyle::setFallbackStyle(QStringLiteral("Fusion"));

@@ -127,7 +127,7 @@ Ez.ComboBox {
     function openSearch(text) {
         search.seed = text
         if (search.opened) {
-            searchField.text += text
+            search.field.text += text
         } else {
             search.open()
         }
@@ -155,11 +155,11 @@ Ez.ComboBox {
             return
         }
         // the whole list, at the first new entry (the last one left)
-        searchField.text = ""
+        search.field.text = ""
         const offset = noneText !== "" ? 1 : 0
         const shown = found.rowOf((count > before ? before : count - 1) + offset)
-        searchList.currentIndex = shown
-        searchList.positionViewAtIndex(Math.max(0, shown), ListView.Center)
+        search.list.currentIndex = shown
+        search.list.positionViewAtIndex(Math.max(0, shown), ListView.Center)
         // the pointer left where the dialog was does not choose a line
         search.pointer = Qt.point(-1, -1)
     }
@@ -344,12 +344,24 @@ Ez.ComboBox {
         font: Ez.Metrics.font
     }
 
-    Ez.ArraySizeDialog {
-        id: arraySize
-        list: root.resizable && root.database ? root.database.list(root.listKey) : null
-        onConfirmed: (count) => root.resizeList(count)
-        // back in the search once answered
-        onBusyChanged: if (!busy && search.opened) searchField.forceActiveFocus()
+    /** The list Array Size resizes (null: not resizable) */
+    readonly property var resizedList: resizable && database ? database.list(listKey) : null
+    /** Array Size, made the first time it is asked (a box rarely needs it) */
+    property Ez.ArraySizeDialog arraySize: null
+    function askArraySize() {
+        if (!arraySize) {
+            arraySize = arraySizeComponent.createObject(root) as Ez.ArraySizeDialog
+        }
+        arraySize.ask()
+    }
+    Component {
+        id: arraySizeComponent
+        Ez.ArraySizeDialog {
+            list: root.resizedList
+            onConfirmed: (count) => root.resizeList(count)
+            // back in the search once answered
+            onBusyChanged: if (!busy && search.opened) search.field.forceActiveFocus()
+        }
     }
 
     popup: Controls.Popup {
@@ -366,6 +378,10 @@ Ez.ComboBox {
         property real boxTop: 0
         /** Where the pointer was last seen over the lines, in the window (-1: not since it opened) */
         property point pointer: Qt.point(-1, -1)
+        /** Its content is made when it first opens (a box rarely opens it), then kept */
+        property bool made: false
+        readonly property Ez.TextField field: content.item ? content.item.field : null
+        readonly property ListView list: content.item ? content.item.list : null
 
         // below the box, else above it, else as low as the window lets it
         // (a small window: a command editor's)
@@ -388,34 +404,49 @@ Ez.ComboBox {
         focus: true
         font: Ez.Metrics.font
         // the Array Size dialog over it is not a click outside
-        closePolicy: arraySize.busy ? Controls.Popup.NoAutoClose
+        closePolicy: root.arraySize?.busy ? Controls.Popup.NoAutoClose
                                     : Controls.Popup.CloseOnEscape | Controls.Popup.CloseOnPressOutsideParent
         // drawn by its content, flat and opaque, as RPG Maker's lists
         background: null
 
         onAboutToShow: {
+            made = true
             const overlay = Controls.Overlay.overlay
             windowHeight = overlay ? overlay.height : 600
             boxTop = root.mapToItem(null, 0, 0).y
             pointer = Qt.point(-1, -1)
-            searchField.text = ""
+            field.text = ""
             found.filterText = ""
             // the whole list first: the window keeps its size while searching
-            searchList.currentIndex = found.rowOf(root.currentIndex)
+            list.currentIndex = found.rowOf(root.currentIndex)
         }
         onOpened: {
-            searchField.forceActiveFocus()
+            field.forceActiveFocus()
             if (seed !== "") {
-                searchField.text = seed
+                field.text = seed
                 seed = ""
             } else {
-                searchList.positionViewAtIndex(Math.max(0, searchList.currentIndex), ListView.Center)
+                list.positionViewAtIndex(Math.max(0, list.currentIndex), ListView.Center)
             }
         }
         // back on the box (not once a name is being typed in it)
         onClosed: if (!root.renaming) root.forceActiveFocus()
 
-        contentItem: Item {
+        contentItem: Loader {
+            id: content
+            active: search.made
+            sourceComponent: searchContent
+        }
+    }
+
+    // the search and the list of the drop-down
+    Component {
+        id: searchContent
+
+        Item {
+            readonly property alias field: searchField
+            readonly property alias list: searchList
+
             implicitWidth: column.implicitWidth + 2 * column.anchors.margins
             implicitHeight: column.implicitHeight + 2 * column.anchors.margins
 
@@ -574,18 +605,18 @@ Ez.ComboBox {
                     Ez.Button {
                         objectName: "searchArraySize"
                         text: qsTranslate("DatabaseSplitWidget", "Array Size...")
-                        enabled: arraySize.list !== null
+                        enabled: root.resizedList !== null
                         // the button only: Return stays the entry's
                         focusPolicy: Qt.NoFocus
-                        onClicked: arraySize.ask()
+                        onClicked: root.askArraySize()
                     }
                     Item {
                         Layout.fillWidth: true
                     }
                     Ez.Label {
                         // the entries of the list (the matches while searching)
-                        text: searchField.text.trim() === "" ? qsTr("%n entries", "", arraySize.list ? arraySize.list.count : 0)
-                                                             : qsTr("%1 of %n", "", arraySize.list ? arraySize.list.count : 0).arg(searchList.count)
+                        text: searchField.text.trim() === "" ? qsTr("%n entries", "", root.resizedList ? root.resizedList.count : 0)
+                                                             : qsTr("%1 of %n", "", root.resizedList ? root.resizedList.count : 0).arg(searchList.count)
                         color: Ez.Metrics.mutedTextColor
                     }
                 }

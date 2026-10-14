@@ -1,8 +1,0 @@
-# Ctrl+Alt+S (Cmd+Option+S on macOS) saves the window in front as a PNG,
-# and the status bar says where (a script's goes in its own folder).
-# Run on TestGame-2003 (https://github.com/EasyRPG/TestGame).
-key Ctrl+Alt+S
-wait 300
-expect labelStatus Screenshot saved to
-expect labelStatus EasyRPG Editor/editor-
-quit

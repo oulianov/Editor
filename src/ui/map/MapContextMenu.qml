@@ -25,15 +25,22 @@ Item {
     /** The states of the actions of the last menu opened, by name: {enabled, visible} */
     property var actionStates: ({})
 
-    readonly property alias eventMenu: eventMenu
-    readonly property alias areaMenu: areaMenu
-    readonly property bool opened: eventMenu.opened || areaMenu.opened || vehicleMenu.opened
+    /** The menus, made the first time they open (a map shown is rarely right-clicked) */
+    property Ez.ContextMenu eventMenu: null
+    property Ez.ContextMenu areaMenu: null
+    readonly property bool opened: (eventMenu?.opened ?? false) || (areaMenu?.opened ?? false)
+                                   || (eventMenu?.vehicles.opened ?? false)
     /** The Editor's icons (resources/icons) for the colors shown, light or dark */
     readonly property string icons: colors.window.hslLightness >= 0.5 ? "qrc:/bright/" : "qrc:/dark/"
 
     /** The menu the editor asks for (MapEditor.EventMenu or AreaMenu) at x, y of item */
     function popup(menu, item, x, y) {
         refresh(menu)
+        if (menu === Ez.MapEditor.EventMenu && !eventMenu) {
+            eventMenu = eventMenuComponent.createObject(root) as Ez.ContextMenu
+        } else if (menu !== Ez.MapEditor.EventMenu && !areaMenu) {
+            areaMenu = areaMenuComponent.createObject(root) as Ez.ContextMenu
+        }
         const shown = menu === Ez.MapEditor.EventMenu ? eventMenu : areaMenu
         shown.popupAt(item, x, y)
     }
@@ -203,7 +210,7 @@ Item {
         menu: root
         objectName: "actionAreaClear"
         text: qsTr("Clear")
-        icon.source: root.icons + "edit-delete"
+        icon.source: root.icons + "edit-clear"
         key: "Del"
         onTriggered: root.editor.clearArea()
     }
@@ -217,55 +224,64 @@ Item {
         onTriggered: root.editor.selectAll()
     }
 
-    Ez.ContextMenu {
-        id: eventMenu
-        objectName: "eventMenu"
+    Component {
+        id: eventMenuComponent
 
-        // the item of the vehicles' submenu shows no icon of the submenu's own
-        Component.onCompleted: {
-            for (let i = 0; i < count; ++i) {
-                const item = itemAt(i) as Controls.MenuItem
-                if (item && item.subMenu === vehicleMenu) {
-                    item.icon.source = Qt.binding(() => root.icons + "place-vehicle")
+        Ez.ContextMenu {
+            id: eventMenu
+            objectName: "eventMenu"
+
+            readonly property Controls.Menu vehicles: vehicleMenu
+
+            // the item of the vehicles' submenu shows no icon of the submenu's own
+            Component.onCompleted: {
+                for (let i = 0; i < count; ++i) {
+                    const item = itemAt(i) as Controls.MenuItem
+                    if (item && item.subMenu === vehicleMenu) {
+                        item.icon.source = Qt.binding(() => root.icons + "place-vehicle")
+                    }
                 }
             }
-        }
 
-        MapItem { action: eventNew }
-        MapItem { action: eventEdit }
-        Controls.MenuSeparator {}
-        MapItem { action: eventCut }
-        MapItem { action: eventCopy }
-        MapItem { action: eventPaste }
-        MapItem { action: eventDelete }
-        Controls.MenuSeparator {}
-        MapItem { action: placeTeleport }
-        Controls.MenuSeparator {}
-        MapItem { action: placeParty }
-        Controls.Menu {
-            id: vehicleMenu
-            objectName: "vehicleMenu"
-            title: qsTr("Place Vehicle Starting Position")
-            // the boat, the ship and the airship follow the party
-            enabled: root.enabledOf("actionPlaceBoatStart")
+            MapItem { action: eventNew }
+            MapItem { action: eventEdit }
+            Controls.MenuSeparator {}
+            MapItem { action: eventCut }
+            MapItem { action: eventCopy }
+            MapItem { action: eventPaste }
+            MapItem { action: eventDelete }
+            Controls.MenuSeparator {}
+            MapItem { action: placeTeleport }
+            Controls.MenuSeparator {}
+            MapItem { action: placeParty }
+            Controls.Menu {
+                id: vehicleMenu
+                objectName: "vehicleMenu"
+                title: qsTr("Place Vehicle Starting Position")
+                // the boat, the ship and the airship follow the party
+                enabled: root.enabledOf("actionPlaceBoatStart")
 
-            MapItem { action: placeBoat }
-            MapItem { action: placeShip }
-            MapItem { action: placeAirship }
+                MapItem { action: placeBoat }
+                MapItem { action: placeShip }
+                MapItem { action: placeAirship }
+            }
+            Controls.MenuSeparator {}
+            MapItem { action: runHere }
         }
-        Controls.MenuSeparator {}
-        MapItem { action: runHere }
     }
 
     // RPG Maker's menu of the selection tool
-    Ez.ContextMenu {
-        id: areaMenu
-        objectName: "areaMenu"
+    Component {
+        id: areaMenuComponent
 
-        MapItem { action: areaCut }
-        MapItem { action: areaCopy }
-        MapItem { action: areaPaste }
-        MapItem { action: areaClear }
-        MapItem { action: areaSelectAll }
+        Ez.ContextMenu {
+            objectName: "areaMenu"
+
+            MapItem { action: areaCut }
+            MapItem { action: areaCopy }
+            MapItem { action: areaPaste }
+            MapItem { action: areaClear }
+            MapItem { action: areaSelectAll }
+        }
     }
 }

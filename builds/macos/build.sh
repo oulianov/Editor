@@ -3,7 +3,7 @@
 # but Xcode's command line tools and Homebrew:
 #
 #   builds/macos/build.sh            # the Editor
-#   builds/macos/build.sh --tests    # also the GUI tests (and their game)
+#   builds/macos/build.sh --tests    # also the start-up test (and its game)
 #
 # Homebrew gives Qt 6 and the libraries. The Editor is built in BUILD_DIR,
 # with liblcf cloned into lib/liblcf and built alongside. The libraries of its
@@ -19,11 +19,11 @@
 #              ICU, inih and glaze (default: ../editor-deps, next to the repository)
 #   BUILD_DIR  where the Editor is built     (default: build)
 #   JOBS       parallel jobs                 (default: all cores)
-#   QT_DIR     an official Qt, e.g. ~/Qt/6.10.1/macos (default: Homebrew's)
+#   QT_DIR     an official Qt, e.g. ~/Qt/6.11.2/macos (default: Homebrew's)
 #   MACOSX_DEPLOYMENT_TARGET  with QT_DIR: the oldest macOS (default: 13.3)
 #   ARCHS      with QT_DIR: the kinds of Mac of the Editor (default: this
 #              Mac's; "arm64;x86_64" for both). ICU and inih are for both
-#   EDITOR_TEST_PROJECT  the game of the GUI tests (default with --tests: a
+#   EDITOR_TEST_PROJECT  the game of the start-up test (default with --tests: a
 #              copy of TestGame-2003 downloaded into BUILD_DIR)
 set -euo pipefail
 
@@ -138,7 +138,9 @@ else
 	KDE_DIR="$DEPS_DIR/kde/qt$QT_VERSION-homebrew"
 fi
 ECM_DIR="$(brew --prefix extra-cmake-modules)/share/ECM/cmake"
-kde_stamp="$KDDOCKWIDGETS $KIRIGAMI $BREEZE $("$QMAKE" -query QT_INSTALL_PREFIX)"
+# the patches of Breeze too: a changed one builds them again
+breeze_patches="$REPO/builds/vcpkg_overlay/qqc2-breeze-style"
+kde_stamp="$KDDOCKWIDGETS $KIRIGAMI $BREEZE $(cat "$breeze_patches"/*.patch | shasum | cut -c1-12) $("$QMAKE" -query QT_INSTALL_PREFIX)"
 if [ "$(cat "$KDE_DIR/stamp" 2>/dev/null)" = "$kde_stamp" ]; then
 	echo "Kirigami, Breeze, KDDockWidgets: already built for Qt $QT_VERSION"
 else
@@ -168,7 +170,9 @@ else
 	step "Breeze style"
 	download "qqc2-breeze-style-$BREEZE" "https://github.com/KDE/qqc2-breeze-style/archive/refs/tags/$BREEZE.tar.gz"
 	# without the Plasma desktop integration, as builds/vcpkg_overlay/qqc2-breeze-style
-	patch -d "$DEPS_DIR/src/qqc2-breeze-style-$BREEZE" -p1 < "$REPO/builds/vcpkg_overlay/qqc2-breeze-style/no-plasma-integration.patch"
+	patch -d "$DEPS_DIR/src/qqc2-breeze-style-$BREEZE" -p1 < "$breeze_patches/no-plasma-integration.patch"
+	# the icon and text of its buttons deleted with them (they leaked)
+	patch -d "$DEPS_DIR/src/qqc2-breeze-style-$BREEZE" -p1 < "$breeze_patches/icon-label-items-deleted.patch"
 	kde_build "qqc2-breeze-style-$BREEZE"
 	echo "$kde_stamp" > "$KDE_DIR/stamp"
 fi
@@ -185,7 +189,7 @@ if command -v ccache >/dev/null; then
 	options+=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
 fi
 if [ "$TESTS" = ON ]; then
-	# the game the GUI tests change: a copy of TestGame-2003, made once. The
+	# the game the start-up test opens: a copy of TestGame-2003, made once. The
 	# one of an earlier build is kept while its folder exists
 	if [ -z "${EDITOR_TEST_PROJECT:-}" ]; then
 		cached="$(sed -n 's/^EDITOR_TEST_PROJECT:PATH=//p' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null || true)"

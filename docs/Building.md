@@ -1,7 +1,8 @@
 # Building the EasyRPG Editor
 
-The Editor is a CMake project in C++23 with Qt 6 (>= 6.10). Its interface is
-moving to QML (as upstream's). It needs:
+The Editor is a CMake project in C++23 with Qt 6 (>= 6.10.1; developed and
+built by CI with 6.11.2). Its interface is QML (as upstream's), without Qt
+Widgets. It needs:
 
 - [liblcf](https://github.com/EasyRPG/liblcf), cloned and built with the
   Editor when `EDITOR_BUILD_LIBLCF` is on (the simplest), and its own needs:
@@ -48,14 +49,14 @@ On macOS (Apple silicon or Intel) with Xcode's command line tools
    `../editor-deps/kde/qtVERSION-homebrew` (`-ARCHS-macosTARGET` with
    `QT_DIR`); a stamp file there names the Qt they were built for;
 3. configures the Editor in `build` with liblcf built alongside, and builds
-   `build/EasyRPG Editor.app`; with `--tests`, also the tests, on a copy of
-   TestGame-2003 downloaded into `build/testgame2003`.
+   `build/EasyRPG Editor.app`; with `--tests`, also the start-up test, on a
+   copy of TestGame-2003 downloaded into `build/testgame2003`.
 
 Running it again only rebuilds what changed, and so do the usual commands:
 
 ```bash
 cmake --build build          # rebuild
-ctest --test-dir build       # the tests (configured with --tests)
+ctest --test-dir build       # the start-up test (configured with --tests)
 ```
 
 Variables (`make` passes `BUILD_DIR` and `QT_DIR` to the script):
@@ -64,8 +65,8 @@ Variables (`make` passes `BUILD_DIR` and `QT_DIR` to the script):
 |---|---|
 | `BUILD_DIR` | where the Editor is built (default `build`) |
 | `JOBS` | parallel jobs (default: every core) |
-| `EDITOR_TEST_PROJECT` | the game the GUI tests change (default: the downloaded copy) |
-| `QT_DIR` | an official Qt (qt.io or aqt, e.g. `~/Qt/6.10.1/macos`) instead of Homebrew's, below |
+| `EDITOR_TEST_PROJECT` | the game the start-up test opens (default: the downloaded copy) |
+| `QT_DIR` | an official Qt (qt.io or aqt, e.g. `~/Qt/6.11.2/macos`) instead of Homebrew's, below |
 | `MACOSX_DEPLOYMENT_TARGET` | with `QT_DIR`: the oldest macOS (default 13.3) |
 | `ARCHS` | with `QT_DIR`: `arm64`, `x86_64` or `"arm64;x86_64"` (default: this Mac's) |
 | `DEPS_DIR` | where Kirigami, Breeze and KDDockWidgets go, and with `QT_DIR` ICU, inih and glaze (default `../editor-deps`) |
@@ -106,20 +107,35 @@ cmake --build build
 
 Upstream's presets build zlib, inih, expat, glaze, Kirigami, Breeze and
 KDDockWidgets with vcpkg (the KDE ones from the overlay ports of
-`builds/vcpkg_overlay`, which the presets pass). Qt 6.10 (Base, Declarative,
-Multimedia, Shader Tools, SVG, Tools) comes from qt.io or
+`builds/vcpkg_overlay`, which the presets pass). Qt 6.11.2 (Base, with
+Declarative, SVG and Tools; Multimedia, Shader Tools) comes from qt.io or
 [aqt](https://github.com/miurahr/aqtinstall), and on Linux ICU from the
 system (`libicu-dev` on Debian and Ubuntu), as in continuous integration
 (`.github/workflows/stable-compilation.yml`):
 
 ```bash
-uvx --from aqtinstall aqt install-qt linux desktop 6.10.1 linux_gcc_64 -m qtmultimedia qtshadertools -O ~/Qt
+uvx --from aqtinstall aqt install-qt linux desktop 6.11.2 linux_gcc_64 -m qtmultimedia qtshadertools -O ~/Qt
 export VCPKG_ROOT=/path/to/vcpkg
-make QT_DIR=~/Qt/6.10.1/gcc_64
+make QT_DIR=~/Qt/6.11.2/gcc_64
 ```
 
-By hand: `cmake --preset vcpkg-liblcf-release -DCMAKE_PREFIX_PATH=$QT_DIR`,
-then `cmake --build --preset vcpkg-liblcf-release`.
+(`linux_arm64` and `linux_gcc_arm64` on ARM, giving `~/Qt/6.11.2/gcc_arm64`.)
+By hand: `export Qt6_Path=$QT_DIR` (the KDE ports of the overlay build
+against it), `cmake --preset vcpkg-liblcf-release -DCMAKE_PREFIX_PATH=$QT_DIR`,
+then `cmake --build --preset vcpkg-liblcf-release`. vcpkg does not notice a
+change of Qt: after one, remove `build/vcpkg-liblcf-release/vcpkg_installed`
+and vcpkg's binary cache of these ports.
+
+There Kirigami and Breeze are static libraries, linked into the Editor. Their
+colours (`Kirigami.Theme`) follow the system palette, light or dark, as on
+macOS: they come from Kirigami's own `styles/org.kde.desktop/Theme.qml`.
+Breeze's Kirigami platform plugin, which would take them from KDE's colour
+schemes (KColorScheme, KConfig, KIconThemes, KGuiAddons), is left out by
+`builds/vcpkg_overlay/qqc2-breeze-style/no-plasma-integration.patch`, on
+macOS too (build.sh applies it); the Flatpak takes Kirigami and Breeze from
+KDE's runtime instead.
+`KIRIGAMI_FORCE_STYLE=1` makes Kirigami look for a `Theme.qml` of Breeze
+only, which has none: fixed light colours, and a warning about `Theme.qml`.
 
 `builds/cmake/CMakePresets.json.template` lists the presets (`windows-*`,
 `macos-*`, `vcpkg-*`, `liblcf-*`). The fork is mostly built and tested on macOS:
@@ -127,13 +143,20 @@ reports about other platforms are welcome.
 
 CI uses vcpkg at the commit `VCPKG_COMMIT` of the workflow, with the
 release-only triplets (`-DVCPKG_TARGET_TRIPLET=x64-linux-release`, the same
-for `VCPKG_HOST_TRIPLET`), and keeps the libraries it builds and ccache's
-files between runs. To move to a newer vcpkg, change `VCPKG_COMMIT`.
+for `VCPKG_HOST_TRIPLET`), and keeps the libraries it builds (per Qt
+version) and ccache's files between runs. To move to a newer vcpkg, change
+`VCPKG_COMMIT`; to another Qt, `QT_VERSION` (and the KDE runtime of the
+Flatpak, `builds/flatpak/org.easyrpg.editor.yml` and its container image, to
+a KDE runtime with that Qt).
+
+Each job runs the start-up test (below) on what it built, offscreen; the
+AppImage, the macOS application and the Windows zip are also started on the
+test game from the package itself, and fail if they carry Qt Widgets.
 
 The workflow runs by hand (Actions, "Run workflow") or when a release is
 published on GitHub: it then builds the release's tag, notarizes the macOS
-application, and attaches the Flatpak, the AppImage and the disk image to the
-release.
+application, and attaches the Flatpak, the AppImage, the disk image and the
+Windows zip to the release.
 
 
 ## CMake options
@@ -142,29 +165,22 @@ release.
 |---|---|---|
 | `EDITOR_BUILD_LIBLCF` | `OFF` | clone liblcf into `lib/liblcf` and build it with the Editor |
 | `EDITOR_BUILD_LIBLCF_GIT` | GitHub (HTTPS) | the repository cloned; an SSH URL where HTTPS is blocked |
-| `EDITOR_PRECOMPILE_HEADERS` | `ON` | parse Qt Quick and liblcf's database header once for every file (a clean build takes a quarter less time) |
-| `EDITOR_TEST_PROJECT` | (none) | the game the script tests run on: a copy of TestGame-2003 |
+| `EDITOR_PRECOMPILE_HEADERS` | `ON` | parse Qt Quick and liblcf's database header once for every file (a clean build takes a quarter less time); left off when ccache is used |
+| `EDITOR_TEST_PROJECT` | (none) | the game the start-up test opens: a copy of TestGame-2003 |
 
 
-## Tests
+## Test
 
-`make test` builds the Editor with the tests and runs them, on macOS and
-Linux; the first time, `builds/testgame.sh` downloads the game they run on.
-By hand, with a copy of [TestGame-2003](https://github.com/EasyRPG/TestGame)
-(the tests change it):
+One test, `startup`: the Editor starts offscreen on a copy of
+[TestGame-2003](https://github.com/EasyRPG/TestGame), shows its map tree and
+quits (`tests/startup.txt`). `make test` builds the Editor and runs it, on
+macOS and Linux; the first time, `builds/testgame.sh` downloads the game. By
+hand:
 
 ```bash
 cmake -B build -DEDITOR_TEST_PROJECT=/path/to/testgame2003
-cmake --build build && ctest --test-dir build -j 8
+cmake --build build && ctest --test-dir build
 ```
-
-| Test | What it checks |
-|---|---|
-| `script_*` | the scripts of `tests/scripts`, offscreen (see [Automation](Automation.adoc)) |
-| `web_player` | the web Player folders the export accepts |
-| `move_route_codec` | the texts of Move Event routes, in the code page of the game |
-| `no_widgets` | no Qt Widgets header in the sources and the tests, no Qt Widgets in the build |
-| `qml_labels` | the texts of the QML windows are `Ez.Label`s |
 
 
 ## Troubleshooting

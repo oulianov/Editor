@@ -24,11 +24,11 @@
 
 namespace {
 
-/** The pages of the targets, numbered as DatabaseView numbers them */
+/** The pages of the targets, numbered as DatabasePage numbers them */
 constexpr int troops_page = 5;
 constexpr int common_events_page = 16;
 
-/** The target as DatabaseView.showEntry reads it (empty: as last closed) */
+/** The target as DatabasePage.showEntry reads it (empty: as last closed) */
 QVariantMap startOf(const DatabaseTarget& target)
 {
 	if (target.page == DatabaseTarget::Page::Last)

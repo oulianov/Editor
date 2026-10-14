@@ -15,7 +15,7 @@ import org.easyrpg.editor as Ez
  * transitions; its sound effects. Each file has a "..." button opening its
  * picker (a vehicle's: its character in the sheet too).
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     readonly property var system: database ? database.subtree("system") : null
@@ -67,17 +67,18 @@ Ez.EntryPage {
             text: vehicle.fileName === "" ? "" : vehicle.fileName + " (" + (vehicle.index + 1) + ")"
             readOnly: true
             Layout.fillWidth: true
-            Layout.minimumWidth: 100
-        }
-        Ez.FieldButton {
-            id: pick
-            objectName: vehicle.fieldName + "Picker"
-            onClicked: {
-                const choice = Ez.Pickers.pickFile({ folder: "CharSet", preview: "CharSet", name: vehicle.fileName,
-                                                     index: vehicle.index }, pick)
-                if (choice) {
-                    nameField.value = choice.name
-                    indexField.value = choice.index
+            Layout.minimumWidth: 100 + buttonsWidth
+            buttons: Ez.FieldButton {
+                id: pick
+                objectName: vehicle.fieldName + "Picker"
+                fused: true
+                onClicked: {
+                    const choice = Ez.Pickers.pickFile({ folder: "CharSet", preview: "CharSet", name: vehicle.fileName,
+                                                         index: vehicle.index }, pick)
+                    if (choice) {
+                        nameField.value = choice.name
+                        indexField.value = choice.index
+                    }
                 }
             }
         }

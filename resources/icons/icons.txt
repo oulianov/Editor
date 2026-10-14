@@ -63,6 +63,7 @@ select-all
 help-contents
 variable
 switch
+edit-clear (Clear: an entry, a frame, an area emptied; Delete removes it)
 
 The icon themes ezbright and ezdark (QIcon::fromTheme, the QML windows):
 dialog-information, dialog-question, dialog-warning, dialog-error: drawn for the

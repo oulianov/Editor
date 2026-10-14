@@ -1,7 +1,7 @@
 {
   "name": "qqc2-breeze-style",
   "version": "6.6.1",
-  "port-version": 1,
+  "port-version": 3,
   "description": "Breeze inspired QQC2 Style",
   "homepage": "https://github.com/KDE/qqc2-breeze-style",
   "dependencies": [

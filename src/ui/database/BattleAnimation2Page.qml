@@ -16,8 +16,10 @@ import org.easyrpg.editor as Ez
  * (a row of a BattleWeapon), each played at the display speed, a weapon in
  * the hands of the hero. A click on the rows of a graphic picks one.
  */
-RichPage {
+DatabaseEntryPage {
     id: root
+    // its canvas or list as large as the page
+    fillHeight: true
 
     readonly property alias model: model
 

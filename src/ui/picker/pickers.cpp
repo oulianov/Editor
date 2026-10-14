@@ -61,6 +61,29 @@ Pickers::FileChoice choiceOf(const FilePickerModel& model) {
 	return choice;
 }
 
+/** The picker of a kind of file (PickerBase.qml and the pickers made on it) */
+QString pickerType(Pickers::Preview preview) {
+	using Preview = Pickers::Preview;
+	switch (preview) {
+	case Preview::CharSet:
+	case Preview::CharSetPose:
+		return QStringLiteral("CharSetPicker");
+	case Preview::FaceSet:
+		return QStringLiteral("FaceSetPicker");
+	case Preview::Monster:
+		return QStringLiteral("MonsterPicker");
+	case Preview::Music:
+		return QStringLiteral("MusicPicker");
+	case Preview::Sound:
+		return QStringLiteral("SoundPicker");
+	case Preview::None:
+		return QStringLiteral("PickerBase");
+	case Preview::Image:
+		break;
+	}
+	return QStringLiteral("ImagePicker");
+}
+
 /** The entry picker on project; written: once the copy is in it (OK, Apply) */
 std::optional<int> pickEntryIn(QObject* from, ProjectData& project, const Pickers::EntryRequest& request,
 		const std::function<void()>& written, const std::function<void(int)>& applied) {
@@ -176,7 +199,7 @@ std::optional<Pickers::FileChoice> Pickers::pickFile(QObject* from, const FileRe
 		}
 	});
 	const auto disconnect = qScopeGuard([applying] { QObject::disconnect(applying); });
-	const int result = QmlHost::exec(QStringLiteral("FilePicker"), windowOf(from), {
+	const int result = QmlHost::exec(pickerType(request.preview), windowOf(from), {
 		{QStringLiteral("picker"), QVariant::fromValue(model)},
 		{QStringLiteral("customTitle"), request.title},
 	});

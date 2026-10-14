@@ -18,7 +18,7 @@ import org.easyrpg.editor as Ez
  * gives or resists, and who can use it: the heroes, or (RPG Maker 2003)
  * the classes, a choice of the whole database.
  */
-Ez.EntryPage {
+DatabaseEntryPage {
     id: root
 
     readonly property int type: typeField.valid ? Number(typeField.value) : 0

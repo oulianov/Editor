@@ -1,0 +1,21 @@
+diff --git qqc2-breeze-style-orig/style/impl/iconlabellayout.cpp qqc2-breeze-style/style/impl/iconlabellayout.cpp
+--- qqc2-breeze-style-orig/style/impl/iconlabellayout.cpp
++++ qqc2-breeze-style/style/impl/iconlabellayout.cpp
+@@ -18,6 +18,8 @@ bool IconLabelLayoutPrivate::createIconItem()
+         return false;
+ 
+     iconItem = qobject_cast<QQuickItem *>(iconComponent->create());
++    // deleted with the layout: a parent item alone does not delete it
++    iconItem->setParent(q);
+     iconItem->setParentItem(q);
+     iconItem->setObjectName(QStringLiteral("iconItem"));
+     iconItem->setProperty("source", icon.nameOrSource());
+@@ -74,6 +76,8 @@ bool IconLabelLayoutPrivate::createLabelItem()
+         return false;
+ 
+     labelItem = qobject_cast<QQuickItem *>(labelComponent->create());
++    // deleted with the layout: a parent item alone does not delete it
++    labelItem->setParent(q);
+     labelItem->setParentItem(q);
+     labelItem->setObjectName(QStringLiteral("labelItem"));
+     labelItem->setProperty("text", text);

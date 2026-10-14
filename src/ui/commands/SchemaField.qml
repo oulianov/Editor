@@ -248,18 +248,22 @@ Loader {
                 jsonData: root.session
                 key: root.key
                 Layout.fillWidth: true
-                Layout.minimumWidth: 120
-            }
-            Ez.FieldButton {
-                objectName: root.name + "Picker"
-                onClicked: fileRow.pick()
-            }
-            Ez.FieldButton {
-                // no music, no sound: like the first entry of RPG Maker's list
-                objectName: root.name + "Off"
-                visible: root.field.off
-                text: qsTranslate("MediaAudioWidget", "(OFF)")
-                onClicked: current.value = "(OFF)"
+                Layout.minimumWidth: 120 + buttonsWidth
+                buttons: [
+                    Ez.FieldButton {
+                        objectName: root.name + "Picker"
+                        fused: true
+                        onClicked: fileRow.pick()
+                    },
+                    Ez.FieldButton {
+                        // no music, no sound: like the first entry of RPG Maker's list
+                        objectName: root.name + "Off"
+                        fused: true
+                        visible: root.field.off
+                        text: qsTranslate("MediaAudioWidget", "(OFF)")
+                        onClicked: current.value = "(OFF)"
+                    }
+                ]
             }
         }
     }

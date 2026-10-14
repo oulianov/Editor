@@ -349,13 +349,12 @@ set(EDITOR_QML_UI
 	src/ui/common/ColumnList.qml
 	src/ui/common/ComboBox.qml
 	src/ui/common/ContextMenu.qml
+	src/ui/common/ContextMenuHandler.qml
 	src/ui/common/Dialog.qml
 	src/ui/common/DialogButton.qml
 	src/ui/common/DialogWindow.qml
 	src/ui/common/DownloadBar.qml
 	src/ui/common/EditorIcon.qml
-	src/ui/common/EntryListPane.qml
-	src/ui/common/EntryPage.qml
 	src/ui/common/FieldButton.qml
 	src/ui/common/FileField.qml
 	src/ui/common/Form.qml
@@ -369,6 +368,7 @@ set(EDITOR_QML_UI
 	src/ui/common/Note.qml
 	src/ui/common/NumberDialog.qml
 	src/ui/common/PathField.qml
+	src/ui/common/PickerData.qml
 	src/ui/common/ProgressBar.qml
 	src/ui/common/RadioButton.qml
 	src/ui/common/RadioGroup.qml
@@ -401,8 +401,9 @@ set(EDITOR_QML_UI
 	src/ui/database/ClassPage.qml
 	src/ui/database/CommonEventPage.qml
 	src/ui/database/CurveDialog.qml
-	src/ui/database/DatabaseSplit.qml
-	src/ui/database/DatabaseView.qml
+	src/ui/database/DatabaseEntryListPage.qml
+	src/ui/database/DatabaseEntryPage.qml
+	src/ui/database/DatabasePage.qml
 	src/ui/database/DatabaseWindow.qml
 	src/ui/database/EnemyActionDialog.qml
 	src/ui/database/EnemyPage.qml
@@ -414,7 +415,6 @@ set(EDITOR_QML_UI
 	src/ui/database/MassModifyDialog.qml
 	src/ui/database/ParameterGraphs.qml
 	src/ui/database/RankTable.qml
-	src/ui/database/RichPage.qml
 	src/ui/database/SetUniformTerrainDialog.qml
 	src/ui/database/SkillPage.qml
 	src/ui/database/SkillTable.qml
@@ -466,10 +466,15 @@ set(EDITOR_QML_UI
 	src/ui/other/RunGameWindow.qml
 	src/ui/other/SearchWindow.qml
 	src/ui/other/SettingsWindow.qml
+	src/ui/picker/CharSetPicker.qml
 	src/ui/picker/EntryPicker.qml
-	src/ui/picker/FilePicker.qml
-	src/ui/picker/PickerFieldsWindow.qml
+	src/ui/picker/FaceSetPicker.qml
+	src/ui/picker/ImagePicker.qml
+	src/ui/picker/MonsterPicker.qml
+	src/ui/picker/MusicPicker.qml
+	src/ui/picker/PickerBase.qml
 	src/ui/picker/PickerList.qml
+	src/ui/picker/SoundPicker.qml
 	src/ui/shell/Actions.qml
 	src/ui/shell/CentralArea.qml
 	src/ui/shell/ControlsWindow.qml
@@ -482,6 +487,13 @@ set(EDITOR_QML_UI
 	src/ui/shell/NativeMenuBar.qml
 	src/ui/shell/SmokeWindow.qml
 	src/ui/shell/StatusBar.qml
+	src/ui/viewer/CharSetViewer.qml
+	src/ui/viewer/FaceSetViewer.qml
+	src/ui/viewer/FileViewerBase.qml
+	src/ui/viewer/ImageViewer.qml
+	src/ui/viewer/MusicViewer.qml
+	src/ui/viewer/SoundViewer.qml
+	src/ui/viewer/ViewerBase.qml
 	src/ui/MainWindow.qml
 )
 # the design system: one object for all the windows
@@ -869,8 +881,10 @@ target_link_libraries(${EXE_NAME} PRIVATE
 	KF6::KirigamiPlatform
 )
 
-# Kirigami and Breeze built as static libraries (vcpkg on Windows): their QML
-# plugins are linked in by hand
+# Kirigami and Breeze built as static libraries (vcpkg, on Linux and Windows):
+# their QML plugins are linked in by hand. KF6::Kirigami brings the resources
+# of Kirigami's styles, among them styles/org.kde.desktop/Theme.qml, the
+# colours of Kirigami.Theme (the system palette; see main.cpp)
 get_target_property(KIRIGAMI_TYPE KF6::Kirigami TYPE)
 if(KIRIGAMI_TYPE STREQUAL "STATIC_LIBRARY")
 	target_link_libraries(${EXE_NAME} PRIVATE
@@ -885,7 +899,6 @@ if(KIRIGAMI_TYPE STREQUAL "STATIC_LIBRARY")
 		KF6KirigamiPrivateplugin
 		KF6KirigamiPolyfillplugin
 	)
-	target_compile_definitions(${EXE_NAME} PUBLIC KIRIGAMI_STATIC=1)
 endif()
 get_target_property(BREEZE_TYPE org.kde.breeze TYPE)
 if(BREEZE_TYPE STREQUAL "STATIC_LIBRARY")
@@ -919,327 +932,14 @@ target_sources(${EXE_NAME} PRIVATE src/ui/tools/automation_quick_map.cpp src/ui/
 # wheel: trackpad events injected like the platform's
 target_link_libraries(${EXE_NAME} PRIVATE Qt6::GuiPrivate)
 
-# Tests
+# Test: the Editor starts on the test game and shows it (tests/startup.txt)
 enable_testing()
-# the web Player folders the export accepts (a release, a Player build folder)
-add_executable(editor_web_player_test tests/web_player_test.cpp src/model/web_player.cpp)
-target_include_directories(editor_web_player_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(editor_web_player_test PRIVATE Qt6::Core)
-add_test(NAME web_player COMMAND editor_web_player_test)
-# the labels of the QML windows fade when disabled: Ez.Labels, not raw ones
-# (the label of Ez.Label and Ez.ToolTip themselves; the smoke test of the
-# KDE stack)
-string(REPLACE ";" "|" EDITOR_QML_LABEL_FILES "${EDITOR_QML_UI}")
-add_test(NAME qml_labels COMMAND ${CMAKE_COMMAND}
-	"-DFILES=${EDITOR_QML_LABEL_FILES}"
-	"-DALLOWED=Label.qml|ToolTip.qml|SmokeWindow.qml"
-	-P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_labels.cmake
-	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-# no Qt Widgets: none of its headers in the sources and the tests, nor its
-# library in the build
-add_test(NAME no_widgets COMMAND ${CMAKE_COMMAND}
-	"-DDIRS=${CMAKE_CURRENT_SOURCE_DIR}/src|${CMAKE_CURRENT_SOURCE_DIR}/tests"
-	"-DCMAKE_FILES=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
-	-P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_no_widgets.cmake)
-# the texts of Move Event routes, in the code page of the game
-add_executable(editor_move_route_test tests/move_route_codec_test.cpp src/model/move_route_codec.cpp)
-target_include_directories(editor_move_route_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(editor_move_route_test PRIVATE ${EDITOR_LCF_TARGET})
-add_test(NAME move_route_codec COMMAND editor_move_route_test)
-# the editing of a map without its view (MapDocument), on a map in memory:
-# its file and the project are left to the script tests
-add_executable(editor_map_document_test tests/map_document_test.cpp
-	src/model/map_document.cpp src/model/map_undo.cpp src/model/autotile.cpp src/model/map_tools.cpp)
-target_include_directories(editor_map_document_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_map_document_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_map_document_test PRIVATE ${EDITOR_LCF_TARGET} Qt6::Gui Qt6::Test)
-add_test(NAME map_document COMMAND editor_map_document_test)
-# the map tree as an item model (MapTreeModel), on a tree in memory
-add_executable(editor_map_tree_model_test tests/map_tree_model_test.cpp src/model/map_tree_model.cpp)
-target_include_directories(editor_map_tree_model_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_map_tree_model_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_map_tree_model_test PRIVATE ${EDITOR_LCF_TARGET} Qt6::Gui Qt6::Test)
-add_test(NAME map_tree_model COMMAND editor_map_tree_model_test)
-# the command list of an event page as a list model (EventCommandListModel),
-# on a page in memory, the texts of the commands from a stand-in of the
-# Stringizer; the clipboard of the system needs a (offscreen) display
-add_executable(editor_event_command_list_model_test tests/event_command_list_model_test.cpp
-	src/model/event_command_list_model.cpp src/model/event_command_defaults.cpp src/model/command_colors.cpp
-	src/model/command_schema.cpp)
-target_include_directories(editor_event_command_list_model_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_event_command_list_model_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_event_command_list_model_test PRIVATE ${EDITOR_LCF_TARGET} Qt6::Gui Qt6::Test)
-add_test(NAME event_command_list_model COMMAND editor_event_command_list_model_test)
-set_tests_properties(event_command_list_model PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-# Project Settings without its window (ProjectSettings), on a copy of the
-# files of the test game (skipped without it), which it writes
-add_executable(editor_project_settings_test tests/project_settings_test.cpp)
-target_include_directories(editor_project_settings_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_project_settings_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_project_settings_test PRIVATE editor_core Qt6::Test)
-add_test(NAME project_settings COMMAND editor_project_settings_test)
-set_tests_properties(project_settings PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# the search of a project (ProjectSearch) and its results (SearchResultsModel),
-# on a copy of the database and maps of the test game (skipped without it)
-# with events added in memory
-add_executable(editor_project_search_test tests/project_search_test.cpp)
-target_include_directories(editor_project_search_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_project_search_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_project_search_test PRIVATE editor_core Qt6::Test)
-add_test(NAME project_search COMMAND editor_project_search_test)
-set_tests_properties(project_search PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# the editing rules of the Chipset, Monster Group, curve and Test Battle
-# windows without their QML views, on data in memory; the painter of the
-# chipset's marks needs a (offscreen) display for its fonts
-add_executable(editor_database_tools_test tests/database_tools_test.cpp
-	src/model/chipset_editor.cpp src/render/chipset_editor_painter.cpp src/model/troop_layout.cpp
-	src/model/experience_curve.cpp src/model/test_battle.cpp)
-target_include_directories(editor_database_tools_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_database_tools_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_database_tools_test PRIVATE ${EDITOR_LCF_TARGET} Qt6::Gui Qt6::Test)
-add_test(NAME database_tools COMMAND editor_database_tools_test)
-set_tests_properties(database_tools PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-# the map drawn by the scene graph (MapLayerView) against TilePainter, on a
-# map of the test game (skipped without it): with the software scene graph,
-# then with the default one (Metal, Direct3D, OpenGL) on a screen of twice
-# the resolution; the backend is chosen once per process. The offscreen
-# platform has only the software one: the second test uses the system's
-# (a window never shown, the Editor not in the Dock), skipped without it
-add_executable(editor_map_layer_test tests/map_layer_test.cpp
-	src/ui/map/map_layer_item.cpp src/ui/map/map_layer_item.h src/ui/map/map_texture_cache.cpp)
-target_include_directories(editor_map_layer_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_map_layer_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_map_layer_test PRIVATE editor_core Qt6::Quick Qt6::Test)
-add_test(NAME map_layer COMMAND editor_map_layer_test)
-set_tests_properties(map_layer PROPERTIES ENVIRONMENT
-	"QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-add_test(NAME map_layer_rhi COMMAND editor_map_layer_test)
-if(APPLE OR WIN32)
-	set(EDITOR_RHI_TEST_PLATFORM "QT_MAC_DISABLE_FOREGROUND_APPLICATION_TRANSFORM=1")
-else()
-	set(EDITOR_RHI_TEST_PLATFORM "QT_QPA_PLATFORM=offscreen")
-endif()
-set_tests_properties(map_layer_rhi PROPERTIES ENVIRONMENT
-	"${EDITOR_RHI_TEST_PLATFORM};EDITOR_TEST_RHI=1;QT_SCALE_FACTOR=2;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# the editing of the battle animations without their pages (AnimationTools,
-# AnimationEditor, BattlerAnimationEditor), on animations in memory
-add_executable(editor_animation_editor_test tests/animation_editor_test.cpp
-	src/model/animation_editor.cpp src/model/animation_tools.cpp src/model/battler_animation_editor.cpp)
-target_include_directories(editor_animation_editor_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_animation_editor_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_animation_editor_test PRIVATE ${EDITOR_LCF_TARGET} Qt6::Core Qt6::Test)
-add_test(NAME animation_editor COMMAND editor_animation_editor_test)
-# the Resource Manager without its window (ResourceLibraryModel) on a copy
-# of the test game (skipped without it): files, import, export, delete
-add_executable(editor_resource_library_test tests/resource_library_test.cpp)
-target_include_directories(editor_resource_library_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_resource_library_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_resource_library_test PRIVATE editor_core Qt6::Test)
-add_test(NAME resource_library COMMAND editor_resource_library_test)
-set_tests_properties(resource_library PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# the resource pickers without their window (FilePickerModel), on files
-# made in a temporary folder: the list, the file selected, the choice
-add_executable(editor_file_picker_model_test tests/file_picker_model_test.cpp)
-target_include_directories(editor_file_picker_model_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_file_picker_model_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_file_picker_model_test PRIVATE editor_core Qt6::Test)
-add_test(NAME file_picker_model COMMAND editor_file_picker_model_test)
-set_tests_properties(file_picker_model PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-# the Jukebox without its window (AudioLibraryModel) on the music and
-# sounds of the test game (skipped without it); nothing is played
-add_executable(editor_audio_library_test tests/audio_library_test.cpp)
-target_include_directories(editor_audio_library_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_audio_library_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_audio_library_test PRIVATE editor_core Qt6::Test)
-add_test(NAME audio_library COMMAND editor_audio_library_test)
-set_tests_properties(audio_library PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# the transparent color of an image imported (TransparentColorChoice, the
-# Import Image window without it)
-add_executable(editor_transparent_color_test tests/transparent_color_test.cpp)
-target_include_directories(editor_transparent_color_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_transparent_color_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_transparent_color_test PRIVATE editor_core Qt6::Test)
-add_test(NAME transparent_color COMMAND editor_transparent_color_test)
-set_tests_properties(transparent_color PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-# Open Project without its window (ProjectListModel) on projects made of the
-# test game's files (skipped without it): the list, Delete, Settings
-add_executable(editor_project_list_test tests/project_list_test.cpp)
-target_include_directories(editor_project_list_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_project_list_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_project_list_test PRIVATE editor_core Qt6::Test)
-add_test(NAME project_list COMMAND editor_project_list_test)
-set_tests_properties(project_list PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# Export Game without its window (ExportController): a copy of the test game
-# (skipped without it) exported into a temporary folder; nothing downloaded
-add_executable(editor_export_controller_test tests/export_controller_test.cpp)
-target_include_directories(editor_export_controller_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_export_controller_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_export_controller_test PRIVATE editor_core Qt6::Test)
-add_test(NAME export_controller COMMAND editor_export_controller_test)
-set_tests_properties(export_controller PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}" TIMEOUT 300)
-# The Player of this computer downloaded for test play (PlayerDownload), from
-# fake archives (no network) into a temporary folder
-include(tests/fake_player.cmake)
-add_executable(editor_player_download_test tests/player_download_test.cpp)
-target_include_directories(editor_player_download_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_player_download_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_player_download_test PRIVATE editor_core Qt6::Test)
-add_test(NAME player_download COMMAND editor_player_download_test)
-set_tests_properties(player_download PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_FAKE_PLAYER_URL=${EDITOR_FAKE_PLAYER_URL}")
-# the schemas the QML command editors are generated from (CommandSchema):
-# one for each command with an editor, their parameters, bits and
-# rules on new commands, their texts in the French translation
-add_executable(editor_command_schema_test tests/command_schema_test.cpp
-	src/model/command_schema.cpp src/model/event_command_defaults.cpp)
-target_include_directories(editor_command_schema_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_compile_definitions(editor_command_schema_test PRIVATE EDITOR_TRANSLATIONS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/translations")
-set_target_properties(editor_command_schema_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_command_schema_test PRIVATE ${EDITOR_LCF_TARGET} Qt6::Core Qt6::Test)
-add_test(NAME command_schema COMMAND editor_command_schema_test)
-# the editing of a map with the mouse and the keys without its view
-# (MapEditor), in cells, on a map in memory; the shortcuts of the platform
-# need a (offscreen) display
-add_executable(editor_map_editor_test tests/map_editor_test.cpp
-	src/ui/map/map_editor.cpp src/ui/map/map_editor.h src/model/editor_state.cpp
-	src/model/map_document.cpp src/model/map_undo.cpp src/model/autotile.cpp src/model/map_tools.cpp)
-target_include_directories(editor_map_editor_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_map_editor_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_map_editor_test PRIVATE ${EDITOR_LCF_TARGET} Qt6::Gui Qt6::Test)
-add_test(NAME map_editor COMMAND editor_map_editor_test)
-set_tests_properties(map_editor PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-# the event window without its QML view (EventEditorController, the settings
-# of a page, the battle page conditions) and the moves of a route as a list
-# model (MoveRouteModel), on events in memory, a new event put on a map in
-# memory (MapDocument); the texts of the moves from a stand-in of the
-# Stringizer, the colors of the list need a (offscreen) display
-add_executable(editor_event_editor_test tests/event_editor_test.cpp
-	src/model/event_editor_controller.cpp src/model/move_route_model.cpp src/model/move_route_codec.cpp
-	src/controller/edit_locks.cpp
-	src/model/map_document.cpp src/model/map_undo.cpp src/model/autotile.cpp src/model/map_tools.cpp)
-target_include_directories(editor_event_editor_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_event_editor_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_event_editor_test PRIVATE ${EDITOR_LCF_TARGET} Qt6::Gui Qt6::Test)
-add_test(NAME event_editor COMMAND editor_event_editor_test)
-set_tests_properties(event_editor PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-# the rest of the map drawn by the scene graph (the panorama, the events
-# and the start positions, MapPreview.qml) on maps of the test game
-# (skipped without it): what is drawn where, the updates, the textures
-# shared by the views of a window, the zoom snapped. Like map_layer, with
-# the software scene graph, then with the system's (map_view_rhi). With
-# EDITOR_TEST_OUTPUT set, it saves pictures of the maps to look at
-add_executable(editor_map_view_test tests/map_view_test.cpp
-	src/ui/map/map_events_item.cpp src/ui/map/map_layer_item.cpp src/ui/map/map_panorama_item.cpp
-	src/ui/map/map_texture_cache.cpp)
-target_include_directories(editor_map_view_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_compile_definitions(editor_map_view_test PRIVATE EDITOR_MAP_QML_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src/ui/map")
-set_target_properties(editor_map_view_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_map_view_test PRIVATE editor_core Qt6::Quick Qt6::Test)
-add_test(NAME map_view COMMAND editor_map_view_test)
-set_tests_properties(map_view PROPERTIES ENVIRONMENT
-	"QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-add_test(NAME map_view_rhi COMMAND editor_map_view_test)
-set_tests_properties(map_view_rhi PROPERTIES ENVIRONMENT
-	"${EDITOR_RHI_TEST_PLATFORM};EDITOR_TEST_RHI=1;QT_SCALE_FACTOR=2;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-set(EDITOR_TEST_PROJECT "" CACHE PATH "Game the script tests run on (TestGame-2003 of https://github.com/EasyRPG/TestGame)")
-# OK and Apply of the database windows (DatabaseApply) on a copy of the
-# database of the test game (skipped without it), which another program
-# changes meanwhile; the project's file (core()) is left to the script tests
-add_executable(editor_database_apply_test tests/database_apply_test.cpp
-	src/controller/database_apply.cpp src/controller/dialog_service.cpp src/model/data_merge.cpp
-	src/model/database_list_data.cpp src/model/project_watcher.cpp src/common/logging.cpp)
-target_include_directories(editor_database_apply_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_database_apply_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_database_apply_test PRIVATE ${EDITOR_LCF_TARGET} Qt6::Core Qt6::Test)
-add_test(NAME database_apply COMMAND editor_database_apply_test)
-set_tests_properties(database_apply PROPERTIES ENVIRONMENT "EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# the workspace of a project (tabs, zoom, tree, layout) in settings of its
-# own, and what older versions saved
-add_executable(editor_workspace_store_test tests/workspace_store_test.cpp src/controller/workspace_store.cpp)
-target_include_directories(editor_workspace_store_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_workspace_store_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_workspace_store_test PRIVATE Qt6::Core Qt6::Test)
-add_test(NAME workspace_store COMMAND editor_workspace_store_test)
-# the edit lock of a modal window (ModalWindowLocks): held while it is shown,
-# none for the other windows; the dialogs themselves: script edit_locks
-add_executable(editor_edit_locks_test tests/edit_locks_test.cpp src/controller/edit_locks.cpp)
-target_include_directories(editor_edit_locks_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_edit_locks_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_edit_locks_test PRIVATE Qt6::Gui Qt6::Test)
-add_test(NAME edit_locks COMMAND editor_edit_locks_test)
-set_tests_properties(edit_locks PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-# every action of the main window (ActionCatalog): its texts and their
-# translations, its keys, groups, menus and icons
-add_executable(editor_action_catalog_test tests/action_catalog_test.cpp
-	src/controller/action_catalog.cpp src/controller/shortcut_catalog.cpp)
-target_include_directories(editor_action_catalog_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_compile_definitions(editor_action_catalog_test PRIVATE EDITOR_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-set_target_properties(editor_action_catalog_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_action_catalog_test PRIVATE Qt6::Gui Qt6::Test)
-add_test(NAME action_catalog COMMAND editor_action_catalog_test)
-set_tests_properties(action_catalog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-# the map tabs without a window (MapTabsController) on a copy of the test
-# game (skipped without it)
-add_executable(editor_map_tabs_controller_test tests/map_tabs_controller_test.cpp)
-target_include_directories(editor_map_tabs_controller_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_map_tabs_controller_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_map_tabs_controller_test PRIVATE editor_core Qt6::Test)
-add_test(NAME map_tabs_controller COMMAND editor_map_tabs_controller_test)
-set_tests_properties(map_tabs_controller PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# what the main window does without it (ShellController), on copies of
-# the test game (skipped without it)
-add_executable(editor_shell_controller_test tests/shell_controller_test.cpp)
-target_include_directories(editor_shell_controller_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_shell_controller_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_shell_controller_test PRIVATE editor_core Qt6::Test)
-add_test(NAME shell_controller COMMAND editor_shell_controller_test)
-set_tests_properties(shell_controller PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# where a map dragged in the map tree lands (MapTreeDrop), on a tree in memory
-add_executable(editor_map_tree_drop_test tests/map_tree_drop_test.cpp)
-target_include_directories(editor_map_tree_drop_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set_target_properties(editor_map_tree_drop_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_map_tree_drop_test PRIVATE editor_core Qt6::Test)
-add_test(NAME map_tree_drop COMMAND editor_map_tree_drop_test)
-# the QML binding (Json, its views and lists, JsonField, DatabaseSession,
-# EntryFilterModel) on a database in memory, and on a copy of the test
-# game's when there is one
-add_executable(editor_qmlbinding_test tests/qmlbinding_test.cpp
-	src/qmlbinding/database_session.cpp src/qmlbinding/database_session.h
-	src/qmlbinding/entry_filter_model.cpp src/qmlbinding/entry_filter_model.h
-	src/qmlbinding/json.cpp src/qmlbinding/json.h
-	src/qmlbinding/json_field.cpp src/qmlbinding/json_field.h
-	src/qmlbinding/json_list_view.cpp src/qmlbinding/json_list_view.h
-	src/qmlbinding/json_view.cpp src/qmlbinding/json_view.h
-	src/qmlbinding/project_data_gadget.cpp src/qmlbinding/project_data_gadget.h)
-target_include_directories(editor_qmlbinding_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/qmlbinding)
-set_target_properties(editor_qmlbinding_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_qmlbinding_test PRIVATE editor_json_types editor_core Qt6::Qml Qt6::Test)
-add_test(NAME qmlbinding COMMAND editor_qmlbinding_test)
-set_tests_properties(qmlbinding PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EDITOR_TEST_PROJECT=${EDITOR_TEST_PROJECT}")
-# The Test Play Options without their window (TestPlayOptions: what the
-# Player is given) and the party of the battle tests for QML
-# (TestBattlePartyModel), on a project in memory
-add_executable(editor_test_play_options_test tests/test_play_options_test.cpp
-	src/qmlbinding/database_session.cpp src/qmlbinding/database_session.h
-	src/qmlbinding/json.cpp src/qmlbinding/json.h
-	src/qmlbinding/json_list_view.cpp src/qmlbinding/json_list_view.h
-	src/qmlbinding/json_view.cpp src/qmlbinding/json_view.h
-	src/qmlbinding/project_data_gadget.cpp src/qmlbinding/project_data_gadget.h
-	src/qmlbinding/test_battle_party_model.cpp src/qmlbinding/test_battle_party_model.h)
-target_include_directories(editor_test_play_options_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/qmlbinding)
-set_target_properties(editor_test_play_options_test PROPERTIES AUTOMOC ON)
-target_link_libraries(editor_test_play_options_test PRIVATE editor_json_types editor_core Qt6::Qml Qt6::Test)
-add_test(NAME test_play_options COMMAND editor_test_play_options_test)
-set_tests_properties(test_play_options PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+set(EDITOR_TEST_PROJECT "" CACHE PATH "Game the start-up test opens (TestGame-2003 of https://github.com/EasyRPG/TestGame)")
 if(EDITOR_TEST_PROJECT)
-	file(GLOB EDITOR_TEST_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/scripts/*.txt")
-	foreach(script ${EDITOR_TEST_SCRIPTS})
-		get_filename_component(name ${script} NAME_WE)
-		add_test(NAME script_${name}
-			COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${script} ${EDITOR_TEST_PROJECT}
-			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-		# a dialog nobody closes fails the test instead of blocking the run
-		set_tests_properties(script_${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;EASYRPG_EDITOR_LAUNCHER_BASE=${EDITOR_FAKE_PLAYER_URL}" TIMEOUT 120)
-	endforeach()
+	add_test(NAME startup
+		COMMAND $<TARGET_FILE:${EXE_NAME}> --script ${CMAKE_CURRENT_SOURCE_DIR}/tests/startup.txt ${EDITOR_TEST_PROJECT}
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+	set_tests_properties(startup PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
 endif()
 
 # Translations
