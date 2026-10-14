@@ -556,8 +556,9 @@ jobs:
     needs: check-release
     runs-on: windows-2025
     env:
-      # the libraries of vcpkg linked in the Editor, with the runtime of Qt
-      TRIPLET: x64-windows-static-md
+      # the libraries of vcpkg linked in the Editor, with the runtime of Qt;
+      # release builds only, as on Linux (the debug ones doubled the time)
+      TRIPLET: x64-windows-static-md-release
       # vcpkg builds in a clean environment on Windows: the KDE ports find
       # the Qt of aqt through Qt6_Path (builds/vcpkg_overlay)
       VCPKG_KEEP_ENV_VARS: Qt6_Path

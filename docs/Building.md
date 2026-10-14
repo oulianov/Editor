@@ -143,7 +143,7 @@ reports about other platforms are welcome.
 
 CI uses vcpkg at the commit `VCPKG_COMMIT` of the workflow, with the
 release-only triplets (`-DVCPKG_TARGET_TRIPLET=x64-linux-release`, the same
-for `VCPKG_HOST_TRIPLET`), and keeps the libraries it builds (per Qt
+for `VCPKG_HOST_TRIPLET`; `x64-windows-static-md-release` on Windows), and keeps the libraries it builds (per Qt
 version) and ccache's files between runs. To move to a newer vcpkg, change
 `VCPKG_COMMIT`; to another Qt, `QT_VERSION` (and the KDE runtime of the
 Flatpak, `builds/flatpak/org.easyrpg.editor.yml` and its container image, to
