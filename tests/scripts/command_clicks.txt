@@ -12,7 +12,9 @@ expect lineName EV0001
 
 click-item commands Change Level
 wait 900
-expect-checked radioInc on
+# the operation of Change Level: Increase (its form names a radio button
+# after its field and value)
+expect-checked operation0 on
 close
 expect lineName EV0001
 

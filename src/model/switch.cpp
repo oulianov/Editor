@@ -16,7 +16,6 @@
  */
 
 #include "switch.h"
-#include "ui/database/switch_widget.h"
 
 SwitchModel::SwitchModel(ProjectData& project, lcf::rpg::Switch& data) :
 	RpgBase(project), m_data(data) {

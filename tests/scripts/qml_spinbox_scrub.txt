@@ -1,0 +1,70 @@
+# Ez.SpinBox scrubbed with the mouse (ControlsWindow: the first hero's
+# level, 1 to 99, and the first item's price, 0 to 999999 with a suffix):
+# a click on a button steps; a press on a button dragged right or up
+# raises the number, left or down lowers it, faster the further it goes,
+# within the range; Shift 10 steps at a time; Ctrl and a drag on the
+# number scrub it too (a plain drag selects); Escape puts back the number
+# the drag started with. Each number reaches the data, as a typed one.
+# Nothing is saved.
+qml-open ControlsWindow
+wait 300
+expect controlLevel 1
+# a click steps
+view-click controlLevel 60 11
+wait 100
+expect controlLevel 2
+expect controlLevelShown 2
+view-click controlLevel 10 11
+wait 100
+expect controlLevel 1
+# a short drag right from a button: a step every 4 pixels past the 10 of
+# the start of a drag (28 pixels: 9 steps, a bit more than 7)
+view-drag controlLevel 60 11 100 11
+wait 100
+expect controlLevel 10
+expect controlLevelShown 10
+# back left past the start: down to the start of the range, not below
+view-drag controlLevel 10 11 -300 11
+wait 100
+expect controlLevel 1
+expect controlLevelShown 1
+# up: up to the end of the range
+view-drag controlLevel 10 11 10 -400
+wait 100
+expect controlLevel 99
+expect controlLevelShown 99
+# Escape during the drag: the number it started with (without it: 74), the
+# window left open
+view-drag controlLevel 10 11 -60 11 escape
+wait 100
+expect controlLevel 99
+expect controlLevelShown 99
+expect qmlControls Ez controls
+# a wide range: faster the further (288 pixels: 2106 steps), Shift 10
+# times faster
+expect controlPrice 40 G
+view-drag controlPrice 104 11 404 11
+wait 100
+expect controlPrice 2146
+expect controlPriceShown 2146
+view-drag controlPrice 104 11 404 11 shift
+wait 100
+expect controlPrice 23214
+view-drag controlPrice 104 11 2000 11
+wait 100
+expect controlPrice 999999 G
+expect controlPriceShown 999999
+view-drag controlPrice 10 11 -2000 11
+wait 100
+expect controlPrice 0 G
+expect controlPriceShown 0
+# the number dragged: selected without Ctrl, scrubbed with it
+view-drag controlPrice 40 11 80 11
+wait 100
+expect controlPrice 0 G
+view-drag controlPrice 40 11 80 11 ctrl
+wait 100
+expect controlPrice 9
+expect controlPriceShown 9
+close
+quit

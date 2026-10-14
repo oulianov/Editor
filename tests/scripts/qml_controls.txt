@@ -1,0 +1,42 @@
+# The Ez controls of the QML interface bound to the project's data
+# (ControlsWindow, on the first hero and item of TestGame-2003): they show
+# it, write what is chosen (converted to the field: a level past 99 is 99),
+# and the other controls showing the same value follow at once. Nothing is
+# saved.
+qml-open ControlsWindow
+wait 300
+expect qmlControls Ez controls
+expect controlName Zack
+expect controlNameShown Zack
+expect controlLevel 1
+expect controlLevelShown 1
+expect controlClass (None)
+expect-checked controlTransparent off
+expect-checked controlItemState2 off
+expect-checked controlScope0 off
+expect-checked controlScope1 off
+set-control controlName Alexander
+expect controlNameShown Alexander
+set-control controlLevel 150
+expect controlLevel 99
+expect controlLevelShown 99
+set-control controlTransparent on
+expect-checked controlTransparentAgain on
+set-control controlTransparentAgain off
+expect-checked controlTransparent off
+set-control controlClass 2
+expect controlClass 0002: Hero B
+set-control controlClass 0
+expect controlClass (None)
+set-control controlItemState2 on
+expect-checked controlItemState2Again on
+set-control controlItemState2Again off
+expect-checked controlItemState2 off
+set-control controlScope0 on
+expect-checked controlScope1 off
+set-control controlScope1 on
+expect-checked controlScope0 off
+check-layout
+check-option-spacing 8
+close
+quit

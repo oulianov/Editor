@@ -19,17 +19,18 @@
 
 #include <QObject>
 #include <QString>
+#include <functional>
 
-class QWidget;
+class QQuickWindow;
 
 namespace Screenshot {
-	/** The window the user is working in: the open dialog, else the active window */
-	QWidget* activeWindow();
+	/** Save a window as a PNG. Without a path, it goes in Pictures/EasyRPG
+	 *  Editor (a script's in its folder). Returns the file written, or an
+	 *  empty string. */
+	QString save(QQuickWindow* window, const QString& path = QString());
 
-	/** Save widget (default: activeWindow()) as a PNG. Without a path, it goes in
-	 *  Pictures/EasyRPG Editor. Returns the file written, or an empty string. */
-	QString save(QWidget* widget = nullptr, const QString& path = QString());
-
-	/** Ctrl+Alt+S (Cmd+Option+S on macOS) saves the active window, dialogs included */
-	void installShortcut();
+	/** Ctrl+Alt+S (Cmd+Option+S on macOS) saves the window with the
+	 *  keyboard, dialogs included; saved: says where (the status bar of the
+	 *  main window) */
+	void installShortcut(std::function<void(const QString& message)> saved = {});
 }

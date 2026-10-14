@@ -20,3 +20,4 @@
 Q_LOGGING_CATEGORY(lcProject, "editor.project")
 Q_LOGGING_CATEGORY(lcReload, "editor.reload")
 Q_LOGGING_CATEGORY(lcAutomation, "editor.automation")
+Q_LOGGING_CATEGORY(lcQml, "editor.qml")

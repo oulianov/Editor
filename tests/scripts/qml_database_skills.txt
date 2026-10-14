@@ -1,0 +1,108 @@
+# The Skills page of the QML database, on a copy of the project: its
+# fields (the fields of the skill's type, texts that
+# follow its target, an MP cost in MP or percent, rates, conditions and
+# attributes, how heroes move in their window), written to the database
+# file by OK; Cancel writes nothing.
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 2
+wait 300
+expect-tab tabOld_Pages Skills
+expect list > 0001: Venom
+expect skillName Venom
+expect skillType Normal
+expect skillScope Single Enemy
+expect groupEffects Decrease
+expect radioStateNormal Inflict
+expect listStates [x] | Poison
+expect-enabled lineMessage1 off
+check-layout
+
+# the target changes the texts: allies are healed and raised
+set-control skillScope 3
+expect groupEffects Increase
+expect radioStateNormal Remove
+expect checkAttributeDefense Increase Resistance
+set-control skillScope 0
+# an MP cost in percent (RPG Maker 2003)
+set-control skillMpCost 1500
+expect skillMpCost 999
+set-control radioMpPercent on
+expect skillMpCost 0%
+set-control skillMpCost 150
+expect skillMpCost 100%
+set-control skillName Toxin
+expect list > 0001: Toxin
+set-control skillDescription Poisons a foe.
+set-control sliderIntelligenceInfluence 7
+set-control spinEffectRating 120
+set-control spinSuccessRate 90
+set-control checkAffectMp on
+set-control checkIgnoreDefense on
+set-control radioStateReverse on
+set-control checkState2 on
+set-control checkAttribute1 on
+set-control checkAttributeDefense on
+set-control comboAnimation 9
+
+# how each hero moves (RPG Maker 2003 battles), in its window
+click pushBattlerAnimation
+wait 400
+expect BattlerAnimationDialog Skill Animation
+expect comboHero 0001: Zack
+set-control comboMovement 2
+set-control radioAfterimageNone on
+set-control comboHero 1
+expect comboMovement None
+set-control comboPose 5
+click OK
+wait 300
+
+# the other types: the fields of a switch skill
+set-control skillType 3
+expect-enabled comboSwitch on
+expect-enabled lineSound on
+click OK
+wait 300
+expect-database-file skills/0/name Toxin
+expect-database-file skills/0/description Poisons a foe.
+expect-database-file skills/0/type 3
+expect-database-file skills/0/sp_type 1
+expect-database-file skills/0/sp_cost 999
+expect-database-file skills/0/sp_percent 100
+expect-database-file skills/0/magical_rate 7
+expect-database-file skills/0/power 120
+expect-database-file skills/0/hit 90
+expect-database-file skills/0/affect_sp true
+expect-database-file skills/0/ignore_defense true
+expect-database-file skills/0/reverse_state_effect true
+expect-database-file skills/0/state_effects/2 true
+expect-database-file skills/0/attribute_effects/1 true
+expect-database-file skills/0/affect_attr_defence true
+expect-database-file skills/0/animation_id 10
+expect-database-file skills/0/battler_animation_data/0/movement 2
+expect-database-file skills/0/battler_animation_data/0/after_image 0
+expect-database-file skills/0/battler_animation_data/1/movement 0
+expect-database-file skills/0/battler_animation_data/1/pose 5
+
+# Cancel: nothing written, in the animation window either
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Skills
+expect skillName Toxin
+set-control skillType 0
+click pushBattlerAnimation
+wait 400
+set-control comboMovement 1
+click Cancel
+wait 300
+set-control skillName Nothing
+set-control checkAffectHp off
+close
+wait 300
+expect-database-file skills/0/name Toxin
+expect-database-file skills/0/type 3
+expect-database-file skills/0/affect_hp true
+expect-database-file skills/0/battler_animation_data/0/movement 2
+quit

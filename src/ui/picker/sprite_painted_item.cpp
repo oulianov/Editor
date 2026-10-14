@@ -16,10 +16,14 @@
  */
 
 #include "sprite_painted_item.h"
+#include "project_image_provider.h"
+#include <QMouseEvent>
 #include <QPainter>
 
 SpritePaintedItem::SpritePaintedItem(QQuickItem *parent) : QQuickPaintedItem(parent) {
 	setAcceptedMouseButtons(Qt::LeftButton);
+	// pixel art: zoomed without blur
+	setSmooth(false);
 }
 
 QString SpritePaintedItem::filename() const {
@@ -50,6 +54,20 @@ void SpritePaintedItem::setDirectory(const QString& directory) {
 	reload();
 }
 
+QString SpritePaintedItem::path() const {
+	return m_path;
+}
+
+void SpritePaintedItem::setPath(const QString& path) {
+	if (m_path == path) {
+		return;
+	}
+	m_path = path;
+	m_image = {};
+	emit pathChanged();
+	reload();
+}
+
 ProjectDataGadget* SpritePaintedItem::projectData() const { return m_projectData; }
 
 void SpritePaintedItem::setProjectData(ProjectDataGadget* projectData) {
@@ -68,8 +86,10 @@ void SpritePaintedItem::setPickerMode(bool pickerMode) {
 		return;
 	}
 	m_pickerMode = pickerMode;
+	// the sheet as in its file in a picker, as in the game elsewhere
+	m_image = {};
 	emit pickerModeChanged();
-	update();
+	reload();
 }
 
 int SpritePaintedItem::cellIndex() const {
@@ -189,6 +209,24 @@ void SpritePaintedItem::setGridColumns(int gridColumns) {
 	update();
 }
 
+void SpritePaintedItem::drawSelection(QPainter* painter, const QRectF& rect) {
+	// white inside a dark line: seen on any picture and background
+	painter->save();
+	painter->setOpacity(1.0);
+	painter->setBrush(Qt::NoBrush);
+	QPen dark(QColor(0, 0, 0, 160));
+	dark.setWidth(1);
+	dark.setCosmetic(true);
+	painter->setPen(dark);
+	painter->drawRect(rect.adjusted(-1, -1, 1, 1));
+	QPen light(Qt::white);
+	light.setWidth(2);
+	light.setCosmetic(true);
+	painter->setPen(light);
+	painter->drawRect(rect.adjusted(1, 1, -1, -1));
+	painter->restore();
+}
+
 QRectF SpritePaintedItem::sourceRect() const {
 	if (m_cellWidth <= 0 || m_cellHeight <= 0) {
 		return m_image.rect();
@@ -251,17 +289,11 @@ void SpritePaintedItem::paint(QPainter* painter) {
 				painter->setOpacity(1.0);
 			}
 
-			QPen selPen(Qt::white);
-			selPen.setWidth(2);
-			selPen.setCosmetic(true);
-
-			painter->setPen(selPen);
-			painter->setBrush(Qt::NoBrush);
-			painter->drawRect(selRect);
+			drawSelection(painter, selRect);
 		}
 	} else {
 		// Viewer mode: Draw the selected cell from the original image
-		// Scaled to fill the widget
+		// Scaled to fill the item
 		const QRectF src = sourceRect();
 		painter->drawPixmap(QRectF(0, 0, width(), height()), m_image, src);
 	}
@@ -272,15 +304,9 @@ void SpritePaintedItem::paint(QPainter* painter) {
 }
 
 void SpritePaintedItem::mousePressEvent(QMouseEvent* event) {
-	if (m_image.isNull()) {
-		return;
-	}
-
-	if (!m_pickerMode) {
-		return;
-	}
-
-	if (m_cellWidth <= 0 || m_cellHeight <= 0) {
+	// only a picker chooses a cell: elsewhere the click is the field's
+	if (m_image.isNull() || !m_pickerMode || m_cellWidth <= 0 || m_cellHeight <= 0) {
+		event->ignore();
 		return;
 	}
 
@@ -306,13 +332,32 @@ void SpritePaintedItem::mousePressEvent(QMouseEvent* event) {
 	}
 }
 
+QString SpritePaintedItem::imagePath() const {
+	if (!m_path.isEmpty()) {
+		return m_path;
+	}
+	if (!m_projectData || !m_projectData->projectData() || m_filename.isEmpty()) {
+		return {};
+	}
+	return m_projectData->findFile(m_directory, m_filename, FileFinder::FileType::Image);
+}
+
+bool SpritePaintedItem::loaded() const {
+	return m_loaded;
+}
+
+QPixmap SpritePaintedItem::loadImage() const {
+	const bool transparent = !m_pickerMode && ProjectImageProvider::isTransparentFolder(m_directory);
+	return QPixmap::fromImage(ProjectImageProvider::load(imagePath(), transparent));
+}
+
 void SpritePaintedItem::reload() {
-	if (!projectData()) {
+	if (!projectData() && m_path.isEmpty()) {
 		return;
 	}
 
 	if (m_image.isNull()) {
-		m_image = projectData()->loadImage(m_directory, m_filename);
+		m_image = loadImage();
 	}
 
 	if (!m_image.isNull()) {
@@ -337,5 +382,9 @@ void SpritePaintedItem::reload() {
 		setImplicitSize(m_cellWidth, m_cellHeight);
 	}
 
+	if (m_loaded != !m_image.isNull()) {
+		m_loaded = !m_image.isNull();
+		emit loadedChanged();
+	}
 	update();
 }

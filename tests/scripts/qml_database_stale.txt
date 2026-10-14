@@ -1,0 +1,61 @@
+# The database file changed on disk by another program (rpgsync) while the
+# QML database window is open, on a copy of the project: what the program
+# changed is merged on Apply, the entries both sides changed are asked over
+# the window (Save Mine, Cancel, Reload).
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 6
+wait 200
+
+# different entries: merged, no question
+set-control lineName Blade
+edit-database-file attributes/1/name Lance
+click Apply
+wait 400
+expect-database-file attributes/0/name Blade
+expect-database-file attributes/1/name Lance
+# the window shows the merge
+click-item list 0002: Lance
+expect lineName Lance
+
+# the same entry: asked; Cancel keeps both sides
+set-control lineName Pike
+edit-database-file attributes/1/name Halberd
+click Apply
+wait 400
+expect messageWindow Changed on Disk
+expect messageText The database was changed by another program since the Editor read it.
+expect messageText Changed on both sides
+check-layout
+click Cancel
+wait 300
+expect-database-file attributes/1/name Halberd
+expect lineName Pike
+# Save Mine: the window's entry replaces the file's
+click OK
+wait 400
+expect messageWindow Changed on Disk
+click Save Mine
+wait 400
+expect-database-file attributes/1/name Pike
+
+# Reload (Discard Mine): the window closes, the project reads the file
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Attributes
+click-item list 0002: Pike
+set-control lineName Glaive
+edit-database-file attributes/1/name Trident
+click Apply
+wait 400
+click Reload (Discard Mine)
+wait 600
+action actionDatabase
+wait 300
+click-item list 0002
+expect lineName Trident
+close
+wait 200
+expect-database-file attributes/1/name Trident
+quit

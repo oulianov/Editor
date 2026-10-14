@@ -1,0 +1,36 @@
+# Another language chosen in Settings: the QML windows show it at once, the
+# ones open too (the guide), and Settings opens in it.
+action actionContents
+wait 400
+expect helpWindow EasyRPG Editor Help
+action actionSettings
+wait 300
+expect SettingsDialog Settings
+expect comboLanguage System Language
+# 0: the system's, then English, Français, Deutsch
+set-control comboLanguage 2
+expect comboLanguage Français
+click OK
+wait 300
+expect helpWindow Aide de l'éditeur EasyRPG
+close
+wait 200
+
+action actionSettings
+wait 300
+expect SettingsDialog Paramètres
+expect comboLanguage Français
+expect checkSearchCache Conserver les résultats entre les recherches
+expect checkReloadExternal Mode rpgsync
+check-layout
+check-option-spacing 8
+# back to English at once
+set-control comboLanguage 1
+click OK
+wait 300
+action actionSettings
+wait 300
+expect SettingsDialog Settings
+expect checkSearchCache Keep search results between searches
+close
+quit

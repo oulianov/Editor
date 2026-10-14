@@ -1,0 +1,81 @@
+# The Battle Animation page of the QML database window (on a copy of the
+# project): a cel changed on the preview (its menu) and in its fields, the
+# frames (Number of Frames, Mass Modify), an effect timing added in its
+# window, the playback (silent); OK writes them, Cancel writes nothing.
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 8
+wait 300
+expect-tab tabOld_Pages Battle Animation
+expect list > 0001: Punch A
+expect comboScope Local
+expect comboPosition Center
+expect listFrames > 001
+expect labelFrame Frame 1 / 20
+expect comboCel Cel 1: pattern 1
+expect spinCelX 24
+expect spinCelY -24
+expect-enabled pushBack off
+expect listTimings Blow1
+check-layout
+resize 1280 900
+check-layout
+
+# the menu of the cel under the pointer: its next pattern
+view-click viewAnimation 184 96 right
+menu Increment Image ID
+expect spinCelPattern 2
+set-control spinCelX 30
+set-control spinCelTransparency 40
+click pushNext
+expect labelFrame Frame 2 / 20
+expect listFrames > 002
+# twenty-five frames, then the first one's cels enlarged
+click pushFrameCount
+set-control spinFrameCount 25
+click OK
+expect labelFrame Frame 2 / 25
+click pushMassModify
+expect dialogMassModify Mass Modify
+set-control spinFrameFrom 1
+set-control spinFrameTo 1
+set-control checkMagnification on
+set-control spinMagnification 150
+click OK
+# a flash of the screen on frame 3
+click pushAddTiming
+expect AnimationTimingDialog Animation Effect Timing
+set-control spinTimingFrame 3
+set-control radioFlash2 on
+set-control spinFlashRed 10
+click OK
+expect listTimings 3 | (OFF)
+# the playback, without sound
+click pushPlay
+expect pushPlay Stop
+click pushPlay
+expect pushPlay Play
+click OK
+wait 300
+expect-database-file animations/0/frames/0/cells/0/cell_id 1
+expect-database-file animations/0/frames/0/cells/0/x 30
+expect-database-file animations/0/frames/0/cells/0/transparency 40
+expect-database-file animations/0/frames/0/cells/0/zoom 150
+expect-database-file animations/0/frames/24/ID 25
+expect-database-file animations/0/timings/1/frame 3
+expect-database-file animations/0/timings/1/flash_scope 2
+expect-database-file animations/0/timings/1/flash_red 10
+
+# Cancel: nothing written
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Battle Animation
+click pushFrameCount
+set-control spinFrameCount 5
+click OK
+expect labelFrame Frame 1 / 5
+close
+wait 300
+expect-database-file animations/0/frames/24/ID 25
+quit

@@ -21,7 +21,7 @@
 #include <lcf/rpg/database.h>
 
 /** The database entries in QVariants and in signals: declared before any
- *  use (a signal of a widget, the binding of its fields) */
+ *  use (a signal, the binding of the fields of a page) */
 Q_DECLARE_METATYPE(lcf::rpg::Actor*)
 Q_DECLARE_METATYPE(lcf::rpg::Skill*)
 Q_DECLARE_METATYPE(lcf::rpg::Enemy*)

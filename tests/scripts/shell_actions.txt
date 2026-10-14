@@ -1,0 +1,65 @@
+# The main window's actions (ShellController): the status bar, the layers,
+# Revert asking first, Map Properties of the map shown, Close Project
+# asking about the changes. Nothing is saved.
+# Run on TestGame-2003 (https://github.com/EasyRPG/TestGame).
+open-map 1
+expect labelMapName 0001: Map events
+action actionLayerLower
+action actionDrawPen
+expect labelEditMode Lower Layer Editing Mode - Pen Tool
+expect-checked actionLayerLower on
+expect-checked actionDrawPen on
+expect-checked actionZoom1_2 on
+expect-enabled actionMapRevert off
+palette 7
+map-click 1 1
+expect-enabled actionMapRevert on
+expect-enabled actionUndo on
+expect tabMap Map events *
+
+# Revert: No keeps the changes, Yes reads the map again
+action actionMapRevert
+click No
+wait 200
+expect-enabled actionMapRevert on
+action actionMapRevert
+click Yes
+wait 200
+expect-enabled actionMapRevert off
+expect-enabled actionUndo off
+expect-not tabMap Map events *
+
+# the event layer: no tool
+action actionLayerEvents
+expect labelEditMode Event Editing Mode
+expect-checked actionLayerEvents on
+expect-checked actionLayerLower off
+action actionZoom1_1
+expect-checked actionZoom1_1 on
+expect-checked actionZoom1_2 off
+
+# Map Properties: the map shown when the project is selected
+select-map 0
+action actionMapProperties
+expect lineName Map events
+close
+wait 200
+
+# Close Project asks about the changes: Cancel keeps it open
+action actionLayerLower
+map-click 2 2
+action actionProjectClose
+click Cancel
+wait 200
+expect treeMap RPG Maker 2003 Test suite
+expect-enabled actionMapSave on
+action actionProjectClose
+click No
+wait 300
+expect-not treeMap Test suite
+expect-not labelMapName Map events
+expect-enabled actionProjectOpen on
+expect-enabled actionProjectClose off
+expect-enabled actionMapSave off
+expect-enabled actionZoomIn off
+quit

@@ -2,13 +2,16 @@
 # RPG Maker stops typing (an item description: 50 characters). Longer text
 # still goes in. Nothing is saved.
 action actionDatabase
+wait 300
 tab tabOld_Pages 3
+wait 300
 focus itemDescription
 key End
 type - and more text that goes past the line
 expect itemDescription Recovers 50 HP.- and more text that goes past the line
 check-layout
 tab tabOld_Pages 13
+wait 300
 check-layout
 close
 quit

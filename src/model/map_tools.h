@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <QList>
+#include <QRect>
 #include <lcf/rpg/map.h>
 
 namespace MapTools {
@@ -32,5 +34,37 @@ void shiftMap(lcf::rpg::Map& map, int dx, int dy);
 
 /** x modulo size, always in 0..size-1 */
 int wrap(int x, int size);
+
+/**
+ * Map Properties' new size: the tiles keep their cells, new cells are
+ * empty (lower tile 0, upper 10000), and the cells and events past the new
+ * edges are deleted.
+ */
+void resizeMap(lcf::rpg::Map& map, int width, int height);
+
+/*
+ * The tiles of the Random Dungeon Generator in Map Properties: nine boxes
+ * (ceiling, lower wall, upper wall, floors A to C, obstacles A to C), each
+ * picked as cells of the palette (6 per row) and stored in
+ * Map::generator_tile_ids as RPG Maker stores them
+ */
+
+enum GeneratorBox { Ceiling, LowerWall, UpperWall, FloorA, FloorB, FloorC, ObstacleA, ObstacleB, ObstacleC, GeneratorBoxes };
+
+/** The tile ids of a map, RPG Maker's defaults when it has none */
+std::vector<int16_t> generatorTiles(const lcf::rpg::Map& map);
+/** The palette cells of a box: one lower tile, or up to 2 x 2 upper tiles */
+QRect generatorCells(const std::vector<int16_t>& tiles, int box);
+/** Sets the tiles of a box from palette cells; x and y are the cells of
+ *  the boxes (Map::generator_x, generator_y, GeneratorBoxes long) */
+void setGeneratorCells(std::vector<int16_t>& tiles, std::vector<uint32_t>& x, std::vector<uint32_t>& y,
+	int box, const QRect& cells);
+
+/** The tile ids of the cells of the palette of a layer (lower: 162, upper:
+ *  144, 6 per row), drawn as the palette shows them; deep water surrounded
+ *  by water */
+QList<int> paletteTiles(bool lower);
+/** The tile ids drawn in the cells of a box: one, or 2 x 2 (-1: empty) */
+QList<int> generatorBoxTiles(const std::vector<int16_t>& tiles, int box);
 
 }

@@ -49,6 +49,8 @@ cmake_install.cmake
 *automoc.cpp
 cmake-build-*/
 build/
+# the build folders of parallel work (build-<name>)
+/build-*/
 install/
 
 # Ninja

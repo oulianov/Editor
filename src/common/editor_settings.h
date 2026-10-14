@@ -67,6 +67,7 @@ public:
 	/** Search results kept between searches */
 	bool searchCache() const;
 	void setSearchCache(bool on);
+
 	/** Reset saved UI state and all open views, keeping preferences and game data. */
 	void resetLocalState();
 

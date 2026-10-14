@@ -1,0 +1,55 @@
+# The pages of an event: New Page after the page shown (its look, new
+# conditions), Copy and Paste Page (after the page shown), Delete Page
+# (the next one takes its place) and Clear Page, as in RPG Maker 2003.
+# Event 1 of map 1 of TestGame-2003: one page, a message and Change Level.
+# Nothing is saved.
+open-event 1 1
+expect tabEventPages 1
+expect-enabled pushPastePage off
+expect-enabled pushDeletePage off
+set-control checkSwitchA on
+set-control comboMoveSpeed 4
+
+click New Page
+expect tabEventPages 1 | 2
+expect-tab tabEventPages 2
+expect-enabled pushDeletePage on
+expect commands <>
+expect-not commands Change Level
+# new conditions, the look and the movement of the page before
+expect-checked checkSwitchA off
+expect comboMoveSpeed 5: Normal x 2
+
+# the first page, copied after the second one
+key Ctrl+Shift+Tab
+expect-tab tabEventPages 1
+click Copy Page
+expect-enabled pushPastePage on
+key Ctrl+Tab
+click Paste Page
+expect tabEventPages 1 | 2 | 3
+expect-tab tabEventPages 3
+expect commands Change Level: Zack, +98
+expect-checked checkSwitchA on
+
+# the second page deleted: the third one takes its place
+key Ctrl+Shift+Tab
+expect-tab tabEventPages 2
+click Delete Page
+expect tabEventPages 1 | 2
+expect-tab tabEventPages 2
+expect commands Change Level: Zack, +98
+
+# Clear Page: the page starts over, keeping its number
+click Clear Page
+expect tabEventPages 1 | 2
+expect-not commands Change Level
+expect-checked checkSwitchA off
+
+# Apply puts the pages on the map: they are there when it opens again
+click Apply
+close
+open-event 1 1
+expect tabEventPages 1 | 2
+close
+quit

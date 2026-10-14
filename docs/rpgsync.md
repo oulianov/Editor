@@ -45,11 +45,50 @@ folder. Both can then edit the game at the same time:
   save its version, reload the file (dropping its changes) or cancel.
 
 
+## The map tree
+
+rpgsync writes the map tree (`RPG_RT.lmt`) as
+`Scripts/database/map_tree.py`. It has one `Map(...)` or `Area(...)` entry per
+map and area. The maps under a map go in the `with` block that follows its
+entry, so the file has the shape of the tree. `start` is where a new game
+begins.
+
+```python
+hertepay = Map(id=5, name="Hertepay")
+with hertepay:
+    relm = Map(id=1, name="Relm")
+    with relm:
+        cellar = Area(id=26, name="Cellar", area_rect=[2, 3, 9, 8])
+```
+
+What you change there reaches the game and, in rpgsync mode, the Editor's map
+tree:
+
+- **Rename** a map (`name=`): the tree and the tab of the open map show the
+  new name, and the title of its script follows.
+- **Add** an entry: rpgsync creates an empty 20x15 `MapNNNN.lmu` and its
+  script, and the map appears in the tree.
+- **Delete** an entry and its `with` block, which holds the maps under it:
+  their `MapNNNN.lmu` files and scripts are deleted, and their tabs close. A
+  copy stays in `Scripts/.rpgsync/history`.
+  - A map with unsaved changes stays open, marked *(deleted)*. Saving it asks
+    whether to put it back in the tree or to discard the changes.
+  - The Editor never writes a map file that the tree doesn't list.
+- **Move** a map (its entry and its block, elsewhere in the tree): the tree
+  follows.
+- Nothing goes under an area: rpgsync refuses it.
+
+
 ## Open in Script Editor
 
 In a list of event commands (an event page, a common event), **Open in Script
 Editor** (right-click, or Ctrl+Shift+O) opens the script at the line of the
 selected command; the event window has an **Open Script** button.
+
+In the map tree (right-click), a map has **Open in Script Editor** (its
+`MapNNNN.py`) and **Open Map Tree Entry in Script Editor** (its line in
+`map_tree.py`), an area the second one, and the project **Open Map Tree in
+Script Editor** (`map_tree.py` at its `start`).
 
 The script editor is set in **Settings > Script editor**: a URL or a command,
 with `{file}` and `{line}`:

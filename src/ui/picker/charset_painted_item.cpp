@@ -16,6 +16,8 @@
  */
 
 #include "charset_painted_item.h"
+#include <QMouseEvent>
+#include <QPainter>
 
 CharSetPaintedItem::CharSetPaintedItem(QQuickItem *parent) : SpritePaintedItem(parent) {
 	m_directory = QStringLiteral("CharSet");
@@ -93,6 +95,68 @@ void CharSetPaintedItem::setWalk(bool walk) {
 	} else {
 		m_timer.stop();
 	}
+}
+
+bool CharSetPaintedItem::poseMode() const {
+	return m_poseMode;
+}
+
+void CharSetPaintedItem::setPoseMode(bool poseMode) {
+	if (m_poseMode == poseMode) {
+		return;
+	}
+	m_poseMode = poseMode;
+	emit poseModeChanged();
+	reload();
+}
+
+bool CharSetPaintedItem::showsSheet() const {
+	return m_pickerMode && m_poseMode && !m_image.isNull();
+}
+
+qreal CharSetPaintedItem::sheetScale() const {
+	if (m_image.isNull()) {
+		return 1.0;
+	}
+	return std::max(0.01, std::min(width() / m_image.width(), height() / m_image.height()));
+}
+
+void CharSetPaintedItem::reload() {
+	SpritePaintedItem::reload();
+	if (showsSheet()) {
+		setImplicitSize(m_image.width(), m_image.height());
+	}
+}
+
+void CharSetPaintedItem::paint(QPainter* painter) {
+	if (!showsSheet()) {
+		SpritePaintedItem::paint(painter);
+		return;
+	}
+	// every pose of the sheet, the one chosen framed
+	const qreal scale = sheetScale();
+	painter->drawPixmap(QRectF(0, 0, m_image.width() * scale, m_image.height() * scale), m_image, m_image.rect());
+	const QRectF selected(((m_cellIndex % 4) * 3 + m_frame) * m_cellWidth * scale,
+		((m_cellIndex / 4) * 4 + m_facing) * m_cellHeight * scale, m_cellWidth * scale, m_cellHeight * scale);
+	drawSelection(painter, selected);
+}
+
+void CharSetPaintedItem::mousePressEvent(QMouseEvent* event) {
+	if (!showsSheet()) {
+		SpritePaintedItem::mousePressEvent(event);
+		return;
+	}
+	// a cell of the sheet: 4 x 2 characters of 3 frames x 4 facings
+	const qreal scale = sheetScale();
+	const int x = static_cast<int>(event->position().x() / (m_cellWidth * scale));
+	const int y = static_cast<int>(event->position().y() / (m_cellHeight * scale));
+	if (x < 0 || y < 0 || x >= 12 || y >= 8) {
+		return;
+	}
+	setFacing(y % 4);
+	setFrame(x % 3);
+	setCellIndex((y / 4) * 4 + x / 3);
+	update();
 }
 
 QRectF CharSetPaintedItem::sourceRect() const {

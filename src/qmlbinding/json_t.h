@@ -21,21 +21,27 @@
 
 #include <lcf/rpg/database.h>
 #include <lcf/rpg/map.h>
+#include <lcf/rpg/mapinfo.h>
 #include <lcf/rpg/treemap.h>
 
+/**
+ * Json over live liblcf data: the pointers are found with glaze
+ * (json_internals/json_t_impl.h, instantiated once per type in its own file:
+ * the reflection of a whole database is slow to compile)
+ */
 template<typename LCFTYPE>
 class JsonT : public Json {
 public:
 	explicit JsonT(QObject* parent = nullptr);
 
-	QString str(QString jsonPtr) const override;
-	int num(QString jsonPtr) const override;
-	bool boolean(QString jsonPtr) const override;
-	void set(QString jsonPtr, const QVariant& value) override;
-	QVariant subtree(QString jsonPtr) override;
-	QVariant list(QString jsonPtr) override;
-	QString toJson(QString jsonPtr) const override;
+	JsonNode node(const QString& jsonPtr) const override;
+	bool isRpg2k3() const override;
+
+	/** The data shown (not owned): the views show it at once */
 	void setData(LCFTYPE* data);
+	LCFTYPE* data() const {
+		return m_data;
+	}
 
 private:
 	LCFTYPE* m_data = nullptr;
@@ -44,3 +50,4 @@ private:
 extern template class JsonT<lcf::rpg::Database>;
 extern template class JsonT<lcf::rpg::TreeMap>;
 extern template class JsonT<lcf::rpg::Map>;
+extern template class JsonT<lcf::rpg::MapInfo>;

@@ -17,9 +17,9 @@
 
 #include "editor_settings.h"
 #include "defines.h"
-#include "ui/other/run_game_dialog.h"
+#include "model/game_runner.h"
 #include <QSettings>
-#include <QApplication>
+#include <QCoreApplication>
 
 namespace {
 	constexpr const char* ANIMATE_TILES_KEY = "animate_tiles";
@@ -79,10 +79,10 @@ bool EditorSettings::searchCache() const { return value(SEARCH_CACHE_KEY, false)
 void EditorSettings::setSearchCache(bool on) { setValue(SEARCH_CACHE_KEY, on); }
 
 void EditorSettings::resetLocalState() {
-	qApp->setProperty("local_state_resetting", true);
-	qApp->setProperty("local_state_revision", qApp->property("local_state_revision").toInt() + 1);
+	QCoreApplication::instance()->setProperty("local_state_resetting", true);
+	QCoreApplication::instance()->setProperty("local_state_revision", QCoreApplication::instance()->property("local_state_revision").toInt() + 1);
 	QSettings settings;
-	for (const QString& key : {QStringLiteral("window_states"), QStringLiteral("main_window_layout"),
+	for (const QString& key : {QStringLiteral("window_states"), QStringLiteral("main_window_layout"), QStringLiteral("main_window_dock_layout"),
 		QStringLiteral("dialog_sizes"), QStringLiteral("project_workspace"),
 		QStringLiteral("database_views"), QStringLiteral("event_views"), QStringLiteral("main_window_geometry"),
 		QStringLiteral("database_page"), QStringLiteral("event_dialog_geometry"), QStringLiteral("event_page_settings_width"),
@@ -92,5 +92,5 @@ void EditorSettings::resetLocalState() {
 		settings.remove(key);
 	settings.sync();
 	emit localStateReset();
-	qApp->setProperty("local_state_resetting", false);
+	QCoreApplication::instance()->setProperty("local_state_resetting", false);
 }

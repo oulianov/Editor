@@ -19,13 +19,9 @@
 
 #include <QString>
 
-class QWidget;
-
-/** The user guide bundled with the Editor (resources/help) */
+/** The user guide bundled with the Editor (resources/help, shown by
+ *  QmlHost::help) */
 namespace Help {
-	/** Shows the guide at a topic (an anchor of the guide), next to from */
-	void open(QWidget* from, const QString& topic = QString());
-
 	/** The topic of an event command */
 	QString commandTopic(int code);
 }

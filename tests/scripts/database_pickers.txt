@@ -1,6 +1,12 @@
 # The "..." of the database graphics without a preview of their own (chipset,
 # battle animation, battler pose) open the picker on the file. Nothing is
 # saved.
+# without an RTP, as in CI: its files are not listed
+action actionSettings
+wait 300
+set-control lineRtpPath ""
+click OK
+wait 200
 action actionDatabase
 tab tabOld_Pages 12
 click pushChipsetFile
@@ -10,7 +16,7 @@ close
 tab tabOld_Pages 8
 click pushAnimationFile
 wait 300
-# an RTP file, which the list does not show: the first file of the list is
+# an RTP file, missing without the RTP: the first file of the list is
 # selected instead (a file is always selected)
 expect-enabled filesystemView on
 expect filesystemView > 25test.png

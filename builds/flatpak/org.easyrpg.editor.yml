@@ -49,6 +49,38 @@ modules:
         branch: R_2_7_4
     cleanup:
       - /share
+  # the QML interface: Kirigami and the Breeze style come with the KDE runtime
+  - name: glaze
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - -Dglaze_DEVELOPER_MODE=OFF
+      - -Dglaze_BUILD_EXAMPLES=OFF
+    sources:
+      - type: git
+        url: https://github.com/stephenberry/glaze.git
+        branch: v9.0.0
+    cleanup:
+      - /share
+  - name: kddockwidgets
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DKDDockWidgets_QT6=ON
+      - -DKDDockWidgets_FRONTENDS=qtquick
+      - -DKDDockWidgets_PYTHON_BINDINGS=OFF
+      - -DKDDockWidgets_TESTS=OFF
+      - -DKDDockWidgets_EXAMPLES=OFF
+      - -DCMAKE_DISABLE_FIND_PACKAGE_spdlog=ON
+      - -DCMAKE_DISABLE_FIND_PACKAGE_fmt=ON
+      - -DCMAKE_DISABLE_FIND_PACKAGE_nlohmann_json=ON
+    sources:
+      - type: git
+        url: https://github.com/KDAB/KDDockWidgets.git
+        branch: v2.4.0
+    cleanup:
+      - /share
   # own libraries
   - name: liblcf
     buildsystem: cmake-ninja

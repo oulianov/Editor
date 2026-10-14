@@ -16,7 +16,6 @@
  */
 
 #include "terrain.h"
-#include "ui/database/terrain_widget.h"
 
 TerrainModel::TerrainModel(ProjectData& project, lcf::rpg::Terrain& data) :
 	RpgBase(project), m_data(data) {

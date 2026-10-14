@@ -20,24 +20,35 @@
 #include "core.h"
 #include "common/editor_settings.h"
 #include "model/game_export.h"
-#include <QApplication>
+#include <QCoreApplication>
+#include <QCursor>
+#include <QGuiApplication>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
-#include <QMessageBox>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QUrl>
+#include <lcf/rpg/treemap.h>
 
 namespace {
-/** The rpgsync of the game's scripts (their .venv), else the one of the PATH */
-QString rpgsync(const QDir& game) {
+/**
+ * The rpgsync of the game's scripts (the Python of their .venv), else the one
+ * of the PATH: the program and its first arguments. Its own launcher is not
+ * run: a game folder copied or renamed keeps it pointing at the old folder
+ * (rpgsync then writes the launchers again for the new one)
+ */
+QStringList rpgsync(const QDir& game) {
 #ifdef Q_OS_WIN
-	const QString venv = game.filePath(QStringLiteral("Scripts/.venv/Scripts/rpgsync.exe"));
+	const QString python = game.filePath(QStringLiteral("Scripts/.venv/Scripts/python.exe"));
 #else
-	const QString venv = game.filePath(QStringLiteral("Scripts/.venv/bin/rpgsync"));
+	const QString python = game.filePath(QStringLiteral("Scripts/.venv/bin/python"));
 #endif
-	return QFileInfo(venv).isExecutable() ? venv : QStandardPaths::findExecutable(QStringLiteral("rpgsync"));
+	if (QFileInfo(python).isExecutable()) {
+		return {python, QStringLiteral("-m"), QStringLiteral("rpgsync")};
+	}
+	const QString program = QStandardPaths::findExecutable(QStringLiteral("rpgsync"));
+	return program.isEmpty() ? QStringList() : QStringList{program};
 }
 }
 
@@ -47,38 +58,42 @@ bool ScriptLink::available() {
 
 QString ScriptLink::unavailableReason() {
 	if (!available()) {
-		return QApplication::translate("ScriptLink", "Set up rpgsync for this game to open its events as Python scripts: "
+		return QCoreApplication::translate("ScriptLink", "Set up rpgsync for this game to open its events as Python scripts: "
 			"install rpgsync (github.com/oulianov/rpgsync), then run rpgsync in the game folder.");
 	}
 	if (rpgsync(core().project()->projectDir()).isEmpty()) {
-		return QApplication::translate("ScriptLink", "rpgsync is not installed: install it "
+		return QCoreApplication::translate("ScriptLink", "rpgsync is not installed: install it "
 			"(github.com/oulianov/rpgsync), or run rpgsync in the game folder to create the scripts' .venv.");
 	}
 	return {};
 }
 
-void ScriptLink::open(QWidget* parent, const QStringList& location, int command) {
+QString ScriptLink::title() {
+	return QCoreApplication::translate("ScriptLink", "Open in Script Editor");
+}
+
+void ScriptLink::open(QObject* context, const QStringList& location, int command,
+		std::function<void(const QString& error)> failed) {
 	if (!available() || location.isEmpty()) {
 		return;
 	}
 	const QDir game = core().project()->projectDir();
-	const QString program = rpgsync(game);
-	const QString title = QApplication::translate("ScriptLink", "Open in Script Editor");
-	if (program.isEmpty()) {
-		QMessageBox::warning(parent, title, QApplication::translate("ScriptLink",
+	QStringList args = rpgsync(game);
+	if (args.isEmpty()) {
+		failed(QCoreApplication::translate("ScriptLink",
 			"rpgsync is not installed for this game: run rpgsync in its folder first."));
 		return;
 	}
-	QStringList args{QStringLiteral("locate"), game.absolutePath()};
-	args << location;
+	const QString program = args.takeFirst();
+	args << QStringLiteral("locate") << game.absolutePath() << location;
 	if (command >= 0) {
 		args << QStringLiteral("--command") << QString::number(command);
 	}
 	// rpgsync compiles the script: a moment for a large one, the Editor waits
-	auto* process = new QProcess(parent);
-	QObject::connect(process, &QProcess::finished, parent, [process, parent, title](int code, QProcess::ExitStatus) {
+	auto* process = new QProcess(context);
+	QObject::connect(process, &QProcess::finished, context, [process, failed](int code, QProcess::ExitStatus) {
 		process->deleteLater();
-		QApplication::restoreOverrideCursor();
+		QGuiApplication::restoreOverrideCursor();
 		const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
 		const int colon = out.lastIndexOf(QLatin1Char(':'));
 		bool ok = false;
@@ -86,30 +101,45 @@ void ScriptLink::open(QWidget* parent, const QStringList& location, int command)
 		if (code != 0 || !ok) {
 			QString error = QString::fromUtf8(process->readAllStandardError()).trimmed();
 			error.remove(QStringLiteral("❌ "));
-			QMessageBox::warning(parent, title, error.isEmpty()
-				? QApplication::translate("ScriptLink", "rpgsync did not find the script line.") : error);
+			failed(error.isEmpty()
+				? QCoreApplication::translate("ScriptLink", "rpgsync did not find the script line.") : error);
 			return;
 		}
 		if (!openAt(out.left(colon), line)) {
-			QMessageBox::warning(parent, title, QApplication::translate("ScriptLink",
+			failed(QCoreApplication::translate("ScriptLink",
 				"The script editor of the settings cannot open %1.").arg(QDir::toNativeSeparators(out.left(colon))));
 		}
 	});
-	QObject::connect(process, &QProcess::errorOccurred, parent, [process, parent, title](QProcess::ProcessError error) {
+	QObject::connect(process, &QProcess::errorOccurred, context, [process, failed](QProcess::ProcessError error) {
 		if (error != QProcess::FailedToStart) {
 			return;
 		}
 		process->deleteLater();
-		QApplication::restoreOverrideCursor();
-		QMessageBox::warning(parent, title, QApplication::translate("ScriptLink", "rpgsync cannot be started."));
+		QGuiApplication::restoreOverrideCursor();
+		failed(QCoreApplication::translate("ScriptLink", "rpgsync cannot be started."));
 	});
-	QApplication::setOverrideCursor(Qt::BusyCursor);
+	QGuiApplication::setOverrideCursor(Qt::BusyCursor);
 	// no colors nor emojis in what is read back
 	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 	env.insert(QStringLiteral("NO_COLOR"), QStringLiteral("1"));
 	env.insert(QStringLiteral("RPGSYNC_ASCII"), QStringLiteral("1"));
 	process->setProcessEnvironment(env);
 	process->start(program, args);
+}
+
+ScriptLink::MapTreeLocations ScriptLink::mapTreeLocations(int id, int type) {
+	const QString node = QString::number(id);
+	switch (type) {
+	case lcf::rpg::TreeMap::MapType_map:
+		return {{QStringLiteral("--map"), node}, {QStringLiteral("--map-tree"), node}};
+	case lcf::rpg::TreeMap::MapType_area:
+		return {{}, {QStringLiteral("--map-tree"), node}};
+	case lcf::rpg::TreeMap::MapType_root:
+		// rpgsync opens the tree at its start positions
+		return {{}, {QStringLiteral("--map-tree"), QStringLiteral("0")}};
+	default:
+		return {};
+	}
 }
 
 bool ScriptLink::openAt(const QString& file, int line) {

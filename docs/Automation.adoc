@@ -28,13 +28,14 @@ The script runs once the project is loaded, then the Editor quits. The exit
 code is the number of failed commands and checks (0 when all pass).
 
 Scripts keep their settings apart from yours (last project, window sizes),
-and nothing is saved unless the script does it. They run in English, so that
+and nothing is saved unless the script does it. Each run has a folder of its
+own, removed when the Editor quits: `$SCRIPT_DIR` in the arguments of the
+commands. The EasyRPG Player downloaded by a script goes there too. They run in English, so that
 `click` and `type` find the same texts on every system; `--language fr` runs
 one in another language.
 
 To run without a display (continuous integration, remote machines), use Qt's
-offscreen platform. Screenshots then use the Fusion style instead of the
-system one:
+offscreen platform:
 
 ----
 QT_QPA_PLATFORM=offscreen easyrpg-editor --script check.txt /path/to/MyGame
@@ -77,29 +78,42 @@ at once: the next commands act on the dialog, until `close`.
 |===
 | Command | Effect
 
-| `open-project FOLDER` | Opens a project.
+| `open-project [FOLDER]` | Opens a project (without FOLDER: the project open, opened again; none open: the copy of `open-project-copy`). The project open is closed first, asking about the unsaved changes of its maps.
+| `reload-tree` | Reads the map tree again from its file, as when another program changed it.
+| `open-project-copy` | Opens a copy of the project's own files (database, map tree, maps, ini files; not its pictures and sounds) in a temporary folder removed when the script ends: what the script saves goes there.
+| `menu-role ACTION quit\|about\|preferences\|application` | Fails unless the native menu bar (macOS's: not drawn, made for the check elsewhere) has an item of the action with that role (`application`: a copy in the application menu), and a menu of the menu bar the action; then chooses the item. Logs `shown by the platform` when the system shows that menu bar (macOS on a display).
+| `float-dock DOCK on\|off` | Puts a dock of the main window (`dockPalette`, `dockMapTree`) in a window of its own, or back.
+| `expect-dock DOCK docked\|floating\|closed` | Fails unless the dock of the main window is in that state.
+| `edit-database-file POINTER VALUE` | Writes a value of the database file on disk, apart from the Editor, as another program (rpgsync) does: POINTER is a JSON pointer of the database (`terms/victory`, `attributes/1/name`).
+| `expect-database-file POINTER VALUE` | Fails unless the database file on disk has this value (what Apply or OK saved).
+| `expect-database POINTER VALUE` | Fails unless the project's database, in memory, has this value (what it read again after `edit-database-file`, with the files changed by other programs read again: Settings, `checkReloadExternal`).
+| `expect-locks KIND...` | Fails unless the editors open hold these edit locks, in the order taken (`none`: no lock): `dialog` for a modal window (a dialog, a question, a picker), `database` for the database window, `event:MAP` for the event window of an event of map MAP. What another program changes in the project is read again only once they are given back (an event window lets the maps through).
+| `open-copy` | Copies the project into `$SCRIPT_DIR` and opens the copy: what the script saves (a battle test's party, the export settings) stays there.
 | `open-map ID` | Opens a map in a tab.
 | `select-map ID` | Selects a map, an area or the project (0) in the map tree.
-| `open-event MAP EVENT` | Opens the event dialog of an event.
-| `action NAME` | Triggers an action by its object name: one of the dialog in front first (`actionDataCopy` of a database list...), else of the map shown, else a menu action (`actionDatabase`...).
+| `drop-map ID TARGET above\|below\|on` | Drags a map of the map tree and drops it above or below the map, area or project TARGET, or on the map TARGET (as its last child), as the tree moves it.
+| `open-event MAP EVENT` | Opens the event window of an event (a QML window, see below).
+| `action NAME` | Triggers an action by its object name: one of the window in front first (`actionDataCopy` of a database list, `actionEventNew` of the map shown...), else an action of the main window (`actionDatabase`...).
 | `action NAME on\|off` | Checks or unchecks a menu option (`actionZoom1_2`...).
-| `tab NAME INDEX` | Shows a page of a tab widget, by its object name.
-| `focus NAME` | Gives the focus to a widget, by its object name (`commands` is the command list of the event page shown).
+| `tab NAME INDEX` | Shows a page of a tab bar or tabbed view, by its object name.
+| `focus NAME` | Gives the focus to a control, by its object name (`commands` is the command list of the event page shown).
 | `select-command INDEX` | Selects and focuses an event command by its zero-based list index.
-| `key SEQUENCE` | Presses a key (`Return`, `Space`, `Del`, `Ctrl+C`...) as when typed: in the window of the focused widget, the shortcuts first (menu actions, PgUp/PgDn of the event window...), else the focused widget.
-| `type TEXT` | Types text in the focused widget.
+| `key SEQUENCE` | Presses a key (`Return`, `Space`, `Del`, `Ctrl+C`...) as when typed, in the window in front: its shortcuts first (actions, PgUp/PgDn of the event window...), else the focused control. A control asking for the key first (as the window system asks it: the name typed in an entry box takes Escape and Return) has it before the shortcuts. The menu shown first takes the keys (`key Escape` closes it).
+| `type TEXT` | Types text in the focused control.
 | `click TEXT` | Clicks the button with this text or object name (of the pop-up shown first, such as the codes of a message).
+| `press TEXT`, `release TEXT` | Presses the left button on the button with this text or object name, or releases it there: a click with a `wait` between the two, as a person clicks (a menu closed by the press has the time to close before the release).
+| `hover TEXT` | Moves the mouse over the middle of the control with this object name or button text, no button pressed (its tooltip shows after a `wait`).
 | `click-item NAME TEXT` | Clicks the line of a list or tree (by object name) showing exactly the text, else the first line containing it.
 | `double-click-item NAME TEXT` | Double-clicks the line of a tree, found the same way (a command of the list: inserts a command before it).
-| `expect NAME TEXT` | Fails unless the widget shows the text, the rest of the line with its spaces (for a list: one of its lines; the current line starts with `> `).
-| `expect-not NAME TEXT` | Fails if the widget shows the text.
-| `set-control NAME VALUE` | Sets a control: index of a combo box, number of a spin box, `on`/`off` for a check box, radio button or checkable group box, text of a field, value of a slider, button id of a button group.
-| `expect-enabled NAME on\|off` | Fails unless the control (by object name or button text) or menu action (by object name or text; those of the pop-up menu shown first) is enabled (`on`) or disabled (`off`).
+| `expect NAME TEXT` | Fails unless the control shows the text, the rest of the line with its spaces (for a list: one of its lines; the current line starts with `> `).
+| `expect-not NAME TEXT` | Fails if the control shows the text.
+| `set-control NAME VALUE` | Sets a control: index of a combo box, number of a spin box, `on`/`off` for a check box, radio button or checkable section, text of a field, value of a slider.
+| `expect-enabled NAME on\|off` | Fails unless the control (by object name or button text) or action (by object name or text; those of the pop-up menu shown first) is enabled (`on`) or disabled (`off`).
 | `expect-checked NAME on\|off` | Fails unless the check box, radio button or menu option (object name or text) is checked (`on`) or not (`off`).
 | `expect-option-enabled NAME INDEX on\|off` | The same for one item of a combo box.
 | `inspect-controls FILE` | Writes the controls and group boxes of the dialog to a JSON file: values, choices, enabled states, position and widths (to find what makes a window too wide).
 | `check-option-spacing PIXELS` | Checks the vertical clearance between sibling check boxes and radio buttons, including their rendered indicators.
-| `map-click X Y [left\|right]` | Clicks a cell of the map shown.
+| `map-click X Y [left\|right]` | Clicks a cell of the map shown (see the map canvas below).
 | `map-double-click X Y` | Double-clicks a cell of the map shown.
 | `map-drag X1 Y1 X2 Y2` | Drags on the map with the left button, through every cell.
 | `palette INDEX [W H]` | Selects tiles of the palette of the current layer (0: the first tile after the eraser row), a block of W x H tiles.
@@ -107,38 +121,249 @@ at once: the next commands act on the dialog, until `close`.
 | `expect-event X Y ID` | Fails unless the event on the cell has this ID (0: no event).
 | `expect-cell X Y` | Fails unless the cell selected on the event layer is this one.
 | `expect-start party\|boat\|ship\|airship MAP X Y` | Fails unless the start position is there.
-| `wheel NAME STEPS` | A trackpad swipe over the middle of a widget (by object name, else the first one shown of the class NAME, such as `QScrollArea`): STEPS small pixel scrolls (negative: up), momentum, then the end of the swipe, sent to the widget under the pointer like macOS does. Logs the time, the slowest event, how far the widget scrolled and what was painted.
 | `generate-dungeon MODE W H SEED [OPTION=VALUE]...` | Runs the random dungeon generator (MODE 0 winding passage, 1 rooms, 2 maze, 3 open room; options `granularity=1\|2`, `upper-wall`, `surround`, `room=WxH`, `floor-b`, `floor-c`, `extra-b`, `extra-c`, `keep=X,Y`) and logs the dungeon as text.
 | `expect-dungeon-connected` | Fails unless every floor cell of the last dungeon is reachable from the others, the kept cells too, and its border is closed.
 | `expect-dungeons-valid SEEDS` | Generates every mode and option at 3 sizes for seeds 0 to SEEDS-1, twice each; fails if one is not connected or not the same twice.
 | `preview-click NAME X Y` | Clicks a cell of a map preview or tile chooser (`mapPreview`, `chipSelector`); `preview-double-click` double-clicks it.
 | `preview-drag NAME X1 Y1 X2 Y2` | Drags a rectangle on a map preview or tile chooser.
-| `view-click NAME X Y [right\|double]` | Clicks a point of a graphics view's scene (`double`: a double-click, which opens a hero's curve).
-| `view-drag NAME X1 Y1 X2 Y2 [right]` | Drags between two points of a graphics view's scene, in small steps.
+| `view-click NAME X Y [right\|double]` | Clicks a point of an item (a tile view, a graphic), in its own coordinates (`double`: a double-click, which opens a hero's curve).
+| `view-drag NAME X1 Y1 X2 Y2 [right] [shift] [ctrl] [escape]` | Drags between two points of an item, in small steps (on a spin box: scrubs it from a button, or from its number with `ctrl`); `shift`, `ctrl`: the keys held during the drag; `escape`: Escape pressed before the button is released.
+| `view-wheel NAME X Y DELTA` | Turns the wheel over a point of an item, in its own coordinates (a notch is 120, negative: down).
 | `menu TEXT` | Chooses an item of the pop-up menu shown, by its text (with or without "...").
-| `context-menu NAME` | Opens the right-click menu of a widget, at the current line of a list.
-| `dump-menu [NAME]` | Logs each item of the menu shown, or of a menu by object name (`menuGame`, `menuMaps`... of the menu bar, with its separators as `--`): its text, its shortcut, whether it has an icon, whether it is greyed, its tooltip.
-| `click-tab NAME INDEX` | Clicks a tab of a tab widget with the mouse (the tab bar takes the focus).
-| `spin-click NAME up\|down` | Clicks the middle of an arrow of a spin box, where the style draws it.
-| `expect-tab NAME TEXT` | Fails unless the tab widget shows the tab TEXT.
-| `pinch map\|NAME FACTOR` | A trackpad pinch on the map or an image view (`graphicsView`...): the fingers spreading (FACTOR above 1) or closing; logs the zoom reached.
+| `expect-menu shown\|none` | Fails unless a pop-up menu (or a pop-up in a window of its own, such as the codes of a message) is shown over the window in front (`shown`), or none is (`none`).
+| `context-menu NAME` | Opens the right-click menu of a control, at the current line of a list.
+| `click-tab NAME INDEX` | Clicks a tab of a tab bar with the mouse (the tab bar takes the focus).
+| `close-tab NAME INDEX` | Clicks the close button of a tab (the map tabs: `tabMap`).
+| `move-tab NAME FROM TO` | Moves a tab to another place, as a drag of the tab does.
+| `expect-tab NAME TEXT` | Fails unless the tab bar shows the tab TEXT.
+| `pinch map\|NAME FACTOR` | A trackpad pinch on the map or a zoomable view: the fingers spreading (FACTOR above 1) or closing; logs the zoom reached.
 | `import-image-dialog FILE` | Opens the image import window (transparent color, zoom) on FILE, without the file chooser before it.
 | `screenshot-menu FILE` | Saves the menu shown (or the pop-up of a searchable list) as a PNG.
-| `close-menu` | Closes the menu shown.
+| `expect-menu-at NAME X Y` | Fails unless the menu shown has its top-left corner at the point X, Y of the item NAME (where it was right-clicked, `view-click NAME X Y right`), within a pixel; above or left of the point where the usable screen (without the Dock and the menu bar) ends below or right of it, as the menus of the system. Logs where it is.
 | `resize WIDTH HEIGHT` | Resizes the dialog or window.
-| `screenshot [FILE]` | Saves the dialog or window as a PNG (default: Pictures/EasyRPG Editor).
+| `screenshot [FILE]` | Saves the dialog or window as a PNG (default: Pictures/EasyRPG Editor), with the pop-ups and right-click menus shown in windows of their own over it (the picture grows past the window's edges for them).
+| `qml-smoke FILE` | Opens a window of the QML interface's stack (Kirigami, its Breeze style, a dock of KDDockWidgets, the first hero's name bound both ways through the QML binding's `JsonField`) and saves it as a PNG; fails if it does not load, draws nothing, shows another hero, or a name given to the field does not reach the data (in memory only, put back).
+| `check-command-editors` | Opens the editor of every event command with settings on a new command of its kind (hidden, offscreen) and closes it; fails for an editor that is not made, a QML warning, or a custom schema without its hand-written editor.
+| `qml-open TYPE [PROPERTY=VALUE]...` | Opens a window of the QML interface by its type (`ControlsWindow`, the Ez controls bound to the first hero and item; `DatabaseControlsWindow`, those of the database pages), over the main window, with its properties (`qml-open DatabaseWindow list=switches`: the switches alone).
+| `qml-map ID` | Opens the QML map canvas and its palette on a map, in a window of their own over the main window (`mapCanvasWindow`), apart from its tabs. The map is the one its tab edits when it is open (open the tab first). See below for its commands.
+| `dialog-service stale\|stale-no-reload WHAT [CONFLICT]...` | Asks what to do with a file changed on disk, as the controllers do through the QML `DialogService` (`stale-no-reload`: without the Reload button), over the window in front; CONFLICT: what both sides changed. Returns at once: the next commands act on the question, until it is answered.
+| `dialog-service question\|question-cancel\|information\|warning\|error TITLE TEXT` | The same for a question (Yes and No, and Cancel for `question-cancel`) or a message (OK).
+| `pick-file FOLDER PREVIEW [NAME [INDEX]] [SETTING=VALUE...]` | Opens the resource picker as the windows do (`Pickers::pickFile`), over the window in front, on a folder of the game (`CharSet`...) with a preview (`Image`, `CharSet`, `CharSetPose`, `FaceSet`, `Monster`, `Music`, `Sound`, `None`), starting on the file NAME and the character or face INDEX, and on the settings of a sound as in the data: `fadein=` (ms), `volume=`, `tempo=`, `balance=` (`volume=81`: between two steps of the sliders). Returns at once; its answer: the choice as `name:index:direction:pattern:hue:fadein:volume:tempo:balance`, `cancel`, or after Apply and Cancel `applied:` and the choice applied.
+| `pick-entry LIST ID [none]` | Opens the entry picker (`Pickers::pickEntry`) on a list of the database as JSON names it (`switches`, `items`...), starting on the entry ID, with "(None)" first when `none`. Returns at once; its answer: the ID chosen (0: "(None)") or `cancel`.
+| `expect-answer VALUE` | Fails unless the last `dialog-service` question was answered VALUE: `reload`, `overwrite` or `cancel` for a file changed on disk; `yes`, `no` or `cancel` for a question; `ok` once a message is closed; `(waiting)` while it is shown. The same for the last `pick-file` or `pick-entry`.
+| `expect-player TEXT\|none` | Fails unless the EasyRPG Player that test play runs (found next to the Editor, in the PATH... else downloaded) has the text in its path, or there is none (`none`). Scripts download Players into their own folder; `EASYRPG_EDITOR_LAUNCHER_BASE` (a folder URL) replaces easyrpg.org, as the tests' fake archives do.
+| `color-scheme dark\|light` | Shows the windows in a dark palette with the icons drawn for it, as a dark mode does, on any platform (offscreen too); `light` goes back to the palette the Editor started with. The windows opened after it are drawn in it from the start.
 | `check-layout` | Fails for every control smaller than it needs to be (clipped text...) and for overlapping radio options.
+| `set-enabled NAME on\|off` | Enables or disables a control (or a section, with its controls) of a QML window, by its object name or button text: to see how the windows draw what cannot be changed.
+| `check-disabled` | Fails for every disabled button, check box, radio button, combo box, spin box, slider, field or label of a QML window drawn as an enabled one (not faded, as the Ez controls draw them).
 | `wait MILLISECONDS` | Waits, for example for a file change.
 | `log TEXT` | Writes the text in the log.
 | `close` | Closes the dialog (like Cancel): the modal one, else the window in front (the search window).
 | `quit` | Quits, ignoring the rest of the script.
 |===
 
+== The windows
+
+The interface is made with QML (Qt Quick, with KDE's Kirigami and Breeze).
+The commands act on the window in front (a modal one, such as the Settings,
+or one opened by `qml-open`, else the main window): `click`, `double-click`,
+`press`, `release`, `hover`, `expect-menu`, `click-item`, `double-click-item`, `context-menu`, `type`, `key`, `focus`,
+`set-control`, `tab`, `expect-tab`, `menu`, `action` (its
+`Controls.Action`s, those of the page shown first), `expect`, `expect-not`,
+`expect-checked`, `expect-enabled`, `set-enabled`, `inspect-controls`, `check-layout`, `check-disabled`,
+`check-option-spacing`, `resize`, `screenshot`, `screenshot-menu` (a menu or
+pop-up shown in it), `select-command` (the command list shown),
+`view-click`, `view-drag` and `view-wheel` (a point of an item, in its own coordinates)
+and `close`. A dialog drawn in the window (Array Size, a warning) is
+searched first: `click OK` is its button while it is shown. So is a pop-up
+shown in a window of its own past the window's edges (the codes of a
+message): `click`, `menu` and `expect` find its controls, `key` goes to it. A window
+opened over the modal one, such as the guide a dialog's Help button opens,
+is the window in front until it is closed.
+
+Its controls are found by their `objectName`, stable names the scripts rely on
+(`comboLanguage`, `checkReloadExternal`...), else a button by its
+text; `menu` finds an item by its text or its `objectName`. The input goes through the window system, as typed and clicked;
+texts and states are read from the controls: the text of a field, label or
+button, the shown text of a combo box or spin box, the value of a
+progress bar (`3/10`, `busy` while its end is not known), the lines of a list
+(the current one starting with `> `), the tabs of a tab bar, the buttons
+of a button box from left to right (`buttonBox`: `Save Mine | Cancel`).
+`expect` with the objectName of the window itself (`SettingsDialog`,
+`helpWindow`, `messageWindow`, `DatabaseDialog`) reads its title. A table
+drawing its cells (`Ez.ArrayTable`) shows its lines as `cell | cell`.
+
+The database window (`DatabaseDialog`, Game > Database; Search opens it at
+a common event or a monster group) has these names: `tabOld_Pages` (its pages), `buttonBox` (OK, Cancel, Apply, Help), and
+on the pages with a list `listFilter`, `list`, `pushMax` (Array Size:
+`spinArraySize`), the actions `actionDataCopy`, `actionDataPaste`,
+`actionDataClear`, `actionDataCut`, `actionDataMultiCopy` (Multiple Copy:
+`spinMultipleCopy`), then the controls of the page (`lineName`,
+`radioWeapon`, `spinA`...; the Vocabulary: `tabVocabulary` and a field per
+term, named after it: `victory`). A list of entries
+(`Ez.RefComboBox`) drops down (its arrow, `Space`, `Alt+Down`, `F4`) a
+search `searchField` over the list `searchList` (`searchNothing` when
+nothing matches), with Array Size at the bottom (`searchArraySize`, then
+`spinArraySize`). Typing on a closed box opens the search with what is
+typed, except on a box with "..." (its `NAME` + `Pick`): there it renames
+the entry shown, in the field `NAME` + `Name` (`F2`: the name alone),
+written by `Return`.
+
+The pages with pictures and command lists, and the windows they open:
+
+* Monsters: `graphicsMonster`, `pushSetGraphic`, `spinMaxHp`...
+  `comboDropItem`, `checkCritical`, `checkMiss`, the actions `treeActions`
+  (its menu: `actionEdit`, `actionCut`, `actionCopy`, `actionPaste`,
+  `actionDelete`), `listAttributeRanks`, `listStateRanks`. An action is
+  edited in `EnemyActionDialog` (`comboCondition`, `spinParam1`,
+  `spinParam2`, `spinRating`, `radioBasic`/`comboBasic`,
+  `radioSkill`/`comboSkill`, `radioTransform`/`comboTransform`,
+  `checkSwitchOn`, `checkSwitchOff`...).
+* Monster Groups: `pushAutoName`, the battle screen `graphicsTroop`
+  (`view-drag` moves a member, its menu `actionInvisible`), `pushAdd`,
+  `pushRemove`, `pushRemoveAll`, `pushAutoAlign`, `radioManual`,
+  `radioAutomatic`, `checkRandom`, `pushChangeBackdrop`, `pushTestBattle`,
+  `listEnemies`, `listTerrains`, the battle event pages `tabPages` (named by
+  their number) with `pushNewPage`, `pushCopyPage`, `pushPastePage`,
+  `pushDeletePage`, and on the page shown `lineTrigger`, `pushTrigger` and
+  `commands`. `TestBattleDialog`: `radioFormation0`..., `comboTerrain`,
+  `radioCondition0`..., `pushStartTest`, and its party: `radioPartySize1`
+  to `4`, `tabPartyMembers`, per member N `comboHeroN`, `spinLevelN`,
+  `pushInitialStatsN`, `comboWeaponN`...
+* Battle Animation: `lineAnimationFile`, `pushAnimationFile`, `checkLarge`,
+  `comboScope`, `comboPosition`, `comboTarget`, the frames `listFrames`
+  (`actionFrameCopy`, `actionFramePaste`, `actionFrameClear`,
+  `actionFrameCut`, `actionFrameInsert`, `actionFrameDelete`),
+  `pushFrameCount`, `pushClonePrevious`, the preview `viewAnimation`
+  (`view-click`, `view-drag`; its menu `actionCelProperties`,
+  `actionCelCut`...), `pushBack`, `labelFrame`, `pushNext`, `pushPlay`,
+  `listPatterns`, the cel shown `comboCel`, `pushDeleteCel`,
+  `spinCelPattern`, `spinCelX`... `spinCelTransparency`, `checkGrid`, and
+  the effect timings `listTimings` (`pushAddTiming`, `pushEditTiming`,
+  `pushDeleteTiming`). Its windows: `dialogMassCopyClear` (from
+  `pushMassCopyClear`: `radioCopy`, `radioClear`, `spinStartFrame`...),
+  `dialogAutocomplete` (`pushAutocomplete`), `dialogMassModify`
+  (`pushMassModify`: `checkCel1`..., `checkMagnification`,
+  `spinMagnification`...), `AnimationTimingDialog` (`spinTimingFrame`,
+  `lineSound`, `radioFlash0`..., `spinFlashRed`..., `radioShake0`...).
+* Battle Animation 2: `groupSpeed`, `tabBattlerAnimation` (Poses,
+  Weapons), `listPoses`, `editPoseName`, `linePoseFile`, `pushPoseFile`,
+  `spinPoseIndex`, `comboPoseAnimation`, `picturePoseRows` (`view-click`
+  picks a pose of the graphic), and for a weapon `listWeapons`,
+  `editWeaponName`, `lineWeaponFile`, `pushWeaponFile`, `spinWeaponIndex`.
+  The attack of each hero (from a weapon or a skill) is set in
+  `BattlerAnimationDialog` (`comboHero`, `comboMovement`, `comboPose`,
+  `comboAttacks`, `groupRanged`...).
+* Battle screen: `listHeroes`, `graphicsLayout` (`view-drag` places a
+  hero), `comboTroopShown`, `pushChangeBackdrop`, `comboHeroCommand1` to
+  `6`, `listCommands`, `pushAddCommand`, `pushRemoveCommand`,
+  `lineCommandName`, `comboCommandType`, `comboDeathEvent`,
+  `checkDeathTeleport`, `comboDeathMap`, `spinDeathX`, `spinDeathY`,
+  `comboDeathFacing`.
+* Chipset: `tabLayer` (lower, upper), the tiles `viewTiles` (`view-click`
+  sets a tile in the editing mode chosen), `lineChipsetFile`,
+  `pushChipsetFile`, `radioTerrain`, `comboTerrain`, `pushUniformTerrain`
+  (`SetUniformTerrainDialog`: `comboUniformTerrain`), `radioPassability`,
+  `radioDirections`, `radioCounter`.
+* Common events: `lineName`, `comboTrigger`, `comboSwitch` and `commands`.
+* The curves of a hero or a class open `CurveDialog` (`tabParameters`,
+  `graphParameter`, `spinLevel`, `spinValue`, `tableValues`,
+  `pushEndpoints`, `spinFirstLevel`, `spinLastLevel`, `sliderGrowth`,
+  `pushOutstanding`, `pushAboveAverage`, `pushAverage`, `pushBelowAverage`),
+  their experience `ExperienceDialog` (`tabExperience`,
+  `tableTotalExperience`, `tableExperiencePerLevel`, `sliderExpBase`,
+  `spinExpBase`, `sliderExpInflation`... `spinExpCorrection`), and a hero's
+  EasyRPG settings `ActorEasyRpgDialog` (`spinUnarmedHit` and a check box
+  per setting).
+
+The questions of
+`dialog-service` show their text in `messageText`; their buttons are found
+by their text (`click Save Mine`), or as `answer_reload` and
+`answer_overwrite`.
+
+The event window is a QML window (`EventDialog`, its title the event's):
+`lineName`, the page buttons (`pushNewPage`, `pushCopyPage`,
+`pushPastePage`, `pushDeletePage`, `pushClearPage`), the tabs of the pages
+`tabEventPages`, and on the page shown its conditions (`checkSwitchA` and
+`comboSwitchA`, `checkVar`, `comboVarOperation`, `spinVarValue`,
+`checkTimerA`, `spinTimerAMin`...), its graphic (`graphicsSprite`, a click
+choosing another one; `pushSetSprite` and its menu: `Character...`,
+`Tile...`, `No Graphic`), `comboCondition`, `comboLayer`, `comboMoveType`,
+`comboMoveFrequency`, `pushMovePattern`, `comboAnimationType`,
+`comboMoveSpeed` and its command list `commands`. A tile is chosen in
+`tileDialog` (`tileView`, 32 pixels a tile: `view-click tileView 40 8`
+picks the second one). The command palette is `EventCommandPalette` (its
+`search` field), the move route window `MoveRouteDialog` (`listMoves`, a
+button per move by its text, `pushDelete`, `pushClear`, `checkRepeat`,
+`checkSkippable`; for Move Event `moveTarget`, searched as the lists of the
+database, and `moveFrequency`), the window of the triggers of a battle page
+`BattlePageConditionDialog` (`checkSwitchA`, `comboSwitchA`, `checkTurn`,
+`spinTurnA`...). `qml-open EventControlsWindow` shows the battle pages of
+the first troop (`lineTrigger`, `pushTrigger`, `commands`).
+
+The pickers are QML windows: the resource picker (`PickerDialog`: the
+list `filesystemView`, the current file starting with `> `, `labelInfo`,
+`pushZoomOut` and `pushZoomIn`; for a pose `radioFacing0` to `3` and
+`radioFrame0` to `2`; for a monster `sliderHue` and `spinHue`; for a music
+or sound `groupFadeIn`, `sliderFadeIn`, `sliderVolume`, `sliderTempo`,
+`sliderBalance` with their values in `labelFadeIn`... and their reset
+buttons `resetFadeIn`..., `buttonPlay`,
+`buttonStop` and `labelStatus`) and the entry picker (`EntryPicker`: the
+list `list`, `listFilter`, `lineName`, `pushMax` and its `spinArraySize`).
+A file or entry is clicked by its text (`click Actor2.png`, `click (None)`).
+`qml-open PickerFieldsWindow` shows the fields opening them, bound to the
+first hero, monster and terrain and the system.
+
+`check-layout` reports, in a QML window: a button, combo box, spin box or
+check box narrower than its text, a control lower than it needs, a control
+past the edge of the window (unless it scrolls), and a text cut by its
+item (unless it is elided on purpose). `check-option-spacing` measures what
+the check boxes and radio buttons draw: their box and their text, without
+their padding.
+
+`resize` keeps a QML window no smaller than its minimum size, as the window
+systems do.
+
+In the window of `qml-map`, the map commands act on the QML map canvas
+(`mapView`): `map-click`, `map-double-click`, `map-drag` (`right` at the
+end: with the right button), `expect-tile`, `expect-event`, `expect-cell`
+and `pinch map`, as in the main window, and `palette` still picks tiles.
+Its tool bar has the layer, tool, undo and zoom actions of the main window
+(`actionLayerEvents`, `actionUndo`...), its menus the actions of the map's
+(`actionEventNew`...); `expect-enabled` and `expect-shown` read those
+actions. Its status bar shows the cell under the pointer (`labelCell`) and
+the last request of the map (`labelRequest`: `new event X,Y`, `edit event
+ID`, `place teleport X,Y`, `start game X,Y`), which only the main window
+answers. The input goes through the window system, as a hand would:
+
+[cols="1,3"]
+|===
+| Command | Effect
+
+| `map-press X Y [right]`, `map-move X Y`, `map-release` | Presses a button on a cell, moves the pointer to a cell (the buttons held stay held), releases it.
+| `map-move-out left\|right\|up\|down PIXELS` | Moves the pointer past an edge of the view (a drag scrolls it).
+| `map-key SEQUENCE` | Presses a key on the map: the map takes the keys it uses before the shortcuts of the window, as when typed.
+| `map-wheel X Y DELTA [ctrl]` | Turns the wheel over a cell (a notch is 120); with Ctrl, it zooms.
+| `map-zoom ZOOM`, `map-scroll X Y`, `map-area X Y W H\|none` | Sets the zoom (snapped as the zoom menu does), scrolls the view to a pixel of the map, dashes the boundaries of an area.
+| `palette-click X Y [right]`, `palette-drag X1 Y1 X2 Y2 [cancel]` | Clicks or drags on cells of the palette (row 0: the eraser); `cancel`: the right button before the left one is released.
+| `palette-wheel X Y DELTA ctrl`, `expect-palette-zoom ZOOM` | Zooms the palette with Ctrl + wheel over a cell; fails unless the palette has this zoom.
+| `expect-zoom ZOOM` | Fails unless the map is shown at this zoom.
+| `expect-selection`, `expect-brush`, `expect-floating`, `expect-palette` `X Y W H\|none` | Fails unless the selection of the selection tool, the frame of the tool, the pasted tiles floating or the frame of the palette are on these cells.
+| `expect-picked TILE W H` | Fails unless the tiles picked for the layer edited start with TILE, W x H of them.
+| `expect-cursor NAME` | Fails unless the map has this cursor (`PenCursor`, `MoveCursor`, `ForbiddenCursor`, `ArrowCursor`...).
+| `expect-cell-under X Y` | Fails unless the cell under the pointer is this one (after a zoom).
+| `expect-dragging on\|off` | Fails unless a button is held on the map (a stroke, a selection, a drag).
+| `expect-scrolled left\|right\|up\|down\|none` | Fails unless the view scrolled that way since the last `map-press` or `map-scroll`.
+| `log-map` | Logs the zoom, the scroll, the cells shown, the selection and the brush.
+| `map-frames FRAMES DX DY [NAME]` | Times the next frames of the window while the view scrolls DX, DY pixels a frame (back at the ends), and logs them with the name once done (wait meanwhile).
+|===
+
 == Screenshots while editing
 
 kbd:[Ctrl+Alt+S] (kbd:[Cmd+Option+S] on macOS) saves the dialog or window
-you are working in to Pictures/EasyRPG Editor. The Editor draws the picture
-itself: no screen recording permission is needed.
+you are working in to Pictures/EasyRPG Editor (a script's: to its own
+folder), in either interface, and the status bar says where. The Editor
+draws the picture itself: no screen recording permission is needed.
 
 == Logs
 

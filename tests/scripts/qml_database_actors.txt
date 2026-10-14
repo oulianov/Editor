@@ -1,0 +1,122 @@
+# The Characters page of the QML database, on a copy of the project: its
+# fields (texts, levels that follow each other, the
+# equipment the hero can use, options, its class and Apply, graphics,
+# battle commands, the EasyRPG settings in their window), written to the
+# database file by OK; Cancel writes nothing.
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 0
+wait 300
+expect-tab tabOld_Pages Characters
+expect list > 0001: Zack
+expect lineName Zack
+expect lineTitle None
+expect spinCritChance 1 in 30 turns
+expect comboInitialWeapon 0017: Club
+expect comboInitialArmor 0055: Leather Armor
+# a shield and a helmet Zack cannot equip read "(None)", and stay
+expect comboInitialShield (None)
+expect comboInitialHelmet (None)
+expect comboProfession <none>
+expect-enabled pushApplyProfession off
+expect comboBattleset 0025:
+expect comboUnarmedAnimation 0001: Punch A
+expect comboBattleCommand1 0001: Fight
+check-layout
+
+set-control lineName Zed
+expect list > 0001: Zed
+set-control lineTitle Hero
+# the levels follow each other
+set-control spinMaxLv 20
+set-control spinMinLv 30
+expect spinMaxLv 30
+set-control spinMaxLv 10
+expect spinMinLv 10
+set-control spinMaxLv 150
+expect spinMaxLv 99
+set-control groupCritChance off
+expect-enabled spinCritChance off
+set-control checkDualWeapon on
+set-control checkTranslucent on
+set-control comboInitialArmor 0
+expect comboInitialArmor (None)
+set-control comboBattleset 3
+set-control comboBattleCommand6 0
+
+# a class: Apply copies its curves, skills and commands
+set-control comboProfession 1
+expect comboProfession 0001: Hero A
+expect-enabled pushApplyProfession on
+expect-not tableSkills Teleport
+click pushApplyProfession
+expect tableSkills 1 | Teleport
+expect labelExpCurve Primary: 1, Secondary: 677, Tertiary: 40
+expect comboBattleCommand3 0007: Blessing
+
+# the EasyRPG settings in their window
+click pushEditCustom
+wait 400
+expect ActorEasyRpgDialog EasyRPG Properties
+expect-checked checkAttackAll off
+expect spinUnarmedHit Default (90%)
+set-control checkAttackAll on
+set-control spinUnarmedHit 80
+expect spinUnarmedHit 80%
+click OK
+wait 300
+
+click OK
+wait 300
+expect-database-file actors/0/name Zed
+expect-database-file actors/0/title Hero
+expect-database-file actors/0/initial_level 10
+expect-database-file actors/0/final_level 99
+expect-database-file actors/0/critical_hit false
+expect-database-file actors/0/two_weapon true
+expect-database-file actors/0/transparent true
+expect-database-file actors/0/initial_equipment/armor_id 0
+expect-database-file actors/0/initial_equipment/weapon_id 17
+expect-database-file actors/0/initial_equipment/shield_id 44
+expect-database-file actors/0/battler_animation 3
+expect-database-file actors/0/class_id 1
+expect-database-file actors/0/skills/0/skill_id 71
+expect-database-file actors/0/exp_inflation 677
+expect-database-file actors/0/battle_commands/2 7
+expect-database-file actors/0/easyrpg_attack_all true
+expect-database-file actors/0/easyrpg_unarmed_hit 80
+
+# Cancel: nothing written, in the EasyRPG window either
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Characters
+expect lineName Zed
+click pushEditCustom
+wait 400
+set-control checkRaiseEvasion on
+click Cancel
+wait 300
+set-control lineName Nothing
+set-control checkAI on
+close
+wait 300
+expect-database-file actors/0/name Zed
+expect-database-file actors/0/auto_battle false
+expect-database-file actors/0/easyrpg_raise_evasion false
+
+# RPG Maker 2000: no class, battle graphics nor battle commands
+open-project-copy
+edit-database-file system/ldb_id 0
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 0
+wait 300
+expect-enabled comboProfession off
+expect-enabled comboBattleset off
+expect-enabled comboBattleCommand1 off
+set-control spinMaxLv 80
+expect spinMaxLv 50
+close
+quit

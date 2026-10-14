@@ -16,7 +16,6 @@
  */
 
 #include "state.h"
-#include "ui/database/state_widget.h"
 
 StateModel::StateModel(ProjectData& project, lcf::rpg::State& data) :
 	RpgBase(project), m_data(data) {

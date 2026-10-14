@@ -21,25 +21,43 @@
 #define EDITOR_VERSION "dev"
 #endif
 #include "common/translations.h"
-#include "ui/main_window.h"
-#include "ui/common/editor_style.h"
+#include "common/editor_settings.h"
+#include "ui/shell/qml_shell.h"
 #include "ui/tools/automation.h"
 #include "ui/tools/screenshot.h"
-#include <QApplication>
+#include <QGuiApplication>
 #include <QCommandLineParser>
 #include <QDir>
 #include <QLibraryInfo>
 #include <QLoggingCategory>
+#include <QPalette>
 #include <QSettings>
-#include <QSplashScreen>
-#include <QTranslator>
-#include <QTimer>
 #include <QDebug>
+#include <QIcon>
+#include <QQuickStyle>
 #include <QStyleHints>
 
 int main(int argc, char *argv[]) {
-	QApplication app(argc, argv);
-	app.setStyle(new EditorStyle());
+	QGuiApplication app(argc, argv);
+	// The QML interface: KDE's Breeze style, as upstream (Qt's Fusion when it
+	// is missing)
+	if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
+#if defined(KIRIGAMI_STATIC)
+		// a static Kirigami loads a style only when told to
+		if (qEnvironmentVariableIsEmpty("KIRIGAMI_FORCE_STYLE")) {
+			qputenv("KIRIGAMI_FORCE_STYLE", "1");
+		}
+#endif
+		QQuickStyle::setStyle(QStringLiteral("org.kde.breeze"));
+	}
+	QQuickStyle::setFallbackStyle(QStringLiteral("Fusion"));
+#if defined(EDITOR_KDE_PLUGIN_DIR)
+	// the Kirigami platform plugin of Breeze, outside Qt's folders: a build
+	// that runs from its build folder (a packaged one has it with Qt's plugins)
+	if (!QDir(QLibraryInfo::path(QLibraryInfo::PluginsPath) + QStringLiteral("/kf6/kirigami")).exists()) {
+		QCoreApplication::addLibraryPath(QStringLiteral(EDITOR_KDE_PLUGIN_DIR));
+	}
+#endif
 	// the shortcuts beside the actions of right-click menus too, as on
 	// Windows and Linux (macOS hides them by default)
 	QCoreApplication::setAttribute(Qt::AA_DontShowShortcutsInContextMenus, false);
@@ -84,48 +102,40 @@ int main(int argc, char *argv[]) {
 		QSettings::setDefaultFormat(QSettings::IniFormat);
 		QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settings_dir);
 		QSettings().setValue(RTP_KEY, rtp);
+		// $SCRIPT_DIR in the commands of the script (Automation)
+		qputenv("EASYRPG_EDITOR_SCRIPT_DIR", settings_dir.toLocal8Bit());
+		// the Players a script downloads are its own too (Launchers::folder)
+		if (!qEnvironmentVariableIsSet("EASYRPG_EDITOR_LAUNCHER_DIR")) {
+			qputenv("EASYRPG_EDITOR_LAUNCHER_DIR", QDir(settings_dir).filePath(QStringLiteral("launchers")).toLocal8Bit());
+		}
 	}
 
-	// show splash
-	QPixmap logo(":/app/splash.png");
-	QSplashScreen s(logo, Qt::WindowStaysOnTopHint);
-
+	// the icons drawn for the light or the dark windows
 	auto hints = app.styleHints();
 	auto scheme_changed = [=]() {
-		if (hints->colorScheme() == Qt::ColorScheme::Light) {
-			QIcon::setThemeName("ezbright");
-		} else {
-			QIcon::setThemeName("ezdark");
-		}
+		// a platform that does not know its scheme (offscreen): the palette tells
+		const bool dark = hints->colorScheme() == Qt::ColorScheme::Unknown
+			? QGuiApplication::palette().color(QPalette::Window).lightness() < 128
+			: hints->colorScheme() == Qt::ColorScheme::Dark;
+		QIcon::setThemeName(dark ? "ezdark" : "ezbright");
 	};
 	scheme_changed();
 	QObject::connect(hints, &QStyleHints::colorSchemeChanged, scheme_changed);
 
-	s.showMessage("EasyRPG Editor");
-	//s.show();
-
-#ifdef NDEBUG
-	// close splash after 3 seconds for release
-	QTimer::singleShot(3000, &s, &QWidget::close);
-#endif
-
 	// load translations: the language chosen in the Editor, else the system's
-	s.showMessage("Loading translations...");
-	app.processEvents();
 	QString language = parser.value(language_option);
 	if (language.isEmpty()) {
-		// scripts find widgets by their text: the same language everywhere
+		// scripts find controls by their text: the same language everywhere
 		language = automation ? QStringLiteral("en") : QSettings().value(LANGUAGE_KEY).toString();
 	}
 	Translations::apply(language);
 
 	// main window and project
-	s.showMessage("Loading main window...");
-	app.processEvents();
-	MainWindow w;
+	QmlShell window;
 	// a script runs without an RTP (as in CI): no window may wait for one
-	if (!automation)
-		w.AskForRtp();
+	if (!automation) {
+		window.askForRtp();
+	}
 	if (automation) {
 		// Clean up after the window has saved its workspace on aboutToQuit.
 		QObject::connect(&app, &QCoreApplication::aboutToQuit, [] {
@@ -136,31 +146,33 @@ int main(int argc, char *argv[]) {
 
 	const QStringList args = parser.positionalArguments();
 	if (!args.isEmpty()) {
-		s.showMessage("Loading project...");
-		app.processEvents();
-		w.LoadProject(QDir(args.first()).absolutePath());
+		window.LoadProject(QDir(args.first()).absolutePath());
 	} else if (!automation) {
-		s.showMessage("Loading last project...");
-		app.processEvents();
-		w.LoadLastProject();
+		window.loadLastProject();
 	}
-	s.clearMessage();
-	w.show();
+	if (!window.show()) {
+		qCritical().noquote() << "Cannot make the main window of the QML interface";
+		return 1;
+	}
 
+	// Ctrl+Alt+S: where the screenshot went, in the status bar (a script's
+	// in its folder)
+	Screenshot::installShortcut([&window](const QString& message) { window.showStatusMessage(message, 5000); });
 	if (automation) {
-		Automation script(w, parser.value(script_option));
+		Automation script(window, parser.value(script_option));
 		if (!script.isValid()) {
 			qCritical().noquote() << "Cannot read the script" << parser.value(script_option);
 			return 1;
 		}
 		script.start();
-		return app.exec();
+		const int failures = app.exec();
+		// what the script wrote in its folder (its settings, copies, exports, downloads) goes
+		const QString script_dir = qEnvironmentVariable("EASYRPG_EDITOR_SCRIPT_DIR");
+		if (!script_dir.isEmpty()) {
+			QDir(script_dir).removeRecursively();
+		}
+		return failures;
 	}
-	Screenshot::installShortcut();
-#ifndef NDEBUG
-	// close splash immediately in debug
-	s.finish(&w);
-#endif
 
 	// into event loop
 	return app.exec();

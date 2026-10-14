@@ -97,6 +97,7 @@ bool AudioPlayer::play(const QString& path) {
 	m_error.clear();
 	m_lastDuration = 0;
 	setState(State::Stopped);
+	emit fileChanged();
 
 	if (!QFileInfo::exists(path)) {
 		fail(tr("The file %1 does not exist.").arg(QFileInfo(path).fileName()));
@@ -180,6 +181,7 @@ void AudioPlayer::setPosition(qint64 ms) {
 void AudioPlayer::setVolume(int volume) {
 	m_volume = std::clamp(volume, 0, 100);
 	applyGain();
+	emit settingsChanged();
 }
 
 void AudioPlayer::setTempo(int tempo) {
@@ -187,6 +189,7 @@ void AudioPlayer::setTempo(int tempo) {
 	if (m_backend) {
 		m_backend->setRate(m_tempo / 100.0f);
 	}
+	emit settingsChanged();
 }
 
 void AudioPlayer::setBalance(int balance) {
@@ -194,14 +197,17 @@ void AudioPlayer::setBalance(int balance) {
 	if (m_backend) {
 		m_backend->setPan((m_balance - 50) / 50.0f);
 	}
+	emit settingsChanged();
 }
 
 void AudioPlayer::setFadeIn(int ms) {
 	m_fadeIn = std::max(0, ms);
+	emit settingsChanged();
 }
 
 void AudioPlayer::setLooping(bool looping) {
 	m_looping = looping;
+	emit settingsChanged();
 }
 
 bool AudioPlayer::canPan() const {
@@ -228,6 +234,7 @@ void AudioPlayer::fail(const QString& message) {
 	m_error = message;
 	setState(State::Stopped);
 	emit errorOccurred(message);
+	emit fileChanged();
 }
 
 void AudioPlayer::applyGain() {

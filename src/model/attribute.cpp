@@ -16,7 +16,6 @@
  */
 
 #include "attribute.h"
-#include "ui/database/attribute_widget.h"
 
 
 AttributeModel::AttributeModel(ProjectData& project, lcf::rpg::Attribute& data) :

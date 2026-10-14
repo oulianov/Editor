@@ -1,68 +1,115 @@
 // SPDX-FileCopyrightText: EasyRPG Editor Authors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+pragma Translator: "AttributeWidget"
+
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls as Controls
-import QtQuick.Dialogs as Dialogs
-import QtQml.Models as Models
-import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
-DatabaseEntryPage {
+/**
+ * An attribute of the database: its name, whether weapons or magic deal
+ * it, and the damage it does to each resistance rank (A to E; RPG Maker
+ * 2003 allows a negative E rate, which heals).
+ */
+Ez.EntryPage {
     id: root
 
-    Models.ListModel {
-        id: rateModel
-        Models.ListElement { key: "a_rate"; label: "A Rate:" }
-        Models.ListElement { key: "b_rate"; label: "B Rate:" }
-        Models.ListElement { key: "c_rate"; label: "C Rate:" }
-        Models.ListElement { key: "d_rate"; label: "D Rate:" }
-        Models.ListElement { key: "e_rate"; label: "E Rate:" }
+    /** The picture of a resistance rank (0: A) */
+    component Rank: Image {
+        property int rank
+        source: "qrc:/ranks/rank" + rank
+        sourceSize.width: 16
+        sourceSize.height: 16
+        Layout.alignment: Qt.AlignVCenter
     }
 
-    Kirigami.FormLayout {
-        anchors.fill: parent
-
+    Ez.Form {
+        Ez.FormLabel {
+            text: qsTr("Name:")
+        }
         Ez.TextField {
-            jsonData: root.jsonData
+            objectName: "lineName"
+            jsonData: root.entry
             key: "name"
-            Kirigami.FormData.label: "Name:"
+            limit: 8
+            Layout.fillWidth: true
         }
+    }
 
-        ColumnLayout {
-            Kirigami.FormData.label: "Attribute Type:"
-            Kirigami.FormData.buddyFor: radio_physical
-            Ez.RadioButton {
-                id: radio_physical
-                jsonData: root.jsonData
-                key: "type"
-                text: "Physical"
-                value: 0
+    Ez.Section {
+        objectName: "groupBox_55"
+        title: qsTr("Attribute Type")
+        Ez.RadioGroup {
+            jsonData: root.entry
+            key: "type"
+            choices: [
+                { name: "radioWeapon", text: qsTr("Weapon") },
+                { name: "radioMagic", text: qsTr("Magic") },
+            ]
+        }
+    }
+
+    Ez.Section {
+        objectName: "groupBox_56"
+        title: qsTr("Damage Multiplier")
+        // the ranks A to E and the rate of each
+        Ez.Form {
+            Layout.fillWidth: false
+            Rank {
+                rank: 0
             }
-            Ez.RadioButton {
-                jsonData: root.jsonData
-                key: "type"
-                text: "Magical"
-                value: 1
-            }
-        }
-
-        Kirigami.Separator {
-            Kirigami.FormData.isSection: true
-            Kirigami.FormData.label: "Damage Multipliers"
-        }
-
-        Repeater {
-            model: rateModel
-
             Ez.SpinBox {
-                jsonData: root.jsonData
-                key: model.key
-                Kirigami.FormData.label: model.label
-                from: -9999
-                to: 9999
-                suffix: "%"
+                objectName: "spinA"
+                jsonData: root.entry
+                key: "a_rate"
+                from: 0
+                to: 100000
+                suffix: qsTr(" %")
+            }
+            Rank {
+                rank: 1
+            }
+            Ez.SpinBox {
+                objectName: "spinB"
+                jsonData: root.entry
+                key: "b_rate"
+                from: 0
+                to: 100000
+                suffix: qsTr(" %")
+            }
+            Rank {
+                rank: 2
+            }
+            Ez.SpinBox {
+                objectName: "spinC"
+                jsonData: root.entry
+                key: "c_rate"
+                from: 0
+                to: 100000
+                suffix: qsTr(" %")
+            }
+            Rank {
+                rank: 3
+            }
+            Ez.SpinBox {
+                objectName: "spinD"
+                jsonData: root.entry
+                key: "d_rate"
+                from: 0
+                to: 100000
+                suffix: qsTr(" %")
+            }
+            Rank {
+                rank: 4
+            }
+            Ez.SpinBox {
+                objectName: "spinE"
+                jsonData: root.entry
+                key: "e_rate"
+                from: root.rpg2k3 ? -99999 : 0
+                to: 100000
+                suffix: qsTr(" %")
             }
         }
     }

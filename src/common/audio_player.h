@@ -31,9 +31,23 @@ class AudioBackend;
  * On macOS, AVAudioEngine plays WAV, MP3, OGG, Opus... and MIDI with the
  * system's sound bank; elsewhere (or for what it cannot read) QMediaPlayer
  * plays what the Qt Multimedia backend can decode, and MIDI is not supported.
+ *
+ * In QML (Ez.AudioPlayer) its properties and play(path), play(), pause()
+ * and stop() are the same.
  */
 class AudioPlayer : public QObject {
 	Q_OBJECT
+	Q_PROPERTY(State state READ state NOTIFY stateChanged)
+	Q_PROPERTY(QString filePath READ filePath NOTIFY fileChanged)
+	/** Why the file loaded cannot be played, empty when it can */
+	Q_PROPERTY(QString errorString READ errorString NOTIFY fileChanged)
+	Q_PROPERTY(qint64 position READ position WRITE setPosition NOTIFY positionChanged)
+	Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged)
+	Q_PROPERTY(int volume READ volume WRITE setVolume NOTIFY settingsChanged)
+	Q_PROPERTY(int tempo READ tempo WRITE setTempo NOTIFY settingsChanged)
+	Q_PROPERTY(int balance READ balance WRITE setBalance NOTIFY settingsChanged)
+	Q_PROPERTY(int fadeIn READ fadeIn WRITE setFadeIn NOTIFY settingsChanged)
+	Q_PROPERTY(bool looping READ isLooping WRITE setLooping NOTIFY settingsChanged)
 
 public:
 	enum class State {
@@ -47,11 +61,11 @@ public:
 	~AudioPlayer() override;
 
 	/** Plays a file from the start (the path with its extension); false and an error when it cannot */
-	bool play(const QString& path);
+	Q_INVOKABLE bool play(const QString& path);
 	/** Plays the last file again, or resumes it when paused */
-	void play();
-	void pause();
-	void stop();
+	Q_INVOKABLE void play();
+	Q_INVOKABLE void pause();
+	Q_INVOKABLE void stop();
 
 	State state() const { return m_state; }
 	/** The file loaded (played, paused or stopped), empty when none */
@@ -63,12 +77,16 @@ public:
 	void setPosition(qint64 ms);
 
 	/** 0 to 100 % */
+	int volume() const { return m_volume; }
 	void setVolume(int volume);
 	/** 50 to 150 %: speed and pitch of sampled files, speed of MIDI */
+	int tempo() const { return m_tempo; }
 	void setTempo(int tempo);
 	/** RPG Maker's balance: 0 left, 50 center, 100 right */
+	int balance() const { return m_balance; }
 	void setBalance(int balance);
 	/** Milliseconds of fade-in when a file starts */
+	int fadeIn() const { return m_fadeIn; }
 	void setFadeIn(int ms);
 	/** Repeats from the MIDI loop point, or the beginning when none is set */
 	void setLooping(bool looping);
@@ -84,6 +102,10 @@ signals:
 	void positionChanged(qint64 ms);
 	void durationChanged(qint64 ms);
 	void errorOccurred(const QString& message);
+	/** Another file was loaded, or it cannot be played (filePath, errorString) */
+	void fileChanged();
+	/** The volume, the tempo, the balance, the fade-in or the loop */
+	void settingsChanged();
 
 private:
 	void setState(State state);

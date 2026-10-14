@@ -1,0 +1,84 @@
+# The Monster Groups page of the QML database window (on a copy of the
+# project): the members added, dragged and hidden on the battle screen, the
+# name made from them, the terrains, the battle pages (a new one, its
+# trigger and a command), the Test Battle window; OK writes them, Cancel
+# writes nothing.
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 5
+wait 300
+expect-tab tabOld_Pages Monster Groups
+expect list > 0001: Plains 1
+expect lineName Plains 1
+expect listEnemies > 0001: Ariman
+expect-checked radioManual on
+expect listTerrains [x] | Plains
+expect-tab tabPages 1
+expect lineTrigger None (the page never runs)
+check-layout
+resize 1280 900
+check-layout
+
+# a monster added in the middle of the screen, dragged, hidden
+click pushAdd
+view-drag graphicsTroop 160 120 100 60
+view-click graphicsTroop 100 60 right
+menu Invisible
+click pushAutoName
+expect lineName Slime*3, Sylph*2, Ariman
+set-control checkTerrain1 off
+expect listTerrains [ ] | Forest
+set-control radioAutomatic on
+set-control checkRandom on
+
+# a new page: its trigger, a command
+click pushNewPage
+expect-tab tabPages 2
+click pushTrigger
+expect BattlePageConditionDialog Define Battle Event Triggers
+set-control checkTurn on
+click OK
+expect lineTrigger Turns [0]
+focus commands
+key Return
+expect EventCommandPalette Battle Event Commands
+type Wait
+key Return
+click OK
+expect commands Wait: 0.0s
+
+# the Test Battle window keeps its settings in the database
+click pushTestBattle
+expect TestBattleDialog Test Battle
+expect-enabled pushStartTest on
+set-control radioCondition2 on
+click OK
+click OK
+wait 300
+expect-database-file troops/0/members/5/enemy_id 1
+expect-database-file troops/0/members/5/x 100
+expect-database-file troops/0/members/5/y 60
+expect-database-file troops/0/members/5/invisible true
+expect-database-file troops/0/name Slime*3, Sylph*2, Ariman
+expect-database-file troops/0/terrain_set/1 false
+expect-database-file troops/0/auto_alignment true
+expect-database-file troops/0/appear_randomly true
+expect-database-file troops/0/pages/1/ID 2
+expect-database-file troops/0/pages/1/condition/flags/turn true
+expect-database-file troops/0/pages/1/event_commands/0/code 11410
+expect-database-file system/battletest_condition 2
+
+# Cancel: nothing written
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Monster Groups
+expect lineName Slime*3, Sylph*2, Ariman
+click pushRemoveAll
+click pushDeletePage
+expect-tab tabPages 1
+close
+wait 300
+expect-database-file troops/0/members/5/enemy_id 1
+expect-database-file troops/0/pages/1/ID 2
+quit

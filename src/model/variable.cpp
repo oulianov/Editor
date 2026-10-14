@@ -16,7 +16,6 @@
  */
 
 #include "variable.h"
-#include "ui/database/variable_widget.h"
 
 VariableModel::VariableModel(ProjectData& project, lcf::rpg::Variable& data) :
 	RpgBase(project), m_data(data) {

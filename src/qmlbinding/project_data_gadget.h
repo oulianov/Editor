@@ -24,7 +24,7 @@
 #include <QObject>
 #include <QPixmap>
 
-class ActorModel;
+#include "model/actor.h"
 class JsonView;
 
 /**
@@ -41,6 +41,16 @@ public:
 	explicit ProjectDataGadget(QObject* parent = nullptr);
 
 	void setProjectData(ProjectData* data);
+	ProjectData* projectData() const {
+		return m_data;
+	}
+	/** The database of the project, for C++ (database() is its root view) */
+	Json& databaseJson() {
+		return m_database_json;
+	}
+	Json& treeMapJson() {
+		return m_treemap_json;
+	}
 
 	Q_INVOKABLE JsonView* database();
 	Q_INVOKABLE JsonView* treeMap();

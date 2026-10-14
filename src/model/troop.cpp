@@ -16,7 +16,6 @@
  */
 
 #include "troop.h"
-#include "ui/database/enemy_group_widget.h"
 
 TroopModel::TroopModel(ProjectData& project, lcf::rpg::Troop& data) :
 	RpgBase(project), m_data(data) {

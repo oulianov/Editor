@@ -11,10 +11,138 @@
         <file>app/logo.svg</file>
         <file>icons/ezbright/index.theme</file>
         <file>icons/ezbright/icons/arrow-down.svg</file>
+        <file>icons/ezbright/icons/arrow-left.svg</file>
+        <file>icons/ezbright/icons/arrow-right.svg</file>
         <file>icons/ezbright/icons/arrow-up.svg</file>
+        <file>icons/ezbright/icons/dialog-error.svg</file>
+        <file>icons/ezbright/icons/dialog-information.svg</file>
+        <file>icons/ezbright/icons/dialog-question.svg</file>
+        <file>icons/ezbright/icons/dialog-warning.svg</file>
+        <file>icons/ezbright/small/arrow-down.svg</file>
+        <file>icons/ezbright/small/arrow-left.svg</file>
+        <file>icons/ezbright/small/arrow-right.svg</file>
+        <file>icons/ezbright/small/arrow-up.svg</file>
         <file>icons/ezdark/index.theme</file>
         <file>icons/ezdark/icons/arrow-down.svg</file>
+        <file>icons/ezdark/icons/arrow-left.svg</file>
+        <file>icons/ezdark/icons/arrow-right.svg</file>
         <file>icons/ezdark/icons/arrow-up.svg</file>
+        <file>icons/ezdark/icons/dialog-error.svg</file>
+        <file>icons/ezdark/icons/dialog-information.svg</file>
+        <file>icons/ezdark/icons/dialog-question.svg</file>
+        <file>icons/ezdark/icons/dialog-warning.svg</file>
+        <file>icons/ezdark/small/arrow-down.svg</file>
+        <file>icons/ezdark/small/arrow-left.svg</file>
+        <file>icons/ezdark/small/arrow-right.svg</file>
+        <file>icons/ezdark/small/arrow-up.svg</file>
+        <!-- the media buttons and the reset buttons of the sliders: drawn for the Editor -->
+        <file>icons/ezbright/icons/edit-reset.svg</file>
+        <file>icons/ezbright/icons/media-playback-pause.svg</file>
+        <file>icons/ezbright/icons/media-playback-start.svg</file>
+        <file>icons/ezbright/icons/media-playback-stop.svg</file>
+        <file>icons/ezbright/small/edit-reset.svg</file>
+        <file>icons/ezbright/small/media-playback-pause.svg</file>
+        <file>icons/ezbright/small/media-playback-start.svg</file>
+        <file>icons/ezbright/small/media-playback-stop.svg</file>
+        <file>icons/ezdark/icons/edit-reset.svg</file>
+        <file>icons/ezdark/icons/media-playback-pause.svg</file>
+        <file>icons/ezdark/icons/media-playback-start.svg</file>
+        <file>icons/ezdark/icons/media-playback-stop.svg</file>
+        <file>icons/ezdark/small/edit-reset.svg</file>
+        <file>icons/ezdark/small/media-playback-pause.svg</file>
+        <file>icons/ezdark/small/media-playback-start.svg</file>
+        <file>icons/ezdark/small/media-playback-stop.svg</file>
+        <!-- the icons of the main window's actions by name, in the icon themes (QML icon.name) -->
+        <file alias="icons/ezbright/icons/area-new.svg">icons/bright/area-new.svg</file>
+        <file alias="icons/ezbright/icons/audio.svg">icons/bright/audio.svg</file>
+        <file alias="icons/ezbright/icons/code.svg">icons/bright/code.svg</file>
+        <file alias="icons/ezbright/icons/database.svg">icons/bright/database.svg</file>
+        <file alias="icons/ezbright/icons/draw-circle.svg">icons/bright/draw-circle.svg</file>
+        <file alias="icons/ezbright/icons/draw-fill.svg">icons/bright/draw-fill.svg</file>
+        <file alias="icons/ezbright/icons/draw-pen.svg">icons/bright/draw-pen.svg</file>
+        <file alias="icons/ezbright/icons/draw-rectangle.svg">icons/bright/draw-rectangle.svg</file>
+        <file alias="icons/ezbright/icons/edit-copy.svg">icons/bright/edit-copy.svg</file>
+        <file alias="icons/ezbright/icons/edit-delete.svg">icons/bright/edit-delete.svg</file>
+        <file alias="icons/ezbright/icons/edit-find.svg">icons/bright/edit-find.svg</file>
+        <file alias="icons/ezbright/icons/edit-paste.svg">icons/bright/edit-paste.svg</file>
+        <file alias="icons/ezbright/icons/edit-redo.svg">icons/bright/edit-redo.svg</file>
+        <file alias="icons/ezbright/icons/edit-undo.svg">icons/bright/edit-undo.svg</file>
+        <file alias="icons/ezbright/icons/exit.svg">icons/bright/exit.svg</file>
+        <file alias="icons/ezbright/icons/export.svg">icons/bright/export.svg</file>
+        <file alias="icons/ezbright/icons/fullscreen.svg">icons/bright/fullscreen.svg</file>
+        <file alias="icons/ezbright/icons/help-about.svg">icons/bright/help-about.svg</file>
+        <file alias="icons/ezbright/icons/help-contents.svg">icons/bright/help-contents.svg</file>
+        <file alias="icons/ezbright/icons/layer-event.svg">icons/bright/layer-event.svg</file>
+        <file alias="icons/ezbright/icons/layer-high.svg">icons/bright/layer-high.svg</file>
+        <file alias="icons/ezbright/icons/layer-low.svg">icons/bright/layer-low.svg</file>
+        <file alias="icons/ezbright/icons/map-shift.svg">icons/bright/map-shift.svg</file>
+        <file alias="icons/ezbright/icons/new.svg">icons/bright/new.svg</file>
+        <file alias="icons/ezbright/icons/palette.svg">icons/bright/palette.svg</file>
+        <file alias="icons/ezbright/icons/play.svg">icons/bright/play.svg</file>
+        <file alias="icons/ezbright/icons/project-close.svg">icons/bright/project-close.svg</file>
+        <file alias="icons/ezbright/icons/project-new.svg">icons/bright/project-new.svg</file>
+        <file alias="icons/ezbright/icons/project-open.svg">icons/bright/project-open.svg</file>
+        <file alias="icons/ezbright/icons/properties.svg">icons/bright/properties.svg</file>
+        <file alias="icons/ezbright/icons/resources.svg">icons/bright/resources.svg</file>
+        <file alias="icons/ezbright/icons/revert.svg">icons/bright/revert.svg</file>
+        <file alias="icons/ezbright/icons/save.svg">icons/bright/save.svg</file>
+        <file alias="icons/ezbright/icons/select-area.svg">icons/bright/select-area.svg</file>
+        <file alias="icons/ezbright/icons/settings.svg">icons/bright/settings.svg</file>
+        <file alias="icons/ezbright/icons/show-title.svg">icons/bright/show-title.svg</file>
+        <file alias="icons/ezbright/icons/tree.svg">icons/bright/tree.svg</file>
+        <file alias="icons/ezbright/icons/zoom.svg">icons/bright/zoom.svg</file>
+        <file alias="icons/ezbright/icons/zoom-in.svg">icons/bright/zoom-in.svg</file>
+        <file alias="icons/ezbright/icons/zoom-original.svg">icons/bright/zoom-original.svg</file>
+        <file alias="icons/ezbright/icons/zoom-out.svg">icons/bright/zoom-out.svg</file>
+        <file alias="icons/ezbright/icons/zoom-ratio-1.svg">icons/bright/zoom-ratio-1.svg</file>
+        <file alias="icons/ezbright/icons/zoom-ratio-2.svg">icons/bright/zoom-ratio-2.svg</file>
+        <file alias="icons/ezbright/icons/zoom-ratio-4.svg">icons/bright/zoom-ratio-4.svg</file>
+        <file alias="icons/ezbright/icons/zoom-ratio-8.svg">icons/bright/zoom-ratio-8.svg</file>
+        <file alias="icons/ezdark/icons/area-new.svg">icons/dark/area-new.svg</file>
+        <file alias="icons/ezdark/icons/audio.svg">icons/dark/audio.svg</file>
+        <file alias="icons/ezdark/icons/code.svg">icons/dark/code.svg</file>
+        <file alias="icons/ezdark/icons/database.svg">icons/dark/database.svg</file>
+        <file alias="icons/ezdark/icons/draw-circle.svg">icons/dark/draw-circle.svg</file>
+        <file alias="icons/ezdark/icons/draw-fill.svg">icons/dark/draw-fill.svg</file>
+        <file alias="icons/ezdark/icons/draw-pen.svg">icons/dark/draw-pen.svg</file>
+        <file alias="icons/ezdark/icons/draw-rectangle.svg">icons/dark/draw-rectangle.svg</file>
+        <file alias="icons/ezdark/icons/edit-copy.svg">icons/dark/edit-copy.svg</file>
+        <file alias="icons/ezdark/icons/edit-delete.svg">icons/dark/edit-delete.svg</file>
+        <file alias="icons/ezdark/icons/edit-find.svg">icons/dark/edit-find.svg</file>
+        <file alias="icons/ezdark/icons/edit-paste.svg">icons/dark/edit-paste.svg</file>
+        <file alias="icons/ezdark/icons/edit-redo.svg">icons/dark/edit-redo.svg</file>
+        <file alias="icons/ezdark/icons/edit-undo.svg">icons/dark/edit-undo.svg</file>
+        <file alias="icons/ezdark/icons/exit.svg">icons/dark/exit.svg</file>
+        <file alias="icons/ezdark/icons/export.svg">icons/dark/export.svg</file>
+        <file alias="icons/ezdark/icons/fullscreen.svg">icons/dark/fullscreen.svg</file>
+        <file alias="icons/ezdark/icons/help-about.svg">icons/dark/help-about.svg</file>
+        <file alias="icons/ezdark/icons/help-contents.svg">icons/dark/help-contents.svg</file>
+        <file alias="icons/ezdark/icons/layer-event.svg">icons/dark/layer-event.svg</file>
+        <file alias="icons/ezdark/icons/layer-high.svg">icons/dark/layer-high.svg</file>
+        <file alias="icons/ezdark/icons/layer-low.svg">icons/dark/layer-low.svg</file>
+        <file alias="icons/ezdark/icons/map-shift.svg">icons/dark/map-shift.svg</file>
+        <file alias="icons/ezdark/icons/new.svg">icons/dark/new.svg</file>
+        <file alias="icons/ezdark/icons/palette.svg">icons/dark/palette.svg</file>
+        <file alias="icons/ezdark/icons/play.svg">icons/dark/play.svg</file>
+        <file alias="icons/ezdark/icons/project-close.svg">icons/dark/project-close.svg</file>
+        <file alias="icons/ezdark/icons/project-new.svg">icons/dark/project-new.svg</file>
+        <file alias="icons/ezdark/icons/project-open.svg">icons/dark/project-open.svg</file>
+        <file alias="icons/ezdark/icons/properties.svg">icons/dark/properties.svg</file>
+        <file alias="icons/ezdark/icons/resources.svg">icons/dark/resources.svg</file>
+        <file alias="icons/ezdark/icons/revert.svg">icons/dark/revert.svg</file>
+        <file alias="icons/ezdark/icons/save.svg">icons/dark/save.svg</file>
+        <file alias="icons/ezdark/icons/select-area.svg">icons/dark/select-area.svg</file>
+        <file alias="icons/ezdark/icons/settings.svg">icons/dark/settings.svg</file>
+        <file alias="icons/ezdark/icons/show-title.svg">icons/dark/show-title.svg</file>
+        <file alias="icons/ezdark/icons/tree.svg">icons/dark/tree.svg</file>
+        <file alias="icons/ezdark/icons/zoom.svg">icons/dark/zoom.svg</file>
+        <file alias="icons/ezdark/icons/zoom-in.svg">icons/dark/zoom-in.svg</file>
+        <file alias="icons/ezdark/icons/zoom-original.svg">icons/dark/zoom-original.svg</file>
+        <file alias="icons/ezdark/icons/zoom-out.svg">icons/dark/zoom-out.svg</file>
+        <file alias="icons/ezdark/icons/zoom-ratio-1.svg">icons/dark/zoom-ratio-1.svg</file>
+        <file alias="icons/ezdark/icons/zoom-ratio-2.svg">icons/dark/zoom-ratio-2.svg</file>
+        <file alias="icons/ezdark/icons/zoom-ratio-4.svg">icons/dark/zoom-ratio-4.svg</file>
+        <file alias="icons/ezdark/icons/zoom-ratio-8.svg">icons/dark/zoom-ratio-8.svg</file>
     </qresource>
     <qresource prefix="/bright">
         <file alias="audio">icons/bright/audio.svg</file>

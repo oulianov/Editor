@@ -22,6 +22,10 @@
 
 /**
  * Displays an animated character from a CharSet spritesheet.
+ *
+ * In a picker it shows the 8 characters of the sheet (cellIndex: the one
+ * chosen); with poseMode, the whole sheet, a click choosing a character,
+ * its facing and its frame (RPG Maker's Select Event Graphic).
  */
 class CharSetPaintedItem : public SpritePaintedItem {
 	Q_OBJECT
@@ -30,6 +34,8 @@ class CharSetPaintedItem : public SpritePaintedItem {
 	Q_PROPERTY(int frame READ frame WRITE setFrame NOTIFY frameChanged)
 	Q_PROPERTY(bool spin READ spin WRITE setSpin NOTIFY spinChanged)
 	Q_PROPERTY(bool walk READ walk WRITE setWalk NOTIFY walkChanged)
+	/** In a picker: the whole sheet, the facing and the frame chosen too */
+	Q_PROPERTY(bool poseMode READ poseMode WRITE setPoseMode NOTIFY poseModeChanged)
 
 public:
 	enum Direction {
@@ -61,17 +67,30 @@ public:
 	bool walk() const;
 	void setWalk(bool walk);
 
+	bool poseMode() const;
+	void setPoseMode(bool poseMode);
+
+	void paint(QPainter* painter) override;
+
 signals:
 	void characterIndexChanged();
 	void facingChanged();
 	void frameChanged();
 	void spinChanged();
 	void walkChanged();
+	void poseModeChanged();
 
 protected:
 	QRectF sourceRect() const override;
+	void mousePressEvent(QMouseEvent* event) override;
+	void reload() override;
 
 private:
+	/** The whole sheet is shown (a picker in pose mode) */
+	bool showsSheet() const;
+	/** The scale of the sheet drawn in the item */
+	qreal sheetScale() const;
+
 	void tick();
 
 	QTimer m_timer;
@@ -80,6 +99,7 @@ private:
 	int m_frame = Frame_middle;
 	bool m_spin = false;
 	bool m_walk = false;
+	bool m_poseMode = false;
 
 	int m_pattern = 0;
 	int frame_count = 0;

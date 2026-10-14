@@ -115,7 +115,8 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           install-deps: "nosudo"
-          modules: "qtmultimedia"
+          # Qt Quick comes with the base; Kirigami needs the shader tools
+          modules: "qtmultimedia qtshadertools"
           cache: true
 
       - &vcpkg
@@ -248,8 +249,13 @@ jobs:
         run: |
           cmake --build --preset vcpkg-liblcf-release --target install
 
+      # the QML modules the interface imports (Qt's, Kirigami, Breeze,
+      # KDDockWidgets from vcpkg), found by the Qt plugin of linuxdeploy
       - name: Build AppImage
         run: |
+          export QML_SOURCES_PATHS="$PWD/src"
+          kirigami="$(find "$PWD/build" -type d -path '*vcpkg_installed*/org/kde/kirigami' | head -1)"
+          export QML_MODULES_PATHS="${kirigami%/org/kde/kirigami}"
           ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --executable AppDir/bin/easyrpg-editor \
@@ -313,7 +319,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          modules: "qtmultimedia"
+          modules: "qtmultimedia qtshadertools"
           cache: true
 
       - name: Folders and ccache
@@ -325,15 +331,18 @@ jobs:
             echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
           } >> "$GITHUB_ENV"
 
-      # ICU and inih, built by build.sh for both kinds of Mac: Homebrew's
-      # are for the newest macOS only. Saved right after the build, not at
-      # the end of the job: a failed test or package keeps them
+      # ICU, inih and glaze, and Kirigami, Breeze and KDDockWidgets (for this
+      # Qt), built by build.sh for both kinds of Mac: Homebrew's are for the
+      # newest macOS only. Saved right after the build, not at the end of the
+      # job: a failed test or package keeps them
       - name: Restore the dependencies
         id: deps
         uses: actions/cache/restore@v6
         with:
-          path: ${{ env.DEPS_DIR }}/install
-          key: editor-deps-macos${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ hashFiles('builds/macos/build.sh') }}
+          path: |
+            ${{ env.DEPS_DIR }}/install
+            ${{ env.DEPS_DIR }}/kde
+          key: editor-deps-macos${{ env.MACOSX_DEPLOYMENT_TARGET }}-qt${{ env.QT_VERSION }}-${{ hashFiles('builds/macos/build.sh') }}
 
       - name: Restore the compiled files
         uses: actions/cache/restore@v6
@@ -357,7 +366,9 @@ jobs:
         if: steps.deps.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
-          path: ${{ env.DEPS_DIR }}/install
+          path: |
+            ${{ env.DEPS_DIR }}/install
+            ${{ env.DEPS_DIR }}/kde
           key: ${{ steps.deps.outputs.cache-primary-key }}
 
       # even when the build failed: what compiled is kept
@@ -417,18 +428,30 @@ jobs:
       - *clone
       - *cloneref
 
-      # cl, link and the paths of the Windows SDK, for the next steps
+      # cl, link and the paths of the Windows SDK, for the next steps: what
+      # vcvars64.bat of Visual Studio changes in the environment
       - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products * -property installationPath `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64
+          if (-not $vs) { Write-Error "No Visual Studio with the C++ tools"; exit 1 }
+          $before = @{}
+          Get-ChildItem env: | ForEach-Object { $before[$_.Name] = $_.Value }
+          cmd /c "`"$vs/VC/Auxiliary/Build/vcvars64.bat`" >nul && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$' -and $before[$matches[1]] -ne $matches[2]) {
+              "$($matches[1])=$($matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            }
+          }
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
       - name: Install Qt6
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
           arch: win64_msvc2022_64
-          modules: "qtmultimedia"
+          modules: "qtmultimedia qtshadertools"
           cache: true
 
       - name: Folders

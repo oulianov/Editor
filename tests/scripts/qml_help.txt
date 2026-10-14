@@ -1,0 +1,26 @@
+# The guide (HelpWindow, QML): from the Help menu, and from the Help button
+# of a modal dialog, over it and usable while it is open. That it opens at
+# the dialog's topic is checked on screenshots.
+action actionContents
+wait 500
+expect helpWindow EasyRPG Editor Help
+expect helpBrowser Contents
+check-layout
+# no smaller than its minimum size
+resize 200 100
+check-layout
+close
+wait 200
+
+open-event 1 1
+wait 300
+click Help
+wait 500
+expect helpWindow EasyRPG Editor Help
+check-layout
+close
+wait 200
+# back in the event dialog
+expect-enabled commands on
+close
+quit

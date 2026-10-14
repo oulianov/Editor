@@ -1,0 +1,186 @@
+# The Ez controls of the database pages (DatabaseControlsWindow, on a copy
+# of the database that is never applied): an entry of a list searched by
+# number or name (RefComboBox), a system color, choices (RadioGroup) and
+# tables of arrays (ArrayTable). Nothing is saved.
+qml-open DatabaseControlsWindow
+wait 400
+expect qmlDatabaseControls Ez database controls
+expect controlSwitch 0045: 
+expect controlSwitchAgain 0045: 
+check-layout
+check-option-spacing 8
+
+# Its drop-down (F4, Alt+Down, the arrow) searches the list: by number,
+# the entry of the number typed, leading zeros or not
+focus controlSwitch
+key F4
+wait 200
+expect-enabled searchArraySize on
+type 12
+key Return
+expect controlSwitch 0012: TestBattleOn
+# the other box showing the same data follows
+expect controlSwitchAgain 0012: TestBattleOn
+focus controlSwitch
+key Alt+Down
+type 0003
+key Return
+expect controlSwitch 0003
+
+# By name, each word anywhere in it; the arrows, Home and End move in what matches
+focus controlSwitch
+key F4
+type antilag
+key Return
+expect controlSwitch 0015: AntilagParallel
+focus controlSwitch
+key F4
+type antilag
+key Down
+key Return
+expect controlSwitch 0016: AntilagAutorun
+focus controlSwitch
+key F4
+type antilag
+key End
+key Home
+key Return
+expect controlSwitch 0015: AntilagParallel
+
+# Nothing matches, or Escape: the entry stays
+focus controlSwitch
+key F4
+type zzz
+expect searchNothing No entry matches
+key Return
+key Escape
+expect controlSwitch 0015
+focus controlSwitch
+key F4
+type 1
+key Escape
+expect controlSwitch 0015
+
+# A box without "...": typing opens its search with what is typed
+focus controlSwitchAgain
+type 16
+key Return
+expect controlSwitch 0016: AntilagAutorun
+
+# With "...", typing renames the entry shown (in the copy of the window):
+# its name, what is typed after it; Return writes it, every box shows it
+focus controlSwitch
+type X
+expect controlSwitchName AntilagAutorunX
+key Return
+expect controlSwitch 0016: AntilagAutorunX
+expect controlSwitchAgain 0016: AntilagAutorunX
+key F4
+expect searchList > 0016: AntilagAutorunX
+key Escape
+# Escape leaves the name; F2 starts with the name alone
+focus controlSwitch
+type Y
+key Escape
+expect controlSwitch 0016: AntilagAutorunX
+expect-not controlSwitch AntilagAutorunXY
+focus controlSwitch
+key F2
+key Backspace
+key Backspace
+type 2
+key Return
+expect controlSwitch 0016: AntilagAutoru2
+
+# Array Size at the bottom of the drop-down: the list of the window's copy,
+# the drop-down open on the first new entry
+focus controlSwitch
+key F4
+click searchArraySize
+wait 300
+set-control spinArraySize 600
+click OK
+wait 300
+expect searchList > 0101: 
+expect controlSwitch 0016: AntilagAutoru2
+screenshot-menu $SCRIPT_DIR/arraysize.png
+key Escape
+focus controlSwitch
+key F4
+type 600
+key Return
+expect controlSwitch 0600: 
+# fewer entries: the warning of the list pane first; Cancel keeps them
+focus controlSwitch
+key F4
+click searchArraySize
+wait 300
+set-control spinArraySize 10
+click OK
+wait 300
+expect messageText Reducing the array size from 600 to 10 deletes 590 entries
+click Cancel
+wait 300
+expect searchList 0600: 
+key Escape
+
+# (None) first, as the number 0; the other box has no such line
+set-control controlSwitch 0
+expect controlSwitch (None)
+expect-not controlSwitchAgain (None)
+set-control controlSwitch 10
+expect controlSwitch 0010: ShowRoomDesc
+# the "..." beside it opens the entry picker on it; OK: the entry chosen
+click controlSwitchPick
+wait 400
+expect EntryPicker Switches
+expect list > 0010: ShowRoomDesc
+click-item list 0013: TestBattle2
+click OK
+wait 300
+expect controlSwitch 0013: TestBattle2
+expect pickedLabel picked 13
+# "(None)" is offered where the box has it; Cancel leaves the entry
+click controlSwitchPick
+wait 400
+expect list (None)
+click-item list (None)
+click Cancel
+wait 300
+expect controlSwitch 0013: TestBattle2
+
+# a color of the System graphic
+expect controlColor Color 5
+set-control controlColor 3
+expect controlColor Color 3
+
+# choices of one number
+expect-checked controlWeapon on
+set-control controlMagic on
+expect-checked controlWeapon off
+expect-checked controlMagic on
+
+# a list of objects: a line per skill learned, an empty line to add one
+expect controlSkills 1 | Teleport
+expect controlSkills 29 | Sacriment 3
+expect-not controlSkills >
+# Return on the empty line adds one (here skill 1 at level 1), Delete removes the line
+focus controlSkills
+key End
+key Return
+expect controlSkills > 1 | Venom
+key Del
+expect-not controlSkills >
+key Home
+expect controlSkills > 1 | Teleport
+key Del
+expect-not controlSkills 1 | Teleport
+expect controlSkills > 2 | Escape
+# the bits of an array: a line per attribute
+expect controlItemAttributes [ ] | Sword
+set-control controlItemAttribute1 on
+expect controlItemAttributes [x] | Spear
+set-control controlItemAttribute1 off
+expect controlItemAttributes [ ] | Spear
+close
+quit

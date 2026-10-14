@@ -16,6 +16,8 @@
  */
 
 #include "map_tools.h"
+#include "autotile.h"
+#include <algorithm>
 
 namespace MapTools {
 
@@ -72,6 +74,130 @@ void shiftMap(lcf::rpg::Map& map, int dx, int dy) {
 		event.x = wrap(event.x + dx, w);
 		event.y = wrap(event.y + dy, h);
 	}
+}
+
+void resizeMap(lcf::rpg::Map& map, int width, int height) {
+	width = std::max(width, 1);
+	height = std::max(height, 1);
+	const int old_width = map.width;
+	const int old_height = map.height;
+	auto resize = [&](std::vector<int16_t>& layer, int16_t empty) {
+		std::vector<int16_t> resized(static_cast<size_t>(width * height), empty);
+		for (int y = 0; y < std::min(height, old_height); ++y) {
+			for (int x = 0; x < std::min(width, old_width); ++x) {
+				const size_t from = static_cast<size_t>(y * old_width + x);
+				if (from < layer.size()) {
+					resized[static_cast<size_t>(y * width + x)] = layer[from];
+				}
+			}
+		}
+		layer = std::move(resized);
+	};
+	resize(map.lower_layer, 0);
+	resize(map.upper_layer, 10000);
+	map.width = width;
+	map.height = height;
+	std::erase_if(map.events, [&](const lcf::rpg::Event& event) {
+		return event.x >= width || event.y >= height;
+	});
+}
+
+std::vector<int16_t> generatorTiles(const lcf::rpg::Map& map) {
+	if (map.generator_tile_ids.size() >= 18) {
+		return map.generator_tile_ids;
+	}
+	return newMap().generator_tile_ids;
+}
+
+QRect generatorCells(const std::vector<int16_t>& tiles, int box) {
+	if (box < 0 || box >= GeneratorBoxes || tiles.size() < 18) {
+		return QRect();
+	}
+	if (box < ObstacleA) {
+		const int terrain = std::clamp(Autotile::translate(static_cast<short>(tiles[static_cast<size_t>(box)])), 0, 161);
+		return QRect(terrain % 6, terrain / 6, 1, 1);
+	}
+	// an obstacle of 1 x 1, 2 x 1 or 1 x 2 tiles leaves the other cells at 10000
+	const size_t first = 6 + static_cast<size_t>(box - ObstacleA) * 4;
+	const int tile = std::clamp(Autotile::translate(static_cast<short>(tiles[first])) - 162, 0, 143);
+	const bool wide = tiles[first + 1] != 10000 || tiles[first + 3] != 10000;
+	const bool tall = tiles[first + 2] != 10000 || tiles[first + 3] != 10000;
+	return QRect(tile % 6, tile / 6, wide ? 2 : 1, tall ? 2 : 1);
+}
+
+void setGeneratorCells(std::vector<int16_t>& tiles, std::vector<uint32_t>& x, std::vector<uint32_t>& y,
+		int box, const QRect& cells) {
+	if (box < 0 || box >= GeneratorBoxes || cells.isEmpty()) {
+		return;
+	}
+	if (tiles.size() < 18) {
+		tiles = newMap().generator_tile_ids;
+	}
+	x.resize(GeneratorBoxes, 0);
+	y.resize(GeneratorBoxes, 0);
+	x[static_cast<size_t>(box)] = static_cast<uint32_t>(cells.x());
+	y[static_cast<size_t>(box)] = static_cast<uint32_t>(cells.y());
+	if (box < ObstacleA) {
+		const int terrain = cells.y() * 6 + cells.x();
+		// As RPG Maker stores them: autotiles with the pattern 49, which the
+		// generator replaces by the borders of their neighbours
+		int16_t tile;
+		if (terrain < 3) {
+			tile = static_cast<int16_t>(terrain * 1000 + 49);
+		} else if (terrain < 6) {
+			tile = static_cast<int16_t>(3000 + (terrain - 3) * 50);
+		} else if (terrain < 18) {
+			tile = static_cast<int16_t>(4000 + (terrain - 6) * 50 + 49);
+		} else {
+			tile = static_cast<int16_t>(5000 + terrain - 18);
+		}
+		tiles[static_cast<size_t>(box)] = tile;
+		return;
+	}
+	const size_t first = 6 + static_cast<size_t>(box - ObstacleA) * 4;
+	for (int i = 0; i < 4; i++) {
+		const int dx = i % 2;
+		const int dy = i / 2;
+		const bool used = dx < std::min(cells.width(), 2) && dy < std::min(cells.height(), 2);
+		tiles[first + static_cast<size_t>(i)] = static_cast<int16_t>(
+			used ? 10000 + (cells.y() + dy) * 6 + cells.x() + dx : 10000);
+	}
+}
+
+QList<int> paletteTiles(bool lower) {
+	QList<int> ids;
+	const int count = lower ? 162 : 144;
+	ids.reserve(count);
+	for (int i = 0; i < count; i++) {
+		// the autotiles with the borders TilePainter::paletteTiles draws;
+		// deep water amid shallow water, as the palette shows it
+		ids.append(lower ? (i == 2 ? Autotile::translate(2, 0, 240) : Autotile::translate(i, 15))
+			: Autotile::translate(i + 162));
+	}
+	return ids;
+}
+
+QList<int> generatorBoxTiles(const std::vector<int16_t>& tiles, int box) {
+	const QRect cells = generatorCells(tiles, box);
+	if (cells.isEmpty()) {
+		return {};
+	}
+	const bool lower = box < ObstacleA;
+	const QList<int> palette = paletteTiles(lower);
+	auto at = [&](int x, int y) {
+		const qsizetype i = static_cast<qsizetype>(y) * 6 + x;
+		return x < 6 && i < palette.size() ? palette[i] : -1;
+	};
+	if (lower) {
+		return {at(cells.x(), cells.y())};
+	}
+	QList<int> ids;
+	for (int dy = 0; dy < 2; dy++) {
+		for (int dx = 0; dx < 2; dx++) {
+			ids.append(dx < cells.width() && dy < cells.height() ? at(cells.x() + dx, cells.y() + dy) : -1);
+		}
+	}
+	return ids;
 }
 
 }

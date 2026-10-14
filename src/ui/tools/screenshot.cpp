@@ -17,20 +17,35 @@
 
 #include "screenshot.h"
 #include "common/logging.h"
-#include <QApplication>
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QKeyEvent>
-#include <QMainWindow>
+#include <QQuickWindow>
 #include <QStandardPaths>
-#include <QStatusBar>
-#include <QWidget>
 
 namespace {
+/** The file of a screenshot: the path given (its folder made), else in
+ *  Pictures/EasyRPG Editor */
+QString screenshotFile(const QString& path) {
+	if (!path.isEmpty()) {
+		QDir().mkpath(QFileInfo(path).absolutePath());
+		return path;
+	}
+	// a script's in its own folder (main.cpp), never in the user's pictures
+	const QString script_dir = qEnvironmentVariable("EASYRPG_EDITOR_SCRIPT_DIR");
+	QDir dir(script_dir.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::PicturesLocation) : script_dir);
+	dir.mkpath(QStringLiteral("EasyRPG Editor"));
+	dir.cd(QStringLiteral("EasyRPG Editor"));
+	return dir.filePath(QStringLiteral("editor-%1.png")
+		.arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz"))));
+}
+
 class ShortcutFilter : public QObject {
 public:
-	using QObject::QObject;
+	ShortcutFilter(std::function<void(const QString&)> saved, QObject* parent) :
+		QObject(parent), m_saved(std::move(saved)) {}
 
 protected:
 	bool eventFilter(QObject* watched, QEvent* event) override {
@@ -38,56 +53,29 @@ protected:
 			auto* key = static_cast<QKeyEvent*>(event);
 			if (key->key() == Qt::Key_S && !key->isAutoRepeat()
 					&& key->modifiers() == (Qt::ControlModifier | Qt::AltModifier)) {
-				QString file = Screenshot::save();
-				auto* main = qobject_cast<QMainWindow*>(qApp->activeWindow());
-				if (main && !file.isEmpty()) {
-					main->statusBar()->showMessage(QObject::tr("Screenshot saved to %1").arg(file), 5000);
+				auto* window = qobject_cast<QQuickWindow*>(QGuiApplication::focusWindow());
+				const QString file = window ? Screenshot::save(window) : QString();
+				if (!file.isEmpty() && m_saved) {
+					m_saved(QObject::tr("Screenshot saved to %1").arg(file));
 				}
 				return true;
 			}
 		}
 		return QObject::eventFilter(watched, event);
 	}
+
+private:
+	std::function<void(const QString&)> m_saved;
 };
 }
 
-QWidget* Screenshot::activeWindow() {
-	if (QWidget* modal = QApplication::activeModalWidget()) {
-		return modal;
-	}
-	if (QWidget* active = QApplication::activeWindow()) {
-		return active;
-	}
-	// Offscreen there is no active window: take the main window
-	for (QWidget* top : QApplication::topLevelWidgets()) {
-		if (top->isVisible() && qobject_cast<QMainWindow*>(top)) {
-			return top;
-		}
-	}
-	return nullptr;
-}
-
-QString Screenshot::save(QWidget* widget, const QString& path) {
-	if (!widget) {
-		widget = activeWindow();
-	}
-	if (!widget) {
+QString Screenshot::save(QQuickWindow* window, const QString& path) {
+	if (!window) {
 		qCWarning(lcAutomation) << "screenshot: no window to capture";
 		return QString();
 	}
-
-	QString file = path;
-	if (file.isEmpty()) {
-		QDir dir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
-		dir.mkpath(QStringLiteral("EasyRPG Editor"));
-		dir.cd(QStringLiteral("EasyRPG Editor"));
-		file = dir.filePath(QStringLiteral("editor-%1.png")
-			.arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz"))));
-	} else {
-		QDir().mkpath(QFileInfo(file).absolutePath());
-	}
-
-	if (!widget->grab().save(file)) {
+	const QString file = screenshotFile(path);
+	if (!window->grabWindow().save(file)) {
 		qCWarning(lcAutomation) << "screenshot: cannot write" << file;
 		return QString();
 	}
@@ -95,6 +83,6 @@ QString Screenshot::save(QWidget* widget, const QString& path) {
 	return file;
 }
 
-void Screenshot::installShortcut() {
-	qApp->installEventFilter(new ShortcutFilter(qApp));
+void Screenshot::installShortcut(std::function<void(const QString& message)> saved) {
+	qApp->installEventFilter(new ShortcutFilter(std::move(saved), qApp));
 }

@@ -1,0 +1,66 @@
+# The disabled controls of the QML windows look disabled (greyed: faded, as
+# the Ez controls draw them), in light and in dark: the Settings, a page of
+# the database, the event window, the Project Settings, the Map Properties
+# and a question.
+# Nothing is saved.
+action actionSettings
+wait 300
+set-enabled checkSearchCache off
+set-enabled comboLanguage off
+set-enabled lineRtpPath off
+set-enabled linePlayerPath off
+check-disabled
+close
+wait 200
+
+color-scheme dark
+action actionDatabase
+wait 500
+tab tabOld_Pages 6
+wait 200
+# a section greyed with its controls, and a field
+set-enabled groupBox_56 off
+set-enabled lineName off
+check-disabled
+close
+wait 200
+color-scheme light
+
+# the conditions not chosen, the movement of an event that does not move
+open-event 1 1
+wait 500
+expect-enabled comboSwitchA off
+expect-enabled pushMovePattern off
+check-disabled
+close
+wait 200
+
+action actionProjectSettings
+wait 300
+set-enabled lineGameTitle off
+set-enabled comboEncoding off
+check-disabled
+# the patches the Player detects by itself
+tab tabs 2
+wait 200
+expect-enabled patchManiac off
+check-disabled
+close
+wait 200
+
+# the settings of a generator not used: its labels and tiles too
+select-map 0
+action actionMapProperties
+wait 500
+check-disabled
+close
+wait 200
+
+dialog-service question "Title" "A question"
+wait 300
+set-enabled Yes off
+set-enabled messageText off
+check-disabled
+click No
+expect-answer no
+quit

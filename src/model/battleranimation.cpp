@@ -16,7 +16,6 @@
  */
 
 #include "battleranimation.h"
-#include "ui/database/battle_animation2_widget.h"
 
 BattlerAnimationModel::BattlerAnimationModel(ProjectData& project, lcf::rpg::BattlerAnimation& data) :
 	RpgBase(project), m_data(data) {

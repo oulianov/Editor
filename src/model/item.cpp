@@ -16,7 +16,6 @@
  */
 
 #include "item.h"
-#include "ui/database/item_widget.h"
 
 ItemModel::ItemModel(ProjectData& project, lcf::rpg::Item& data) :
 	RpgBase(project), m_data(data) {

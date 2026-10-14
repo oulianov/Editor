@@ -1,0 +1,95 @@
+# The System and System 2 pages of the QML database, on a copy of the
+# project: their fields (graphics, choices, the
+# starting party and menu commands kept in order without the empty ones,
+# the party of the battle tests), written to the database file by OK;
+# Cancel writes nothing.
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 14
+wait 300
+expect-tab tabOld_Pages System
+expect lineBoat Vehicles (1)
+expect lineTitle title1
+expect comboFont MS Gothic
+expect comboPartyMember4 0004: Klaus
+expect lineTitleMusic Opening 2
+expect comboBattleStartOut Vertical Blinds
+expect lineItemSe Item1
+check-layout
+
+set-control comboStretch 1
+set-control comboFont 1
+set-control comboTransitionIn 3
+set-control comboBattleEndOut 20
+expect comboBattleEndOut No Transition
+# a member removed: the next ones move up
+set-control comboPartyMember2 0
+expect comboPartyMember2 0003: Burns
+expect comboPartyMember4 <none>
+set-control comboPartyMember4 7
+expect comboPartyMember4 0007: Lee
+
+tab tabOld_Pages 15
+wait 300
+expect-tab tabOld_Pages System 2
+expect comboMenuCommand1 Item
+expect comboMenuCommand8 Wait
+expect comboFormation Use the following Terrain:
+expect-enabled comboTerrain on
+expect comboCondition Initiative
+expect comboTestHero1 0001: Zack
+expect comboTestWeapon1 0017: Club
+expect comboTestHero2 <none>
+check-layout
+
+set-control comboMenuCommand1 0
+expect comboMenuCommand1 Skill
+expect comboMenuCommand8 <none>
+set-control checkShowFrame on
+set-control checkShowTitle off
+set-control comboFormation 1
+expect-enabled comboTerrain off
+set-control comboCondition 1
+# the party: a member with a hero is saved, with its level and equipment
+set-control comboTestHero2 3
+set-control spinTestLevel2 40
+set-control comboTestShield2 2
+set-control spinTestLevel1 120
+expect spinTestLevel1 99
+click OK
+wait 300
+expect-database-file system/message_stretch 1
+expect-database-file system/font_id 1
+expect-database-file system/transition_in 3
+expect-database-file system/battle_end_fadeout 20
+expect-database-file system/party/0 1
+expect-database-file system/party/1 3
+expect-database-file system/party/2 4
+expect-database-file system/party/3 7
+expect-database-file system/menu_commands/0 2
+expect-database-file system/menu_commands/6 8
+expect-database-file system/show_frame true
+expect-database-file system/show_title false
+expect-database-file system/battletest_formation 2
+expect-database-file system/battletest_condition 2
+expect-database-file system/battletest_data/0/level 99
+expect-database-file system/battletest_data/1/actor_id 3
+expect-database-file system/battletest_data/1/level 40
+expect-database-file system/battletest_data/1/shield_id 45
+
+# Cancel: nothing written
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages System 2
+set-control comboTestHero1 0
+set-control checkShowFrame off
+tab tabOld_Pages 14
+wait 300
+set-control comboFont 0
+close
+wait 300
+expect-database-file system/font_id 1
+expect-database-file system/show_frame true
+expect-database-file system/battletest_data/0/actor_id 1
+quit

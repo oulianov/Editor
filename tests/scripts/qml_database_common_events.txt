@@ -1,0 +1,50 @@
+# Common Events in the QML database window (on a copy of the project): the
+# name, the trigger and its switch, the commands inserted in the window's
+# copy; OK writes them, Cancel writes nothing.
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 16
+wait 300
+expect-tab tabOld_Pages Common events
+expect list > 0001: Map Events
+expect lineName Map Events
+expect comboTrigger Call
+expect-enabled groupSwitch off
+check-layout
+set-control lineName Intro
+expect list > 0001: Intro
+set-control comboTrigger 2
+expect comboTrigger Parallel Process
+expect-enabled groupSwitch on
+set-control groupSwitch on
+set-control comboSwitch 2
+# a command inserted at the end of the list
+focus commands
+key Ctrl+End
+key Return
+expect EventCommandPalette Event Commands
+type Wait
+key Return
+click OK
+expect commands Wait: 0.0s
+click OK
+wait 300
+expect-database-file commonevents/0/name Intro
+expect-database-file commonevents/0/trigger 4
+expect-database-file commonevents/0/switch_flag true
+expect-database-file commonevents/0/switch_id 3
+
+# Cancel: nothing written
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Common events
+expect lineName Intro
+expect commands Wait: 0.0s
+set-control lineName Nothing
+set-control comboTrigger 0
+close
+wait 300
+expect-database-file commonevents/0/name Intro
+expect-database-file commonevents/0/trigger 4
+quit

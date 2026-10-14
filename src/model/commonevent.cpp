@@ -16,7 +16,6 @@
  */
 
 #include "commonevent.h"
-#include "ui/database/common_event_widget.h"
 
 CommonEventModel::CommonEventModel(ProjectData& project, lcf::rpg::CommonEvent& data) :
 	RpgBase(project), m_data(data) {

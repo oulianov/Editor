@@ -1,0 +1,86 @@
+# The pages of the QML database: their controls (names, values, ranges),
+# their layout at the window's first size and at the smallest one, and the
+# terms of RPG Maker 2000 for a game made with it (on a copy of the
+# project). Nothing else is saved.
+action actionDatabase
+wait 300
+
+# Attributes: the rates from 0 % (RPG Maker 2003: -99999 % for E) to 100000 %
+tab tabOld_Pages 6
+wait 200
+expect-tab tabOld_Pages Attributes
+expect list > 0001: Sword
+set-control spinA 200000
+expect spinA 100000 %
+set-control spinA -5
+expect spinA 0 %
+set-control spinE -200000
+expect spinE -99999 %
+check-layout
+check-option-spacing 8
+resize 500 360
+check-layout
+# the guide at the page shown
+click Help
+wait 400
+expect helpWindow EasyRPG Editor Help
+close
+wait 200
+
+# Vocabulary: the pages of RPG Maker 2003 (no Battle Actions)
+resize 793 635
+tab tabOld_Pages 13
+wait 200
+expect tabVocabulary Battle | Shops | Shops and Inns | Commands | Statistics
+expect battle_start ""
+expect miss Miss!
+expect gold_recieved_a Found
+expect gold_recieved_b !
+check-layout
+tab tabVocabulary 1
+wait 200
+expect shop_greeting1 Good afternoon, sir.
+check-layout
+tab tabVocabulary 2
+wait 200
+expect inn_a_greeting_1 It is a mere
+check-layout
+tab tabVocabulary 3
+wait 200
+expect wait_on Wait
+check-layout
+tab tabVocabulary 4
+wait 200
+expect health_points HP
+check-layout
+close
+wait 300
+
+# RPG Maker 2000: the terms of its battles, its E rate from 0 %
+open-project-copy
+edit-database-file system/ldb_id 0
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 13
+wait 200
+expect tabVocabulary Battle | Battle Actions | Shops | Shops and Inns | Commands | Statistics
+tab tabVocabulary 0
+wait 200
+expect encounter ""
+expect escape_success ""
+check-layout
+tab tabVocabulary 1
+wait 200
+expect attacking ""
+check-layout
+tab tabVocabulary 4
+wait 200
+expect command_attack ""
+check-layout
+tab tabOld_Pages 6
+wait 200
+set-control spinE -20
+expect spinE 0 %
+close
+quit

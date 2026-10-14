@@ -17,167 +17,66 @@
 
 #pragma once
 
-// Do not include this file! Only include json_t.h
+// Do not include this file! Only the json_t_*.cpp files do, one per type:
+// glaze reflects the whole type there
 
-#include <QObject>
-#include <QVariant>
-// glaze uses `emit` as a name, which Qt defines as a keyword macro
-#pragma push_macro("emit")
-#undef emit
-#include <glaze/json/generic.hpp>
-#pragma pop_macro("emit")
+#include <type_traits>
 
-#include "common/dbstring.h"
-#include "lcf_glaze.h"
-#include "json_view.h"
-#include "json_list_view.h"
+#include "json_node_impl.h"
 #include "json_t.h"
 
 template<typename LCFTYPE>
 JsonT<LCFTYPE>::JsonT(QObject* parent) : Json(parent) {}
 
 template<typename LCFTYPE>
-QString JsonT<LCFTYPE>::str(QString jsonPtr) const {
-	auto res = glz::get<lcf::DBString>(*m_data, jsonPtr.toStdString());
-	if (res) {
-		return ToQString(res.value());
+JsonNode JsonT<LCFTYPE>::node(const QString& jsonPtr) const {
+	JsonNode found;
+	if (!m_data) {
+		return found;
 	}
-
-	auto res2 = glz::get<std::string>(*m_data, jsonPtr.toStdString());
-	if (res2) {
-		return ToQString(res2.value());
-	}
-
-	qDebug() << "Json::str: Not pointing to String: " << jsonPtr;
-
-	return "!BAD POINTER!";
-}
-
-template<typename LCFTYPE>
-int JsonT<LCFTYPE>::num(QString jsonPtr) const {
-	std::string ptr = jsonPtr.toStdString();
-
-	if (auto res = glz::get<int32_t>(*m_data, ptr)) {
-		return res.value().get();
-	}
-
-	if (auto res = glz::get<uint32_t>(*m_data, ptr)) {
-		return static_cast<int>(res.value().get());
-	}
-
-	if (auto res = glz::get<int16_t>(*m_data, ptr)) {
-		return static_cast<int>(res.value().get());
-	}
-
-	if (auto res = glz::get<uint16_t>(*m_data, ptr)) {
-		return static_cast<int>(res.value().get());
-	}
-
-	qDebug() << "Json::num: Not pointing to int: " << jsonPtr;
-
-	return -0xEA51;
-}
-
-template <typename LCFTYPE>
-bool JsonT<LCFTYPE>::boolean(QString jsonPtr) const {
-	auto res = glz::get<bool>(*m_data, jsonPtr.toStdString());
-
-	if (res) {
-		return res.value();
-	}
-
-	qDebug() << "Json::boolean: Not pointing to bool: " << jsonPtr;
-
-	return false;
-}
-
-template<typename LCFTYPE>
-void JsonT<LCFTYPE>::set(QString jsonPtr, const QVariant& value) {
-	bool ok = true;
-	std::string ptr = jsonPtr.toStdString();
-
-	switch (value.typeId()) {
-		case QMetaType::Int:
-			ok = glz::set(m_data, ptr, value.toInt());
-			break;
-		case QMetaType::Double:
-			ok = glz::set(m_data, ptr, value.toDouble());
-			break;
-		case QMetaType::QString: {
-			lcf::DBString s = ToDBString(value.value<QString>());
-			ok = glz::set(m_data, ptr, s);
-
-			if (!ok) {
-				std::string s2 = value.value<QString>().toStdString();
-				ok = glz::set(m_data, ptr, s2);
-			}
-			break;
-		}
-		case QMetaType::Bool: {
-			ok = glz::set(m_data, ptr, value.toBool());
-			break;
-		}
-		default:
-			qDebug() << QString("Json::set: Type %1 unsupported for path %2").arg(value.typeName()).arg(jsonPtr);
-			break;
-	}
-
-	if (!ok) {
-		qDebug() << QString("Json::set: Assignment of type %1 failed for path %2").arg(value.typeName()).arg(jsonPtr);
-	} else {
-		emit valueChanged(jsonPtr);
-	}
-}
-
-template <typename T>
-concept IsVector = requires {
-	typename T::value_type;
-} && std::is_class_v<typename T::value_type>;
-
-template<typename LCFTYPE>
-QVariant JsonT<LCFTYPE>::list(QString jsonPtr) {
-	JsonListView* list_view = nullptr;
-
-	glz::seek([&](auto& val) {
-		using T = std::decay_t<decltype(val)>;
-
-		if constexpr (IsVector<T>) {
-			auto view = new JsonView(this);
-			view->setPathPrefix(jsonPtr);
-			list_view = new JsonListViewT<typename T::value_type>(this, &val, view);
+	glz::seek([&](auto&& value) {
+		using T = std::remove_cvref_t<decltype(value)>;
+		// a bit of a bit array: a proxy, found below from its array
+		if constexpr (!JsonNodes::BitProxy<T>) {
+			found.type = &JsonNodes::typeOf<T>;
+			found.data = const_cast<void*>(static_cast<const void*>(&value));
 		}
 	}, *m_data, jsonPtr.toStdString());
+	if (found.exists()) {
+		return found;
+	}
 
-	return QVariant::fromValue(list_view);
+	// "/items/0/state_set/3": a bit, also beyond the end of the array (it
+	// reads as missing, and grows the array when set)
+	const qsizetype slash = jsonPtr.lastIndexOf(u'/');
+	if (slash < 0) {
+		return found;
+	}
+	bool ok = false;
+	const qsizetype index = jsonPtr.mid(slash + 1).toLongLong(&ok);
+	if (!ok || index < 0) {
+		return found;
+	}
+	JsonNode array = node(jsonPtr.left(slash));
+	if (array.exists() && !array.isBit() && array.type->kind == JsonNodeType::Kind::Bits) {
+		array.bit = index;
+		return array;
+	}
+	return found;
 }
 
 template<typename LCFTYPE>
-QVariant JsonT<LCFTYPE>::subtree(QString jsonPtr) {
-	JsonView* view = new JsonView(this);
-	view->setPathPrefix(jsonPtr);
-	return QVariant::fromValue(view);
-}
-
-template<typename LCFTYPE>
-QString JsonT<LCFTYPE>::toJson(QString jsonPtr) const {
-	std::string buffer{};
-	auto ec = glz::write_json(*m_data, buffer);
-	if (ec) {
-		qDebug() << glz::format_error(ec, buffer);
-		return {};
+bool JsonT<LCFTYPE>::isRpg2k3() const {
+	if constexpr (std::is_same_v<LCFTYPE, lcf::rpg::Database>) {
+		return m_data && m_data->system.ldb_id == 2003;
+	} else {
+		return false;
 	}
-
-	auto view = glz::get_view_json(jsonPtr.toStdString(), buffer);
-	if (view) {
-		return QString::fromUtf8(view->data(), view->size());
-	}
-
-	qDebug() << "Json::toJson: Invalid pointer: " << jsonPtr;
-
-	return "!BAD POINTER!";
 }
 
 template<typename LCFTYPE>
 void JsonT<LCFTYPE>::setData(LCFTYPE* data) {
 	m_data = data;
+	// everything changed: the views read the new data
+	notifyChanged(QString());
 }

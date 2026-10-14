@@ -20,84 +20,69 @@
 #include <QObject>
 #include <QtQmlIntegration>
 
-#include "lcf_glaze.h"
 #include "json.h"
 
 class JsonListView;
 
 /**
- * A lightweight wrapper around a Json object that points at a subpath (pathPrefix).
+ * A Json seen from a pointer (pathPrefix): its pointers are relative to it
+ * ("name" in the view of "/actors/0" is "/actors/0/name"). Json::subtree()
+ * makes them, one per pointer.
+ *
+ * valueChanged(ptr): something at or under ptr changed, ptr relative to the
+ * view ("/name"); "" when it is the whole view (a change above it: the list
+ * holding the entry pasted, the database merged).
  */
 class JsonView : public QObject {
 	Q_OBJECT
 	QML_ELEMENT
-	Q_PROPERTY(QString pathPrefix READ pathPrefix WRITE setPathPrefix NOTIFY pathPrefixChanged)
+	QML_UNCREATABLE("Views are made by Json.subtree()")
+	Q_PROPERTY(QString pathPrefix READ pathPrefix CONSTANT)
+	/** Whether the prefix points at something (an entry beyond the end of its list does not) */
+	Q_PROPERTY(bool valid READ isValid NOTIFY validChanged)
 
 public:
-	explicit JsonView(QObject* parent = nullptr);
+	JsonView(Json* json, const QString& prefix);
 
-	// documentation: see json.h
+	// documentation: see json.h; the pointers are relative to the view
 
-	/**
-	 * @param jsonPtr JSON Pointer to read from
-	 * @return String at the given pointer location
-	 */
 	Q_INVOKABLE QString str(QString jsonPtr) const;
-
-	/**
-	 * @param jsonPtr JSON Pointer to read from
-	 * @return Integer at the given pointer location
-	 */
 	Q_INVOKABLE int num(QString jsonPtr) const;
-
-	/**
-	 * @param jsonPtr JSON Pointer to read from
-	 * @return bool at the given pointer location
-	 */
 	Q_INVOKABLE bool boolean(QString jsonPtr) const;
-
-	/**
-	 * Writes value to the given pointer location
-	 *
-	 * @param jsonPtr JSON Pointer to write to
-	 * @param value Value to write
-	 */
-	// Limited write support. Implement more types in JsonT<LCFTYPE>::set
-	Q_INVOKABLE void set(QString jsonPtr, const QVariant& value);
-
-	/**
-	 * @param jsonPtr JSON Pointer
-	 * @return JsonView rooted at the given pointer location
-	 */
+	Q_INVOKABLE QVariant value(QString jsonPtr) const;
+	Q_INVOKABLE bool set(QString jsonPtr, const QVariant& value);
+	Q_INVOKABLE bool bit(QString jsonPtr, int index, bool missing = false) const;
+	Q_INVOKABLE bool setBit(QString jsonPtr, int index, bool on, bool missing = false);
+	Q_INVOKABLE int size(QString jsonPtr) const;
+	Q_INVOKABLE bool exists(QString jsonPtr) const;
 	Q_INVOKABLE JsonView* subtree(QString jsonPtr);
-
-	/**
-	 * Access std::vector<> data at the given pointer location.
-	 *
-	 * @param jsonPtr JSON Pointer
-	 * @return JsonListView rooted at the given pointer location
-	 */
 	Q_INVOKABLE JsonListView* list(QString jsonPtr);
-
-	/**
-	 * Dump the data given at the pointer location as raw JSON data.
-	 * Only use this as a last resort or for debugging purposes.
-	 *
-	 * @param jsonPtr JSON Pointer
-	 * @return JSON string
-	 */
+	Q_INVOKABLE JsonListView* choices(QString jsonPtr, QString noneText, int noneValue = 0);
 	Q_INVOKABLE QString toJson(QString jsonPtr) const;
+	Q_INVOKABLE void beginBatch();
+	Q_INVOKABLE void endBatch();
 
-	QString pathPrefix() const;
-	void setPathPrefix(QString prefix);
+	/** The pointer of the view, normalized ("/actors/0", "" for the root) */
+	QString pathPrefix() const {
+		return m_pathPrefix;
+	}
+	/** The pointer of a pointer relative to the view */
+	QString path(const QString& jsonPtr) const {
+		return m_pathPrefix + Json::normalize(jsonPtr);
+	}
+	Json* json() const {
+		return m_json;
+	}
+	bool isValid() const;
 
 signals:
-	void pathPrefixChanged();
 	void valueChanged(QString jsonPtr);
-
-public slots:
-	void onValueChanged(QString jsonPtr);
+	/** A change at or above the view: it may point at something now, or no more */
+	void validChanged();
 
 private:
+	void onValueChanged(const QString& jsonPtr);
+
+	Json* m_json;
 	QString m_pathPrefix;
 };

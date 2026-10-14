@@ -4,6 +4,15 @@
     "dependencies": [
         "zlib",
         "inih",
-        "expat"
+        "expat",
+        "ecm",
+        "glaze",
+        {
+            "name": "kddockwidgets",
+            "default-features": false,
+            "features": ["qtquick"]
+        },
+        "kirigami",
+        "qqc2-breeze-style"
     ]
 }

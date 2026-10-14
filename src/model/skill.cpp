@@ -16,7 +16,6 @@
  */
 
 #include "skill.h"
-#include "ui/database/skill_widget.h"
 
 SkillModel::SkillModel(ProjectData& project, lcf::rpg::Skill& data) :
 	RpgBase(project), m_data(data) {

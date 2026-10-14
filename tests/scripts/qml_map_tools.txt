@@ -1,0 +1,132 @@
+# The tools on the QML map canvas (MapCanvas.qml in the window of qml-map):
+# the pen, the rectangle, the ellipse and the fill with autotiles, undo and
+# redo, the selection tool (copy, paste floating, drag, clear, its keys).
+# Run on TestGame-2003 (https://github.com/EasyRPG/TestGame), map 1 (20 x 15,
+# grass); nothing is saved.
+qml-map 1
+action actionLayerLower
+action actionDrawPen
+# the pen: a line of a ground autotile, then 2 x 2 tiles of the palette
+palette 7
+map-drag 2 10 6 10
+expect-tile lower 2 10 4050
+expect-tile lower 6 10 4050
+expect-tile lower 7 10 4000
+palette 0 2 2
+map-click 8 11
+expect-tile lower 8 11 0
+expect-tile lower 9 11 1000
+expect-tile lower 8 12 4000
+expect-tile lower 9 12 4050
+# the frame of the brush follows the pointer, as large as the tiles picked
+map-move 3 3
+expect-brush 3 3 2 2
+expect-cursor PenCursor
+expect labelCell (3, 3)
+
+# rectangle, ellipse and fill
+action actionDrawRectangle
+palette 8
+map-drag 1 12 5 14
+expect-tile lower 1 12 4100
+expect-tile lower 5 14 4100
+expect-tile lower 6 13 4000
+action actionDrawCircle
+palette 2
+map-drag 12 9 17 13
+expect-tile lower 14 11 2000
+expect-tile lower 12 9 4000
+action actionDrawFill
+palette 9
+map-click 3 13
+expect-tile lower 3 13 4150
+expect-tile lower 1 12 4150
+
+# undo and redo, a step each: the window's actions, and their keys from the
+# map (the map does not take them)
+action actionUndo
+expect-tile lower 3 13 4100
+map-key Ctrl+Z
+expect-tile lower 14 11 4000
+action actionRedo
+action actionRedo
+expect-tile lower 14 11 2000
+expect-tile lower 3 13 4150
+
+# a right click stops a stroke: nothing is drawn
+action actionDrawPen
+palette 20
+map-press 10 2
+map-move 12 2
+map-press 12 2 right
+map-release
+map-release
+expect-tile lower 10 2 4000
+expect-tile lower 12 2 4000
+
+# the upper layer
+action actionLayerUpper
+palette 2
+map-drag 10 12 12 12
+expect-tile upper 10 12 10002
+expect-tile upper 12 12 10002
+expect-tile upper 13 12 10000
+
+# the selection tool: a copy floats in the middle of the view until a click
+# outside puts it down, its autotiles as they were
+action actionLayerLower
+action actionDrawSelect
+map-drag 1 12 5 14
+expect-selection 1 12 5 3
+expect-cursor MoveCursor
+map-move 0 0
+expect-cursor SelectCursor
+action actionAreaCopy
+action actionAreaPaste
+expect-floating 8 6 5 3
+expect-selection 8 6 5 3
+map-click 0 0
+expect-floating none
+expect-selection none
+expect-tile lower 8 6 4150
+expect-tile lower 12 8 4150
+expect-tile lower 7 7 4000
+expect-tile lower 13 8 4000
+# the pasted tiles dragged before they are put down, or dropped (Escape)
+map-key Ctrl+V
+expect-floating 8 6 5 3
+map-drag 9 7 11 8
+expect-floating 10 7 5 3
+map-key Escape
+expect-floating none
+expect-tile lower 14 7 4000
+map-key Ctrl+V
+map-drag 9 7 11 8
+expect-floating 10 7 5 3
+map-click 0 14
+expect-tile lower 14 7 4150
+
+# a selection dragged: its tiles go along, the cells left get the lower tile picked
+palette 20
+map-drag 1 12 2 13
+map-move 1 12
+expect-cursor MoveCursor
+map-drag 1 12 1 8
+expect-tile lower 1 8 4150
+expect-tile lower 2 9 4150
+expect-tile lower 1 12 5002
+expect-tile lower 2 13 5002
+expect-tile lower 3 13 4150
+# Clear (Del on the map): the tiles picked over the selection
+map-drag 12 9 13 10
+map-key Del
+expect-tile lower 12 9 5002
+expect-tile lower 13 10 5002
+action actionUndo
+expect-tile lower 13 10 2000
+# Select All, then Escape drops it
+map-key Ctrl+A
+expect-selection 0 0 20 15
+map-key Escape
+expect-selection none
+quit

@@ -1,0 +1,91 @@
+# The view of the QML map canvas: Ctrl + wheel, a pinch and the zoom tool
+# zoom by steps, the cell under the pointer staying there; the keys the map
+# does not take scroll it; a drag past its edges scrolls it; the cursor of
+# each tool. Run on TestGame-2003, map 1 (20 x 15); nothing is saved.
+qml-map 1
+resize 900 640
+action actionLayerLower
+action actionDrawPen
+# maps open at 2, as the map tabs
+expect-zoom 2
+expect labelZoom x2
+
+# Ctrl + wheel over a cell, a step a notch; larger than the view, the map
+# keeps the cell under the pointer (smaller, it is in the middle)
+map-wheel 15 10 120 ctrl
+expect-zoom 4
+expect-cell-under 15 10
+map-wheel 15 10 120 ctrl
+expect-zoom 8
+expect-cell-under 15 10
+map-wheel 4 3 -120 ctrl
+expect-zoom 4
+expect-cell-under 4 3
+map-wheel 4 3 -240 ctrl
+expect-zoom 1
+# half a notch (a trackpad): a step once a notch is turned
+map-wheel 15 10 60 ctrl
+expect-zoom 1
+map-wheel 15 10 60 ctrl
+expect-zoom 2
+# a pinch: a step once the fingers spread (or close) by about 1.4
+pinch map 2
+expect-zoom 4
+pinch map 0.5
+expect-zoom 2
+# the zoom tool: in with a click, out with a right click
+action actionZoom
+expect-cursor ZoomCursor
+map-click 3 3
+expect-zoom 4
+expect-cell-under 3 3
+map-click 3 3 right
+expect-zoom 2
+# no farther than 1/8 and 8
+map-zoom 8
+map-wheel 5 5 120 ctrl
+expect-zoom 8
+map-zoom 0.125
+map-wheel 5 5 -120 ctrl
+expect-zoom 0.125
+
+# larger than the view: the keys the map does not take scroll it
+map-zoom 4
+action actionDrawPen
+expect-cursor PenCursor
+map-scroll 0 0
+map-key Right
+expect-scrolled right
+map-scroll 0 0
+map-key PgDown
+expect-scrolled down
+map-scroll 200 200
+map-key Home
+expect-scrolled up
+
+# a drag past an edge scrolls the view, the stroke going on
+action actionDrawRectangle
+expect-cursor RectangleCursor
+palette 7
+map-scroll 0 0
+map-press 2 2
+map-move-out right 30
+wait 500
+expect-dragging on
+expect-scrolled right
+map-release
+expect-dragging off
+expect-tile lower 2 2 4050
+expect-tile lower 12 2 4050
+# the tools' cursors
+action actionDrawCircle
+expect-cursor CircleCursor
+action actionDrawFill
+expect-cursor FillCursor
+action actionDrawSelect
+expect-cursor SelectCursor
+action actionLayerEvents
+expect-cursor SelectCursor
+action actionDrawPen
+expect-cursor ArrowCursor
+quit

@@ -1,0 +1,136 @@
+# The event layer of the QML map canvas: the selected cell (mouse, arrow
+# keys), the events and the start positions dragged, the new and edited
+# events and the other requests the host answers (double click, Return, the
+# menu), copied, pasted and deleted from the menu and the keys, and the
+# selection tool on events. The menus' actions are enabled as the cell has it.
+# Run on TestGame-2003, map 1; nothing is saved.
+qml-map 1
+action actionLayerEvents
+action actionDrawPen
+map-click 0 0
+expect-cell 0 0
+expect-cursor ArrowCursor
+expect-brush none
+# the arrows move the selected cell, without leaving the map
+map-key Right
+expect-cell 1 0
+map-key Down
+map-key Down
+expect-cell 1 2
+map-key Left
+map-key Left
+expect-cell 0 2
+map-key Up
+map-key Up
+map-key Up
+expect-cell 0 0
+# the status bar: the cell under the pointer and its events
+map-move 4 3
+expect labelCell (4, 3) - Event 28: EV0028
+
+# a double click asks for a new event on a free cell, the event's dialog on an event
+map-double-click 8 12
+expect labelRequest new event 8,12
+map-double-click 4 3
+expect labelRequest edit event 28
+map-click 8 11
+map-key Return
+expect labelRequest new event 8,11
+
+# the menu of an event: New hidden, Paste and the places greyed
+map-click 4 3 right
+expect-shown actionEventNew off
+expect-shown actionEventEdit on
+expect-enabled actionEventCopy on
+expect-enabled actionEventPaste off
+expect-enabled actionPlaceTeleport off
+expect-enabled vehicleMenu off
+menu Copy Event
+wait 300
+# a free cell's: Paste now
+map-click 9 12 right
+expect-shown actionEventNew on
+expect-shown actionEventEdit off
+expect-enabled actionEventCopy off
+expect-enabled actionEventPaste on
+menu Paste Event
+expect-event 9 12 8
+
+# dragged onto a free cell; onto an event it does not move (RPG Maker)
+map-drag 9 12 10 12
+expect-event 10 12 8
+expect-event 9 12 0
+expect-cell 10 12
+map-press 10 12
+map-move 4 3
+expect-cursor ForbiddenCursor
+expect-dragging on
+map-release
+expect-event 10 12 8
+expect-cursor ArrowCursor
+map-press 10 12
+map-move 10 11
+expect-cursor MoveCursor
+map-release
+expect-event 10 11 8
+
+# the keys of the cell selected: cut, paste, delete, undo
+map-key Ctrl+X
+expect-event 10 11 0
+map-click 11 11
+map-key Ctrl+V
+expect-event 11 11 8
+map-key Del
+expect-event 11 11 0
+action actionUndo
+expect-event 11 11 8
+
+# the start positions: placed from the menu, dragged, undone
+wait 300
+map-click 15 12 right
+menu Place Party Starting Position
+expect-start party 1 15 12
+map-drag 15 12 16 12
+expect-start party 1 16 12
+action actionUndo
+expect-start party 1 15 12
+wait 300
+map-click 16 10 right
+menu Place Vehicle Starting Position
+wait 300
+menu Ship
+expect-start ship 1 16 10
+
+# the requests of the menu: a teleport, a test play
+wait 300
+map-click 6 13 right
+menu Place Teleport Event
+expect labelRequest place teleport 6,13
+wait 300
+map-click 6 13 right
+menu Start Game Here
+expect labelRequest start game 6,13
+
+# the selection tool on the event layer: events copied, pasted on the cell
+# clicked, dragged, deleted and undone
+wait 300
+action actionDrawSelect
+map-drag 2 3 4 5
+expect-selection 2 3 3 3
+map-key Ctrl+C
+map-click 2 8 right
+expect-enabled actionAreaPaste on
+menu Paste
+expect-selection 2 8 3 3
+expect-event 2 8 43
+expect-event 4 10 42
+map-drag 3 9 4 9
+expect-selection 3 8 3 3
+expect-event 3 8 43
+expect-event 2 8 0
+map-key Del
+expect-event 3 8 0
+expect-event 5 10 0
+action actionUndo
+expect-event 5 10 42
+quit

@@ -1,0 +1,84 @@
+# The QML database window (Game > Database with the QML database on), on a
+# copy of the project: Apply and OK write what is typed to the database
+# file, Cancel writes nothing (neither to the file nor to the project), and
+# the window opens again on the page and entry shown last.
+open-project-copy
+action actionDatabase
+wait 300
+expect DatabaseDialog Database
+expect tabOld_Pages Characters | Professions | Skills | Items | Monsters | Monster Groups | Attributes | Hero Status | Battle Animation | Battle Animation 2 | Battle screen | Terrain | Chipset | Vocabulary | System | System 2 | Common events
+expect buttonBox OK
+expect buttonBox Apply
+check-layout
+
+# Attributes: the name (the list shows it as it is typed), the type, a rate
+tab tabOld_Pages 6
+wait 200
+expect list > 0001: Sword
+expect lineName Sword
+expect-checked radioWeapon on
+expect-checked radioMagic off
+expect spinA 150 %
+expect spinE 50 %
+set-control lineName Blade
+expect list > 0001: Blade
+set-control radioMagic on
+expect-checked radioWeapon off
+set-control spinB 130
+# RPG Maker 2003: the E rate can be negative (it heals)
+set-control spinE -20
+expect spinE -20 %
+click Apply
+wait 300
+expect-database-file attributes/0/name Blade
+expect-database-file attributes/0/type 1
+expect-database-file attributes/0/b_rate 130
+expect-database-file attributes/0/e_rate -20
+
+# Vocabulary: a term of RPG Maker 2003 only, on its page of terms
+tab tabOld_Pages 13
+wait 200
+expect-tab tabVocabulary Battle
+expect battle_start ""
+expect victory Victory!
+set-control victory "We won!"
+tab tabVocabulary 3
+wait 200
+expect-tab tabVocabulary Commands
+set-control wait_on "Wait!"
+click OK
+wait 300
+expect-database-file terms/victory We won!
+expect-database-file terms/wait_on Wait!
+
+# Cancel: nothing written, nothing kept
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Vocabulary
+expect-tab tabVocabulary Commands
+tab tabVocabulary 0
+wait 200
+expect victory We won!
+set-control victory Lost
+tab tabOld_Pages 6
+wait 200
+click-item list 0005: Fire
+expect lineName Fire
+set-control lineName Nothing
+close
+wait 300
+expect-database-file terms/victory We won!
+expect-database-file attributes/4/name Fire
+
+# the page and the entry shown last
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Attributes
+expect list > 0005: Fire
+expect lineName Fire
+click-item list 0001: Blade
+expect-checked radioMagic on
+expect spinB 130 %
+close
+wait 200
+quit

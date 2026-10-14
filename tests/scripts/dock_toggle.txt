@@ -1,0 +1,17 @@
+# The docks of the main window (the palette, the map tree): the View menu
+# hides and shows them, and the workspace of the project keeps them as
+# they were when it is opened again (the KDDockWidgets layout).
+# Run on TestGame-2003 (https://github.com/EasyRPG/TestGame).
+expect-checked actionPaletteToggle on
+expect-checked actionMapTreeToggle on
+action actionPaletteToggle
+wait 200
+expect-checked actionPaletteToggle off
+open-project
+wait 400
+expect-checked actionPaletteToggle off
+expect-checked actionMapTreeToggle on
+action actionPaletteToggle
+wait 200
+expect-checked actionPaletteToggle on
+quit

@@ -1,0 +1,72 @@
+# The move route of an event page (Custom Pattern: Define Pattern) and the
+# Move Event command: a button inserts its move before the line selected,
+# Delete and the keys remove moves, Cut / Copy / Paste move them, OK keeps
+# the route and Cancel does not. Event 1 of map 1 of TestGame-2003.
+# Nothing is saved.
+open-event 1 1
+expect-enabled comboMoveFrequency off
+expect-enabled pushMovePattern off
+set-control comboMoveType 6
+expect-enabled comboMoveFrequency on
+expect-enabled pushMovePattern on
+click pushMovePattern
+expect MoveRouteDialog Move Route
+expect listMoves > <>
+click Move Up
+click Move Right
+click Wait
+expect listMoves Move Up
+expect listMoves Move Right
+expect listMoves > <>
+check-layout
+# the moves go before the line selected
+focus listMoves
+key Home
+expect listMoves > Move Up
+click Face Down
+expect listMoves Face Down
+key Up
+expect listMoves > Face Down
+key Del
+expect-not listMoves Face Down
+# Cut and Paste move a move
+expect listMoves > Move Up
+key Ctrl+X
+expect-not listMoves Move Up
+key End
+key Ctrl+V
+expect listMoves Move Up
+set-control checkSkippable on
+click OK
+# Cancel forgets what it changed
+click pushMovePattern
+expect listMoves Move Right
+expect listMoves Move Up
+expect-checked checkSkippable on
+click Clear List
+expect-not listMoves Move Right
+close
+click pushMovePattern
+expect listMoves Move Right
+close
+
+# Move Event: its target (searched as the lists of the database) and its
+# frequency too
+focus commands
+key End
+key Return
+type Move Event
+key Return
+expect CommandEditor Move Event
+expect moveTarget Hero
+expect moveFrequency 8
+focus moveTarget
+type this
+key Return
+expect moveTarget This Event
+set-control moveFrequency 6
+click Move Down
+click OK
+expect commands Move Event: This Event, Move Down
+close
+quit

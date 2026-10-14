@@ -5,7 +5,8 @@
 #   builds/macos/package.sh
 #
 # 1. copies the application into BUILD_DIR/dist and puts in it what it uses
-#    from Qt and Homebrew (Qt, its plugins, the libraries), with macdeployqt;
+#    from Qt and Homebrew (Qt, its plugins, the libraries), with macdeployqt,
+#    and the QML modules of its interface (Kirigami, Breeze, KDDockWidgets);
 # 2. signs it: with SIGN_IDENTITY (a Developer ID Application certificate
 #    of the keychain), else for this computer only (ad hoc);
 # 3. notarizes it when Apple credentials are given: NOTARY_PROFILE (saved by
@@ -51,7 +52,25 @@ step "Application"
 rm -rf "$DIST"
 mkdir -p "$DIST"
 ditto "$BUILD_DIR/$NAME.app" "$APP"
-"${QT_DIR:+$QT_DIR/bin/}macdeployqt" "$APP"
+# Kirigami and Breeze where build.sh built them: their QML modules, and the
+# Kirigami platform plugin of Breeze, which macdeployqt does not know
+KDE_LIB="$(sed -n 's/^KF6Kirigami_DIR:PATH=//p' "$BUILD_DIR/CMakeCache.txt")/../.."
+KDE_LIB="$(cd "$KDE_LIB" && pwd)"
+platform="$APP/Contents/PlugIns/kf6/kirigami/platform"
+mkdir -p "$platform"
+cp "$KDE_LIB"/plugins/kf6/kirigami/platform/*.so "$platform/"
+deploy=(-qmldir="$REPO/src" -qmlimport="$KDE_LIB/qml")
+# the Breeze style is chosen in C++ (QQuickStyle): no QML file imports it
+mkdir -p "$APP/Contents/Resources/qml/org/kde"
+cp -R "$KDE_LIB/qml/org/kde/breeze" "$APP/Contents/Resources/qml/org/kde/"
+# the libraries macdeployqt did not find itself: pointed at the Qt inside
+while IFS= read -r -d '' library; do
+	deploy+=(-executable="$library")
+done < <(find "$platform" "$APP/Contents/Resources/qml/org/kde/breeze" \( -name '*.so' -o -name '*.dylib' \) -print0)
+"${QT_DIR:+$QT_DIR/bin/}macdeployqt" "$APP" "${deploy[@]}"
+# the style of Qt Widgets macdeployqt always adds, and Qt Widgets with it:
+# the Editor has no widgets (Qt Quick only)
+rm -rf "$APP/Contents/PlugIns/styles" "$APP/Contents/Frameworks/QtWidgets.framework"
 
 # every program and library of the application
 machos=()
@@ -75,6 +94,15 @@ for file in "${machos[@]}"; do
 	done < <(otool -L "$file" | awk '/^\t/ {sub(/^\t/, ""); sub(/ \(compatibility version .*/, ""); print}' | sort -u)
 done
 [ "$outside" = 0 ] || { echo "The application uses libraries outside it"; exit 1; }
+# nor Qt Widgets
+widgets=0
+for file in "${machos[@]}"; do
+	if otool -L "$file" | grep -q 'QtWidgets'; then
+		echo "$file uses Qt Widgets"
+		widgets=1
+	fi
+done
+[ "$widgets" = 0 ] || { echo "The application uses Qt Widgets"; exit 1; }
 
 # the oldest macOS it runs on: the newest any of its parts needs (Homebrew
 # builds its libraries for the macOS it runs on, the official Qt for 13)

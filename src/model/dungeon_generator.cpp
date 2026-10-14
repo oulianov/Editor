@@ -16,7 +16,7 @@
  */
 
 #include "dungeon_generator.h"
-#include "core.h"
+#include "model/autotile.h"
 #include "defines.h"
 #include "model/map_tools.h"
 #include <algorithm>
@@ -508,59 +508,21 @@ private:
 };
 
 /**
- * The autotile borders, with the rules of MapScene::bind: a D block joins
- * its own terrain, water joins water and animated tiles, the map edge is no
- * border.
+ * The autotile borders, with the rules of the map view (Autotile::bind): a
+ * D block joins its own terrain, water joins water and animated tiles, the
+ * map edge is no border.
  */
 void bindLowerLayer(lcf::rpg::Map& map) {
 	const int w = map.width;
 	const int h = map.height;
-	std::vector<int> terrain(map.lower_layer.size());
-	for (size_t i = 0; i < terrain.size(); i++)
-		terrain[i] = core().translate(map.lower_layer[i]);
-	auto at = [&](int x, int y) {
-		return x < 0 || y < 0 || x >= w || y >= h ? -1 : terrain[static_cast<size_t>(x + y * w)];
-	};
-	auto water = [](int t) { return core().isWater(t) || core().isAnimation(t); };
-
 	for (int y = 0; y < h; y++)
 		for (int x = 0; x < w; x++) {
-			const int t = at(x, y);
-			const bool dblock = core().isDblock(t);
-			if (!dblock && !water(t))
+			const size_t i = static_cast<size_t>(x + y * w);
+			const int t = Autotile::translate(map.lower_layer[i]);
+			if (!Autotile::isDblock(t) && !Autotile::isWater(t) && !Autotile::isAnimation(t))
 				continue;
-			auto border = [&](int nx, int ny) {
-				if (nx < 0 || ny < 0 || nx >= w || ny >= h)
-					return false;
-				return dblock ? at(nx, ny) != t : !water(at(nx, ny));
-			};
-			const int u = border(x, y - 1) ? UP : 0;
-			const int d = border(x, y + 1) ? DOWN : 0;
-			const int l = border(x - 1, y) ? LEFT : 0;
-			const int r = border(x + 1, y) ? RIGHT : 0;
-			const int ul = u + l == 0 && border(x - 1, y - 1) ? UPLEFT : 0;
-			const int ur = u + r == 0 && border(x + 1, y - 1) ? UPRIGHT : 0;
-			const int dl = d + l == 0 && border(x - 1, y + 1) ? DOWNLEFT : 0;
-			const int dr = d + r == 0 && border(x + 1, y + 1) ? DOWNRIGHT : 0;
-			int scode = 0;
-			if (!dblock) {
-				// the corners where deep and shallow water meet
-				auto ab = [&](int nx, int ny) { return core().isABWater(at(nx, ny)); };
-				auto deep = [&](int nx, int ny) { return core().isDWater(at(nx, ny)); };
-				auto any = [&](int nx, int ny) { return core().isWater(at(nx, ny)); };
-				if (core().isDWater(t)) {
-					scode += ab(x, y - 1) && ab(x - 1, y) && ab(x - 1, y - 1) ? UPLEFT : 0;
-					scode += ab(x, y - 1) && ab(x + 1, y) && ab(x + 1, y - 1) ? UPRIGHT : 0;
-					scode += ab(x, y + 1) && ab(x - 1, y) && ab(x - 1, y + 1) ? DOWNRIGHT : 0;
-					scode += ab(x, y + 1) && ab(x + 1, y) && ab(x + 1, y + 1) ? DOWNLEFT : 0;
-				} else {
-					scode += deep(x, y - 1) && deep(x - 1, y) && any(x - 1, y - 1) ? UPLEFT : 0;
-					scode += deep(x, y - 1) && deep(x + 1, y) && any(x + 1, y - 1) ? UPRIGHT : 0;
-					scode += deep(x, y + 1) && deep(x - 1, y) && any(x - 1, y + 1) ? DOWNRIGHT : 0;
-					scode += deep(x, y + 1) && deep(x + 1, y) && any(x + 1, y + 1) ? DOWNLEFT : 0;
-				}
-			}
-			map.lower_layer[static_cast<size_t>(x + y * w)] = core().translate(t, u + d + l + r + ul + ur + dl + dr, scode);
+			// in place: the borders of a tile never change its terrain
+			map.lower_layer[i] = Autotile::bind(map.lower_layer, w, h, x, y);
 		}
 }
 
@@ -585,10 +547,10 @@ std::string check(const lcf::rpg::Map& map, const std::vector<Point>& keep) {
 		return "the layers do not have the size of the map";
 
 	const std::vector<int16_t> ids = tileIds(map);
-	const std::set<int> floors = {core().translate(ids[FloorA]), core().translate(ids[FloorB]), core().translate(ids[FloorC])};
+	const std::set<int> floors = {Autotile::translate(ids[FloorA]), Autotile::translate(ids[FloorB]), Autotile::translate(ids[FloorC])};
 	auto walkable = [&](int x, int y) {
 		const size_t i = static_cast<size_t>(x + y * w);
-		return floors.count(core().translate(map.lower_layer[i])) > 0 && map.upper_layer[i] == no_upper_tile;
+		return floors.count(Autotile::translate(map.lower_layer[i])) > 0 && map.upper_layer[i] == no_upper_tile;
 	};
 
 	std::string problems;
@@ -648,12 +610,12 @@ std::string check(const lcf::rpg::Map& map, const std::vector<Point>& keep) {
 	}
 
 	if (map.generator_surround) {
-		const int ceiling = core().translate(ids[Ceiling]);
+		const int ceiling = Autotile::translate(ids[Ceiling]);
 		for (int i = 0; i < w * h; i++) {
 			const int x = i % w;
 			const int y = i / w;
 			if ((x == 0 || y == 0 || x == w - 1 || y == h - 1)
-					&& core().translate(map.lower_layer[static_cast<size_t>(i)]) != ceiling) {
+					&& Autotile::translate(map.lower_layer[static_cast<size_t>(i)]) != ceiling) {
 				report("border cell " + cell(x, y) + " is not ceiling");
 				break;
 			}
@@ -666,12 +628,12 @@ std::string toText(const lcf::rpg::Map& map) {
 	const std::vector<int16_t> ids = tileIds(map);
 	// the first match wins when two parts use the same tile
 	const std::pair<int, char> parts[] = {
-		{core().translate(ids[Ceiling]), '#'},
-		{core().translate(ids[LowerWall]), 'w'},
-		{core().translate(ids[UpperWall]), 'W'},
-		{core().translate(ids[FloorA]), '.'},
-		{core().translate(ids[FloorB]), 'b'},
-		{core().translate(ids[FloorC]), 'c'},
+		{Autotile::translate(ids[Ceiling]), '#'},
+		{Autotile::translate(ids[LowerWall]), 'w'},
+		{Autotile::translate(ids[UpperWall]), 'W'},
+		{Autotile::translate(ids[FloorA]), '.'},
+		{Autotile::translate(ids[FloorB]), 'b'},
+		{Autotile::translate(ids[FloorC]), 'c'},
 	};
 	std::string text;
 	for (int y = 0; y < map.height; y++) {
@@ -681,7 +643,7 @@ std::string toText(const lcf::rpg::Map& map) {
 			if (i < map.upper_layer.size() && map.upper_layer[i] != no_upper_tile) {
 				c = 'o';
 			} else if (i < map.lower_layer.size()) {
-				const int terrain = core().translate(map.lower_layer[i]);
+				const int terrain = Autotile::translate(map.lower_layer[i]);
 				for (const auto& part : parts)
 					if (part.first == terrain) {
 						c = part.second;

@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <QGraphicsItem>
 #include <lcf/rpg/database.h>
 #include <lcf/rpg/actor.h>
 #include "rpg_base.h"
@@ -50,10 +49,6 @@ public:
 	lcf::rpg::Actor& data();
 
 	const lcf::rpg::Actor& data() const;
-
-	QGraphicsItem* face() const;
-
-	QGraphicsItem* character() const;
 
 	QPixmap preview() override;
 

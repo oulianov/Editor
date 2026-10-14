@@ -19,9 +19,10 @@
 #include <QPixmapCache>
 #include <lcf/rpg/item.h>
 #include "common/image_loader.h"
-#include "ui/database/actor_widget.h"
 #include "common/dbstring.h"
 #include "common/sortfilter_proxy_models.h"
+#include "model/project.h"
+#include "model/project_data.h"
 
 ActorModel::ActorModel(ProjectData& project, lcf::rpg::Actor& data) :
 	RpgBase(project), m_data(&data) {

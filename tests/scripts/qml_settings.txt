@@ -1,0 +1,60 @@
+# The Settings window (QML) writes every option on OK, in the script's own
+# settings, and shows them again when opened; Cancel writes nothing. The
+# language: qml_language.txt.
+action actionSettings
+wait 300
+expect SettingsDialog Settings
+expect-checked checkReloadExternal off
+expect-checked checkSearchCache off
+expect-checked checkAnimateTiles on
+expect-checked checkCommandColors on
+expect-checked checkCommandStripes on
+set-control checkReloadExternal on
+set-control checkSearchCache on
+set-control checkAnimateTiles off
+set-control checkCommandColors off
+set-control checkCommandStripes off
+set-control lineRtpPath /nonexistent/rtp
+set-control linePlayerPath /nonexistent/player
+set-control lineScriptEditor "cursor://file/{file}:{line}"
+click OK
+wait 200
+
+action actionSettings
+wait 300
+expect-checked checkReloadExternal on
+expect-checked checkSearchCache on
+expect-checked checkAnimateTiles off
+expect-checked checkCommandColors off
+expect-checked checkCommandStripes off
+# a folder ends with a slash
+expect lineRtpPath /nonexistent/rtp/
+expect linePlayerPath /nonexistent/player
+expect lineScriptEditor cursor://file/{file}:{line}
+expect comboLanguage System Language
+# Cancel: nothing written
+set-control checkReloadExternal off
+set-control checkCommandStripes on
+set-control lineScriptEditor ""
+close
+wait 200
+
+action actionSettings
+wait 300
+expect-checked checkReloadExternal on
+expect-checked checkCommandStripes off
+expect lineScriptEditor cursor://file/{file}:{line}
+# the preset menu of the script editor
+click scriptEditorPresets
+wait 200
+menu Visual Studio Code
+wait 200
+expect lineScriptEditor vscode://
+click OK
+wait 200
+
+action actionSettings
+wait 300
+expect lineScriptEditor vscode://
+close
+quit

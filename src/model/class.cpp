@@ -16,7 +16,6 @@
  */
 
 #include "class.h"
-#include "ui/database/class_widget.h"
 
 ClassModel::ClassModel(ProjectData& project, lcf::rpg::Class& data) :
 	RpgBase(project), m_data(data) {

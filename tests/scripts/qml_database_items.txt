@@ -1,0 +1,112 @@
+# The Items page of the QML database, on a copy of the project: its
+# fields (those of the item's type, texts that follow
+# it, the attributes, conditions and users of an item, who can use the
+# items: heroes or classes, the attack of each hero in its window), written
+# to the database file by OK; Cancel writes nothing.
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 3
+wait 300
+expect-tab tabOld_Pages Items
+expect list > 0001: Potion
+expect itemName Potion
+expect itemType Medicine
+expect itemUses One Use (Normal)
+expect-checked radioSingleAlly on
+expect spinHp 50
+expect-checked radioUserHero on
+check-layout
+
+# medicine
+set-control itemName Tonic
+expect list > 0001: Tonic
+set-control itemPrice 2000000
+expect itemPrice 999999
+set-control itemUses 3
+set-control radioAllAllies on
+set-control spinHpRate 25
+set-control checkDeadOnly on
+set-control checkState1 on
+set-control checkUser2 on
+expect listUsers [ ] | Zack
+
+# a weapon: its attack, attributes and conditions
+click-item list 0017: Club
+expect itemType Weapon
+expect-enabled comboSkill off
+set-control radioBothHands on
+set-control spinHit 75
+set-control spinAttack -1500
+expect spinAttack -999
+set-control checkAttackAll on
+set-control checkAttribute3 on
+set-control radioStateReverse on
+set-control spinStateChance 40
+set-control checkUseSkill on
+expect-enabled comboSkill on
+set-control radioMessageSkill on
+# how each hero attacks, in its window
+click pushBattlerAnimation
+wait 400
+expect BattlerAnimationDialog Weapon Animation
+set-control comboMovement 3
+expect comboMovement Move to Target
+set-control comboAttacks 2
+set-control groupRanged on
+set-control comboTrajectory 1
+set-control comboTargeting 2
+click OK
+wait 300
+
+# the type changes the fields: armor resists
+set-control itemType 2
+expect radioStateNormal Resist
+set-control checkHalfMp on
+
+# the classes use the items instead of the heroes (the whole database)
+set-control radioUserClass on
+expect listUsers (No Class)
+set-control checkUser0 off
+click OK
+wait 300
+expect-database-file items/0/name Tonic
+expect-database-file items/0/price 999999
+expect-database-file items/0/uses 3
+expect-database-file items/0/entire_party true
+expect-database-file items/0/recover_hp_rate 25
+expect-database-file items/0/ko_only true
+expect-database-file items/0/state_set/1 true
+expect-database-file items/0/actor_set/2 true
+expect-database-file items/16/type 2
+expect-database-file items/16/two_handed true
+expect-database-file items/16/hit 75
+expect-database-file items/16/atk_points1 -999
+expect-database-file items/16/attack_all true
+expect-database-file items/16/attribute_set/3 true
+expect-database-file items/16/reverse_state_effect true
+expect-database-file items/16/state_chance 40
+expect-database-file items/16/use_skill true
+expect-database-file items/16/using_message 1
+expect-database-file items/16/half_sp_cost true
+expect-database-file items/16/animation_data/0/movement 3
+expect-database-file items/16/animation_data/0/attacks 2
+expect-database-file items/16/animation_data/0/ranged true
+expect-database-file items/16/ranged_trajectory 1
+expect-database-file items/16/ranged_target 2
+expect-database-file items/16/class_set/0 false
+expect-database-file system/equipment_setting 1
+
+# Cancel: nothing written
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Items
+expect itemName Club
+set-control itemName Nothing
+set-control radioUserHero on
+set-control checkArmorCursed on
+close
+wait 300
+expect-database-file items/16/name Club
+expect-database-file system/equipment_setting 1
+quit

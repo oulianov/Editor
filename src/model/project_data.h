@@ -44,6 +44,15 @@ public:
 		return m_treemap;
 	}
 
+	/** Data of a project (not an empty copy) */
+	bool hasProject() const {
+		return m_project != nullptr;
+	}
+
+	Project& project() {
+		return *m_project;
+	}
+
 	const Project& project() const {
 		return *m_project;
 	}

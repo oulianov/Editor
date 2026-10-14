@@ -6,7 +6,7 @@ project-import:
 project-close: project-development-close
 exit: application-exit
 save: document-save
-revert: view-refresh
+revert: document-revert (the map back to its file: a page and a return arrow)
 properties: configure
 settings: a gear, drawn for the Editor (Project Settings)
 layer-low: based on layer-visible-on
@@ -63,3 +63,13 @@ select-all
 help-contents
 variable
 switch
+
+The icon themes ezbright and ezdark (QIcon::fromTheme, the QML windows):
+dialog-information, dialog-question, dialog-warning, dialog-error: drawn for the
+Editor in the colors of Breeze (the messages of the QML windows)
+
+In the icon themes ezbright and ezdark only (icon.name), drawn for the
+Editor in 16 (small) and 32 (icons) px, in the colors of the text:
+media-playback-start, media-playback-pause, media-playback-stop (Play,
+Pause, Stop of the pickers and the Jukebox)
+edit-reset (the reset button of a slider: Ez.SliderField)

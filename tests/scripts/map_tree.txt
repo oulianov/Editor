@@ -1,0 +1,62 @@
+# The map tree (MapTreeModel, the map and area actions of ProjectController):
+# what the tree shows, what the actions offer on a node, and the questions
+# they ask. Cancel and No change nothing: nothing is written.
+# Run on TestGame-2003 (https://github.com/EasyRPG/TestGame): the area Area
+# Test (9) is the only area, map 4 holds the dungeon maps.
+expect treeMap RPG Maker 2003 Test suite
+expect treeMap Area Test
+expect treeMap Dungeon Room
+
+# what can be done on the project, a map and an area
+select-map 0
+expect-enabled actionMapNew on
+expect-enabled actionMapDelete off
+expect-enabled actionAreaNew off
+expect-enabled actionMapPaste off
+select-map 9
+expect treeMap > Area Test
+expect-enabled actionAreaProperties on
+expect-enabled actionAreaDelete on
+expect-enabled actionMapNew off
+expect-enabled actionMapCopy off
+select-map 4
+expect treeMap > Generate Dungeon
+expect-enabled actionMapCopy on
+expect-enabled actionAreaNew on
+expect-enabled actionAreaDelete off
+
+# New Map asks for its properties first, with the first free id: Cancel
+# creates nothing
+action actionMapNew
+expect lineName MAP0022
+close
+wait 200
+expect-not treeMap MAP0022
+# Create Area too
+action actionAreaNew
+expect lineName AREA0022
+close
+wait 200
+expect-not treeMap AREA0022
+
+# Copy Map reads the map: Paste is offered on maps and the project
+action actionMapCopy
+expect-enabled actionMapPaste on
+select-map 0
+expect-enabled actionMapPaste on
+select-map 9
+expect-enabled actionMapPaste off
+
+# Delete asks first: No keeps the map with its children, and the area
+select-map 4
+action actionMapDelete
+click No
+wait 200
+expect treeMap > Generate Dungeon
+expect treeMap Dungeon Room
+select-map 9
+action actionAreaDelete
+click No
+wait 200
+expect treeMap > Area Test
+quit

@@ -1,0 +1,67 @@
+# The Battle Animation 2 page of the QML database window (on a copy of the
+# project): the speed, a pose (its label, type, graphic row picked on the
+# rows of the graphic) and a weapon; the first 12 poses keep their names.
+# OK writes them, Cancel writes nothing.
+open-project-copy
+action actionDatabase
+wait 300
+tab tabOld_Pages 9
+wait 300
+expect-tab tabOld_Pages Battle Animation 2
+expect list > 0001: Male Hero
+expect lineName Male Hero
+expect-checked radioSpeedSlow on
+expect listPoses > 01 | Idle Stance | Male Hero B (3)
+expect editPoseName Idle Stance
+expect-checked radioPoseCharacter on
+expect spinPoseIndex 3
+expect-enabled comboPoseAnimation off
+check-layout
+resize 1280 900
+check-layout
+
+set-control lineName Knight
+set-control radioSpeedFast on
+# the row of the graphic picked on its rows: the second line, second row
+view-click picturePoseRows 72 72
+expect spinPoseIndex 6
+expect listPoses > 01 | Idle Stance | Male Hero B (6)
+# a pose of its own: its name, a battle animation
+focus listPoses
+key End
+expect listPoses > 32 |
+set-control editPoseName Cheer
+set-control radioPoseAnimation on
+expect-enabled spinPoseIndex off
+set-control comboPoseAnimation 2
+expect listPoses > 32 | Cheer | Animation: Punch C
+# a weapon
+tab tabBattlerAnimation 1
+wait 100
+expect listWeapons > 01 | Sword | Weapon (1)
+set-control editWeaponName Saber
+set-control spinWeaponIndex 4
+set-control comboWeaponPreview 3
+click OK
+wait 300
+expect-database-file battleranimations/0/name Knight
+expect-database-file battleranimations/0/speed 8
+expect-database-file battleranimations/0/poses/0/battler_index 5
+expect-database-file battleranimations/0/poses/31/name Cheer
+expect-database-file battleranimations/0/poses/31/animation_type 1
+expect-database-file battleranimations/0/poses/31/battle_animation_id 3
+expect-database-file battleranimations/0/weapons/0/name Saber
+expect-database-file battleranimations/0/weapons/0/weapon_index 3
+
+# Cancel: nothing written
+action actionDatabase
+wait 300
+expect-tab tabOld_Pages Battle Animation 2
+expect lineName Knight
+set-control lineName Nobody
+set-control radioSpeedSlow on
+close
+wait 300
+expect-database-file battleranimations/0/name Knight
+expect-database-file battleranimations/0/speed 8
+quit

@@ -18,7 +18,7 @@
 #include "enemy.h"
 #include "model/project.h"
 #include "model/project_data.h"
-#include "ui/database/enemy_graphics.h"
+#include "enemy_graphics.h"
 #include "common/dbstring.h"
 
 EnemyModel::EnemyModel(ProjectData& project, lcf::rpg::Enemy& data) :

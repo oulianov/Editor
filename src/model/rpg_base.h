@@ -17,8 +17,8 @@
 
 #pragma once
 
+#include <QObject>
 #include <QPixmap>
-#include <QMessageBox>
 
 class ProjectData;
 

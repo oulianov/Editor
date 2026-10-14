@@ -6,14 +6,17 @@
 #   builds/macos/build.sh --tests    # also the GUI tests (and their game)
 #
 # Homebrew gives Qt 6 and the libraries. The Editor is built in BUILD_DIR,
-# with liblcf cloned into lib/liblcf and built alongside.
+# with liblcf cloned into lib/liblcf and built alongside. The libraries of its
+# QML interface, KDE's Kirigami with its Breeze style and KDDockWidgets, are
+# built once per Qt into DEPS_DIR/kde (they use Qt's private headers).
 #
 # Homebrew builds for the macOS it runs on: an Editor made with its Qt runs on
 # that macOS and later only. With QT_DIR, an official Qt (from qt.io or aqt),
 # ICU and inih are built once into DEPS_DIR, and they and the Editor are for
 # MACOSX_DEPLOYMENT_TARGET and later, for both kinds of Mac.
 #
-#   DEPS_DIR   with QT_DIR: where ICU and inih go (default: ../editor-deps, next to the repository)
+#   DEPS_DIR   where Kirigami, Breeze and KDDockWidgets go, and with QT_DIR
+#              ICU, inih and glaze (default: ../editor-deps, next to the repository)
 #   BUILD_DIR  where the Editor is built     (default: build)
 #   JOBS       parallel jobs                 (default: all cores)
 #   QT_DIR     an official Qt, e.g. ~/Qt/6.10.1/macos (default: Homebrew's)
@@ -34,6 +37,11 @@ TESTS=OFF
 # The versions the Editor is known to build with
 ICU_VERSION=78.3
 INIH=r62
+GLAZE=v9.0.0
+# as upstream (builds/vcpkg_overlay)
+KDDOCKWIDGETS=v2.4.0
+KIRIGAMI=v6.23.0
+BREEZE=v6.6.1
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
@@ -42,9 +50,10 @@ xcode-select -p >/dev/null 2>&1 || { echo "Install Xcode's command line tools fi
 command -v brew >/dev/null || { echo "Install Homebrew first: https://brew.sh"; exit 1; }
 BREW="$(brew --prefix)"
 QT_DIR="${QT_DIR:-}"
-formulas=(cmake ninja)
+# KDE's CMake modules: also for an official Qt (CMake files only)
+formulas=(cmake ninja extra-cmake-modules)
 if [ -z "$QT_DIR" ]; then
-	formulas+=(qtbase qtmultimedia qtsvg qttools icu4c@78 inih expat)
+	formulas+=(qtbase qtdeclarative qtshadertools qtmultimedia qtsvg qttools icu4c@78 inih expat glaze)
 fi
 # only what is missing: the installed ones are not upgraded
 missing=()
@@ -95,6 +104,16 @@ if [ -n "$QT_DIR" ]; then
 				--disable-tests --disable-samples --disable-extras --with-data-packaging=static \
 			&& make -j "$JOBS" && make install)
 	fi
+	if [ -e "$DEPS_DIR/install/share/glaze/glazeConfig.cmake" ]; then
+		echo "glaze: already installed"
+	else
+		step "glaze"
+		download glaze "https://github.com/stephenberry/glaze/archive/refs/tags/$GLAZE.tar.gz"
+		# headers only
+		cmake -S "$DEPS_DIR/src/glaze" -B "$DEPS_DIR/src/glaze/build" -G Ninja \
+			-DCMAKE_INSTALL_PREFIX="$DEPS_DIR/install" -Dglaze_DEVELOPER_MODE=OFF -Dglaze_BUILD_EXAMPLES=OFF
+		cmake --install "$DEPS_DIR/src/glaze/build"
+	fi
 	if [ -e "$DEPS_DIR/install/lib/libinih.a" ]; then
 		echo "inih: already installed"
 	else
@@ -108,7 +127,54 @@ if [ -n "$QT_DIR" ]; then
 	fi
 fi
 
-options=()
+# The QML interface: KDE's Kirigami and its Breeze style, and the docks of
+# KDDockWidgets. They use Qt's private headers: built once per Qt and kinds of
+# Mac, into a folder of their own
+QMAKE="${QT_DIR:-$BREW}/bin/qmake"
+QT_VERSION="$("$QMAKE" -query QT_VERSION)"
+if [ -n "$QT_DIR" ]; then
+	KDE_DIR="$DEPS_DIR/kde/qt$QT_VERSION-${ARCHS//;/+}-macos$TARGET"
+else
+	KDE_DIR="$DEPS_DIR/kde/qt$QT_VERSION-homebrew"
+fi
+ECM_DIR="$(brew --prefix extra-cmake-modules)/share/ECM/cmake"
+kde_stamp="$KDDOCKWIDGETS $KIRIGAMI $BREEZE $("$QMAKE" -query QT_INSTALL_PREFIX)"
+if [ "$(cat "$KDE_DIR/stamp" 2>/dev/null)" = "$kde_stamp" ]; then
+	echo "Kirigami, Breeze, KDDockWidgets: already built for Qt $QT_VERSION"
+else
+	rm -rf "$KDE_DIR"
+	kde_build() {
+		local name="$1"
+		shift
+		local arch=()
+		[ -n "$QT_DIR" ] && arch=(-DCMAKE_OSX_ARCHITECTURES="$ARCHS")
+		cmake -S "$DEPS_DIR/src/$name" -B "$DEPS_DIR/src/$name/build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+			-DCMAKE_INSTALL_PREFIX="$KDE_DIR" -DCMAKE_PREFIX_PATH="$PREFIX_PATH;$KDE_DIR" -DECM_DIR="$ECM_DIR" \
+			-DBUILD_TESTING=OFF ${portable[@]+"${portable[@]}"} ${arch[@]+"${arch[@]}"} "$@"
+		cmake --build "$DEPS_DIR/src/$name/build" -j "$JOBS"
+		cmake --install "$DEPS_DIR/src/$name/build"
+	}
+	step "KDDockWidgets"
+	download "kddockwidgets-$KDDOCKWIDGETS" "https://github.com/KDAB/KDDockWidgets/archive/refs/tags/$KDDOCKWIDGETS.tar.gz"
+	# Qt Quick only; KDBindings and nlohmann_json come with it
+	kde_build "kddockwidgets-$KDDOCKWIDGETS" -DKDDockWidgets_QT6=ON -DKDDockWidgets_FRONTENDS=qtquick \
+		-DKDDockWidgets_TESTS=OFF -DKDDockWidgets_EXAMPLES=OFF -DKDDockWidgets_PYTHON_BINDINGS=OFF \
+		-DCMAKE_DISABLE_FIND_PACKAGE_spdlog=ON -DCMAKE_DISABLE_FIND_PACKAGE_fmt=ON
+	step "Kirigami"
+	download "kirigami-$KIRIGAMI" "https://github.com/KDE/kirigami/archive/refs/tags/$KIRIGAMI.tar.gz"
+	# without its qmllint settings, as builds/vcpkg_overlay/kirigami
+	sed -i '' 's/^configure_file(qmllint.ini.in/#&/' "$DEPS_DIR/src/kirigami-$KIRIGAMI/CMakeLists.txt"
+	kde_build "kirigami-$KIRIGAMI" -DBUILD_EXAMPLES=OFF -DBUILD_QCH=OFF
+	step "Breeze style"
+	download "qqc2-breeze-style-$BREEZE" "https://github.com/KDE/qqc2-breeze-style/archive/refs/tags/$BREEZE.tar.gz"
+	# without the Plasma desktop integration, as builds/vcpkg_overlay/qqc2-breeze-style
+	patch -d "$DEPS_DIR/src/qqc2-breeze-style-$BREEZE" -p1 < "$REPO/builds/vcpkg_overlay/qqc2-breeze-style/no-plasma-integration.patch"
+	kde_build "qqc2-breeze-style-$BREEZE"
+	echo "$kde_stamp" > "$KDE_DIR/stamp"
+fi
+PREFIX_PATH="$PREFIX_PATH;$KDE_DIR"
+
+options=(-DECM_DIR="$ECM_DIR")
 if [ -n "$QT_DIR" ]; then
 	options+=("${portable[@]}" -DCMAKE_OSX_ARCHITECTURES="$ARCHS" -DICU_ROOT="$ICU")
 else

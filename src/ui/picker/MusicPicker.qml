@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import QtQuick
-import QtQuick.Layouts
-import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
@@ -12,26 +10,34 @@ PickerBase {
 
     directory: "Music"
 
-    Controls.SpinBox {
+    Ez.SpinBox {
         id: fadeinInput
+        from: 0
+        to: 10000
         value: root.pickerData.fadein
         Kirigami.FormData.label: "Fade In:"
     }
 
-    Controls.SpinBox {
+    Ez.SpinBox {
         id: volumeInput
+        from: 0
+        to: 100
         value: root.pickerData.volume
         Kirigami.FormData.label: "Volume:"
     }
 
-    Controls.SpinBox {
+    Ez.SpinBox {
         id: tempoInput
+        from: 50
+        to: 150
         value: root.pickerData.tempo
         Kirigami.FormData.label: "Pitch:"
     }
 
-    Controls.SpinBox {
+    Ez.SpinBox {
         id: balanceInput
+        from: 0
+        to: 100
         value: root.pickerData.balance
         Kirigami.FormData.label: "Balance:"
     }

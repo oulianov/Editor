@@ -55,7 +55,7 @@ struct Point {
  * by a new dungeon. The cells in keep stay walkable and reachable (an
  * entrance, events); those on the border are moved inside it. The same map,
  * seed and keep always give the same dungeon.
- * Binds the autotiles with core().translate(): no chipset is needed.
+ * Binds the autotiles with Autotile::bind(): no chipset is needed.
  */
 void generate(lcf::rpg::Map& map, uint32_t seed, const std::vector<Point>& keep = {});
 

@@ -16,129 +16,56 @@
  */
 
 #include "automation.h"
-#include <functional>
 #include "screenshot.h"
 #include "core.h"
+#include "common/dbstring.h"
 #include "common/logging.h"
-#include "ui/main_window.h"
-#include "ui/map/map_scene.h"
-#include "ui/common/map_preview.h"
-#include "defines.h"
+#include "controller/action_catalog.h"
+#include "controller/edit_locks.h"
+#include "controller/project_controller.h"
 #include "model/dungeon_generator.h"
+#include "model/game_runner.h"
 #include "model/map_tools.h"
-#include <QAbstractButton>
-#include <QButtonGroup>
-#include <QSpinBox>
-#include <QStandardItemModel>
-#include <QAction>
-#include <QComboBox>
-#include <QKeyEvent>
-#include <QMouseEvent>
-#include <QLabel>
-#include <QLayout>
-#include <QLineEdit>
-#include <QSpinBox>
-#include <QPlainTextEdit>
-#include <QTextEdit>
-#include <QGroupBox>
-#include <QRadioButton>
-#include <QCheckBox>
-#include <QStyleOptionButton>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QTreeWidget>
-#include <QTreeWidgetItemIterator>
-#include <QApplication>
-#include <QDialog>
+#include "model/project.h"
+#include "qmlbinding/json_t.h"
+#include "qmlbinding/project_data_gadget.h"
+#include "qmlbinding/qml_dialog_service.h"
+#include "qmlbinding/qml_host.h"
+#include "qmlbinding/resource_windows.h"
+#include "ui/event/command_editor_registry.h"
+#include "ui/map/map_canvas_host.h"
+#include "ui/picker/pickers.h"
+#include "ui/shell/qml_engine.h"
+#include "ui/shell/qml_shell.h"
+#include <lcf/ldb/reader.h>
+#include <QDir>
+#include <QDirIterator>
+#include <QEventLoop>
 #include <QFile>
-#include <QHeaderView>
-#include <QTabBar>
-#include <QTabWidget>
+#include <QFileInfo>
+#include <QGuiApplication>
+#include <QIcon>
+#include <QMetaEnum>
+#include <QPalette>
+#include <QPointer>
+#include <QQmlApplicationEngine>
+#include <QQmlComponent>
+#include <QQuickStyle>
+#include <QQuickWindow>
+#include <QStyleHints>
 #include <QTimer>
-#include <QAbstractSlider>
-#include <qpa/qwindowsysteminterface.h>
-#include <QtGui/private/qguiapplication_p.h>
-#include <QtGui/private/qshortcutmap_p.h>
-#include <QWindow>
-#include <QPaintEvent>
-#include <QScrollBar>
-#include <QAbstractScrollArea>
-#include <QWheelEvent>
-#include <QElapsedTimer>
-#include <QGraphicsView>
-#include <QMenu>
-#include "ui/common/import_image_dialog.h"
-#include <QNativeGestureEvent>
-#include <QPointingDevice>
-#include <cmath>
-#include <QContextMenuEvent>
-#include <QAbstractItemView>
 #include <array>
-#include <optional>
+#include <memory>
 
 namespace {
+
 // Time for layouts and paints to settle between two commands
 constexpr int step_delay = 100;
-
-QString describe(const QWidget* widget) {
-	QString name = widget->objectName();
-	// unnamed widgets and Qt's inner ones (qt_...): name the closest parent
-	// named in the Editor, which tells where it is
-	const QWidget* parent = widget->parentWidget();
-	while ((name.isEmpty() || name.startsWith(QLatin1String("qt_"))) && parent) {
-		if (!parent->objectName().isEmpty() && !parent->objectName().startsWith(QLatin1String("qt_"))) {
-			name = parent->objectName() + "/" + (name.isEmpty() ? QStringLiteral("…") : name);
-			break;
-		}
-		parent = parent->parentWidget();
-	}
-	return QString("%1 (%2)").arg(name, widget->metaObject()->className());
-}
 
 bool toInt(const QString& text, int& value) {
 	bool ok = false;
 	value = text.toInt(&ok);
 	return ok;
-}
-
-// Counts the paint events of all the widgets (what a scroll repaints)
-class PaintCounter : public QObject {
-public:
-	int count = 0;
-	qint64 pixels = 0;
-	QMap<QString, int> widgets;
-
-	bool eventFilter(QObject* watched, QEvent* event) override {
-		if (event->type() == QEvent::Paint && watched->isWidgetType()) {
-			const QRect rect = static_cast<QPaintEvent*>(event)->rect();
-			count++;
-			pixels += qint64(rect.width()) * rect.height();
-			widgets[describe(static_cast<QWidget*>(watched))]++;
-		}
-		return false;
-	}
-	QString summary() const {
-		QList<std::pair<int, QString>> sorted;
-		for (auto it = widgets.begin(); it != widgets.end(); ++it) {
-			sorted.append({it.value(), it.key()});
-		}
-		std::sort(sorted.begin(), sorted.end(), std::greater<>());
-		QStringList top;
-		for (int i = 0; i < std::min<qsizetype>(8, sorted.size()); i++) {
-			top << QString("%1 x%2").arg(sorted[i].second).arg(sorted[i].first);
-		}
-		return top.join(", ");
-	}
-};
-
-// A mouse event on a cell of a map preview (Select Location, Define Area Boundaries, Select Tile)
-void previewMouse(MapPreview* preview, QEvent::Type type, int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons) {
-	const QPoint pos = preview->cellPosition(x, y);
-	QWidget* viewport = preview->viewport();
-	// sent at once: the position is only right until the view scrolls for the next cell
-	QMouseEvent event(type, pos, viewport->mapToGlobal(pos), button, buttons, Qt::NoModifier);
-	QApplication::sendEvent(viewport, &event);
 }
 
 // The words of a script line; "a b" is one word and "" an empty one
@@ -169,47 +96,6 @@ QStringList splitLine(const QString& line) {
 	return words;
 }
 
-// The check boxes and radio buttons of window with what they draw: their box
-// can lie outside the widget
-QList<std::pair<QAbstractButton*, QRect>> optionBounds(QWidget* window) {
-	QList<std::pair<QAbstractButton*, QRect>> options;
-	for (auto* button : window->findChildren<QAbstractButton*>()) {
-		const bool checkbox = qobject_cast<QCheckBox*>(button);
-		if ((!checkbox && !qobject_cast<QRadioButton*>(button)) || !button->isVisibleTo(window)) continue;
-		QStyleOptionButton option;
-		option.initFrom(button);
-		if (button->testAttribute(Qt::WA_MacSmallSize)) option.state |= QStyle::State_Small;
-		if (button->testAttribute(Qt::WA_MacMiniSize)) option.state |= QStyle::State_Mini;
-		option.text = button->text();
-		const QRect indicator = button->style()->subElementRect(checkbox ? QStyle::SE_CheckBoxIndicator :
-			QStyle::SE_RadioButtonIndicator, &option, button);
-		options.append({button, button->rect().united(indicator).translated(button->pos())});
-	}
-	return options;
-}
-
-/** The space between two options of one column (negative: they overlap); none when side by side */
-std::optional<int> optionClearance(const std::pair<QAbstractButton*, QRect>& first, const std::pair<QAbstractButton*, QRect>& second) {
-	const auto& [a, bounds_a] = first;
-	const auto& [b, bounds_b] = second;
-	if (a->parentWidget() != b->parentWidget() || bounds_a.left() > bounds_b.right() || bounds_b.left() > bounds_a.right()) {
-		return std::nullopt;
-	}
-	return std::max(bounds_a.top(), bounds_b.top()) - std::min(bounds_a.bottom(), bounds_b.bottom()) - 1;
-}
-
-QString rectText(const QRect& rect) {
-	return QString("%1,%2 %3x%4").arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
-}
-
-// A mouse event on a graphics view, at a point of its scene
-void viewMouse(QGraphicsView* view, QEvent::Type type, QPointF scene_pos, Qt::MouseButton button, Qt::MouseButtons buttons) {
-	const QPoint pos = view->mapFromScene(scene_pos);
-	QWidget* viewport = view->viewport();
-	QMouseEvent event(type, pos, viewport->mapToGlobal(pos), button, buttons, Qt::NoModifier);
-	QApplication::sendEvent(viewport, &event);
-}
-
 // The map of the last generate-dungeon, for the expect-dungeon-* commands
 struct GeneratedDungeon {
 	lcf::rpg::Map map;
@@ -234,23 +120,36 @@ lcf::rpg::Map dungeonSettings(int mode, int width, int height) {
 	return map;
 }
 
-// A mouse event on a cell of the map (posted: a double click opens a dialog)
-void mapMouse(MapScene* scene, QEvent::Type type, int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons) {
-	QGraphicsView* view = scene->views().value(0);
-	if (!view) {
-		return;
+// The colors of a dark mode (Fusion's), for the platforms that have none to
+// give (offscreen): the windows are checked in dark as the users see them
+QPalette darkPalette() {
+	const QColor window(50, 50, 50);
+	const QColor base = window.darker(140);
+	const QColor text(Qt::white);
+	const QColor disabled_text(130, 130, 130);
+	QPalette palette(text, window, window.lighter(150), window.darker(150), window.darker(130), text, text, base, window);
+	palette.setColor(QPalette::AlternateBase, window.darker(110));
+	palette.setColor(QPalette::Highlight, QColor(48, 140, 198));
+	palette.setColor(QPalette::HighlightedText, text);
+	palette.setColor(QPalette::Accent, QColor(48, 140, 198));
+	palette.setColor(QPalette::Link, QColor(80, 170, 230));
+	palette.setColor(QPalette::LinkVisited, QColor(170, 130, 220));
+	palette.setColor(QPalette::ToolTipBase, base);
+	palette.setColor(QPalette::ToolTipText, text);
+	QColor placeholder = text;
+	placeholder.setAlpha(128);
+	palette.setColor(QPalette::PlaceholderText, placeholder);
+	for (auto role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText, QPalette::HighlightedText}) {
+		palette.setColor(QPalette::Disabled, role, disabled_text);
 	}
-	const double size = core().tileSize() * static_cast<double>(scene->scale());
-	const QPointF scene_pos((x + 0.5) * size, (y + 0.5) * size);
-	view->ensureVisible(QRectF(scene_pos, QSizeF(1, 1)), 0, 0);
-	const QPoint pos = view->mapFromScene(scene_pos);
-	QWidget* viewport = view->viewport();
-	QApplication::postEvent(viewport, new QMouseEvent(type, pos, viewport->mapToGlobal(pos), button, buttons, Qt::NoModifier));
+	palette.setColor(QPalette::Disabled, QPalette::Base, window);
+	palette.setColor(QPalette::Disabled, QPalette::Highlight, QColor(145, 145, 145));
+	return palette;
 }
 }
 
-Automation::Automation(MainWindow& window, const QString& script_file, QObject* parent) :
-	QObject(parent), m_window(window), m_file(script_file)
+Automation::Automation(QmlShell& window, const QString& script_file, QObject* parent) :
+	QObject(parent), m_window(window), m_quick([this](const QString& message) { fail(message); }), m_file(script_file)
 {
 	QFile file(script_file);
 	if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -279,6 +178,13 @@ void Automation::step() {
 			continue;
 		}
 		QStringList args = splitLine(line);
+		// a folder of the script's own, empty when it starts (main.cpp)
+		const QString script_dir = qEnvironmentVariable("EASYRPG_EDITOR_SCRIPT_DIR");
+		for (QString& arg : args) {
+			if (!script_dir.isEmpty()) {
+				arg.replace(QStringLiteral("$SCRIPT_DIR"), script_dir);
+			}
+		}
 		qCInfo(lcAutomation).noquote() << QString("%1:%2: %3").arg(m_file).arg(m_line).arg(line);
 
 		if (args[0] == "quit") {
@@ -314,9 +220,352 @@ bool Automation::run(const QStringList& args) {
 		qCInfo(lcAutomation).noquote() << args.mid(1).join(' ');
 		return true;
 	}
-	if (cmd == "open-project" && args.size() == 2) {
-		m_window.LoadProject(args[1]);
+	if (cmd == "expect-locks" && args.size() >= 2) {
+		// what the editors open hold (EditLocks), in the order taken
+		QStringList held;
+		for (const EditLock& lock : EditLocks::instance().locks()) {
+			switch (lock.kind) {
+			case EditLock::Event:
+				held << QStringLiteral("event:%1").arg(lock.map_id);
+				break;
+			case EditLock::Database:
+				held << QStringLiteral("database");
+				break;
+			case EditLock::Dialog:
+				held << QStringLiteral("dialog");
+				break;
+			}
+		}
+		const QString shown = held.isEmpty() ? QStringLiteral("none") : held.join(u' ');
+		const QString expected = args.mid(1).join(u' ');
+		if (shown != expected) {
+			fail(QStringLiteral("the locks held are \"%1\", not \"%2\"").arg(shown, expected));
+			return false;
+		}
+		return true;
+	}
+	// a window of the QML interface in front: its own commands
+	if (QQuickWindow* quick = AutomationQuickDriver::frontWindow()) {
+		bool handled = false;
+		const bool ok = m_quick.run(quick, args, &handled);
+		if (handled) {
+			return ok;
+		}
+	}
+	if (cmd == "qml-open" && args.size() >= 2) {
+		// a window of the QML module, over the main window (tests of its
+		// controls), with its properties: list=switches
+		QVariantMap properties;
+		for (const QString& arg : args.mid(2)) {
+			const qsizetype equals = arg.indexOf(u'=');
+			if (equals <= 0) {
+				fail("usage: qml-open TYPE [PROPERTY=VALUE]...");
+				return false;
+			}
+			properties.insert(arg.left(equals), arg.mid(equals + 1));
+		}
+		return QmlHost::open(args[1], m_window.handle(), properties) != nullptr;
+	}
+	if (cmd == "menu-role" && args.size() == 3) {
+		// macOS's application menu, which no picture shows: the item of an
+		// action with its role in the native menu bar (quit, about,
+		// preferences, application: a copy there), the action in a menu of
+		// the window's menu bar too, then chosen from the native one
+		QmlShell* shell = &m_window;
+		QQuickWindow* window = shell->window();
+		if (!window) {
+			fail("menu-role checks the QML main window");
+			return false;
+		}
+		const QString& name = args[1];
+		const QString& role = args[2];
+		using Role = ActionCatalog::MenuRole;
+		const Role expected = role == "quit" ? Role::Quit : role == "about" ? Role::About
+			: role == "preferences" ? Role::Preferences : Role::None;
+		if (!shell->actions()->contains(name) || shell->actions()->menuRole(name) != expected) {
+			fail(QString("the catalog gives %1 no role %2").arg(name, role));
+			return false;
+		}
+		QVariant places;
+		QMetaObject::invokeMethod(window, "menuPlaces", Q_RETURN_ARG(QVariant, places), Q_ARG(QVariant, name), Q_ARG(QVariant, role));
+		const QVariantMap found = places.toMap();
+		if (!found.value("native").toBool()) {
+			fail(QString("no item of %1 with the role %2 in the native menu bar").arg(name, role));
+			return false;
+		}
+		if (found.value("menu").toString().isEmpty()) {
+			fail(QString("%1 is in no menu of the menu bar").arg(name));
+			return false;
+		}
+		qCInfo(lcAutomation).noquote() << QString("  %1 | %2 | %3%4").arg(name, role, found.value("menu").toString(),
+			found.value("shown").toBool() ? QStringLiteral(" | shown by the platform") : QString());
+		// queued: the window it opens must not block the script
+		QMetaObject::invokeMethod(window, [window, name, role] {
+			QMetaObject::invokeMethod(window, "triggerNativeItem", Q_ARG(QVariant, name), Q_ARG(QVariant, role));
+		}, Qt::QueuedConnection);
+		return true;
+	}
+	if ((cmd == "float-dock" && args.size() == 3 && (args[2] == "on" || args[2] == "off"))
+			|| (cmd == "expect-dock" && args.size() == 3)) {
+		// a dock of the main window in a window of its own (or back), its state:
+		// docked, floating, closed
+		QString state;
+		if (QQuickWindow* window = m_window.window()) {
+			QVariant result;
+			if (cmd == "float-dock")
+				QMetaObject::invokeMethod(window, "setDockFloating", Q_RETURN_ARG(QVariant, result),
+					Q_ARG(QVariant, args[1]), Q_ARG(QVariant, args[2] == "on"));
+			else
+				QMetaObject::invokeMethod(window, "dockState", Q_RETURN_ARG(QVariant, result), Q_ARG(QVariant, args[1]));
+			state = result.typeId() == QMetaType::Bool ? (result.toBool() ? "ok" : "") : result.toString();
+		}
+		if (state.isEmpty()) {
+			fail("no dock " + args[1]);
+			return false;
+		}
+		if (cmd == "expect-dock" && state != args[2]) {
+			fail(QString("the dock %1 is %2, not %3").arg(args[1], state, args[2]));
+			return false;
+		}
+		return true;
+	}
+
+	if (cmd == "open-project-copy" && args.size() == 1) {
+		// the project's files (not its pictures and sounds) in a folder of
+		// their own: what is saved goes there
+		if (!core().project()) {
+			fail("no project");
+			return false;
+		}
+		const QDir source = core().project()->projectDir();
+		// a copy of a copy: the first one goes once the project left it
+		auto copy = std::make_unique<QTemporaryDir>();
+		if (!copy->isValid()) {
+			fail("cannot make a temporary folder");
+			return false;
+		}
+		for (const QFileInfo& file : source.entryInfoList(QDir::Files | QDir::Hidden)) {
+			if (!QFile::copy(file.absoluteFilePath(), copy->filePath(file.fileName()))) {
+				fail("cannot copy " + file.fileName());
+				return false;
+			}
+		}
+		m_window.LoadProject(copy->path());
+		const bool opened = core().project() && core().project()->projectDir() == QDir(copy->path());
+		m_projectCopy = std::move(copy);
+		return opened;
+	}
+	if ((cmd == "edit-database-file" || cmd == "expect-database-file" || cmd == "expect-database") && args.size() >= 3) {
+		return databaseFile(args);
+	}
+	if (cmd == "qml-map" && args.size() == 2 && toInt(args[1], a)) {
+		// the QML map canvas and its palette on a map, in a window over the
+		// main one: the controller's document, its tab's when it is open
+		auto* controller = m_window.projectController();
+		if (!controller || !m_window.hasMap(a)) {
+			fail(QString("no map %1").arg(a));
+			return false;
+		}
+		return MapCanvasHost::open(*controller, a, m_window.handle()) != nullptr;
+	}
+	if (cmd == "dialog-service" && args.size() >= 3) {
+		// a question of the QML DialogService, as a controller asks it
+		const QString& kind = args[1];
+		const bool stale = kind == "stale" || kind == "stale-no-reload";
+		const bool question = kind == "question" || kind == "question-cancel";
+		const bool message = kind == "information" || kind == "warning" || kind == "error";
+		if (!stale && ((!question && !message) || args.size() != 4)) {
+			fail("usage: dialog-service stale|stale-no-reload WHAT [CONFLICT]..., "
+				"dialog-service question|question-cancel|information|warning|error TITLE TEXT");
+			return false;
+		}
+		QPointer<QWindow> over = AutomationQuickDriver::frontWindow();
+		if (!over) {
+			over = m_window.handle();
+		}
+		m_answer = QStringLiteral("(waiting)");
+		// queued: the window waits for its answer, the script goes on in it
+		QMetaObject::invokeMethod(this, [this, args, over] {
+			QmlDialogService dialogs(over);
+			const QString& kind = args[1];
+			if (kind.startsWith(QLatin1String("stale"))) {
+				const StaleChoice choice = dialogs.askStale(args[2], kind == "stale", args.mid(3));
+				m_answer = choice == StaleChoice::Reload ? QStringLiteral("reload")
+					: choice == StaleChoice::Overwrite ? QStringLiteral("overwrite") : QStringLiteral("cancel");
+			} else if (kind.startsWith(QLatin1String("question"))) {
+				const auto answer = dialogs.question(args[2], args[3], kind == "question-cancel"
+					? DialogService::Buttons::YesNoCancel : DialogService::Buttons::YesNo);
+				m_answer = answer == DialogService::Answer::Yes ? QStringLiteral("yes")
+					: answer == DialogService::Answer::No ? QStringLiteral("no") : QStringLiteral("cancel");
+			} else {
+				if (kind == "information") {
+					dialogs.information(args[2], args[3]);
+				} else if (kind == "warning") {
+					dialogs.warning(args[2], args[3]);
+				} else {
+					dialogs.error(args[2], args[3]);
+				}
+				m_answer = QStringLiteral("ok");
+			}
+			qCInfo(lcAutomation).noquote() << "answer:" << m_answer;
+		}, Qt::QueuedConnection);
+		return true;
+	}
+	if (cmd == "expect-player" && args.size() == 2) {
+		// the Player test play runs: none, or one whose path has the text
+		const QString player = GameRunner::findPlayer();
+		const bool none = args[1] == QLatin1String("none");
+		if (none ? !player.isEmpty() : !player.contains(args[1])) {
+			fail(QStringLiteral("the Player found is \"%1\"").arg(player));
+			return false;
+		}
+		return true;
+	}
+	if ((cmd == "pick-file" && args.size() >= 3) || (cmd == "pick-entry" && args.size() >= 3 && args.size() <= 4)) {
+		// a picker as the windows open it (Pickers), over the window in front;
+		// its answer for expect-answer: the choice, or cancel
+		QPointer<QObject> over = AutomationQuickDriver::frontWindow();
+		if (!over) {
+			over = m_window.handle();
+		}
+		m_answer = QStringLiteral("(waiting)");
+		QMetaObject::invokeMethod(this, [this, args, over] {
+			if (args[0] == "pick-file") {
+				Pickers::FileRequest request;
+				request.folder = args[1];
+				bool ok = false;
+				const int preview = QMetaEnum::fromType<Pickers::Preview>().keyToValue(args[2].toLatin1(), &ok);
+				request.preview = ok ? static_cast<Pickers::Preview>(preview) : Pickers::Preview::Image;
+				// NAME and INDEX, then the settings of a sound as in the data
+				// (volume=81...)
+				QStringList positional;
+				for (const QString& arg : args.mid(3)) {
+					const QString key = arg.section(u'=', 0, 0);
+					const int value = arg.section(u'=', 1).toInt();
+					if (!arg.contains(u'=')) {
+						positional << arg;
+					} else if (key == QLatin1String("fadein")) {
+						request.current.fadeIn = value;
+					} else if (key == QLatin1String("volume")) {
+						request.current.volume = value;
+					} else if (key == QLatin1String("tempo")) {
+						request.current.tempo = value;
+					} else if (key == QLatin1String("balance")) {
+						request.current.balance = value;
+					}
+				}
+				request.current.name = positional.value(0);
+				request.current.index = positional.value(1).toInt();
+				auto text = [](const Pickers::FileChoice& choice) {
+					return QStringList{choice.name, QString::number(choice.index), QString::number(choice.direction),
+						QString::number(choice.pattern), QString::number(choice.hue), QString::number(choice.fadeIn),
+						QString::number(choice.volume), QString::number(choice.tempo), QString::number(choice.balance)}.join(u':');
+				};
+				bool applied = false;
+				// Apply: the choice given while the picker stays
+				const auto choice = Pickers::pickFile(over, request, [&](const Pickers::FileChoice& given) {
+					applied = true;
+					m_answer = QStringLiteral("applied:") + text(given);
+				});
+				if (choice) {
+					m_answer = text(*choice);
+				} else if (!applied) {
+					m_answer = QStringLiteral("cancel");
+				}
+			} else if (core().project()) {
+				Pickers::EntryRequest request;
+				request.list = args[1];
+				request.id = args[2].toInt();
+				request.none = args.value(3) == QLatin1String("none");
+				const auto id = Pickers::pickEntry(over, core().project()->projectData(), request);
+				m_answer = id ? QString::number(*id) : QStringLiteral("cancel");
+			}
+			qCInfo(lcAutomation).noquote() << "answer:" << m_answer;
+		}, Qt::QueuedConnection);
+		return true;
+	}
+	if (cmd == "pick-location" && args.size() >= 4 && args.size() <= 6) {
+		// the map location picker as the windows open it, over the window in
+		// front: MAP X Y [DIRECTION] [fixed]; its answer map:x:y:direction
+		QPointer<QObject> over = AutomationQuickDriver::frontWindow();
+		if (!over) {
+			over = m_window.handle();
+		}
+		Pickers::LocationRequest request;
+		request.current = {args[1].toInt(), args[2].toInt(), args[3].toInt(), 0};
+		for (const QString& arg : args.mid(4)) {
+			if (arg == QLatin1String("fixed")) {
+				request.fixedMap = true;
+			} else {
+				request.facing = true;
+				request.current.direction = arg.toInt();
+			}
+		}
+		m_answer = QStringLiteral("(waiting)");
+		QMetaObject::invokeMethod(this, [this, request, over] {
+			const auto chosen = Pickers::pickLocation(over, request);
+			m_answer = chosen ? QStringLiteral("%1:%2:%3:%4").arg(chosen->map).arg(chosen->x).arg(chosen->y).arg(chosen->direction)
+				: QStringLiteral("cancel");
+			qCInfo(lcAutomation).noquote() << "answer:" << m_answer;
+		}, Qt::QueuedConnection);
+		return true;
+	}
+	if (cmd == "expect-answer" && args.size() == 2) {
+		if (m_answer != args[1]) {
+			fail(QStringLiteral("the answer is \"%1\", not \"%2\"").arg(m_answer, args[1]));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "color-scheme" && args.size() == 2 && (args[1] == "dark" || args[1] == "light")) {
+		// the windows in dark (or light) where the platform cannot be asked
+		// (offscreen): its colors and the icons drawn for them
+		static const QPalette system_palette = QGuiApplication::palette();
+		const bool dark = args[1] == "dark";
+		// on a display: the windows of the platform too (its scheme asked)
+		QGuiApplication::styleHints()->setColorScheme(dark ? Qt::ColorScheme::Dark : Qt::ColorScheme::Light);
+		QGuiApplication::setPalette(dark ? darkPalette() : system_palette);
+		QIcon::setThemeName(dark ? QStringLiteral("ezdark") : QStringLiteral("ezbright"));
+		return true;
+	}
+	if (cmd == "open-project" && args.size() <= 2) {
+		// without a folder: the project open, opened again (none open: the
+		// copy the script made)
+		const QString folder = args.size() == 2 ? args[1]
+			: core().project() ? core().project()->projectDir().absolutePath()
+			: m_projectCopy ? m_projectCopy->path() : QString();
+		if (folder.isEmpty()) {
+			fail("no project open");
+			return false;
+		}
+		m_window.LoadProject(folder);
 		return core().project() != nullptr;
+	}
+	if (cmd == "reload-tree" && args.size() == 1) {
+		// as when another program changed the map tree
+		return m_window.projectController()->reloadTreeMap();
+	}
+	if (cmd == "open-copy" && args.size() == 1) {
+		// the project copied in the script's folder: what the script writes
+		// in it (settings of the export...) stays there
+		const QString script_dir = qEnvironmentVariable("EASYRPG_EDITOR_SCRIPT_DIR");
+		if (!core().project() || script_dir.isEmpty()) {
+			fail("no project, or no folder of the script");
+			return false;
+		}
+		const QDir from = core().project()->projectDir();
+		const QString to = QDir(script_dir).filePath(from.dirName());
+		QDirIterator it(from.absolutePath(), QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+		while (it.hasNext()) {
+			const QString file = it.next();
+			const QString target = QDir(to).filePath(from.relativeFilePath(file));
+			if (!QDir().mkpath(QFileInfo(target).absolutePath()) || !QFile::copy(file, target)) {
+				fail("cannot copy " + file);
+				return false;
+			}
+		}
+		m_window.LoadProject(to);
+		return core().project() && core().project()->projectDir().absolutePath() == QDir(to).absolutePath();
 	}
 	if (cmd == "open-map" && args.size() == 2 && toInt(args[1], a)) {
 		if (!m_window.hasMap(a)) {
@@ -331,758 +580,95 @@ bool Automation::run(const QStringList& args) {
 			fail(QString("no map %1").arg(a));
 			return false;
 		}
-		m_window.openScene(a);
-		MapScene* scene = m_window.currentScene();
-		const lcf::rpg::Event* event = scene ? scene->findEvent(b) : nullptr;
-		if (!event) {
+		// its map shown, then the event (modal)
+		if (!m_window.editMapEvent(a, b)) {
 			fail(QString("no event %1 on map %2").arg(b).arg(a));
 			return false;
 		}
-		scene->editEvent(*event);
 		return true;
 	}
-	if (cmd == "action" && (args.size() == 2 || args.size() == 3)) {
-		// a dialog's own action first (the one of the page shown), then the
-		// map shown: each open map has its own menu actions
-		MapScene* scene = m_window.currentScene();
-		QAction* action = nullptr;
-		if (QWidget* window = Screenshot::activeWindow(); window && window != &m_window) {
-			for (auto* candidate : window->findChildren<QAction*>(args[1])) {
-				auto* owner = qobject_cast<QWidget*>(candidate->parent());
-				if (owner && owner->isVisibleTo(window)) {
-					action = candidate;
-					break;
-				}
-			}
-		}
-		action = action ? action : (scene ? scene->findChild<QAction*>(args[1]) : nullptr);
-		action = action ? action : m_window.findChild<QAction*>(args[1]);
-		if (!action) {
-			fail("no action " + args[1]);
-			return false;
-		}
-		if (!action->isEnabled()) {
+	if (cmd == "action" && args.size() == 3 && m_window.actions()->contains(args[1])) {
+		// a setting of the main window: checked or unchecked, whatever its state
+		QmlShell& shell = m_window;
+		ActionCatalog* actions = shell.actions();
+		if (!actions->isEnabled(args[1])) {
 			fail("the action " + args[1] + " is disabled");
 			return false;
 		}
-		if (args.size() == 3) {
-			// a setting: check or uncheck, whatever its current state
-			if (!action->isCheckable() || (args[2] != "on" && args[2] != "off")) {
-				return false;
-			}
-			action->setChecked(args[2] == "on");
-			return true;
+		if (!actions->isCheckable(args[1]) || (args[2] != "on" && args[2] != "off")) {
+			return false;
+		}
+		if (actions->isChecked(args[1]) != (args[2] == "on")) {
+			shell.trigger(args[1], args[2] == "on");
+		}
+		return true;
+	}
+	if (cmd == "action" && args.size() == 2) {
+		// an action of the main window, from a window over it too
+		ActionCatalog* actions = m_window.actions();
+		if (!actions->contains(args[1])) {
+			fail("no action " + args[1]);
+			return false;
+		}
+		if (!actions->isEnabled(args[1])) {
+			fail("the action " + args[1] + " is disabled");
+			return false;
 		}
 		// queued: an action opening a dialog must not block the script
-		QMetaObject::invokeMethod(action, &QAction::trigger, Qt::QueuedConnection);
+		QMetaObject::invokeMethod(&m_window, [shell = &m_window, name = args[1]] { shell->actions()->trigger(name); }, Qt::QueuedConnection);
 		return true;
 	}
-	if (cmd == "tab" && args.size() == 3 && toInt(args[2], a)) {
-		QWidget* window = Screenshot::activeWindow();
-		auto* tabs = window ? window->findChild<QTabWidget*>(args[1]) : nullptr;
-		if (!tabs || a < 0 || a >= tabs->count()) {
-			fail(QString("no tab %1 in %2").arg(a).arg(args[1]));
-			return false;
-		}
-		tabs->setCurrentIndex(a);
-		return true;
-	}
-	if (cmd == "resize" && args.size() == 3 && toInt(args[1], a) && toInt(args[2], b)) {
-		QWidget* window = Screenshot::activeWindow();
-		if (!window) {
-			return false;
-		}
-		window->resize(a, b);
-		return true;
-	}
+
 	if (cmd == "screenshot" && args.size() <= 2) {
-		return !Screenshot::save(nullptr, args.value(1)).isEmpty();
+		return !Screenshot::save(m_window.window(), args.value(1)).isEmpty();
 	}
-	if (cmd == "screenshot-menu" && args.size() == 2) {
-		// the menu (or the searchable list) shown: a window of its own,
-		// outside the window's screenshot
-		QWidget* menu = QApplication::activePopupWidget();
-		if (!menu || !menu->grab().save(args[1])) {
-			fail("no menu shown");
+	if (cmd == "check-command-editors" && args.size() == 1) {
+		// the editor of every command, on a new one, loads without a warning
+		if (!core().project()) {
+			fail("no project");
 			return false;
 		}
-		return true;
+		const QStringList problems = CommandEditorRegistry::checkEditors(core().project()->projectData());
+		for (const QString& problem : problems) {
+			fail(problem);
+		}
+		return problems.isEmpty();
 	}
-	if (cmd == "check-layout" && args.size() == 1) {
-		QWidget* window = Screenshot::activeWindow();
-		if (!window) {
-			return false;
-		}
-		int problems = checkLayout(window);
-		// the window itself: smaller than its layout squeezes everything
-		const QSize minimum = window->layout() ? window->layout()->totalMinimumSize() : QSize();
-		if (window->width() < minimum.width() || window->height() < minimum.height()) {
-			qCWarning(lcAutomation).noquote() << QString("%1 is %2x%3, smaller than its layout (%4x%5)")
-				.arg(describe(window)).arg(window->width()).arg(window->height()).arg(minimum.width()).arg(minimum.height());
-			problems++;
-		}
-		m_failures += problems;
-		qCInfo(lcAutomation).noquote() << QString("layout of %1 (%2x%3, minimum %4x%5): %6 problem(s)").arg(describe(window))
-			.arg(window->width()).arg(window->height()).arg(window->minimumWidth()).arg(window->minimumHeight()).arg(problems);
-		return true;
-	}
-	if (cmd == "check-option-spacing" && args.size() == 2 && toInt(args[1], a) && a >= 0) {
-		QWidget* window = Screenshot::activeWindow();
-		if (!window) return false;
-		const auto options = optionBounds(window);
-		for (qsizetype i = 0; i < options.size(); ++i) {
-			for (qsizetype j = i + 1; j < options.size(); ++j) {
-				const auto gap = optionClearance(options[i], options[j]);
-				if (gap && *gap < a) fail(QString("options %1 and %2 have %3px clearance, require %4px (%5 and %6)")
-					.arg(describe(options[i].first), describe(options[j].first)).arg(*gap).arg(a)
-					.arg(rectText(options[i].second), rectText(options[j].second)));
-			}
-		}
-		return true;
-	}
-	if (cmd == "focus" && args.size() == 2) {
-		QWidget* widget = findWidget(args[1]);
-		if (!widget) {
-			fail("no widget " + args[1]);
-			return false;
-		}
-		widget->activateWindow();
-		widget->setFocus(Qt::OtherFocusReason);
-		return true;
-	}
-	if (cmd == "select-command" && args.size() == 2 && toInt(args[1], a)) {
-		auto* tree = qobject_cast<QTreeWidget*>(findWidget(QStringLiteral("commands")));
-		if (!tree) {
-			fail("no event command list");
-			return false;
-		}
-		for (QTreeWidgetItemIterator it(tree); *it; ++it) {
-			if ((*it)->text(1).toInt() == a) {
-				tree->setCurrentItem(*it);
-				tree->scrollToItem(*it);
-				tree->setFocus(Qt::OtherFocusReason);
-				return true;
-			}
-		}
-		fail(QString("no event command at index %1").arg(a));
-		return false;
-	}
-	if (cmd == "key" && args.size() == 2) {
-		QKeySequence sequence = QKeySequence::fromString(args[1]);
-		QWidget* target = keyTarget();
-		if (sequence.isEmpty() || !target) {
-			return false;
-		}
-		const QKeyCombination combination = sequence[0];
-		qCDebug(lcAutomation) << "key" << sequence << "to" << target;
-		// queued: a key opening a dialog must not block the script
-		QMetaObject::invokeMethod(target, [target, combination] {
-			// as when typed: the shortcuts first (QShortcut, menu actions),
-			// unless the widget with the focus takes the key
-			// a key goes to the active window: the one of the target
-			if (QWindow* window = target->window()->windowHandle(); window && QGuiApplication::focusWindow() != window) {
-				QWindowSystemInterface::handleFocusWindowChanged<QWindowSystemInterface::SynchronousDelivery>(window);
-			}
-			QKeyEvent press(QEvent::KeyPress, combination.key(), combination.keyboardModifiers());
-			if (QGuiApplicationPrivate::instance()->shortcutMap.tryShortcut(&press)) {
-				return;
-			}
-			QApplication::sendEvent(target, &press);
-			QKeyEvent release(QEvent::KeyRelease, combination.key(), combination.keyboardModifiers());
-			QApplication::sendEvent(target, &release);
-		}, Qt::QueuedConnection);
-		return true;
-	}
-	if (cmd == "type" && args.size() >= 2) {
-		QWidget* target = keyTarget();
-		if (!target) {
-			fail("nothing has the focus");
-			return false;
-		}
-		for (QChar c : args.mid(1).join(' ')) {
-			QApplication::postEvent(target, new QKeyEvent(QEvent::KeyPress, 0, Qt::NoModifier, QString(c)));
-			QApplication::postEvent(target, new QKeyEvent(QEvent::KeyRelease, 0, Qt::NoModifier, QString(c)));
-		}
-		return true;
-	}
-	if (cmd == "click" && args.size() >= 2) {
-		// the buttons of a pop-up shown first (the codes of a message)
-		QWidget* window = QApplication::activePopupWidget();
-		if (!window) {
-			window = Screenshot::activeWindow();
-		}
-		const QString name = args.mid(1).join(' ');
-		QAbstractButton* found = nullptr;
-		for (auto* button : window ? window->findChildren<QAbstractButton*>() : QList<QAbstractButton*>()) {
-			QString text = button->text().remove('&');
-			if (button->isVisibleTo(window) && (button->objectName() == name || text == name || text == name + "...")) {
-				found = button;
-				break;
-			}
-		}
-		if (!found) {
-			fail("no button " + name);
-			return false;
-		}
-		// queued: a button opening a dialog must not block the script
-		QMetaObject::invokeMethod(found, &QAbstractButton::click, Qt::QueuedConnection);
-		return true;
-	}
-	if (cmd == "context-menu" && args.size() == 2) {
-		// the menu of a right click on the widget (on its current line for a list)
-		QWidget* widget = findWidget(args[1]);
-		if (!widget) {
-			fail("no widget " + args[1]);
-			return false;
-		}
-		QWidget* target = widget;
-		QPoint pos = widget->rect().center();
-		if (auto* view = qobject_cast<QAbstractItemView*>(widget)) {
-			target = view->viewport();
-			pos = view->currentIndex().isValid() ? view->visualRect(view->currentIndex()).center() : target->rect().center();
-		}
-		// posted: the menu runs its own loop, the script goes on in it
-		QApplication::postEvent(target, new QContextMenuEvent(QContextMenuEvent::Mouse, pos, target->mapToGlobal(pos)));
-		return true;
-	}
-	if (cmd == "dump-menu" && args.size() <= 2) {
-		// each item of the menu shown (or of a menu by object name, such as a
-		// menu of the menu bar): its text, its shortcut, whether it has an
-		// icon, whether it is greyed, its tooltip; the separators as "--"
-		auto* menu = args.size() == 2 ? m_window.findChild<QMenu*>(args[1])
-			: qobject_cast<QMenu*>(QApplication::activePopupWidget());
-		if (!menu) {
-			fail(args.size() == 2 ? "no menu " + args[1] : QString("no menu shown"));
-			return false;
-		}
-		for (QAction* action : menu->actions()) {
-			if (action->isSeparator()) {
-				if (args.size() == 2)
-					qCInfo(lcAutomation).noquote() << "  --";
-				continue;
-			}
-			const QString tip = action->toolTip() != action->text().remove('&') ? " | " + action->toolTip() : QString();
-			qCInfo(lcAutomation).noquote() << QString("  %1 | %2 | %3%4%5").arg(action->text().remove('&'),
-				action->shortcut().toString(QKeySequence::PortableText), action->icon().isNull() ? "-" : "icon",
-				action->isEnabled() ? "" : " | greyed", tip);
-		}
-		return true;
-	}
-	if (cmd == "close-menu" && args.size() == 1) {
-		if (QWidget* popup = QApplication::activePopupWidget()) {
-			popup->close();
-		}
-		return true;
-	}
-	if (cmd == "menu" && args.size() >= 2) {
-		// an item of the pop-up menu shown (the menu of a button, a context menu), by its text
-		auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
-		const QString text = args.mid(1).join(' ');
-		for (QAction* action : menu ? menu->actions() : QList<QAction*>()) {
-			const QString label = action->text().remove('&');
-			if (action->isEnabled() && (label == text || label == text + "...")) {
-				// chosen like with the keyboard: the menu closes, then the item runs
-				menu->setActiveAction(action);
-				QApplication::postEvent(menu, new QKeyEvent(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier));
-				return true;
-			}
-		}
-		fail("no menu item " + text);
-		return false;
-	}
-	if ((cmd == "click-item" || cmd == "double-click-item") && args.size() >= 3) {
-		// a list view (database lists): the lines of its model
-		if (auto* view = qobject_cast<QAbstractItemView*>(findWidget(args[1]));
-				view && !qobject_cast<QTreeWidget*>(view) && view->model()) {
-			const QString text = args.mid(2).join(' ');
-			QAbstractItemModel* model = view->model();
-			QModelIndexList found = model->match(model->index(0, 0), Qt::DisplayRole, text, 1, Qt::MatchExactly);
-			if (found.isEmpty()) {
-				found = model->match(model->index(0, 0), Qt::DisplayRole, text, 1, Qt::MatchContains);
-			}
-			if (found.isEmpty()) {
-				fail(QString("no line \"%1\" in %2").arg(text, args[1]));
-				return false;
-			}
-			view->scrollTo(found.first());
-			const QPoint pos = view->visualRect(found.first()).center();
-			const QPoint global = view->viewport()->mapToGlobal(pos);
-			QApplication::postEvent(view->viewport(), new QMouseEvent(QEvent::MouseButtonPress, pos, global, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier));
-			QApplication::postEvent(view->viewport(), new QMouseEvent(QEvent::MouseButtonRelease, pos, global, Qt::LeftButton, Qt::NoButton, Qt::NoModifier));
-			return true;
-		}
-		// a mouse click on the line showing exactly the text, else on the
-		// first line containing it
-		auto* tree = qobject_cast<QTreeWidget*>(findWidget(args[1]));
-		if (!tree) {
-			fail("no list " + args[1]);
-			return false;
-		}
-		const QString text = args.mid(2).join(' ');
-		QTreeWidgetItem* found = nullptr;
-		for (QTreeWidgetItemIterator it(tree); *it && !found; ++it) {
-			if ((*it)->text(0) == text) {
-				found = *it;
-			}
-		}
-		for (QTreeWidgetItemIterator it(tree); *it && !found; ++it) {
-			if ((*it)->text(0).contains(text)) {
-				found = *it;
-			}
-		}
-		if (!found) {
-			fail(QString("no line \"%1\" in %2").arg(text, args[1]));
-			return false;
-		}
-		tree->scrollToItem(found);
-		const QPoint pos = tree->visualItemRect(found).center();
-		const QPoint global = tree->viewport()->mapToGlobal(pos);
-		QApplication::postEvent(tree->viewport(), new QMouseEvent(QEvent::MouseButtonPress, pos, global, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier));
-		QApplication::postEvent(tree->viewport(), new QMouseEvent(QEvent::MouseButtonRelease, pos, global, Qt::LeftButton, Qt::NoButton, Qt::NoModifier));
-		if (cmd == "double-click-item") {
-			// the second press of a double-click comes as one
-			QApplication::postEvent(tree->viewport(), new QMouseEvent(QEvent::MouseButtonDblClick, pos, global, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier));
-			QApplication::postEvent(tree->viewport(), new QMouseEvent(QEvent::MouseButtonRelease, pos, global, Qt::LeftButton, Qt::NoButton, Qt::NoModifier));
-		}
-		return true;
-	}
-	if (cmd == "set-control" && args.size() >= 3) {
-		// a value for a control: index of a combo box, number, on/off, text, button id of a group
-		const QString value = args.mid(2).join(' ');
-		QWidget* window = Screenshot::activeWindow();
-		if (auto* group = window ? window->findChild<QButtonGroup*>(args[1]) : nullptr) {
-			if (auto* button = group->button(value.toInt())) {
-				button->click();
-				return true;
-			}
-			return false;
-		}
-		QWidget* widget = findWidget(args[1]);
-		if (auto* combo = qobject_cast<QComboBox*>(widget)) {
-			combo->setCurrentIndex(value.toInt());
-		} else if (auto* spin = qobject_cast<QSpinBox*>(widget)) {
-			spin->setValue(value.toInt());
-		} else if (auto* button = qobject_cast<QAbstractButton*>(widget); button && button->isCheckable()) {
-			if (button->isChecked() != (value == "on")) {
-				button->click();
-			}
-		} else if (auto* edit = qobject_cast<QLineEdit*>(widget)) {
-			// as typed: fields that save on textEdited see it
-			edit->setText(value);
-			emit edit->textEdited(value);
-		} else if (auto* text = qobject_cast<QPlainTextEdit*>(widget)) {
-			text->setPlainText(value);
-		} else if (auto* slider = qobject_cast<QAbstractSlider*>(widget)) {
-			slider->setValue(value.toInt());
-		} else if (auto* group = qobject_cast<QGroupBox*>(widget); group && group->isCheckable()) {
-			group->setChecked(value == "on");
-		} else {
-			fail("no control " + args[1]);
-			return false;
-		}
-		return true;
-	}
-	if (cmd == "expect-enabled" && args.size() >= 3) {
-		// a name, or the text of a button
-		const QString name = args.mid(1, args.size() - 2).join(' ');
-		const bool on = args.last() == "on";
-		QWidget* widget = findWidget(name);
-		// or a menu action, by object name or text: those of the menu shown
-		// and its submenus first, as each map tab has actions of the same names
-		QList<QAction*> candidates;
-		if (!widget) {
-			std::function<void(QMenu*)> collect = [&](QMenu* menu) {
-				for (QAction* item : menu->actions()) {
-					candidates.append(item);
-					if (item->menu())
-						collect(item->menu());
-				}
-			};
-			if (auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget()))
-				collect(menu);
-			candidates += m_window.findChildren<QAction*>();
-		}
-		QAction* action = nullptr;
-		for (auto* candidate : candidates) {
-			if (candidate->objectName() == name || candidate->text().remove('&') == name) {
-				action = candidate;
-				break;
-			}
-		}
-		const bool enabled = widget ? widget->isEnabled() : action && action->isEnabled();
-		if (!widget && !action) {
-			fail("no control " + name);
-			return false;
-		}
-		if (enabled != on) {
-			fail(QString("%1 is not %2").arg(name, on ? "enabled" : "disabled"));
-			return false;
-		}
-		return true;
-	}
-	if (cmd == "expect-checked" && args.size() >= 3) {
-		// a check box, radio button or menu option, by object name or text
-		const QString name = args.mid(1, args.size() - 2).join(' ');
-		const bool on = args.last() == "on";
-		auto* button = qobject_cast<QAbstractButton*>(findWidget(name));
-		QAction* action = button ? nullptr : m_window.findChild<QAction*>(name);
-		if (!button && !action) {
-			fail("no control " + name);
-			return false;
-		}
-		if ((button ? button->isChecked() : action->isChecked()) != on) {
-			fail(QString("%1 is not %2").arg(name, on ? "checked" : "unchecked"));
-			return false;
-		}
-		return true;
-	}
-	if (cmd == "expect-option-enabled" && args.size() == 4) {
-		auto* combo = qobject_cast<QComboBox*>(findWidget(args[1]));
-		auto* model = combo ? qobject_cast<QStandardItemModel*>(combo->model()) : nullptr;
-		const QStandardItem* item = model ? model->item(args[2].toInt()) : nullptr;
-		if (!item || item->isEnabled() != (args[3] == "on")) {
-			fail(QString("option %1 of %2 is not %3").arg(args[2], args[1], args[3] == "on" ? "enabled" : "disabled"));
-			return false;
-		}
-		return true;
-	}
-	if (cmd == "expect-not" && args.size() >= 3) {
-		QWidget* widget = findWidget(args[1]);
-		if (!widget) {
-			fail("no widget " + args[1]);
-			return false;
-		}
-		// the text: the rest of the line, spaces included
-		const QString expected = args.mid(2).join(' ');
-		if (widgetText(widget).contains(expected)) {
-			fail(QString("%1 shows \"%2\"").arg(args[1], expected));
-			return false;
-		}
-		return true;
-	}
-	if (cmd == "expect" && args.size() >= 3) {
-		QWidget* widget = findWidget(args[1]);
-		if (!widget) {
-			fail("no widget " + args[1]);
-			return false;
-		}
-		const QString expected = args.mid(2).join(' ');
-		QString text = widgetText(widget);
-		if (!text.contains(expected)) {
-			fail(QString("%1 does not show \"%2\", it shows:\n%3").arg(args[1], expected, text));
-			return false;
-		}
-		return true;
-	}
-	if (cmd == "inspect-controls" && args.size() == 2) {
-		QWidget* window = Screenshot::activeWindow();
-		if (!window) {
-			return false;
-		}
-		QJsonArray controls;
-		for (auto* widget : window->findChildren<QWidget*>()) {
-			QJsonObject control{{"name", widget->objectName()}, {"enabled", widget->isEnabled()},
-				{"visible", widget->isVisibleTo(window)}};
-			if (auto* spin = qobject_cast<QSpinBox*>(widget)) {
-				control.insert("type", "spin");
-				control.insert("value", spin->value());
-				control.insert("minimum", spin->minimum());
-				control.insert("maximum", spin->maximum());
-			} else if (auto* combo = qobject_cast<QComboBox*>(widget)) {
-				control.insert("type", "combo");
-				control.insert("value", combo->currentIndex());
-				QJsonArray items;
-				for (int i = 0; i < combo->count(); ++i) {
-					items.append(combo->itemText(i));
-				}
-				control.insert("items", items);
-			} else if (auto* button = qobject_cast<QAbstractButton*>(widget); button && button->isCheckable()) {
-				control.insert("type", "check");
-				control.insert("value", button->isChecked());
-				control.insert("text", button->text());
-			} else if (auto* edit = qobject_cast<QLineEdit*>(widget); edit && !qobject_cast<QSpinBox*>(edit->parentWidget())) {
-				control.insert("type", "text");
-				control.insert("value", edit->text());
-			} else if (auto* edit = qobject_cast<QPlainTextEdit*>(widget)) {
-				control.insert("type", "plain-text");
-				control.insert("value", edit->toPlainText());
-			} else if (auto* group = qobject_cast<QGroupBox*>(widget)) {
-				control.insert("type", "group");
-				control.insert("text", group->title());
-			} else {
-				continue;
-			}
-			// what makes a window wider than wanted
-			control.insert("x", widget->mapTo(window, QPoint()).x());
-			control.insert("y", widget->mapTo(window, QPoint()).y());
-			control.insert("width", widget->width());
-			control.insert("height", widget->height());
-			control.insert("minimumWidth", widget->minimumSizeHint().width());
-			controls.append(control);
-		}
-		QFile file(args[1]);
-		return file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(controls).toJson()) >= 0;
+	if (cmd == "qml-smoke" && args.size() == 2) {
+		return qmlSmoke(args[1]);
 	}
 	if (cmd == "select-map" && args.size() == 2 && toInt(args[1], a)) {
 		// by id: map names can repeat; 0 is the project
-		auto* tree = m_window.findChild<QTreeWidget*>(QStringLiteral("treeMap"));
-		if (!tree) {
-			fail("no map tree");
+		if (!m_window.selectNode(a, true)) {
+			fail(QString("no map %1 in the map tree").arg(a));
 			return false;
-		}
-		for (QTreeWidgetItemIterator it(tree); *it; ++it) {
-			if ((*it)->data(1, Qt::DisplayRole).toInt() == a) {
-				// as a click: the tree has the focus when the map is selected
-				tree->setFocus(Qt::OtherFocusReason);
-				tree->setCurrentItem(*it);
-				tree->scrollToItem(*it);
-				return true;
-			}
-		}
-		fail(QString("no map %1 in the map tree").arg(a));
-		return false;
-	}
-	if (cmd == "spin-click" && args.size() == 3 && (args[2] == "up" || args[2] == "down")) {
-		// a mouse click in the middle of an arrow of a spin box, where the
-		// style draws it
-		auto* spin = qobject_cast<QAbstractSpinBox*>(findWidget(args[1]));
-		if (!spin) {
-			fail("no spin box " + args[1]);
-			return false;
-		}
-		QStyleOptionSpinBox option;
-		option.initFrom(spin);
-		option.frame = spin->hasFrame();
-		option.subControls = QStyle::SC_All;
-		option.buttonSymbols = spin->buttonSymbols();
-		const QPointF pos = spin->style()->subControlRect(QStyle::CC_SpinBox, &option,
-			args[2] == "up" ? QStyle::SC_SpinBoxUp : QStyle::SC_SpinBoxDown, spin).center();
-		for (auto type : {QEvent::MouseButtonPress, QEvent::MouseButtonRelease}) {
-			QMouseEvent event(type, pos, spin->mapToGlobal(pos), Qt::LeftButton,
-				type == QEvent::MouseButtonPress ? Qt::LeftButton : Qt::NoButton, Qt::NoModifier);
-			QApplication::sendEvent(spin, &event);
 		}
 		return true;
 	}
-	if (cmd == "dump-geometry" && args.size() == 2) {
-		// where a widget is in its window, what of it the layouts align (its
-		// layout item) and, for a spin box, its field and its arrows
-		QWidget* widget = findWidget(args[1]);
-		if (!widget) {
-			fail("no widget " + args[1]);
+	if (cmd == "drop-map" && args.size() == 4 && toInt(args[1], a) && toInt(args[2], b)
+			&& (args[3] == "above" || args[3] == "below" || args[3] == "on")) {
+		// A drag and drop in the map tree: the map pressed, then dropped as
+		// its drag drops it
+		const int position = args[3] == "above" ? 0 : args[3] == "below" ? 1 : 2;
+		if (!m_window.canDrop(a, b, position)) {
+			fail(QString("the tree refuses map %1 %2 %3").arg(args[1], args[3], args[2]));
 			return false;
 		}
-		auto text = [](const QRect& r) { return QString("%1,%2 %3x%4").arg(r.x()).arg(r.y()).arg(r.width()).arg(r.height()); };
-		const QRect in_window(widget->mapTo(widget->window(), QPoint()), widget->size());
-		QWidgetItem item(widget);
-		qCInfo(lcAutomation).noquote() << QString("%1: %2, size hint %3x%4, layout item %5x%6").arg(describe(widget), text(in_window))
-			.arg(widget->sizeHint().width()).arg(widget->sizeHint().height()).arg(item.sizeHint().width()).arg(item.sizeHint().height());
-		auto dumpCombo = [&text](QComboBox* combo) {
-			QStyleOptionComboBox option;
-			option.initFrom(combo);
-			option.editable = combo->isEditable();
-			option.frame = combo->hasFrame();
-			option.subControls = QStyle::SC_All;
-			for (auto [name, sub] : {std::pair{"frame", QStyle::SC_ComboBoxFrame}, {"field", QStyle::SC_ComboBoxEditField},
-					{"arrow", QStyle::SC_ComboBoxArrow}}) {
-				qCInfo(lcAutomation).noquote() << QString("    %1: %2").arg(name, text(combo->style()->subControlRect(QStyle::CC_ComboBox, &option, sub, combo)));
-			}
-			qCInfo(lcAutomation).noquote() << "    layout item: " + text(combo->style()->subElementRect(QStyle::SE_ComboBoxLayoutItem, &option, combo))
-				+ (combo->isEditable() ? " (editable)" : "");
-		};
-		if (auto* combo = qobject_cast<QComboBox*>(widget)) {
-			dumpCombo(combo);
-		}
-		// the widgets of its layout (a list and its "..." button...)
-		for (int i = 0; widget->layout() && i < widget->layout()->count(); ++i) {
-			if (QWidget* part = widget->layout()->itemAt(i)->widget()) {
-				const QRect r = part->geometry();
-				QWidgetItem part_item(part);
-				qCInfo(lcAutomation).noquote() << QString("  part %1: %2, layout item %3x%4").arg(QString::fromLatin1(part->metaObject()->className()), text(r))
-					.arg(part_item.sizeHint().width()).arg(part_item.sizeHint().height());
-				if (auto* combo = qobject_cast<QComboBox*>(part)) {
-					dumpCombo(combo);
-				}
-			}
-		}
-		if (auto* spin = qobject_cast<QAbstractSpinBox*>(widget)) {
-			QStyleOptionSpinBox option;
-			option.initFrom(spin);
-			option.frame = spin->hasFrame();
-			option.subControls = QStyle::SC_All;
-			option.buttonSymbols = spin->buttonSymbols();
-			option.stepEnabled = QAbstractSpinBox::StepUpEnabled | QAbstractSpinBox::StepDownEnabled;
-			for (auto [name, sub] : {std::pair{"frame", QStyle::SC_SpinBoxFrame}, {"field", QStyle::SC_SpinBoxEditField},
-					{"up", QStyle::SC_SpinBoxUp}, {"down", QStyle::SC_SpinBoxDown}}) {
-				qCInfo(lcAutomation).noquote() << QString("  %1: %2").arg(name, text(spin->style()->subControlRect(QStyle::CC_SpinBox, &option, sub, spin)));
-			}
-		}
-		return true;
+		m_window.selectNode(a, true);
+		return m_window.dropMap(a, b, position);
 	}
 	if (cmd == "import-image-dialog" && args.size() == 2) {
 		// the window of an image import (transparent colour, zoom), without
 		// the file chooser before it
-		auto* dialog = new ImportImageDialog(args[1], &m_window);
-		dialog->setAttribute(Qt::WA_DeleteOnClose);
-		dialog->show();
-		return true;
+		return ResourceWindows::openImportImage(m_window.handle(), args[1]) != nullptr;
 	}
-	if (cmd == "pinch" && args.size() == 3) {
-		// a trackpad pinch on the map ("map") or a view, the fingers spreading
-		// (factor > 1) or closing, in ten events as macOS sends them
-		bool ok = false;
-		const double factor = args[2].toDouble(&ok);
-		QGraphicsView* view = nullptr;
-		MapScene* scene = args[1] == "map" ? m_window.currentScene() : nullptr;
-		if (scene && !scene->views().isEmpty()) {
-			view = scene->views().first();
-		} else if (args[1] != "map") {
-			view = qobject_cast<QGraphicsView*>(findWidget(args[1]));
-		}
-		if (!view || !ok || factor <= 0) {
-			fail("no view " + args[1]);
+	if (cmd == "expect-project" && args.size() == 2) {
+		// the project open: none, or one whose folder has the text
+		const QString folder = core().project() ? core().project()->projectDir().absolutePath() : QString();
+		const bool none = args[1] == QLatin1String("none");
+		if (none ? !folder.isEmpty() : !folder.contains(args[1])) {
+			fail(QStringLiteral("the project open is \"%1\"").arg(folder));
 			return false;
-		}
-		QWidget* target = view->viewport();
-		const QPointF pos = target->rect().center();
-		const QPointF global = target->mapToGlobal(pos);
-		const double step = std::pow(factor, 0.1) - 1.0;
-		auto send = [&](Qt::NativeGestureType type, double value) {
-			QNativeGestureEvent gesture(type, QPointingDevice::primaryPointingDevice(), 2, pos, pos, global, value, QPointF());
-			QApplication::sendEvent(target, &gesture);
-		};
-		send(Qt::BeginNativeGesture, 0);
-		for (int i = 0; i < 10; ++i) {
-			send(Qt::ZoomNativeGesture, step);
-		}
-		send(Qt::EndNativeGesture, 0);
-		qCInfo(lcAutomation).noquote() << QString("%1 zoomed x%2").arg(args[1])
-			.arg(scene ? static_cast<double>(scene->scale()) : view->transform().m11());
-		return true;
-	}
-	if ((cmd == "map-click" || cmd == "map-double-click") && (args.size() == 3 || args.size() == 4)
-			&& toInt(args[1], a) && toInt(args[2], b)) {
-		MapScene* scene = m_window.currentScene();
-		if (!scene || (args.size() == 4 && args[3] != "left" && args[3] != "right")) {
-			fail("no map shown");
-			return false;
-		}
-		const Qt::MouseButton button = args.value(3) == "right" ? Qt::RightButton : Qt::LeftButton;
-		// as a click: the map takes the keys
-		if (!scene->views().isEmpty()) {
-			scene->views().first()->setFocus(Qt::MouseFocusReason);
-		}
-		mapMouse(scene, QEvent::MouseMove, a, b, Qt::NoButton, Qt::NoButton);
-		mapMouse(scene, QEvent::MouseButtonPress, a, b, button, button);
-		mapMouse(scene, QEvent::MouseButtonRelease, a, b, button, Qt::NoButton);
-		if (cmd == "map-double-click") {
-			mapMouse(scene, QEvent::MouseButtonDblClick, a, b, button, button);
-			mapMouse(scene, QEvent::MouseButtonRelease, a, b, button, Qt::NoButton);
-		}
-		return true;
-	}
-	if (cmd == "map-drag" && args.size() == 5) {
-		int x2 = 0, y2 = 0;
-		MapScene* scene = m_window.currentScene();
-		if (!scene || !toInt(args[1], a) || !toInt(args[2], b) || !toInt(args[3], x2) || !toInt(args[4], y2)) {
-			fail("no map shown");
-			return false;
-		}
-		mapMouse(scene, QEvent::MouseMove, a, b, Qt::NoButton, Qt::NoButton);
-		mapMouse(scene, QEvent::MouseButtonPress, a, b, Qt::LeftButton, Qt::LeftButton);
-		// through every cell, as a hand would
-		const int steps = std::max(std::abs(x2 - a), std::abs(y2 - b));
-		for (int i = 1; i <= steps; i++) {
-			mapMouse(scene, QEvent::MouseMove, a + (x2 - a) * i / steps, b + (y2 - b) * i / steps,
-				Qt::NoButton, Qt::LeftButton);
-		}
-		mapMouse(scene, QEvent::MouseButtonRelease, x2, y2, Qt::LeftButton, Qt::NoButton);
-		return true;
-	}
-	if ((cmd == "preview-click" || cmd == "preview-double-click") && args.size() == 4
-			&& toInt(args[2], a) && toInt(args[3], b)) {
-		auto* preview = qobject_cast<MapPreview*>(findWidget(args[1]));
-		if (!preview || a < 0 || b < 0 || a >= preview->columns() || b >= preview->rows()) {
-			fail(QString("no cell %1 %2 in %3").arg(a).arg(b).arg(args[1]));
-			return false;
-		}
-		previewMouse(preview, QEvent::MouseButtonPress, a, b, Qt::LeftButton, Qt::LeftButton);
-		previewMouse(preview, QEvent::MouseButtonRelease, a, b, Qt::LeftButton, Qt::NoButton);
-		if (cmd == "preview-double-click") {
-			previewMouse(preview, QEvent::MouseButtonDblClick, a, b, Qt::LeftButton, Qt::LeftButton);
-			previewMouse(preview, QEvent::MouseButtonRelease, a, b, Qt::LeftButton, Qt::NoButton);
-		}
-		return true;
-	}
-	if (cmd == "preview-drag" && args.size() == 6) {
-		int x2 = 0, y2 = 0;
-		auto* preview = qobject_cast<MapPreview*>(findWidget(args[1]));
-		if (!preview || !toInt(args[2], a) || !toInt(args[3], b) || !toInt(args[4], x2) || !toInt(args[5], y2)) {
-			fail("no map preview " + args[1]);
-			return false;
-		}
-		previewMouse(preview, QEvent::MouseButtonPress, a, b, Qt::LeftButton, Qt::LeftButton);
-		previewMouse(preview, QEvent::MouseMove, x2, y2, Qt::NoButton, Qt::LeftButton);
-		previewMouse(preview, QEvent::MouseButtonRelease, x2, y2, Qt::LeftButton, Qt::NoButton);
-		return true;
-	}
-	if (cmd == "expect-tab" && args.size() == 3) {
-		// the tab shown in a tab widget, by its text
-		auto* tabs = qobject_cast<QTabWidget*>(findWidget(args[1]));
-		const QString shown = tabs ? tabs->tabText(tabs->currentIndex()).remove('&') : QString();
-		if (shown != args[2]) {
-			fail(QString("%1 shows the tab \"%2\", not \"%3\"").arg(args[1], shown, args[2]));
-			return false;
-		}
-		return true;
-	}
-	if (cmd == "click-tab" && args.size() == 3 && toInt(args[2], a)) {
-		// a click on a tab of a tab widget, as the mouse does it (the click
-		// focuses the bar, then the arrows go to the next tabs)
-		auto* tabs = qobject_cast<QTabWidget*>(findWidget(args[1]));
-		QTabBar* bar = tabs ? tabs->tabBar() : nullptr;
-		if (!bar || a < 0 || a >= bar->count()) {
-			fail("no tab " + args[2] + " in " + args[1]);
-			return false;
-		}
-		const QPointF pos = bar->tabRect(a).center();
-		for (auto type : {QEvent::MouseButtonPress, QEvent::MouseButtonRelease}) {
-			QMouseEvent event(type, pos, bar->mapToGlobal(pos), Qt::LeftButton,
-				type == QEvent::MouseButtonPress ? Qt::LeftButton : Qt::NoButton, Qt::NoModifier);
-			QApplication::sendEvent(bar, &event);
-		}
-		return true;
-	}
-	if (cmd == "view-click" || cmd == "view-drag") {
-		// a QGraphicsView by object name, in the coordinates of its scene
-		const bool drag = cmd == "view-drag";
-		const int count = drag ? 4 : 2;
-		std::vector<int> v(static_cast<size_t>(count));
-		auto* view = qobject_cast<QGraphicsView*>(findWidget(args.value(1)));
-		// a click can be a right click or (view-click only) a double-click
-		const QString option = args.size() == count + 3 ? args.last() : QString();
-		bool ok = view && (args.size() == count + 2 || option == "right" || (!drag && option == "double"));
-		for (int i = 0; ok && i < count; i++) {
-			ok = toInt(args[i + 2], v[static_cast<size_t>(i)]);
-		}
-		if (!ok) {
-			fail("no graphics view " + args.value(1));
-			return false;
-		}
-		const Qt::MouseButton button = option == "right" ? Qt::RightButton : Qt::LeftButton;
-		const QPointF from(v[0], v[1]);
-		const QPointF to = drag ? QPointF(v[2], v[3]) : from;
-		viewMouse(view, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
-		viewMouse(view, QEvent::MouseButtonPress, from, button, button);
-		// small steps, as a hand would: a drag paints every tile on the way
-		const int steps = drag ? std::max(1, qRound(QLineF(from, to).length() / 4)) : 0;
-		for (int i = 1; i <= steps; i++) {
-			viewMouse(view, QEvent::MouseMove, from + (to - from) * i / steps, Qt::NoButton, button);
-		}
-		viewMouse(view, QEvent::MouseButtonRelease, to, button, Qt::NoButton);
-		if (option == "double") {
-			viewMouse(view, QEvent::MouseButtonDblClick, to, button, button);
-			viewMouse(view, QEvent::MouseButtonRelease, to, button, Qt::NoButton);
 		}
 		return true;
 	}
@@ -1101,51 +687,6 @@ bool Automation::run(const QStringList& args) {
 			}
 		}
 		core().setSelection(selection, w, h);
-		return true;
-	}
-	if (cmd == "expect-tile" && args.size() == 5) {
-		int x = 0, y = 0;
-		MapScene* scene = m_window.currentScene();
-		if (!scene || (args[1] != "lower" && args[1] != "upper")
-				|| !toInt(args[2], x) || !toInt(args[3], y) || !toInt(args[4], a)) {
-			fail("usage: expect-tile lower|upper X Y ID, with a map shown");
-			return false;
-		}
-		const int tile = scene->tileAt(args[1] == "lower" ? Core::LOWER : Core::UPPER, x, y);
-		// lower tiles: the terrain is compared (autotiles change with their neighbours)
-		const bool same = args[1] == "lower"
-			? core().translate(static_cast<short>(tile)) == core().translate(static_cast<short>(a))
-			: tile == a;
-		if (!same) {
-			fail(QString("%1 tile at %2,%3 is %4, not %5").arg(args[1]).arg(x).arg(y).arg(tile).arg(a));
-			return false;
-		}
-		return true;
-	}
-	if (cmd == "expect-event" && args.size() == 4 && toInt(args[1], a) && toInt(args[2], b)) {
-		int id = 0;
-		MapScene* scene = m_window.currentScene();
-		if (!scene || !toInt(args[3], id)) {
-			fail("no map shown");
-			return false;
-		}
-		if (scene->eventIdAt(a, b) != id) {
-			fail(QString("event at %1,%2 is %3, not %4").arg(a).arg(b).arg(scene->eventIdAt(a, b)).arg(id));
-			return false;
-		}
-		return true;
-	}
-	if (cmd == "expect-cell" && args.size() == 3 && toInt(args[1], a) && toInt(args[2], b)) {
-		MapScene* scene = m_window.currentScene();
-		if (!scene) {
-			fail("no map shown");
-			return false;
-		}
-		const QPoint cell = scene->selectedCell();
-		if (cell != QPoint(a, b)) {
-			fail(QString("the cell selected is %1,%2, not %3,%4").arg(cell.x()).arg(cell.y()).arg(a).arg(b));
-			return false;
-		}
 		return true;
 	}
 	if (cmd == "expect-start" && args.size() == 5) {
@@ -1168,68 +709,6 @@ bool Automation::run(const QStringList& args) {
 			fail(QString("%1 starts at map %2 (%3,%4)").arg(args[1]).arg(pos[0]).arg(pos[1]).arg(pos[2]));
 			return false;
 		}
-		return true;
-	}
-	if (cmd == "wheel" && args.size() == 3 && toInt(args[2], a)) {
-		// A trackpad swipe over the middle of a widget, injected like the
-		// platform's events: STEPS small pixel scrolls (negative: up) then
-		// momentum. Logs the time, the slowest event, how far it scrolled and
-		// what was painted for it.
-		QWidget* target = findWidget(args[1]);
-		QWidget* window = Screenshot::activeWindow();
-		for (QWidget* widget : window && !target ? window->findChildren<QWidget*>() : QList<QWidget*>()) {
-			// else the first one shown of a class (QScrollArea...)
-			if (widget->inherits(args[1].toUtf8()) && widget->isVisible()) {
-				target = widget;
-				break;
-			}
-		}
-		auto* area = qobject_cast<QAbstractScrollArea*>(target);
-		QWidget* viewport = area ? area->viewport() : target;
-		QWindow* handle = viewport ? viewport->window()->windowHandle() : nullptr;
-		if (!handle) {
-			fail("no widget " + args[1]);
-			return false;
-		}
-		const QPoint pos = viewport->rect().center();
-		const QPointF local = viewport->mapTo(viewport->window(), pos);
-		const QPointF global = viewport->mapToGlobal(pos);
-		const int before = area ? area->verticalScrollBar()->value() : 0;
-		PaintCounter paints;
-		qApp->installEventFilter(&paints);
-		QElapsedTimer timer, step_timer;
-		timer.start();
-		qint64 slowest = 0;
-		int events = 0;
-		auto send = [&](int pixels, Qt::ScrollPhase phase, Qt::MouseEventSource source) {
-			step_timer.start();
-			QWindowSystemInterface::handleWheelEvent(handle, local, global, QPoint(0, pixels), QPoint(0, pixels * 2),
-				Qt::NoModifier, phase, source);
-			QWindowSystemInterface::flushWindowSystemEvents();
-			// the repaint (UpdateRequest is posted); not processEvents(): its
-			// timers would run the next commands inside this one
-			QCoreApplication::sendPostedEvents();
-			slowest = std::max(slowest, step_timer.elapsed());
-			events++;
-		};
-		const int direction = a > 0 ? -1 : 1;
-		send(0, Qt::ScrollBegin, Qt::MouseEventNotSynthesized);
-		for (int i = 0; i < std::abs(a); i++) {
-			send(direction * 8, Qt::ScrollUpdate, Qt::MouseEventNotSynthesized);
-		}
-		// Cocoa sends the end after the momentum: until then, the scrolled
-		// widget keeps the wheel (QApplicationPrivate::wheel_widget)
-		for (int speed = 12; speed > 0; speed--) {
-			send(direction * speed, Qt::ScrollMomentum, Qt::MouseEventSynthesizedBySystem);
-		}
-		send(0, Qt::ScrollEnd, Qt::MouseEventSynthesizedBySystem);
-		qApp->removeEventFilter(&paints);
-		const int after = area ? area->verticalScrollBar()->value() : 0;
-		qCInfo(lcAutomation).noquote() << QString("wheel %1: %2 events in %3 ms, slowest %4 ms, scrolled %5 px")
-			.arg(describe(target)).arg(events).arg(timer.elapsed()).arg(slowest).arg(after - before);
-		qCInfo(lcAutomation).noquote() << QString("wheel %1: painted %2 widgets per event (%3 pixels; the scrolled area has %4): %5")
-			.arg(describe(target)).arg(paints.count / std::max(events, 1)).arg(paints.pixels / std::max(events, 1))
-			.arg(viewport->width() * viewport->height()).arg(paints.summary());
 		return true;
 	}
 	if (cmd == "generate-dungeon" && args.size() >= 5 && toInt(args[1], a)) {
@@ -1321,178 +800,126 @@ bool Automation::run(const QStringList& args) {
 		}
 		return true;
 	}
-	if (cmd == "close" && args.size() == 1) {
-		// the modal dialog, else the window in front (the search window...)
-		auto* dialog = qobject_cast<QDialog*>(Screenshot::activeWindow());
-		if (!dialog) {
-			fail("no dialog to close");
-			return false;
-		}
-		dialog->reject();
-		return true;
-	}
 
 	fail("unknown command or wrong arguments");
 	return false;
 }
 
-QWidget* Automation::keyTarget() {
-	// a pop-up shown takes the keys (the search field of a list), as typed
-	if (QWidget* popup = QApplication::activePopupWidget()) {
-		return popup->focusWidget() ? popup->focusWidget() : popup;
+bool Automation::qmlSmoke(const QString& file) {
+	// The QML stack of the interface in one window (Kirigami, Breeze, a dock
+	// of KDDockWidgets, the project's data): it must load, show the first
+	// hero of the project and draw something
+	QQmlApplicationEngine* engine = QmlEngine::instance();
+	auto* project_data = engine->singletonInstance<ProjectDataGadget*>(
+		QStringLiteral("org.easyrpg.editor"), QStringLiteral("ProjectData"));
+	if (project_data && core().project()) {
+		project_data->setProjectData(&core().project()->projectData());
 	}
-	// Not QApplication::focusWidget(): it is null while another application
-	// is active, keys go to the focused widget of the dialog or window
-	QWidget* window = Screenshot::activeWindow();
-	if (window && window->focusWidget()) {
-		return window->focusWidget();
-	}
-	return QApplication::focusWidget() ? QApplication::focusWidget() : window;
-}
-
-QWidget* Automation::findWidget(const QString& name) {
-	QWidget* window = Screenshot::activeWindow();
+	QQmlComponent component(engine, QStringLiteral("org.easyrpg.editor"), QStringLiteral("SmokeWindow"));
+	std::unique_ptr<QObject> object(component.create());
+	auto* window = qobject_cast<QQuickWindow*>(object.get());
 	if (!window) {
-		return nullptr;
+		fail("the QML window could not be made: " + component.errorString());
+		return false;
 	}
-	// the one shown, when several have the name (one per event page...)
-	QWidget* hidden = nullptr;
-	for (QWidget* widget : window->findChildren<QWidget*>(name)) {
-		if (widget->isVisibleTo(window)) {
-			return widget;
-		}
-		hidden = hidden ? hidden : widget;
-	}
-	if (!hidden) {
-		// a button by its text, the one shown first (else on a page not shown)
-		for (auto* button : window->findChildren<QAbstractButton*>()) {
-			const QString text = button->text().remove('&');
-			if (text == name || text == name + "...") {
-				if (button->isVisibleTo(window)) {
-					return button;
-				}
-				hidden = hidden ? hidden : button;
-			}
+	window->show();
+	// the first frame, drawn by the render loop
+	QEventLoop loop;
+	QObject::connect(window, &QQuickWindow::frameSwapped, &loop, &QEventLoop::quit);
+	QTimer::singleShot(5000, &loop, &QEventLoop::quit);
+	loop.exec();
+	const QImage image = window->grabWindow();
+	window->close();
+
+	QSet<QRgb> colors;
+	for (int y = 0; y < image.height() && colors.size() < 3; y += 7) {
+		for (int x = 0; x < image.width() && colors.size() < 3; x += 7) {
+			colors.insert(image.pixel(x, y));
 		}
 	}
-	return hidden;
+	if (image.isNull() || colors.size() < 3) {
+		fail("the QML window drew nothing");
+		return false;
+	}
+	if (!image.save(file)) {
+		fail("cannot save " + file);
+		return false;
+	}
+	auto* hero = window->findChild<QObject*>(QStringLiteral("smokeHero"));
+	const QString name = hero ? hero->property("text").toString() : QString();
+	const QString expected = core().project() && !core().project()->database().actors.empty()
+		? ToQString(core().project()->database().actors.front().name) : QString();
+	if (name != expected) {
+		fail(QString("the QML window shows the hero \"%1\", not \"%2\"").arg(name, expected));
+		return false;
+	}
+	// the other way: a name given to the field is in the data and shown
+	// (in memory only; put back)
+	auto* field = window->findChild<QObject*>(QStringLiteral("smokeHeroField"));
+	if (!field) {
+		fail("the QML window has no field of the hero's name");
+		return false;
+	}
+	if (!expected.isEmpty()) {
+		const QString renamed = expected + QStringLiteral(" (QML)");
+		field->setProperty("value", renamed);
+		const QString in_data = ToQString(core().project()->database().actors.front().name);
+		const QString shown = hero->property("text").toString();
+		field->setProperty("value", expected);
+		if (in_data != renamed || shown != renamed) {
+			fail(QString("the name given to the QML field is \"%1\" in the data, \"%2\" in the window").arg(in_data, shown));
+			return false;
+		}
+	}
+	qCInfo(lcAutomation).noquote() << QString("QML window: style %1, %2x%3, hero \"%4\" (read and written)")
+		.arg(QQuickStyle::name()).arg(image.width()).arg(image.height()).arg(name);
+	return true;
 }
 
-QString Automation::widgetText(QWidget* widget) {
-	if (auto* tree = qobject_cast<QTreeWidget*>(widget)) {
-		QStringList lines;
-		// the current line is marked with ">"
-		// the lines shown: those a filter hides do not count
-		for (QTreeWidgetItemIterator it(tree, QTreeWidgetItemIterator::NotHidden); *it; ++it) {
-			lines << ((*it) == tree->currentItem() ? "> " : "  ") + (*it)->text(0);
-		}
-		return lines.join('\n');
-	}
-	if (auto* view = qobject_cast<QAbstractItemView*>(widget); view && view->model()) {
-		// a list or a table: its lines, the cells of a line separated by " | "
-		// (those of the folder a picker shows: the root of the view)
-		QStringList lines;
-		const auto* model = view->model();
-		const QModelIndex root = view->rootIndex();
-		const QModelIndex current = view->currentIndex();
-		for (int row = 0; row < model->rowCount(root); ++row) {
-			QStringList cells;
-			for (int column = 0; column < model->columnCount(root); ++column) {
-				cells << model->index(row, column, root).data().toString();
-			}
-			const bool is_current = current.isValid() && current.row() == row && current.parent() == root;
-			lines << (is_current ? "> " : "  ") + cells.join(" | ");
-		}
-		return lines.join('\n');
-	}
-	if (auto* tabs = qobject_cast<QTabWidget*>(widget)) {
-		// its tabs, the temporary ones (a map only looked at) marked with "~"
-		QStringList names;
-		for (int i = 0; i < tabs->count(); ++i) {
-			const bool temporary = tabs->tabBar()->tabData(i).toString() == QLatin1String("temporary");
-			names << (temporary ? QStringLiteral("~") : QString()) + tabs->tabText(i);
-		}
-		return names.join(QStringLiteral(" | "));
-	}
-	if (auto* text = qobject_cast<QPlainTextEdit*>(widget)) {
-		return text->toPlainText();
-	}
-	if (auto* text = qobject_cast<QTextEdit*>(widget)) {
-		return text->toPlainText();
-	}
-	if (auto* edit = qobject_cast<QLineEdit*>(widget)) {
-		return edit->text();
-	}
-	if (auto* spin = qobject_cast<QAbstractSpinBox*>(widget)) {
-		return spin->text();
-	}
-	if (auto* label = qobject_cast<QLabel*>(widget)) {
-		return label->text();
-	}
-	if (auto* combo = qobject_cast<QComboBox*>(widget)) {
-		return combo->currentText();
-	}
-	if (auto* button = qobject_cast<QAbstractButton*>(widget)) {
-		return button->text();
-	}
-	return widget->windowTitle();
-}
 
-int Automation::checkLayout(QWidget* window) {
-	int problems = 0;
-	const auto widgets = window->findChildren<QWidget*>();
-	for (QWidget* widget : widgets) {
-		// headers size their sections themselves, tab bars scroll
-		if (widget->isWindow() || !widget->isVisibleTo(window)
-				|| qobject_cast<QHeaderView*>(widget) || qobject_cast<QTabBar*>(widget)
-				|| qobject_cast<QTabBar*>(widget->parentWidget())
-				// the clear button Qt puts in a line edit sizes itself, and
-				// the field of a spin box or an editable combo box fills
-				// what its arrows leave
-				|| qobject_cast<QLineEdit*>(widget->parentWidget())
-				|| qobject_cast<QAbstractSpinBox*>(widget->parentWidget())
-				|| qobject_cast<QComboBox*>(widget->parentWidget())) {
-			continue;
-		}
-		QSize minimum = widget->minimumSizeHint().expandedTo(widget->minimumSize());
-		if (widget->sizePolicy().horizontalPolicy() == QSizePolicy::Ignored) {
-			minimum.setWidth(0);
-		}
-		if (widget->sizePolicy().verticalPolicy() == QSizePolicy::Ignored) {
-			minimum.setHeight(0);
-		}
-		// text that wraps (WrapCheckBox...): the height its lines take at
-		// the width it has, not at its narrowest
-		if (widget->hasHeightForWidth()) {
-			minimum.setHeight(widget->heightForWidth(widget->width()));
-		} else if (widget->layout() && widget->layout()->hasHeightForWidth()) {
-			minimum.setHeight(widget->layout()->totalHeightForWidth(widget->width()));
-		}
-		// widgets made smaller on purpose (fixed sizes) are fine
-		minimum = minimum.boundedTo(widget->maximumSize());
-		if (!minimum.isValid()) {
-			continue;
-		}
-		// one pixel of rounding is fine
-		if (widget->width() + 1 < minimum.width() || widget->height() + 1 < minimum.height()) {
-			problems++;
-			qCWarning(lcAutomation).noquote() << QString("squeezed: %1 is %2x%3, needs %4x%5")
-				.arg(describe(widget)).arg(widget->width()).arg(widget->height())
-				.arg(minimum.width()).arg(minimum.height());
-		}
+bool Automation::databaseFile(const QStringList& args) {
+	// as another program (rpgsync) reads and writes it, apart from the Editor;
+	// expect-database: the one of the project, as read (again)
+	auto project = core().project();
+	const bool in_project = args[0] == "expect-database";
+	std::unique_ptr<lcf::rpg::Database> database = project && !in_project ? project->readDatabase() : nullptr;
+	if (!project || (!in_project && !database)) {
+		fail("cannot read the database file");
+		return false;
 	}
-	// Check boxes and radio buttons, with the box they draw, never touch:
-	// the box of the native style can lie outside the widget
-	const auto options = optionBounds(window);
-	for (qsizetype i = 0; i < options.size(); ++i) {
-		for (qsizetype j = i + 1; j < options.size(); ++j) {
-			const auto gap = optionClearance(options[i], options[j]);
-			if (gap && *gap < 1) {
-				problems++;
-				qCWarning(lcAutomation).noquote() << QString("overlapping options: %1 and %2 (%3px apart)")
-					.arg(describe(options[i].first), describe(options[j].first)).arg(*gap);
-			}
-		}
+	JsonT<lcf::rpg::Database> json;
+	json.setData(in_project ? &project->database() : database.get());
+	const QString& pointer = args[1];
+	const QString value = args.mid(2).join(u' ');
+	if (!json.exists(pointer)) {
+		fail("no value " + pointer + " in the database");
+		return false;
 	}
-	return problems;
+	if (args[0] != "edit-database-file") {
+		const QString shown = json.value(pointer).toString();
+		if (shown != value) {
+			fail(QStringLiteral("the database %1 has \"%2\" at %3, not \"%4\"")
+				.arg(in_project ? QStringLiteral("of the project") : QStringLiteral("file"), shown, pointer, value));
+			return false;
+		}
+		return true;
+	}
+	// a number for the numbers
+	const QVariant current = json.value(pointer);
+	bool number = false;
+	const int as_number = value.toInt(&number);
+	if (!json.set(pointer, current.typeId() == QMetaType::QString || !number ? QVariant(value) : QVariant(as_number))) {
+		fail("cannot write " + value + " at " + pointer);
+		return false;
+	}
+	const std::string path = project->databaseFile().toStdString();
+	const bool saved = project->projectType() == FileFinder::ProjectType::Legacy
+		? lcf::LDB_Reader::Save(path, *database, project->encoding().toStdString())
+		: lcf::LDB_Reader::SaveXml(path, *database);
+	if (!saved) {
+		fail("cannot write the database file");
+		return false;
+	}
+	qCInfo(lcAutomation).noquote() << "database file changed:" << pointer << "=" << value;
+	return true;
 }

@@ -1,0 +1,108 @@
+# Game Project > New, Open, Import and Convert to RPG Maker 2003 (QML), in
+# the script's folder: an RPG Maker 2000 project made, converted, imported
+# as another project, then both listed by Open Project and opened.
+action actionProjectClose
+wait 300
+expect-project none
+
+# New Project: a folder is needed
+action actionProjectNew
+wait 400
+expect NewProjectDialog Create new Project
+expect comboFormat RPG Maker 2003
+expect-enabled comboTileSize off
+expect-enabled OK off
+check-layout
+call NewProjectDialog chooseFolder $SCRIPT_DIR
+set-control lineGameFolder Game2000
+expect-enabled OK on
+set-control lineGameTitle Old Game
+set-control comboFormat 1
+click OK
+wait 1000
+expect-project Game2000
+
+# Convert to RPG Maker 2003: its options, then what it did
+action actionProjectConvert2003
+wait 400
+expect ConvertProjectDialog Convert to RPG Maker 2003
+expect labelChanges the maps (1)
+expect labelBackup Backup (RPG Maker 2000)
+expect buttonBox Convert
+check-layout
+set-control checkKeepBattle on
+click Convert
+wait 1500
+expect messageText The project is now an RPG Maker 2003 project.
+click OK
+wait 300
+expect-project Game2000
+expect-enabled actionProjectConvert2003 off
+
+# Import Project: an RPG Maker game is needed as the source
+action actionProjectImport
+wait 400
+expect ImportProjectDialog Import Project
+expect-enabled OK off
+call ImportProjectDialog chooseSource $SCRIPT_DIR
+wait 200
+expect messageText This folder does not contain a valid RPG Maker project
+click OK
+wait 200
+expect lineSourcePath ""
+call ImportProjectDialog chooseSource $SCRIPT_DIR/Game2000
+expect lineGameFolder Game2000
+set-control lineGameFolder Imported
+call ImportProjectDialog chooseFolder $SCRIPT_DIR
+check-layout
+click OK
+wait 2000
+expect-project Imported
+
+# Open Project: the projects of the folder of the games
+action actionProjectClose
+wait 300
+action actionProjectOpen
+wait 800
+expect OpenProjectDialog Open existing Project
+expect tableProjects Game2000 | Old Game
+expect tableProjects Imported |
+expect buttonBox Import...
+check-layout
+# Settings... of a project there: its folder renamed
+click Game2000
+click pushRename
+wait 500
+expect lineGameTitle Old Game
+set-control lineFolderName Renamed2000
+click OK
+wait 800
+expect tableProjects Renamed2000 | Old Game
+expect-not tableProjects Game2000
+click Imported
+expect tableProjects > Imported
+expect-enabled pushDelete on
+click OK
+wait 1000
+expect-project Imported
+
+# Import... from Open Project
+action actionProjectClose
+wait 300
+action actionProjectOpen
+wait 800
+click pushImport
+wait 400
+expect ImportProjectDialog Import Project
+close
+
+# The progress of an import that takes a while: it cannot be closed
+qml-open ImportProgressWindow "label=Processing Maps..." maximum=4 value=1
+wait 300
+expect ImportProgressDialog Import Project
+expect labelProgress Processing Maps...
+check-layout
+close
+wait 200
+expect ImportProgressDialog Import Project
+quit

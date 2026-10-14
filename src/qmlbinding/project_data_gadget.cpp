@@ -29,21 +29,18 @@ void ProjectDataGadget::setProjectData(ProjectData* data) {
 	if (m_data == data) return;
 
 	m_data = data;
-
-	if (m_data) {
-		m_database_json.setData(&m_data->database());
-		m_treemap_json.setData(&m_data->treeMap());
-	}
+	m_database_json.setData(m_data ? &m_data->database() : nullptr);
+	m_treemap_json.setData(m_data ? &m_data->treeMap() : nullptr);
 
 	emit projectDataChanged();
 }
 
 JsonView* ProjectDataGadget::database() {
-	return m_data ? qvariant_cast<JsonView*>(m_database_json.subtree("/")) : nullptr;
+	return m_data ? m_database_json.view(QString()) : nullptr;
 }
 
 JsonView* ProjectDataGadget::treeMap() {
-	return m_data ? qvariant_cast<JsonView*>(m_treemap_json.subtree("/")) : nullptr;
+	return m_data ? m_treemap_json.view(QString()) : nullptr;
 }
 
 QString ProjectDataGadget::findFile(const QString& filename, FileFinder::FileType type) const {

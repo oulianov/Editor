@@ -1,12 +1,21 @@
 # Building the EasyRPG Editor
 
-The Editor is a CMake project in C++23 with Qt 6 (>= 6.10). It needs:
+The Editor is a CMake project in C++23 with Qt 6 (>= 6.10). Its interface is
+moving to QML (as upstream's). It needs:
 
 - [liblcf](https://github.com/EasyRPG/liblcf), cloned and built with the
   Editor when `EDITOR_BUILD_LIBLCF` is on (the simplest), and its own needs:
   ICU, expat and inih;
-- Qt 6: Base, Multimedia, SVG, Tools (Linguist, optional);
+- Qt 6: Base, Declarative (Qt Quick), Multimedia, Shader Tools, SVG, Tools
+  (Linguist, optional);
+- for the QML interface: KDE's [Kirigami](https://invent.kde.org/frameworks/kirigami)
+  and [Breeze style](https://invent.kde.org/plasma/qqc2-breeze-style) (with
+  KDE's extra-cmake-modules), [KDDockWidgets](https://github.com/KDAB/KDDockWidgets)
+  (Qt Quick) and [glaze](https://github.com/stephenberry/glaze);
 - zlib.
+
+Kirigami, Breeze and KDDockWidgets use Qt's private headers: they are built
+for one Qt, and built again for another.
 
 
 ## In short
@@ -31,9 +40,14 @@ On macOS (Apple silicon or Intel) with Xcode's command line tools
 
 `make` runs `builds/macos/build.sh` (`make test`: with `--tests`), which:
 
-1. `brew install` what is missing among cmake, ninja, the Qt 6 modules,
-   icu4c@78, inih and expat (installed packages are not upgraded);
-2. configures the Editor in `build` with liblcf built alongside, and builds
+1. `brew install` what is missing among cmake, ninja, extra-cmake-modules,
+   the Qt 6 modules, icu4c@78, inih, expat and glaze (installed packages are
+   not upgraded);
+2. builds Kirigami, Breeze and KDDockWidgets (the versions of
+   `builds/vcpkg_overlay`) for this Qt, once, into
+   `../editor-deps/kde/qtVERSION-homebrew` (`-ARCHS-macosTARGET` with
+   `QT_DIR`); a stamp file there names the Qt they were built for;
+3. configures the Editor in `build` with liblcf built alongside, and builds
    `build/EasyRPG Editor.app`; with `--tests`, also the tests, on a copy of
    TestGame-2003 downloaded into `build/testgame2003`.
 
@@ -54,7 +68,7 @@ Variables (`make` passes `BUILD_DIR` and `QT_DIR` to the script):
 | `QT_DIR` | an official Qt (qt.io or aqt, e.g. `~/Qt/6.10.1/macos`) instead of Homebrew's, below |
 | `MACOSX_DEPLOYMENT_TARGET` | with `QT_DIR`: the oldest macOS (default 13.3) |
 | `ARCHS` | with `QT_DIR`: `arm64`, `x86_64` or `"arm64;x86_64"` (default: this Mac's) |
-| `DEPS_DIR` | with `QT_DIR`: where ICU and inih go (default `../editor-deps`) |
+| `DEPS_DIR` | where Kirigami, Breeze and KDDockWidgets go, and with `QT_DIR` ICU, inih and glaze (default `../editor-deps`) |
 
 If ccache is installed, the Editor is compiled through it.
 
@@ -67,18 +81,22 @@ for macOS 13.3 and later and both kinds of Mac, and the Editor for the same
 macOS. CI does this.
 
 `builds/macos/package.sh` then copies the application into `build/dist`
-with what it uses (macdeployqt), signs it, and makes a disk image of it
-(notarized when given Apple's credentials; see the script). It fails if a
-part of the application needs a newer macOS than `MACOSX_DEPLOYMENT_TARGET`.
+with what it uses (macdeployqt, with the QML modules and the Kirigami
+platform plugin; without Qt Widgets, which the Editor does not use), signs
+it, and makes a disk image of it (notarized when given Apple's credentials;
+see the script). It fails if a part of the application needs a newer macOS
+than `MACOSX_DEPLOYMENT_TARGET`, or uses Qt Widgets.
 
 ### By hand
 
 The script's steps, to adapt them:
 
 ```bash
-brew install cmake ninja qtbase qtmultimedia qtsvg qttools icu4c@78 inih expat
+brew install cmake ninja extra-cmake-modules qtbase qtdeclarative qtshadertools \
+	qtmultimedia qtsvg qttools icu4c@78 inih expat glaze
+# Kirigami, Breeze and KDDockWidgets built into KDE (see build.sh), then:
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEDITOR_BUILD_LIBLCF=ON \
-	-DCMAKE_PREFIX_PATH="$(brew --prefix icu4c@78);$(brew --prefix)" \
+	-DCMAKE_PREFIX_PATH="$(brew --prefix icu4c@78);$(brew --prefix);$KDE" \
 	-DICU_INCLUDE_DIR="$(brew --prefix icu4c@78)/include"
 cmake --build build
 ```
@@ -86,14 +104,16 @@ cmake --build build
 
 ## Linux and Windows
 
-Upstream's presets build zlib, inih and expat with vcpkg. Qt 6.10 (Base,
-Multimedia, SVG, Tools) comes from qt.io or
+Upstream's presets build zlib, inih, expat, glaze, Kirigami, Breeze and
+KDDockWidgets with vcpkg (the KDE ones from the overlay ports of
+`builds/vcpkg_overlay`, which the presets pass). Qt 6.10 (Base, Declarative,
+Multimedia, Shader Tools, SVG, Tools) comes from qt.io or
 [aqt](https://github.com/miurahr/aqtinstall), and on Linux ICU from the
 system (`libicu-dev` on Debian and Ubuntu), as in continuous integration
 (`.github/workflows/stable-compilation.yml`):
 
 ```bash
-uvx --from aqtinstall aqt install-qt linux desktop 6.10.1 linux_gcc_64 -m qtmultimedia -O ~/Qt
+uvx --from aqtinstall aqt install-qt linux desktop 6.10.1 linux_gcc_64 -m qtmultimedia qtshadertools -O ~/Qt
 export VCPKG_ROOT=/path/to/vcpkg
 make QT_DIR=~/Qt/6.10.1/gcc_64
 ```
@@ -122,7 +142,7 @@ release.
 |---|---|---|
 | `EDITOR_BUILD_LIBLCF` | `OFF` | clone liblcf into `lib/liblcf` and build it with the Editor |
 | `EDITOR_BUILD_LIBLCF_GIT` | GitHub (HTTPS) | the repository cloned; an SSH URL where HTTPS is blocked |
-| `EDITOR_PRECOMPILE_HEADERS` | `ON` | parse Qt Widgets and liblcf's database header once for every file (a clean build takes a quarter less time) |
+| `EDITOR_PRECOMPILE_HEADERS` | `ON` | parse Qt Quick and liblcf's database header once for every file (a clean build takes a quarter less time) |
 | `EDITOR_TEST_PROJECT` | (none) | the game the script tests run on: a copy of TestGame-2003 |
 
 
@@ -143,6 +163,8 @@ cmake --build build && ctest --test-dir build -j 8
 | `script_*` | the scripts of `tests/scripts`, offscreen (see [Automation](Automation.adoc)) |
 | `web_player` | the web Player folders the export accepts |
 | `move_route_codec` | the texts of Move Event routes, in the code page of the game |
+| `no_widgets` | no Qt Widgets header in the sources and the tests, no Qt Widgets in the build |
+| `qml_labels` | the texts of the QML windows are `Ez.Label`s |
 
 
 ## Troubleshooting

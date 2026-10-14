@@ -1,0 +1,32 @@
+# The workspace of a project comes back when the project is opened again
+# (WorkspaceStore): its map tabs in their order, the tab shown, the zoom of
+# each map and the node selected in the map tree.
+# Run on TestGame-2003 (https://github.com/EasyRPG/TestGame): it opens on
+# its active map, "call" (never saved: the map tree's active map opens).
+expect-tab tabMap "call"
+double-click-item treeMap "Picture events"
+action actionZoom1_1
+# a map only looked at: the temporary tab, which the next map replaces
+open-map 4
+expect-tab tabMap "Generate Dungeon"
+double-click-item treeMap "Map events"
+expect-tab tabMap "Map events"
+action actionZoom1_4
+select-map 0
+expect treeMap > RPG Maker 2003 Test suite
+
+open-project
+wait 300
+# the tab shown and its zoom, then the others in their order
+expect-tab tabMap "Map events"
+expect-checked actionZoom1_4 on
+expect treeMap > RPG Maker 2003 Test suite
+click-tab tabMap 1
+expect-tab tabMap "Picture events"
+expect-checked actionZoom1_1 on
+expect-checked actionZoom1_4 off
+click-tab tabMap 0
+expect-tab tabMap "call"
+click-tab tabMap 2
+expect-tab tabMap "Map events"
+quit

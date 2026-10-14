@@ -17,99 +17,87 @@
 
 #include "json_view.h"
 #include "json_list_view.h"
-#include "json.h"
 
-namespace {
-	QString makePath(const QString& left, const QString& right) {
-		assert(!left.isEmpty());
-		assert(!right.endsWith('/'));
-
-		// normalize the path: Ensure initial / and avoid double /
-		QString out;
-
-		if (right.isEmpty()) {
-			return left;
-		}
-
-		bool slash_l = left.endsWith('/');
-		bool slash_r = right.startsWith('/');
-
-		if (!slash_l && !slash_r) {
-			out = left + '/' + right;
-		} else if (slash_l && slash_r) {
-			out = left + right.mid(1);
-		} else {
-			out = left + right;
-		}
-
-		//qDebug() << left << " " << right << " " << out;
-
-		return out;
-	}
-}
-
-JsonView::JsonView(QObject* parent) : QObject(parent) {
-	assert(parent);
-	auto json_parent = qobject_cast<Json*>(parent);
-	assert(json_parent);
-
-	// Listen to all changes in the parent Json object
-	// Filtering of irrelevant changes happens in the slot
-	connect(json_parent, &Json::valueChanged, this, &JsonView::onValueChanged);
+JsonView::JsonView(Json* json, const QString& prefix) :
+	QObject(json), m_json(json), m_pathPrefix(Json::normalize(prefix))
+{
+	// every change of the data: the slot keeps those of the view
+	connect(json, &Json::valueChanged, this, &JsonView::onValueChanged);
 }
 
 QString JsonView::str(QString jsonPtr) const {
-	return qobject_cast<Json*>(parent())->str(makePath(m_pathPrefix, jsonPtr));
+	return m_json->str(path(jsonPtr));
 }
 
 int JsonView::num(QString jsonPtr) const {
-	return qobject_cast<Json*>(parent())->num(makePath(m_pathPrefix, jsonPtr));
+	return m_json->num(path(jsonPtr));
 }
 
 bool JsonView::boolean(QString jsonPtr) const {
-	return qobject_cast<Json*>(parent())->boolean(makePath(m_pathPrefix, jsonPtr));
+	return m_json->boolean(path(jsonPtr));
 }
 
-void JsonView::set(QString jsonPtr, const QVariant& value) {
-	qobject_cast<Json*>(parent())->set(makePath(m_pathPrefix, jsonPtr), value);
+QVariant JsonView::value(QString jsonPtr) const {
+	return m_json->value(path(jsonPtr));
+}
+
+bool JsonView::set(QString jsonPtr, const QVariant& value) {
+	return m_json->set(path(jsonPtr), value);
+}
+
+bool JsonView::bit(QString jsonPtr, int index, bool missing) const {
+	return m_json->bit(path(jsonPtr), index, missing);
+}
+
+bool JsonView::setBit(QString jsonPtr, int index, bool on, bool missing) {
+	return m_json->setBit(path(jsonPtr), index, on, missing);
+}
+
+int JsonView::size(QString jsonPtr) const {
+	return m_json->size(path(jsonPtr));
+}
+
+bool JsonView::exists(QString jsonPtr) const {
+	return m_json->exists(path(jsonPtr));
 }
 
 JsonView* JsonView::subtree(QString jsonPtr) {
-	return qvariant_cast<JsonView*>(qobject_cast<Json*>(parent())->subtree(makePath(m_pathPrefix, jsonPtr)));
+	return m_json->view(path(jsonPtr));
 }
 
 JsonListView* JsonView::list(QString jsonPtr) {
-	return qvariant_cast<JsonListView*>(qobject_cast<Json*>(parent())->list(makePath(m_pathPrefix, jsonPtr)));
+	return m_json->listView(path(jsonPtr));
+}
+
+JsonListView* JsonView::choices(QString jsonPtr, QString noneText, int noneValue) {
+	return m_json->choiceList(path(jsonPtr), noneText, noneValue);
 }
 
 QString JsonView::toJson(QString jsonPtr) const {
-	return qobject_cast<Json*>(parent())->toJson(makePath(m_pathPrefix, jsonPtr));
+	return m_json->toJson(path(jsonPtr));
 }
 
-QString JsonView::pathPrefix() const {
-	return m_pathPrefix;
+void JsonView::beginBatch() {
+	m_json->beginBatch();
 }
 
-void JsonView::setPathPrefix(QString prefix) {
-	if (!prefix.startsWith('/')) {
-		prefix.prepend('/');
-	}
-
-	if (prefix.endsWith('/')) {
-		prefix.removeLast();
-	}
-
-	if (prefix.isEmpty()) {
-		prefix = '/';
-	}
-
-	m_pathPrefix = prefix;
+void JsonView::endBatch() {
+	m_json->endBatch();
 }
 
-void JsonView::onValueChanged(QString jsonPtr) {
-	if (jsonPtr.startsWith(pathPrefix() + "/")) {
-		// Pointer only contains the path relative to the view
-		QString trimmedPtr = jsonPtr.mid(pathPrefix().length());
-		emit valueChanged(trimmedPtr);
+bool JsonView::isValid() const {
+	return m_json->exists(m_pathPrefix);
+}
+
+void JsonView::onValueChanged(const QString& jsonPtr) {
+	if (!Json::affects(jsonPtr, m_pathPrefix)) {
+		return;
 	}
+	// under the view: relative to it; at or above it: all of it
+	if (jsonPtr.size() > m_pathPrefix.size()) {
+		emit valueChanged(jsonPtr.mid(m_pathPrefix.size()));
+		return;
+	}
+	emit validChanged();
+	emit valueChanged(QString());
 }

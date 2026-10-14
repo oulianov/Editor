@@ -16,7 +16,6 @@
  */
 
 #include "animation.h"
-#include "ui/database/battle_animation_widget.h"
 
 AnimationModel::AnimationModel(ProjectData& project, lcf::rpg::Animation& data) :
 	RpgBase(project), m_data(data) {

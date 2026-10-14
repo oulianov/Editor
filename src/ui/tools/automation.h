@@ -19,9 +19,11 @@
 
 #include <QObject>
 #include <QStringList>
+#include <QTemporaryDir>
+#include <memory>
+#include "automation_quick_driver.h"
 
-class MainWindow;
-class QWidget;
+class QmlShell;
 
 /**
  * Runs a list of Editor commands, one per line, to test the Editor or take
@@ -42,7 +44,8 @@ class Automation : public QObject
 	Q_OBJECT
 
 public:
-	Automation(MainWindow& window, const QString& script_file, QObject* parent = nullptr);
+	/** window: the main window */
+	Automation(QmlShell& window, const QString& script_file, QObject* parent = nullptr);
 
 	/** False when the script could not be read */
 	bool isValid() const;
@@ -52,17 +55,24 @@ public:
 private:
 	void step();
 	bool run(const QStringList& args);
-	int checkLayout(QWidget* window);
-	QWidget* findWidget(const QString& name);
-	QWidget* keyTarget();
-	static QString widgetText(QWidget* widget);
 	void fail(const QString& message);
+	/** qml-smoke: the QML stack in a window, saved as a PNG */
+	bool qmlSmoke(const QString& file);
+	/** edit-database-file, expect-database-file: a value of the database file on
+	 *  disk; expect-database: of the project's, in memory */
+	bool databaseFile(const QStringList& args);
 
-	MainWindow& m_window;
+	QmlShell& m_window;
+	/** The commands on the windows (their items, the mouse, the keys) */
+	AutomationQuickDriver m_quick;
 	QString m_file;
 	QStringList m_lines;
 	int m_line = 0;
 	int m_failures = 0;
 	int m_delay = 0;
 	bool m_valid = false;
+	/** What the last dialog-service question was answered (expect-answer) */
+	QString m_answer;
+	/** The copy of the project open-project-copy made, removed at the end */
+	std::unique_ptr<QTemporaryDir> m_projectCopy;
 };
