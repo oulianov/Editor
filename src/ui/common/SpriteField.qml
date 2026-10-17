@@ -18,6 +18,8 @@ import org.easyrpg.editor as Ez
  *
  * key: the file name; indexKey: the character or face; directionKey and
  * patternKey: the pose (preview "CharSetPose"); hueKey: the monster's hue.
+ * animated: the character turns and walks, as RPG Maker shows a hero's or a
+ * vehicle's.
  * Without jsonData, the values shown are given (fileName...) and picked()
  * says what was chosen.
  */
@@ -40,6 +42,8 @@ Rectangle {
     property real zoom: preview === "FaceSet" || preview === "Monster" ? 1 : 2
     /** Drawn half transparent (a monster's or a hero's option) */
     property bool transparent: false
+    /** The character turns and walks (preview "CharSet") */
+    property bool animated: false
 
     /** The values shown (the data's) */
     property string fileName: nameField.value ?? ""
@@ -127,6 +131,8 @@ Rectangle {
             cellIndex: root.spriteIndex
             facing: root.shownDirection
             frame: root.shownPattern
+            spin: root.animated
+            walk: root.animated
             transparent: root.transparent
             width: 24 * root.zoom
             height: 32 * root.zoom

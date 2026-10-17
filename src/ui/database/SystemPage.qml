@@ -19,7 +19,6 @@ DatabaseEntryPage {
     id: root
 
     readonly property var system: database ? database.subtree("system") : null
-    readonly property var actors: database ? database.choices("actors", qsTranslate("SystemFields", "<none>"), 0) : null
 
     single: true
     fillWidth: true
@@ -29,7 +28,6 @@ DatabaseEntryPage {
         jsonData: root.system
         preview: "Image"
     }
-    /** A vehicle's graphic: its CharSet and its character in it, "Vehicles (2)" */
     // the screen transitions: long texts (French...) on two lines, the page fits the window
     component TransitionLabel: Ez.FormLabel {
         wrapMode: Text.Wrap
@@ -40,6 +38,7 @@ DatabaseEntryPage {
         Layout.fillWidth: true
         Layout.preferredWidth: 1
     }
+    /** A vehicle's graphic: its character turning and walking, and its CharSet with the character in it, "Vehicles (2)" */
     component Vehicle: RowLayout {
         id: vehicle
 
@@ -61,6 +60,13 @@ DatabaseEntryPage {
             id: indexField
             source: root.system
             path: vehicle.key + "_index"
+        }
+        Ez.SpriteField {
+            objectName: vehicle.fieldName + "Graphic"
+            jsonData: root.system
+            key: vehicle.key + "_name"
+            indexKey: vehicle.key + "_index"
+            animated: true
         }
         Ez.TextField {
             objectName: vehicle.fieldName
@@ -229,11 +235,14 @@ DatabaseEntryPage {
                     }
                     Repeater {
                         model: 4
-                        Ez.ComboBox {
+                        Ez.RefComboBox {
                             id: member
                             required property int index
                             objectName: "comboPartyMember" + (index + 1)
-                            model: root.actors
+                            // the heroes with their faces, "<none>" first
+                            database: root.database
+                            listKey: "actors"
+                            noneText: qsTranslate("SystemFields", "<none>")
                             onActivated: root.setMember(member.index, Number(currentValue))
                             Layout.row: index
                             Layout.column: 1

@@ -369,6 +369,7 @@ DatabaseEntryPage {
                 key: "character_name"
                 indexKey: "character_index"
                 transparent: translucent.checked
+                animated: true
             }
             Ez.CheckBox {
                 id: translucent

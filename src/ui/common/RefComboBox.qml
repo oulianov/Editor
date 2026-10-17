@@ -39,6 +39,9 @@ import org.easyrpg.editor as Ez
  * becomes a field (objectName + "Name") after the number, Return or
  * leaving it writes the name to the list, Escape leaves it as it was.
  * Elsewhere typing opens the search with what is typed.
+ *
+ * A list of heroes shows each hero's face before their name, small, in the
+ * box and in its drop-down (objectName + "Face": the one of the box).
  */
 Ez.ComboBox {
     id: root
@@ -78,6 +81,32 @@ Ez.ComboBox {
     property var ids: undefined
     /** Entries of another list than the database's ([{text, value}]), searched the same way */
     property var choices: undefined
+
+    /** The heroes have their face before their name */
+    readonly property bool showsFaces: listKey === "actors" && database !== null && choices === undefined
+    readonly property var faceList: showsFaces ? database.list("actors") : null
+    /** The side of a face, as an icon of a list */
+    readonly property int faceSize: 16
+    /** The room of a face before a name */
+    readonly property real facePart: showsFaces ? faceSize + spacing : 0
+    /** Changes when a hero changes (their face read again) */
+    property int faceRevision: 0
+    Connections {
+        target: root.showsFaces ? root.database : null
+        function onValueChanged(jsonPtr) {
+            if (jsonPtr.includes("actors") && jsonPtr.includes("face_")) {
+                root.faceRevision++
+            }
+        }
+    }
+    /** The FaceSet and the face of a hero ({name: ""} for none) */
+    function faceOf(id) {
+        void root.faceRevision
+        if (!faceList || id < 1 || id > faceList.count) {
+            return { name: "", index: 0 }
+        }
+        return { name: faceList.str((id - 1) + "/face_name"), index: faceList.num((id - 1) + "/face_index") }
+    }
 
     /** The name of an entry is being typed */
     readonly property bool renaming: nameEditor.visible
@@ -202,6 +231,7 @@ Ez.ComboBox {
     readonly property real pickPart: pickable ? pick.implicitWidth + spacing : 0
     readonly property real indicatorPart: indicator && indicator.visible ? indicator.width + 2 * spacing : 0
     rightPadding: horizontalPadding + indicatorPart + pickPart
+    leftPadding: horizontalPadding + facePart
     Binding {
         target: root.indicator
         property: "x"
@@ -322,6 +352,23 @@ Ez.ComboBox {
         }
     }
 
+    // the face of the hero shown, before the name (also while it is typed)
+    Ez.FaceSetPaintedItem {
+        objectName: root.objectName + "Face"
+        readonly property var face: root.faceOf(root.shownId)
+        visible: root.showsFaces && face.name !== ""
+        z: 1
+        x: root.horizontalPadding
+        anchors.verticalCenter: parent.verticalCenter
+        width: root.faceSize
+        height: root.faceSize
+        // a 48 pixels face made small: smoothed
+        smooth: true
+        projectData: Ez.ProjectData
+        filename: face.name
+        cellIndex: face.index
+    }
+
     /** The entries of the list, "(None)" first */
     readonly property var entries: !database || listKey === "" ? null
          : noneText !== "" ? database.choices(listKey, noneText, noneValue) : database.list(listKey)
@@ -369,8 +416,9 @@ Ez.ComboBox {
 
         /** What was typed to open it */
         property string seed: ""
-        /** The height of a line of the list */
-        readonly property real rowHeight: lineMetrics.height + 2 * Ez.Metrics.listRowPadding
+        /** The height of a line of the list (a face fits in it) */
+        readonly property real rowHeight: Math.max(lineMetrics.height + 2 * Ez.Metrics.listRowPadding,
+                                                   root.showsFaces ? root.faceSize + 2 : 0)
         /** The lines shown at most: a long list keeps a tall window, scrolled */
         readonly property int maximumRows: 20
         /** The window's height and the top of the box in it, measured when it opens */
@@ -556,9 +604,21 @@ Ez.ComboBox {
                             visible: line.current
                             color: Kirigami.Theme.highlightColor
                         }
-                        Ez.Label {
+                        Ez.FaceSetPaintedItem {
+                            readonly property var face: root.faceOf(Number(line.value))
+                            visible: root.showsFaces && face.name !== ""
                             x: Ez.Metrics.listTextPadding
-                            width: parent.width - 2 * Ez.Metrics.listTextPadding
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: root.faceSize
+                            height: root.faceSize
+                            smooth: true
+                            projectData: Ez.ProjectData
+                            filename: face.name
+                            cellIndex: face.index
+                        }
+                        Ez.Label {
+                            x: Ez.Metrics.listTextPadding + root.facePart
+                            width: parent.width - 2 * Ez.Metrics.listTextPadding - root.facePart
                             anchors.verticalCenter: parent.verticalCenter
                             text: line.text
                             elide: Text.ElideRight
