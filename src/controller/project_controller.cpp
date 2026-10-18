@@ -429,14 +429,37 @@ QList<int> ProjectController::documentOrder() const
 	return order;
 }
 
+QStringList ProjectController::modifiedMapNames(int shown) const
+{
+	QStringList names;
+	int more = 0;
+	for (int id : documentOrder()) {
+		const MapDocument* doc = m_documents.value(id);
+		if (!doc->isModified())
+			continue;
+		if (names.size() < shown)
+			names << QStringLiteral("%1: %2").arg(id, 4, 10, QChar('0')).arg(doc->name());
+		else
+			++more;
+	}
+	if (more > 0)
+		names << tr("and %n more", nullptr, more);
+	return names;
+}
+
 bool ProjectController::saveModifiedMaps(const QString& title, const QString& question)
 {
 	const QList<int> order = documentOrder();
-	const bool modified = std::any_of(order.cbegin(), order.cend(),
-		[this](int id) { return m_documents.value(id)->isModified(); });
-	if (!modified)
+	const QStringList names = modifiedMapNames(6);
+	if (names.isEmpty())
 		return true;
-	const auto answer = dialogs().question(title, question, DialogService::Buttons::YesNoCancel);
+	// the maps between the first line (that some maps have unsaved
+	// changes) and the question
+	const qsizetype end = question.indexOf('\n');
+	QString text = question.left(end) + QStringLiteral("\n\n") + names.join('\n');
+	if (end >= 0)
+		text += QStringLiteral("\n\n") + question.mid(end + 1);
+	const auto answer = dialogs().question(title, text, DialogService::Buttons::YesNoCancel);
 	if (answer == DialogService::Answer::Cancel)
 		return false;
 	if (answer == DialogService::Answer::Yes) {

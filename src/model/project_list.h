@@ -39,6 +39,8 @@ class ProjectListModel : public QAbstractTableModel
 	Q_OBJECT
 	/** The folder of the games */
 	Q_PROPERTY(QString folder READ folder WRITE setFolder NOTIFY folderChanged)
+	/** The folder of the games is a folder (a path typed may be none: nothing listed) */
+	Q_PROPERTY(bool folderExists READ folderExists NOTIFY folderExistsChanged)
 	/** The projects are being listed */
 	Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
 	Q_PROPERTY(int currentRow READ currentRow WRITE setCurrentRow NOTIFY currentRowChanged)
@@ -71,8 +73,9 @@ public:
 	QString folder() const;
 	/** Lists the projects of another folder (in the background) */
 	void setFolder(const QString& folder);
+	bool folderExists() const;
 	bool busy() const;
-	/** Lists the projects again; the first one is selected */
+	/** Lists the projects again (none when the folder does not exist); the first one is selected */
 	Q_INVOKABLE void refresh();
 
 	int currentRow() const;
@@ -111,6 +114,7 @@ public:
 
 signals:
 	void folderChanged();
+	void folderExistsChanged();
 	void busyChanged();
 	void currentRowChanged();
 	void openPathChanged();
@@ -120,6 +124,7 @@ signals:
 private:
 	Project::ProjectList m_projects;
 	QString m_folder;
+	bool m_folderExists = false;
 	QString m_openPath;
 	int m_current = -1;
 	bool m_useTrash = true;

@@ -337,7 +337,11 @@ void QmlShell::trigger(const QString& name, bool checked)
 	} else if (is("actionRedo")) {
 		if (editor)
 			editor->redo();
-	} else if (is("actionMapSave"))
+	} else if (is("actionMapOpenStart"))
+		m_shell->openStartMap();
+	else if (is("actionMapGoTo"))
+		goToMap();
+	else if (is("actionMapSave"))
 		m_shell->saveMap();
 	else if (is("actionMapSaveAll"))
 		m_shell->saveAllMaps();
@@ -606,6 +610,8 @@ void QmlShell::createEditor(int id)
 	// Undo, Redo, Save
 	connect(editor, &MapEditor::historyChanged, m_shell, &ShellController::updateActions);
 	connect(doc, &MapDocument::modifiedChanged, m_shell, &ShellController::updateActions);
+	// Open Start Map follows the party's start position
+	connect(doc, &MapDocument::startChanged, m_shell, &ShellController::updateActions);
 	// the events and the chipset of the map shown are new
 	for (auto signal : {&MapDocument::eventsChanged, &MapDocument::loaded, &MapDocument::reloaded}) {
 		connect(doc, signal, this, [this, id] {
@@ -814,6 +820,23 @@ void QmlShell::openSearch()
 {
 	if (m_search)
 		m_search->show();
+}
+
+void QmlShell::goToMap()
+{
+	if (!core().project())
+		return;
+	// "0003: Village", searched by number or name
+	QVariantList choices;
+	for (const ShellController::MapEntry& map : m_shell->maps()) {
+		choices.append(QVariantMap{{QStringLiteral("text"), windowText(QT_TRANSLATE_NOOP("MainWindow", "%1: %2"))
+			.arg(map.id, 4, 10, QChar('0')).arg(map.name)}, {QStringLiteral("value"), map.id}});
+	}
+	int chosen = 0;
+	const int result = QmlHost::exec(QStringLiteral("GoToMapWindow"), m_window, {{QStringLiteral("choices"), choices}},
+		[&chosen](QQuickWindow* window) { chosen = window->property("mapId").toInt(); });
+	if (result == QmlHost::Accepted)
+		m_shell->goToMap(chosen);
 }
 
 void QmlShell::testPlayOptions()

@@ -70,11 +70,18 @@ ProjectWindows::OpenProject ProjectWindows::openProject(QWindow* over, const QSt
 		return editSettings(QGuiApplication::modalWindow(), project);
 	});
 	projects.setFolder(withSlash(def_dir));
+	// a path typed that is no folder is not kept: the last folder shown that is one
+	QString def_folder = withSlash(def_dir);
+	QObject::connect(&projects, &ProjectListModel::folderChanged, [&projects, &def_folder] {
+		if (projects.folderExists()) {
+			def_folder = withSlash(projects.folder());
+		}
+	});
 
 	OpenProject chosen;
 	const int result = QmlHost::exec(QStringLiteral("OpenProjectWindow"), over,
 		{{QStringLiteral("projects"), QVariant::fromValue(&projects)}});
-	chosen.defDir = projects.folder();
+	chosen.defDir = def_folder;
 	// 2: Import... was clicked
 	if (result == 2) {
 		chosen.choice = OpenProject::Choice::Import;

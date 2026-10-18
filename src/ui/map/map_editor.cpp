@@ -349,6 +349,8 @@ void MapEditor::onPress(int x, int y, Qt::MouseButton button)
 	}
 	if (button != Qt::LeftButton)
 		return;
+	// what the press grabs moves once the pointer is dragged (startDrag)
+	m_dragStarted = false;
 
 	if (selectingItems())
 	{
@@ -478,6 +480,29 @@ void MapEditor::onMove(int x, int y, Qt::MouseButtons buttons)
 		m_selArea = QRect(m_first, m_cur).normalized();
 		updateSelection();
 	}
+	if (m_dragStarted && (buttons & Qt::LeftButton))
+		dragTo();
+
+	// Show coordinates of current tile
+	QString status_msg = QString("(%0, %1)").arg(m_cur.x()).arg(m_cur.y());
+	if (layer == EditorState::EVENT)
+	{
+		// Show events on current tile
+		for (const lcf::rpg::Event& evt : m_doc->map().events)
+		{
+			if (QPoint(evt.x, evt.y) == m_cur)
+			{
+				status_msg.append(QString(" - " + QCoreApplication::translate("MapScene", "Event") + " %0: %1")
+					.arg(evt.ID).arg(ToQString(evt.name)));
+			}
+		}
+	}
+	m_hoverText = status_msg;
+	emit cellHovered(status_msg);
+}
+
+void MapEditor::dragTo()
+{
 	if (m_itemsMoving)
 	{
 		setItemsOffset(m_cur - m_itemsGrab);
@@ -499,29 +524,39 @@ void MapEditor::onMove(int x, int y, Qt::MouseButtons buttons)
 		updateSelection();
 		emit floatingRectChanged();
 	}
-	if ((m_dragEventId || m_dragStart >= 0) && (buttons & Qt::LeftButton))
+	if (m_dragEventId || m_dragStart >= 0)
 	{
 		// the cell the event or the start position is dragged to
 		m_mark = m_cur;
 		emit selectionChanged();
 	}
+}
 
-	// Show coordinates of current tile
-	QString status_msg = QString("(%0, %1)").arg(m_cur.x()).arg(m_cur.y());
-	if (layer == EditorState::EVENT)
-	{
-		// Show events on current tile
-		for (const lcf::rpg::Event& evt : m_doc->map().events)
-		{
-			if (QPoint(evt.x, evt.y) == m_cur)
-			{
-				status_msg.append(QString(" - " + QCoreApplication::translate("MapScene", "Event") + " %0: %1")
-					.arg(evt.ID).arg(ToQString(evt.name)));
-			}
-		}
+void MapEditor::startDrag()
+{
+	if (m_dragStarted)
+		return;
+	m_dragStarted = true;
+	// the cell the pointer reached meanwhile counts
+	if (m_cur.x() >= 0)
+		dragTo();
+	refresh();
+}
+
+void MapEditor::cancelPress()
+{
+	// Another window took the pointer before the release (the event window
+	// opened by a double-click): nothing dragged is dropped
+	m_dragEventId = 0;
+	m_dragStart = -1;
+	if (m_itemsMoving) {
+		m_itemsMoving = false;
+		setItemsOffset(QPoint());
+		updateSelection();
 	}
-	m_hoverText = status_msg;
-	emit cellHovered(status_msg);
+	// what else the press did ends as a release would end it
+	onRelease(m_cur.x(), m_cur.y(), Qt::LeftButton, Qt::NoButton);
+	refresh();
 }
 
 void MapEditor::onRelease(int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons)
@@ -567,8 +602,9 @@ void MapEditor::onRelease(int x, int y, Qt::MouseButton button, Qt::MouseButtons
 		const int id = m_dragEventId;
 		m_dragEventId = 0;
 		setPointer(x, y);
-		// RPG Maker: onto an empty cell only
-		if (m_cur.x() >= 0 && m_cur != m_last && m_doc->isFreeCell(m_cur.x(), m_cur.y()))
+		// RPG Maker: onto an empty cell only; a click (the pointer not
+		// dragged) moves nothing, whatever cell it is released on
+		if (m_dragStarted && m_cur.x() >= 0 && m_cur != m_last && m_doc->isFreeCell(m_cur.x(), m_cur.y()))
 		{
 			m_doc->moveEvent(id, m_cur.x(), m_cur.y());
 			selectCell(m_cur.x(), m_cur.y());
@@ -582,7 +618,7 @@ void MapEditor::onRelease(int x, int y, Qt::MouseButton button, Qt::MouseButtons
 		m_dragStart = -1;
 		setPointer(x, y);
 		// RPG Maker: onto an empty cell only, as an event
-		if (m_cur.x() >= 0 && m_cur.y() >= 0 && m_cur != m_last && m_doc->isFreeCell(m_cur.x(), m_cur.y()))
+		if (m_dragStarted && m_cur.x() >= 0 && m_cur.y() >= 0 && m_cur != m_last && m_doc->isFreeCell(m_cur.x(), m_cur.y()))
 		{
 			m_doc->setStartPosition(kind, m_cur.x(), m_cur.y());
 			selectCell(m_cur.x(), m_cur.y());
@@ -601,8 +637,15 @@ void MapEditor::onDoubleClick(int x, int y)
 	if (!setPointer(x, y))
 		return;
 
+	// the second press starts no drag: the window opened takes the pointer
+	// before its release
 	m_dragEventId = 0;
 	m_dragStart = -1;
+	if (m_itemsMoving) {
+		m_itemsMoving = false;
+		setItemsOffset(QPoint());
+		updateSelection();
+	}
 	selectCell(m_cur.x(), m_cur.y());
 	// a start position is not an event
 	if (m_doc->startAt(m_cur.x(), m_cur.y()) >= 0)

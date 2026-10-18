@@ -20,11 +20,18 @@ Ez.DialogWindow {
 
     property Ez.ProjectListModel projects: null
 
-    /** The folder of the games chosen (the folder window's choice; scripts give it too) */
+    /**
+     * The folder of the games chosen (the folder window's choice, a path
+     * typed; scripts give it too): one that is no folder lists nothing
+     */
     function chooseFolder(path) {
-        if (path !== "") {
-            projects.folder = path.endsWith("/") ? path : path + "/"
+        path = path.trim()
+        if (Qt.platform.os === "windows") {
+            path = path.replace(/\\/g, "/")
         }
+        projects.folder = path === "" || path.endsWith("/") ? path : path + "/"
+        // the field shows it as listed, even when it was already (a "/" typed away)
+        pathField.text = Qt.binding(() => root.projects ? root.projects.folder : "")
     }
     /** Closes the window for Import (result 2) */
     function importProject() {
@@ -108,19 +115,41 @@ Ez.DialogWindow {
             running: root.projects !== null && root.projects.busy
             visible: running
         }
+        // a path typed that is no folder: nothing listed
+        Ez.Note {
+            objectName: "noteNoFolder"
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 2 * Ez.Metrics.dialogMargin, 360)
+            horizontalAlignment: Text.AlignHCenter
+            color: Ez.Metrics.mutedTextColor
+            visible: root.projects !== null && !root.projects.folderExists
+            text: qsTr("This folder doesn't exist.")
+        }
     }
     Ez.Section {
         title: qsTr("Path to games folder")
         Ez.PathField {
+            id: pathField
             fieldName: "lineProjectPath"
             buttonName: "toolProjectPath"
             text: root.projects ? root.projects.folder : ""
-            field.readOnly: true
             buttonIcon: "folder"
             onBrowse: folderDialog.open()
+            // listed once the typing pauses, and on Return
+            onTextEdited: typing.restart()
+            onEditingFinished: {
+                typing.stop()
+                root.chooseFolder(text)
+            }
         }
     }
 
+    // the path typed, listed as it is (Return or leaving the field ends it with "/")
+    Timer {
+        id: typing
+        interval: 400
+        onTriggered: root.projects.folder = pathField.text
+    }
     Ez.DialogScope {
         id: dialogScope
         window: root

@@ -47,6 +47,7 @@ const QHash<QString, Keys>& table()
 		key("actionMapSave", QKeySequence(Qt::CTRL | Qt::Key_S));
 		key("actionMapSaveAll", QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S));
 		key("actionMapRevert", QKeySequence(Qt::CTRL | Qt::Key_R));
+		key("actionMapGoTo", QKeySequence(Qt::CTRL | Qt::Key_G));
 		// RPG Maker 2003's
 		key("actionLayerLower", QKeySequence(Qt::Key_F5));
 		key("actionLayerUpper", QKeySequence(Qt::Key_F6));

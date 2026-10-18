@@ -130,8 +130,11 @@ public:
 	QList<int> documentIds() const;
 	/** documentClosing first: the views of the document let it go */
 	void closeDocument(int id);
-	/** Asks (title, question) to save the modified maps; false when
-	 *  cancelled, or a map was not saved */
+	/** The modified maps in the interface's order ("0003: Village"), at
+	 *  most shown of them, then "and N more" */
+	QStringList modifiedMapNames(int shown) const;
+	/** Asks (title, question) to save the modified maps, listed after the
+	 *  first line of question; false when cancelled, or a map was not saved */
 	bool saveModifiedMaps(const QString& title, const QString& question);
 	/** Before the maps are closed (closing the project, quitting) */
 	bool saveAll();

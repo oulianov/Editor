@@ -22,6 +22,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QFutureWatcher>
 #include <QtConcurrentRun>
 
@@ -92,8 +93,14 @@ void ProjectListModel::setFolder(const QString& folder)
 		return;
 	}
 	m_folder = folder;
-	emit folderChanged();
+	// listed first: folderExists is the new folder's when it is told
 	refresh();
+	emit folderChanged();
+}
+
+bool ProjectListModel::folderExists() const
+{
+	return m_folderExists;
 }
 
 bool ProjectListModel::busy() const
@@ -109,6 +116,21 @@ void ProjectListModel::refresh()
 	setCurrentRow(-1);
 
 	const bool was_busy = busy();
+	// an empty path would list the working folder
+	const bool exists = !m_folder.isEmpty() && QFileInfo(m_folder).isDir();
+	if (exists != m_folderExists) {
+		m_folderExists = exists;
+		emit folderExistsChanged();
+	}
+	if (!exists) {
+		// the listing running, of another folder, is not shown
+		m_scan = nullptr;
+		if (was_busy) {
+			emit busyChanged();
+		}
+		emit listed();
+		return;
+	}
 	auto* scan = new QFutureWatcher<Project::ProjectList>(this);
 	// another folder can be asked for before this one is listed: its list only
 	m_scan = scan;

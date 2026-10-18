@@ -189,6 +189,15 @@ public:
 	/** buttons: those still held */
 	Q_INVOKABLE void release(int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons);
 	Q_INVOKABLE void doubleClick(int x, int y);
+	/**
+	 * The pointer pressed went past the platform's drag distance: what the
+	 * press grabbed (an event, a start position, the selected items or
+	 * tiles) follows it from now on. Before, the press is a click, which
+	 * moves nothing wherever it is released.
+	 */
+	Q_INVOKABLE void startDrag();
+	/** The press ended without its release (another window took the pointer) */
+	Q_INVOKABLE void cancelPress();
 	/** The pointer left the view: the brush is no longer framed */
 	Q_INVOKABLE void leave();
 	/** Run (or only test, for a shortcut override) a key of the map; true
@@ -284,6 +293,8 @@ private:
 	void onMove(int x, int y, Qt::MouseButtons buttons);
 	void onRelease(int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons);
 	void onDoubleClick(int x, int y);
+	/** What the press grabbed follows the pointer to m_cur */
+	void dragTo();
 	void onLayerChanged();
 	void onToolChanged();
 	/** The selection follows the pasted tiles */
@@ -337,6 +348,8 @@ private:
 	// dragged from the selected cell
 	int m_dragEventId = 0;
 	int m_dragStart = -1;
+	// the pointer was dragged past the drag distance since the press
+	bool m_dragStarted = false;
 	// selection tool: the selected cells; their tiles dragged
 	// (MapDocument::beginMoveArea)
 	QRect m_selArea;

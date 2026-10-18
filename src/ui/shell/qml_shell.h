@@ -210,6 +210,8 @@ private:
 	void exportGame();
 	void openDatabase();
 	void openSearch();
+	/** Go to Map: a map chosen by its number or name, shown */
+	void goToMap();
 	void testPlayOptions();
 	/** Quits, once the unsaved changes are saved or dropped; false: the user stayed */
 	bool quit();

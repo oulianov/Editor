@@ -33,6 +33,8 @@ RowLayout {
     signal browse()
     /** The text was typed (not set) */
     signal textEdited()
+    /** Return was pressed in the field, or it lost the focus */
+    signal editingFinished()
 
     spacing: Ez.Metrics.columnSpacing
     Layout.fillWidth: true
@@ -45,6 +47,7 @@ RowLayout {
         Controls.ToolTip.visible: hovered && !button.hovered && root.toolTip !== ""
         Controls.ToolTip.text: root.toolTip
         onTextEdited: root.textEdited()
+        onEditingFinished: root.editingFinished()
         buttons: Ez.FieldButton {
             id: button
             objectName: root.buttonName

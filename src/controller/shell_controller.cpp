@@ -19,6 +19,7 @@
 #include <QCoreApplication>
 #include <QEvent>
 #include <QSettings>
+#include <algorithm>
 #include "core.h"
 #include "action_catalog.h"
 #include "dialog_service.h"
@@ -59,6 +60,8 @@ ShellController::ShellController(QObject* parent) :
 			setSelectedMap(m_project->keptNode(m_selectedMap));
 		emit treeMapReloaded();
 		m_tabs->followTreeMap();
+		// the start map can be gone, or another one
+		updateActions();
 	});
 	connect(m_tabs, &MapTabsController::currentMapChanged, this, &ShellController::statusChanged);
 	// the tab of the map shown: its name, "*"
@@ -522,6 +525,45 @@ void ShellController::moveMaps(const QList<MapMove>& moves)
 }
 
 /*
+ * Going to a map
+ */
+
+int ShellController::startMap() const
+{
+	if (!core().project())
+		return 0;
+	const int id = core().project()->treeMap().start.party_map_id;
+	return m_project->treeModel()->type(id) == TreeMap::MapType_map ? id : 0;
+}
+
+QList<ShellController::MapEntry> ShellController::maps() const
+{
+	QList<MapEntry> maps;
+	if (!core().project())
+		return maps;
+	const MapTreeModel* tree = m_project->treeModel();
+	for (int id : tree->ids()) {
+		if (tree->type(id) == TreeMap::MapType_map)
+			maps.append({id, nodeName(id)});
+	}
+	std::ranges::sort(maps, {}, &MapEntry::id);
+	return maps;
+}
+
+bool ShellController::goToMap(int id)
+{
+	if (!core().project() || m_project->treeModel()->type(id) != TreeMap::MapType_map)
+		return false;
+	emit selectMapRequested(id);
+	return openNode(id, true);
+}
+
+bool ShellController::openStartMap()
+{
+	return goToMap(startMap());
+}
+
+/*
  * The map shown
  */
 
@@ -644,6 +686,8 @@ void ShellController::updateActions()
 	enable("actionUndo", doc && doc->canUndo());
 	enable("actionRedo", doc && doc->canRedo());
 	enable("actionProjectConvert2003", has_project && ProjectConvert::canConvert(*core().project()));
+	enable("actionMapOpenStart", startMap() > 0);
+	enable("actionMapGoTo", has_project);
 	enable("actionProjectNew", !has_project);
 	enable("actionProjectOpen", !has_project);
 

@@ -206,6 +206,12 @@ typed, except on a box with "..." (its `NAME` + `Pick`): there it renames
 the entry shown, in the field `NAME` + `Name` (`F2`: the name alone),
 written by `Return`.
 
+Go to Map (Maps > Go to Map..., `actionMapGoTo`) is `GoToMapDialog`: the
+maps of the tree in `comboMap`, a list of entries whose search opens with
+the window (`type 12` then `key Return` chooses map 12), the hint
+`labelHint` and the button `buttonGo`. Maps > Open Start Map is
+`actionMapOpenStart`.
+
 The pages with pictures and command lists, and the windows they open:
 
 * Monsters: `graphicsMonster`, `pushSetGraphic`, `spinMaxHp`...

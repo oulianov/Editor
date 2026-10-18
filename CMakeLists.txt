@@ -450,6 +450,7 @@ set(EDITOR_QML_UI
 	src/ui/maptree/EncounterDialog.qml
 	src/ui/maptree/EncounterTable.qml
 	src/ui/maptree/GenerateDungeonWindow.qml
+	src/ui/maptree/GoToMapWindow.qml
 	src/ui/maptree/MapCellView.qml
 	src/ui/maptree/MapLocationPicker.qml
 	src/ui/maptree/MapPropertiesWindow.qml
@@ -996,10 +997,15 @@ else()
 		install(FILES resources/app/easyrpg.png
 			DESTINATION ${CMAKE_INSTALL_DATADIR}/pixmaps
 			RENAME easyrpg-editor.png)
-		# FIXME: use scalable icon
+		# the icons are made by builds/icons/make-editor-icon.py
 		install(FILES resources/app/easyrpg.png
 			DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/48x48/apps
 			RENAME easyrpg-editor.png)
+		foreach(ICON_SIZE 16 24 32 64 128 256 512)
+			install(FILES resources/app/icons/easyrpg-editor-${ICON_SIZE}.png
+				DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${ICON_SIZE}x${ICON_SIZE}/apps
+				RENAME easyrpg-editor.png)
+		endforeach()
 		# FIXME: Fill appdata file
 		#install(FILES resources/unix/easyrpg-editor.appdata.xml
 		#	DESTINATION ${CMAKE_INSTALL_DATADIR}/appdata)

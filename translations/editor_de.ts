@@ -30,12 +30,12 @@
     </message>
     <message>
         <location line="+134"/>
-        <location line="+79"/>
+        <location line="+80"/>
         <source>&lt;none&gt;</source>
         <translation>&lt;Keine&gt;</translation>
     </message>
     <message>
-        <location line="-205"/>
+        <location line="-206"/>
         <source>Shield:</source>
         <translation>Schild:</translation>
     </message>
@@ -121,7 +121,7 @@
         <translation>Charset</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+15"/>
         <location filename="../src/ui/picker/CharSetPicker.qml" line="+3"/>
         <source>Translucent</source>
         <translation>Durchscheinend</translation>
@@ -183,12 +183,12 @@
         <translation>Attributsresistenz</translation>
     </message>
     <message>
-        <location line="-179"/>
+        <location line="-180"/>
         <source>Class</source>
         <translation>Klasse</translation>
     </message>
     <message>
-        <location line="+135"/>
+        <location line="+136"/>
         <source>Skill Progression</source>
         <translation>Fertigkeitenentwicklung</translation>
     </message>
@@ -3012,7 +3012,7 @@
     <name>ConvertProjectDialog</name>
     <message>
         <location filename="../src/ui/other/ConvertProjectWindow.qml" line="+27"/>
-        <location filename="../src/qmlbinding/project_windows.cpp" line="+130"/>
+        <location filename="../src/qmlbinding/project_windows.cpp" line="+137"/>
         <location line="+4"/>
         <source>Convert to RPG Maker 2003</source>
         <translation>In RPG Maker 2003 konvertieren</translation>
@@ -3520,14 +3520,14 @@ Die Dateien von RPG Maker 2000 befinden sich in:
         <translation>Filter</translation>
     </message>
     <message>
-        <location filename="../src/ui/common/RefComboBox.qml" line="+607"/>
+        <location filename="../src/ui/common/RefComboBox.qml" line="+667"/>
         <location filename="../src/ui/database/DatabaseEntryListPage.qml" line="+144"/>
         <location filename="../src/ui/picker/EntryPicker.qml" line="+48"/>
         <source>Array Size...</source>
         <translation>Arraygröße...</translation>
     </message>
     <message>
-        <location filename="../src/ui/database/ActorPage.qml" line="-471"/>
+        <location filename="../src/ui/database/ActorPage.qml" line="-472"/>
         <location line="+73"/>
         <location filename="../src/ui/picker/EntryPicker.qml" line="-76"/>
         <source>(None)</source>
@@ -6962,6 +6962,29 @@ http://localhost:8000
     </message>
 </context>
 <context>
+    <name>GoToMapDialog</name>
+    <message>
+        <location filename="../src/ui/maptree/GoToMapWindow.qml" line="+28"/>
+        <source>Go to Map</source>
+        <translation>Gehe zu Karte</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Go</source>
+        <translation>Öffnen</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Map</source>
+        <translation>Karte</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Type the number of a map or a part of its name, then choose it in the list.</source>
+        <translation>Geben Sie die Nummer einer Karte oder einen Teil ihres Namens ein und wählen Sie sie dann in der Liste.</translation>
+    </message>
+</context>
+<context>
     <name>HeroCommandWidget</name>
     <message>
         <location filename="../src/model/command_schema.cpp" line="-81"/>
@@ -8789,13 +8812,13 @@ http://localhost:8000
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/controller/shell_controller.cpp" line="+666"/>
+        <location filename="../src/controller/shell_controller.cpp" line="+710"/>
         <location line="+1"/>
         <source>EasyRPG Editor</source>
         <translation>EasyRPG Editor</translation>
     </message>
     <message>
-        <location filename="../src/controller/action_catalog.cpp" line="+209"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+216"/>
         <source>Game &amp;Project</source>
         <translation>Spiel / &amp;Projekt</translation>
     </message>
@@ -8805,7 +8828,7 @@ http://localhost:8000
         <translation>Karten</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+11"/>
         <source>Map &amp;Zoom</source>
         <translation>Karten&amp;zoom</translation>
     </message>
@@ -8830,7 +8853,7 @@ http://localhost:8000
         <translation>Ansicht</translation>
     </message>
     <message>
-        <location line="-106"/>
+        <location line="-114"/>
         <source>Palette</source>
         <translation>Palette</translation>
     </message>
@@ -8840,12 +8863,12 @@ http://localhost:8000
         <translation>Kartenbaum</translation>
     </message>
     <message>
-        <location line="+136"/>
+        <location line="+144"/>
         <source>Toolbar</source>
         <translation>Werkzeugleiste</translation>
     </message>
     <message>
-        <location line="-204"/>
+        <location line="-212"/>
         <source>&amp;Open Project</source>
         <translation>Projekt &amp;öffnen</translation>
     </message>
@@ -9238,6 +9261,32 @@ http://localhost:8000
     </message>
     <message>
         <location line="+1"/>
+        <source>Open Start Map</source>
+        <translation>Startkarte öffnen</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Open the map of the party&apos;s start position</source>
+        <translation>Die Karte der Startposition der Gruppe öffnen</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Open the map where the game starts: the map of the party&apos;s start position</source>
+        <translation>Die Karte öffnen, auf der das Spiel beginnt: die Karte der Startposition der Gruppe</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Go to Map...</source>
+        <translation>Gehe zu Karte...</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+1"/>
+        <source>Open a map by its number or its name</source>
+        <translation>Eine Karte über ihre Nummer oder ihren Namen öffnen</translation>
+    </message>
+    <message>
+        <location line="+1"/>
         <source>Test Play &amp;Options...</source>
         <translation>Testspiel-&amp;Optionen...</translation>
     </message>
@@ -9311,7 +9360,7 @@ http://localhost:8000
         <translation>In der Ansicht 1/8 bearbeiten</translation>
     </message>
     <message>
-        <location line="-41"/>
+        <location line="-48"/>
         <source>Map Properties</source>
         <translation>Karteneigenschaften</translation>
     </message>
@@ -9452,7 +9501,7 @@ http://localhost:8000
         <translation>Gewählte Karte löschen.</translation>
     </message>
     <message>
-        <location filename="../src/controller/shell_controller.cpp" line="-443"/>
+        <location filename="../src/controller/shell_controller.cpp" line="-484"/>
         <source>Creating new project failed</source>
         <translation>Erstellen des neuen Projekts fehlgeschlagen</translation>
     </message>
@@ -9473,7 +9522,7 @@ http://localhost:8000
         <translation>Projekt importieren</translation>
     </message>
     <message>
-        <location line="+422"/>
+        <location line="+463"/>
         <source>Lower Layer Editing Mode</source>
         <translation>Bearbeitungsmodus untere Ebene</translation>
     </message>
@@ -9525,6 +9574,7 @@ http://localhost:8000
     </message>
     <message>
         <location line="+9"/>
+        <location filename="../src/ui/shell/qml_shell.cpp" line="+832"/>
         <source>%1: %2</source>
         <extracomment>Status bar: the id and the name of the map shown</extracomment>
         <translation>%1: %2</translation>
@@ -9552,7 +9602,7 @@ Do you want to save them before closing it?</source>
 Möchten Sie sie vor dem Schließen speichern?</translation>
     </message>
     <message>
-        <location filename="../src/controller/shell_controller.cpp" line="-176"/>
+        <location filename="../src/controller/shell_controller.cpp" line="-178"/>
         <source>Revert Map</source>
         <translation>Karte zurücksetzen</translation>
     </message>
@@ -9577,7 +9627,7 @@ Möchten Sie sie vor dem Schließen speichern?</translation>
         <translation>&lt;h3&gt;EasyRPG Editor %1&lt;/h3&gt;&lt;p&gt;Ein Spieleditor für EasyRPG- und RPG-Maker-2000/2003-Projekte.&lt;/p&gt;&lt;p&gt;Erstellt mit Qt %2.&lt;/p&gt;&lt;p&gt;Freie Software, lizenziert unter der GNU General Public License (Version 3 oder neuer).&lt;/p&gt;&lt;p&gt;&lt;a href=&quot;https://easyrpg.org/&quot;&gt;EasyRPG-Website&lt;/a&gt;&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../src/ui/shell/qml_shell.cpp" line="+501"/>
+        <location filename="../src/ui/shell/qml_shell.cpp" line="-327"/>
         <source>Open in Script Editor</source>
         <translation>Im Skripteditor öffnen</translation>
     </message>
@@ -9607,7 +9657,7 @@ Möchten Sie sie vor dem Schließen speichern?</translation>
         <translation>map_tree.py bei diesem Eintrag öffnen</translation>
     </message>
     <message>
-        <location line="+271"/>
+        <location line="+273"/>
         <location line="+8"/>
         <source>Project Settings</source>
         <translation>Projekteinstellungen</translation>
@@ -12817,7 +12867,7 @@ Vor dem Export speichern?</translation>
         <translation>Standard &lt;EN&gt;</translation>
     </message>
     <message>
-        <location filename="../src/qmlbinding/project_windows.cpp" line="-81"/>
+        <location filename="../src/qmlbinding/project_windows.cpp" line="-88"/>
         <source>Untitled</source>
         <translation>Unbenannt</translation>
     </message>
@@ -12830,14 +12880,14 @@ Vor dem Export speichern?</translation>
 <context>
     <name>OpenProjectDialog</name>
     <message>
-        <location filename="../src/ui/other/OpenProjectWindow.qml" line="+61"/>
-        <location filename="../src/model/project_list.cpp" line="+201"/>
+        <location filename="../src/ui/other/OpenProjectWindow.qml" line="+68"/>
+        <location filename="../src/model/project_list.cpp" line="+223"/>
         <source>Open existing Project</source>
         <translation>Projekt öffnen</translation>
     </message>
     <message>
         <location line="+37"/>
-        <location filename="../src/model/project_list.cpp" line="-129"/>
+        <location filename="../src/model/project_list.cpp" line="-150"/>
         <source>Folder</source>
         <translation>Ordner</translation>
     </message>
@@ -12848,22 +12898,27 @@ Vor dem Export speichern?</translation>
         <translation>Titel des Spiels</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+20"/>
+        <source>This folder doesn&apos;t exist.</source>
+        <translation>Dieser Ordner existiert nicht.</translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <source>Path to games folder</source>
         <translation>Pfad zum Spieleordner</translation>
     </message>
     <message>
-        <location line="-28"/>
+        <location line="-38"/>
         <source>Delete</source>
         <translation>Löschen</translation>
     </message>
     <message>
-        <location line="+55"/>
+        <location line="+77"/>
         <source>Select destination folder</source>
         <translation>Zielordner wählen</translation>
     </message>
     <message>
-        <location line="-70"/>
+        <location line="-92"/>
         <source>Import...</source>
         <translation>Importieren...</translation>
     </message>
@@ -12878,7 +12933,7 @@ Vor dem Export speichern?</translation>
         <translation>Einstellungen...</translation>
     </message>
     <message>
-        <location filename="../src/model/project_list.cpp" line="+118"/>
+        <location filename="../src/model/project_list.cpp" line="+139"/>
         <source>%1 is the project open in the Editor: change it with Game Project &gt; Project Settings, or close it to delete it.</source>
         <translation>%1 ist das im Editor geöffnete Projekt: ändern Sie es über Spiel / Projekt &gt; Projekteinstellungen oder schließen Sie es, um es zu löschen.</translation>
     </message>
@@ -12893,7 +12948,7 @@ Vor dem Export speichern?</translation>
         <translation>%1 konnte nicht in den Papierkorb verschoben werden.</translation>
     </message>
     <message>
-        <location filename="../src/qmlbinding/project_windows.cpp" line="+98"/>
+        <location filename="../src/qmlbinding/project_windows.cpp" line="+105"/>
         <source>The folder could not be renamed.</source>
         <translation>Der Ordner konnte nicht umbenannt werden.</translation>
     </message>
@@ -14025,8 +14080,16 @@ Wieder in den Kartenbaum aufnehmen und Ihre Änderungen speichern? Nein verwirft
         <source>%1 cannot be added back: an area of the map tree has its id now.</source>
         <translation>%1 kann nicht wieder aufgenommen werden: ein Gebiet des Kartenbaums hat jetzt ihre ID.</translation>
     </message>
+    <message numerus="yes">
+        <location line="+47"/>
+        <source>and %n more</source>
+        <translation>
+            <numerusform>und %n weiterer</numerusform>
+            <numerusform>und %n weitere</numerusform>
+        </translation>
+    </message>
     <message>
-        <location line="+55"/>
+        <location line="+31"/>
         <source>Save map changes</source>
         <translation>Kartenänderungen speichern</translation>
     </message>
@@ -16152,7 +16215,7 @@ Legen Sie ihn neben den Editor oder in den PATH, oder geben Sie sein Programm an
 <context>
     <name>SearchComboBox</name>
     <message>
-        <location filename="../src/ui/common/RefComboBox.qml" line="-548"/>
+        <location filename="../src/ui/common/RefComboBox.qml" line="-605"/>
         <source>Opens the window of the switches, to choose one or to rename them</source>
         <translation>Öffnet das Fenster der Schalter, um einen auszuwählen oder sie umzubenennen</translation>
     </message>
@@ -16167,12 +16230,12 @@ Legen Sie ihn neben den Editor oder in den PATH, oder geben Sie sein Programm an
         <translation>Öffnet das Fenster der Liste, um einen Eintrag auszuwählen oder die Einträge umzubenennen</translation>
     </message>
     <message>
-        <location line="+407"/>
+        <location line="+452"/>
         <source>Search by number or name</source>
         <translation>Nach Nummer oder Name suchen</translation>
     </message>
     <message>
-        <location line="+127"/>
+        <location line="+139"/>
         <source>No entry matches</source>
         <translation>Kein Eintrag passt</translation>
     </message>
@@ -20575,7 +20638,7 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
     <message>
         <location filename="../src/ui/database/System2Page.qml" line="-159"/>
         <location line="+49"/>
-        <location filename="../src/ui/database/SystemPage.qml" line="+22"/>
+        <location filename="../src/ui/database/SystemPage.qml" line="+245"/>
         <source>&lt;none&gt;</source>
         <translation>&lt;Keine&gt;</translation>
     </message>
@@ -20583,7 +20646,7 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
 <context>
     <name>SystemWidget</name>
     <message>
-        <location filename="../src/ui/database/SystemPage.qml" line="+196"/>
+        <location filename="../src/ui/database/SystemPage.qml" line="-21"/>
         <source>Starting Party</source>
         <translation>Startgruppe</translation>
     </message>
@@ -20598,7 +20661,7 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
         <translation>Zweites Mitglied</translation>
     </message>
     <message>
-        <location line="+97"/>
+        <location line="+100"/>
         <source>Show Screen</source>
         <translation>Bildschirm einblenden</translation>
     </message>
@@ -20618,8 +20681,8 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
         <translation>Kampfübergang</translation>
     </message>
     <message>
-        <location line="-213"/>
-        <location line="+96"/>
+        <location line="-216"/>
+        <location line="+99"/>
         <source>Title Screen</source>
         <translation>Titelbildschirm</translation>
     </message>
@@ -20634,8 +20697,8 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
         <translation>Fehlerton</translation>
     </message>
     <message>
-        <location line="-205"/>
-        <location line="+95"/>
+        <location line="-208"/>
+        <location line="+98"/>
         <source>Game Over Screen</source>
         <translation>Game-Over-Bildschirm</translation>
     </message>
@@ -20645,19 +20708,19 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
         <translation>System-BGM</translation>
     </message>
     <message>
-        <location line="-119"/>
-        <location line="+126"/>
+        <location line="-122"/>
+        <location line="+129"/>
         <source>Skiff</source>
         <translation>Boot</translation>
     </message>
     <message>
-        <location line="-112"/>
-        <location line="+114"/>
+        <location line="-115"/>
+        <location line="+117"/>
         <source>Airship</source>
         <translation>Luftschiff</translation>
     </message>
     <message>
-        <location line="-105"/>
+        <location line="-108"/>
         <source>Graphics</source>
         <translation>Grafiken</translation>
     </message>
@@ -20707,12 +20770,12 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
         <translation>Viertes Mitglied</translation>
     </message>
     <message>
-        <location line="+51"/>
+        <location line="+54"/>
         <source>Battle</source>
         <translation>Kampf</translation>
     </message>
     <message>
-        <location line="-157"/>
+        <location line="-160"/>
         <source>Fade Out</source>
         <translation>Ausblenden</translation>
     </message>
@@ -20869,7 +20932,7 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
         <translation>Verkleinern</translation>
     </message>
     <message>
-        <location line="+177"/>
+        <location line="+180"/>
         <source>Screen Transitions</source>
         <translation>Bildschirmübergänge</translation>
     </message>
@@ -20934,8 +20997,8 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
         <translation>Gegenstand verwendet</translation>
     </message>
     <message>
-        <location line="-234"/>
-        <location line="+120"/>
+        <location line="-237"/>
+        <location line="+123"/>
         <source>Ship</source>
         <translation>Schiff</translation>
     </message>
@@ -20950,7 +21013,7 @@ Jetzt zu speichern ersetzt diese Änderungen.</translation>
         <translation>Gasthaus</translation>
     </message>
     <message>
-        <location line="-128"/>
+        <location line="-131"/>
         <source>Vehicles</source>
         <translation>Fahrzeuge</translation>
     </message>

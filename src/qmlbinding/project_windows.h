@@ -49,7 +49,7 @@ namespace ProjectWindows {
 		enum class Choice { Cancelled, Open, Import };
 		Choice choice = Choice::Cancelled;
 		QString folder;
-		/** The folder of the games shown last, even when cancelled */
+		/** The folder of the games shown last that exists (not a path typed that is none), even when cancelled */
 		QString defDir;
 	};
 	/** open_path: the project open in the Editor (not changed from there) */

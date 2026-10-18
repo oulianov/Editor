@@ -163,6 +163,8 @@ Item {
     CatalogAction { name: "actionAreaDelete" }
     CatalogAction { name: "actionMapGenerateDungeon" }
     CatalogAction { name: "actionMapShift" }
+    CatalogAction { name: "actionMapOpenStart" }
+    CatalogAction { name: "actionMapGoTo" }
     CatalogAction { name: "actionPlayTestOptions" }
     CatalogAction { name: "actionZoom1_1" }
     CatalogAction { name: "actionZoom1_2" }

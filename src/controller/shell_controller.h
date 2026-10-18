@@ -126,6 +126,26 @@ public:
 	void moveMaps(const QList<MapMove>& moves);
 
 	/*
+	 * Going to a map
+	 */
+
+	/** The map of the party's start position, 0 when it is unset or not a
+	 *  map of the tree */
+	int startMap() const;
+	/** A map of the tree, for Go to Map */
+	struct MapEntry {
+		int id;
+		QString name;
+	};
+	/** The maps of the tree by id, without the areas */
+	QList<MapEntry> maps() const;
+	/** Selects a map in the tree and shows it in a kept tab, as Return on
+	 *  it in the tree; false when it is not a map */
+	bool goToMap(int id);
+	/** Open Start Map */
+	bool openStartMap();
+
+	/*
 	 * The map shown
 	 */
 

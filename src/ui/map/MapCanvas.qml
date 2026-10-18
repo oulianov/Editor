@@ -215,6 +215,10 @@ FocusScope {
         property point edge: Qt.point(0, 0)
         // the last press, in the content: where a menu opens
         property point press: Qt.point(0, 0)
+        // the last press of the left button, in the view, and whether the
+        // pointer went past the drag distance since
+        property point pressAt: Qt.point(0, 0)
+        property bool dragStarted: false
         // Ctrl + wheel: the turns not zoomed yet (a notch is 120)
         property real wheel: 0
         // the scroll bars, while the map is larger than the view
@@ -424,6 +428,10 @@ FocusScope {
                 root.forceActiveFocus(Qt.MouseFocusReason)
                 root.track(mouse)
                 d.press = Qt.point(mouse.x, mouse.y)
+                if (mouse.button === Qt.LeftButton) {
+                    d.pressAt = d.pointer
+                    d.dragStarted = false
+                }
                 if (!root.editor) {
                     return
                 }
@@ -438,6 +446,14 @@ FocusScope {
                 if (root.editor) {
                     const cell = root.cellAt(mouse.x, mouse.y)
                     root.editor.move(cell.x, cell.y, mouse.buttons)
+                    // a press is a click until the pointer goes past the
+                    // platform's drag distance: then what it grabbed moves
+                    if (pressed && (mouse.buttons & Qt.LeftButton) && !d.dragStarted
+                            && Math.abs(d.pointer.x - d.pressAt.x) + Math.abs(d.pointer.y - d.pressAt.y)
+                               >= Qt.styleHints.startDragDistance) {
+                        d.dragStarted = true
+                        root.editor.startDrag()
+                    }
                 }
             }
             onReleased: (mouse) => {
@@ -446,6 +462,14 @@ FocusScope {
                 if (root.editor) {
                     const cell = root.cellAt(mouse.x, mouse.y)
                     root.editor.release(cell.x, cell.y, mouse.button, mouse.buttons)
+                }
+            }
+            // another window took the pointer before the release (the event
+            // window opened by a double-click): nothing dragged is dropped
+            onCanceled: {
+                d.edge = Qt.point(0, 0)
+                if (root.editor) {
+                    root.editor.cancelPress()
                 }
             }
             onDoubleClicked: (mouse) => {
