@@ -28,7 +28,7 @@ Loader {
     /** Its pointer in the session: its value, or its default when not bound */
     readonly property string key: bound ? field.path : "/defaults/" + field.id
     /** Its control takes the width of its row (the lists, the texts) */
-    readonly property bool wide: field.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Expression"].includes(field.kind)
+    readonly property bool wide: field.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Expression", "Location"].includes(field.kind)
 
     /** A text of the schema in the language of the interface */
     function tr(text) {
@@ -62,8 +62,9 @@ Loader {
         case "Map":
             return map
         case "MapX":
-            return number
         case "MapY":
+            return number
+        case "Location":
             return location
         case "Character":
             return character
@@ -317,42 +318,64 @@ Loader {
 
     Component {
         id: location
-        RowLayout {
-            id: locationRow
-            spacing: Ez.Metrics.columnSpacing
-            Ez.SpinBox {
-                objectName: root.name
-                jsonData: root.session
-                key: root.key
-                from: root.field.minimum
-                to: root.field.maximum
+        // RPG Maker 2003's location box: the map and the cell, a click (or
+        // its "...") picks them on the map view
+        Ez.PathField {
+            id: locationBox
+
+            readonly property bool fixed: root.field.link === ""
+            // the fields of the location (hidden: this box shows them)
+            readonly property var xField: root.session.schema.fields.find(one => one.kind === "MapX" && one.link === root.field.link)
+            readonly property var yField: root.session.schema.fields.find(one => one.kind === "MapY" && one.link === root.field.link)
+            readonly property string xId: xField ? xField.id : "x"
+            readonly property string yId: yField ? yField.id : "y"
+            readonly property int mapId: root.session.revision < 0 ? 0
+                : fixed ? root.session.eventMap : root.session.read(root.field.link)
+            readonly property bool pickable: root.bound && root.session.canPickLocation && (!fixed || root.session.eventMap > 0)
+
+            /** The name of the map of the location, "" for none */
+            function mapName() {
+                const map = root.session.maps.find(one => one.value === mapId)
+                return map ? map.text.replace(/^\d+: /, "")
+                    : mapId > 0 ? qsTranslate("LocationCommandWidget", "Unknown Map (%1)").arg(mapId) : ""
             }
-            // RPG Maker's map view to click the cell on
-            Ez.Button {
-                objectName: "locationPicker"
-                text: qsTranslate("LocationCommandWidget", "Select on Map...")
-                visible: root.session.canPickLocation
-                enabled: root.bound && (root.field.link !== "" || root.session.eventMap > 0)
-                onClicked: {
-                    // the X of the same map
-                    const x = root.session.schema.fields.find(one => one.kind === "MapX" && one.link === root.field.link)
-                    const xId = x ? x.id : "x"
-                    const map = root.field.link !== "" ? root.session.read(root.field.link) : 0
-                    const facing = root.session.path("facing") !== "" && root.session.isEnabled("facing")
-                                   ? root.session.read("facing") : -1
-                    const chosen = root.session.pickLocation(map, root.session.read(xId), Number(current.value), facing, locationRow)
-                    if (!chosen) {
-                        return
-                    }
-                    if (root.field.link !== "") {
-                        root.session.write(root.field.link, chosen.map)
-                    }
-                    root.session.write(xId, chosen.x)
-                    current.value = chosen.y
-                    if (facing >= 0 && chosen.direction >= 0) {
-                        root.session.write("facing", chosen.direction)
-                    }
+            function pick() {
+                if (!pickable) {
+                    return
                 }
+                const facing = root.session.path("facing") !== "" && root.session.isEnabled("facing")
+                               ? root.session.read("facing") : -1
+                const chosen = root.session.pickLocation(fixed ? 0 : mapId, root.session.read(xId), root.session.read(yId),
+                                                         facing, locationBox)
+                if (!chosen) {
+                    return
+                }
+                if (!fixed) {
+                    root.session.write(root.field.link, chosen.map)
+                }
+                root.session.write(xId, chosen.x)
+                root.session.write(yId, chosen.y)
+                if (facing >= 0 && chosen.direction >= 0) {
+                    root.session.write("facing", chosen.direction)
+                }
+            }
+
+            fieldName: root.name
+            buttonName: "locationPicker"
+            buttonToolTip: qsTranslate("LocationCommandWidget", "Select on Map...")
+            field.readOnly: true
+            field.activeFocusOnPress: false
+            // empty while another mode is chosen (its values are the variables)
+            text: root.session.revision < 0 || !root.bound ? ""
+                : qsTranslate("LocationCommandWidget", "%1 (%2, %3)").arg(mapName())
+                      .arg(root.session.read(xId)).arg(root.session.read(yId))
+            button.enabled: pickable
+            onBrowse: pick()
+            Layout.fillWidth: true
+
+            TapHandler {
+                parent: locationBox.field
+                onTapped: locationBox.pick()
             }
         }
     }

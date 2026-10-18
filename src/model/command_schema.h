@@ -112,6 +112,10 @@ namespace CommandSchema {
 		 *  the event; with a button to click it on the map */
 		MapX,
 		MapY,
+		/** No value of its own: the location of the MapX and MapY fields of
+		 *  its link (a Map), else on the map of the event, as one field to
+		 *  click (RPG Maker 2003's location box), the fields themselves hidden */
+		Location,
 		/** A character: the events of the map after items (This Event,
 		 *  Hero, the vehicles: 10001-10005) */
 		Character,
@@ -201,7 +205,7 @@ namespace CommandSchema {
 		Flags flags;
 		/** File, Face, Charset: the folder of the project */
 		const char* folder = nullptr;
-		/** MapX, MapY: the Map field; Tile: the field of the layer */
+		/** MapX, MapY, Location: the Map field; Tile: the field of the layer */
 		const char* link = nullptr;
 		/** String: the characters RPG Maker lets type (0: no limit) */
 		int limit = 0;

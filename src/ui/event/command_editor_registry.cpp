@@ -25,6 +25,7 @@
 #include "qmlbinding/command_edit_session.h"
 #include "qmlbinding/qml_dialog_service.h"
 #include "qmlbinding/qml_host.h"
+#include "ui/picker/pickers.h"
 #include "ui/shell/qml_engine.h"
 
 #include <QCoreApplication>
@@ -310,6 +311,30 @@ bool applyEdit(QWindow* over, std::vector<Command>& list, int index, CommandEdit
 	}
 }
 
+/**
+ * Teleport: RPG Maker 2003's Select Teleport Location, the map location
+ * picker itself (its editor has nothing else), with the Character Facing
+ * in RPG Maker 2003 games. OK writes the map, the cell and the facing
+ */
+bool pickTeleport(QWindow* over, ProjectData& project, Command& command) {
+	const bool rpg2k3 = project.database().system.ldb_id == 2003;
+	Pickers::LocationRequest request;
+	request.current = {parameterOf(command, 0), parameterOf(command, 1), parameterOf(command, 2), parameterOf(command, 3)};
+	request.facing = rpg2k3;
+	request.title = QCoreApplication::translate("LocationCommandWidget", "Select Teleport Location");
+	const auto chosen = Pickers::pickLocation(over, request);
+	if (!chosen) {
+		return false;
+	}
+	setParameterOf(command, 0, chosen->map);
+	setParameterOf(command, 1, chosen->x);
+	setParameterOf(command, 2, chosen->y);
+	if (rpg2k3 || command.parameters.size() > 3) {
+		setParameterOf(command, 3, chosen->direction);
+	}
+	return true;
+}
+
 bool run(QWindow* over, ProjectData& project, std::vector<Command>& commands, int index,
 	const CommandEditorRegistry::Context& context, bool alone)
 {
@@ -319,6 +344,9 @@ bool run(QWindow* over, ProjectData& project, std::vector<Command>& commands, in
 	if (type.isEmpty()) {
 		// nothing to set
 		return true;
+	}
+	if (code == Code::Teleport) {
+		return pickTeleport(over, project, commands[index]);
 	}
 	// deleted after the window (the bindings of its editor read it until then)
 	auto* session = new CommandEditSession(command);

@@ -287,23 +287,26 @@ Fields audio(int volume) {
 }
 
 // A location: a map (map < 0: the map of the event) and
-// a cell, given or in variables (mode < 0: given)
+// a cell, given or in variables (mode < 0: given). The given one is shown
+// as RPG Maker 2003's location box, its map and cell hidden
 Fields location(int mode, int map, int x, int y) {
 	Fields list = fields(section(in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Location"))));
 	if (mode >= 0) {
-		append(list, choice("locationMode", mode, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Location")), {
+		// radio buttons under the title, as RPG Maker 2003
+		append(list, choice("locationMode", mode, {}, {
 			{0, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Specific Location"))},
-			{1, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Location Referenced from Variables"))}}));
+			{1, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Location Referenced from Variables"))}}).radio());
 	}
 	const char* link = map >= 0 ? "map" : nullptr;
 	Fields given;
+	append(given, field(Kind::Location, "location", StringIndex, {}).withLink(link));
 	if (map >= 0) {
-		append(given, ref(Kind::Map, "map", map, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Map"))));
+		append(given, ref(Kind::Map, "map", map, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Map"))).hidden());
 	}
 	append(given, field(Kind::MapX, "x", x, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "X Coordinate")))
-		.withRange(0, 9999).withLink(link));
+		.withRange(0, 9999).withLink(link).hidden());
 	append(given, field(Kind::MapY, "y", y, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Y Coordinate")))
-		.withRange(0, 9999).withLink(link));
+		.withRange(0, 9999).withLink(link).hidden());
 	if (mode < 0) {
 		append(list, given);
 		return list;
@@ -323,14 +326,15 @@ Fields location(int mode, int map, int x, int y) {
 	return list;
 }
 
-// The facing after a move: RPG Maker 2003
-F facing(int index) {
-	return choice("facing", index, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Facing")), {
+// The facing after a move: RPG Maker 2003, radio buttons (its Character
+// Facing); without a label in a section of its own
+F facing(int index, bool labelled = true) {
+	return choice("facing", index, labelled ? in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Facing")) : Label(), {
 		{0, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Retain Facing"))},
 		{1, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Up"))},
 		{2, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Right"))},
 		{3, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Down"))},
-		{4, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Left"))}}).rpg2003();
+		{4, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Left"))}}).radio().rpg2003();
 }
 
 // The special characters a location command can name
@@ -1857,7 +1861,8 @@ void addMapAndScreen(Table& table) {
 	// Teleport
 	table.add(Code::Teleport, context, QT_TRANSLATE_NOOP("LocationCommandWidget", "Teleport"), fields(
 		location(-1, 0, 1, 2),
-		facing(3)
+		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Character Facing")),
+		facing(3, false)
 	));
 
 	// Memorize Location
@@ -1879,11 +1884,11 @@ void addMapAndScreen(Table& table) {
 	// Set Vehicle Location
 	table.add(Code::SetVehicleLocation, context, QT_TRANSLATE_NOOP("LocationCommandWidget", "Set Vehicle Location"), fields(
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Vehicle")),
-		choice("vehicle", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Vehicle"), {
+		choice("vehicle", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Boat")},
 			{1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Ship")},
 			{2, QT_TRANSLATE_NOOP("LocationCommandWidget", "Airship")},
-			{-1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Party"), Flag::Kept}}),
+			{-1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Party"), Flag::Kept}}).radio(),
 		location(1, 2, 3, 4)
 	));
 
@@ -2241,9 +2246,9 @@ void addMediaAndMap(Table& table) {
 	// Set Teleport Location
 	table.add(Code::TeleportTargets, "LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Teleport Target Management"), fields(
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Operation")),
-		choice("operation", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Operation"), {
+		choice("operation", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Add Teleport Target")},
-			{1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Delete Teleport Target")}}),
+			{1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Delete Teleport Target")}}).radio(),
 		// deleting a target needs only its map
 		enabledOnlyWhen(location(-1, 1, 2, 3), {"x", "y"}, "operation", {0}),
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Turn Switch ON After Teleporting")),
@@ -2614,7 +2619,7 @@ uint32_t Field::mask() const {
 }
 
 bool Field::hasValue() const {
-	return kind != Kind::Section && kind != Kind::Note;
+	return kind != Kind::Section && kind != Kind::Note && kind != Kind::Location;
 }
 
 bool Field::isNumber() const {
@@ -2640,7 +2645,8 @@ bool Field::isTail() const {
 
 const Field* Schema::field(std::string_view id) const {
 	for (const auto& one : fields) {
-		if (one.hasValue() && id == one.id) {
+		// a location box has no value, but its rules
+		if ((one.hasValue() || one.kind == Kind::Location) && id == one.id) {
 			return &one;
 		}
 	}

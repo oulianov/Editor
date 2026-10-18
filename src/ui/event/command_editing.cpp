@@ -91,6 +91,8 @@ std::optional<Code> CommandEditing::pickCommand(QWindow* over, ProjectData& proj
 			entries.append(QVariantMap{
 				{QStringLiteral("code"), static_cast<int>(entry.code)},
 				{QStringLiteral("name"), CommandCatalog::translate(entry.name)},
+				// the English name: the search finds a command by it too
+				{QStringLiteral("source"), QString::fromUtf8(entry.name)},
 				{QStringLiteral("rpg2k3Only"), entry.rpg2k3_only},
 				{QStringLiteral("maniacOnly"), entry.maniac_only},
 			});

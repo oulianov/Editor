@@ -55,6 +55,7 @@ LocationMapList::LocationMapList(const lcf::rpg::TreeMap& tree, const QString& r
 	Node root;
 	root.name = root_name;
 	root.type = lcf::rpg::TreeMap::MapType_root;
+	root.expanded = true;
 	m_nodes.append(root);
 	QHash<int, int> index;
 	for (const auto& info : tree.maps) {
@@ -64,6 +65,7 @@ LocationMapList::LocationMapList(const lcf::rpg::TreeMap& tree, const QString& r
 		node.id = info.ID;
 		node.name = ToQString(info.name);
 		node.type = info.type;
+		node.expanded = info.expanded_node;
 		index.insert(info.ID, static_cast<int>(m_nodes.size()));
 		m_nodes.append(node);
 	}
@@ -77,6 +79,7 @@ LocationMapList::LocationMapList(const lcf::rpg::TreeMap& tree, const QString& r
 		const int parent_id = it != tree.maps.end() ? it->parent_map : 0;
 		const int parent = parent_id != id && index.contains(parent_id) ? index.value(parent_id) : 0;
 		m_nodes[parent].children.append(index.value(id));
+		m_nodes[index.value(id)].parent = parent;
 		attached.insert(id);
 	};
 	for (int id : tree.tree_order)
@@ -113,15 +116,18 @@ void LocationMapList::setFilter(const QString& filter)
 	emit filterChanged();
 }
 
-bool LocationMapList::collect(int index, QList<int>& shown) const
+bool LocationMapList::collect(int index, bool open, QList<int>& shown) const
 {
 	const Node& node = m_nodes[index];
 	const qsizetype at = shown.size();
-	shown.append(index);
-	bool matches = index == 0 || m_filter.trimmed().isEmpty()
+	if (open)
+		shown.append(index);
+	const bool searched = !m_filter.trimmed().isEmpty();
+	bool matches = index == 0 || !searched
 		|| SearchMatch::matches(QStringLiteral("%1: %2").arg(node.id, 4, 10, QChar('0')).arg(node.name), node.id, m_filter);
+	// searched: every match shows, else what the expanded nodes hold
 	for (int child : node.children)
-		matches = collect(child, shown) || matches;
+		matches = collect(child, open && (searched || node.expanded), shown) || matches;
 	if (!matches)
 		shown.resize(at);
 	return matches;
@@ -131,8 +137,34 @@ void LocationMapList::update()
 {
 	beginResetModel();
 	m_shown.clear();
-	collect(0, m_shown);
+	collect(0, true, m_shown);
 	endResetModel();
+}
+
+void LocationMapList::setExpanded(int row, bool expanded)
+{
+	if (row < 0 || row >= m_shown.size() || m_nodes[m_shown[row]].children.isEmpty()
+			|| m_nodes[m_shown[row]].expanded == expanded)
+		return;
+	m_nodes[m_shown[row]].expanded = expanded;
+	update();
+}
+
+void LocationMapList::reveal(int map_id)
+{
+	const auto it = std::find_if(m_nodes.begin(), m_nodes.end(), [map_id](const Node& node) { return node.id == map_id; });
+	if (it == m_nodes.end())
+		return;
+	bool changed = false;
+	// a loop of parents stops at the node met again
+	QSet<int> seen;
+	for (int parent = it->parent; parent >= 0 && !seen.contains(parent); parent = m_nodes[parent].parent) {
+		seen.insert(parent);
+		changed = changed || !m_nodes[parent].expanded;
+		m_nodes[parent].expanded = true;
+	}
+	if (changed)
+		update();
 }
 
 int LocationMapList::rowOf(int map_id) const
@@ -189,6 +221,10 @@ QVariant LocationMapList::data(const QModelIndex& index, int role) const
 		return node.type;
 	case SelectableRole:
 		return node.type == lcf::rpg::TreeMap::MapType_map;
+	case HasChildrenRole:
+		return !node.children.isEmpty();
+	case ExpandedRole:
+		return node.expanded || !m_filter.trimmed().isEmpty();
 	default:
 		return QVariant();
 	}
@@ -197,7 +233,7 @@ QVariant LocationMapList::data(const QModelIndex& index, int role) const
 QHash<int, QByteArray> LocationMapList::roleNames() const
 {
 	return {{Qt::DisplayRole, "name"}, {IdRole, "mapId"}, {DepthRole, "depth"}, {TypeRole, "type"},
-		{SelectableRole, "selectable"}};
+		{SelectableRole, "selectable"}, {HasChildrenRole, "hasChildren"}, {ExpandedRole, "expanded"}};
 }
 
 /*

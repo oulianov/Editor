@@ -68,7 +68,7 @@ ColumnLayout {
 
     /** A field whose control takes the width of its row */
     function isWide(field) {
-        return field.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile"].includes(field.kind)
+        return field.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Location"].includes(field.kind)
     }
 
     /** The cells of a section's grid: a label and its controls per row (or one cell over both columns) */

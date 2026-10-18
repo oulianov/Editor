@@ -454,6 +454,7 @@ set(EDITOR_QML_UI
 	src/ui/maptree/MapCellView.qml
 	src/ui/maptree/MapLocationPicker.qml
 	src/ui/maptree/MapPropertiesWindow.qml
+	src/ui/maptree/MapZoomButtons.qml
 	src/ui/maptree/ShiftMapWindow.qml
 	src/ui/other/ConvertProjectWindow.qml
 	src/ui/other/ExportWindow.qml

@@ -30,8 +30,10 @@ class ProjectData;
 /**
  * The maps of a project in the order of the map tree, as the lines of a
  * list indented by their depth: the project first, then the maps with
- * their areas (shown, but no location). Searched by number or name as the
- * lists of maps are; a node stays while one under it matches.
+ * their areas (shown, but no location). A node shows what it holds when
+ * expanded (as the map tree has it, the project always). Searched by number
+ * or name as the lists of maps are; a node stays while one under it
+ * matches, and all the matches show.
  */
 class LocationMapList : public QAbstractListModel
 {
@@ -48,6 +50,8 @@ public:
 		TypeRole,
 		/** A map: a location can be on it */
 		SelectableRole,
+		HasChildrenRole,
+		ExpandedRole,
 	};
 
 	LocationMapList(const lcf::rpg::TreeMap& tree, const QString& root_name, QObject* parent = nullptr);
@@ -63,6 +67,10 @@ public:
 	Q_INVOKABLE int firstSelectable() const;
 	/** A map of the tree a location can be on */
 	bool isMap(int map_id) const;
+	/** Expands or collapses the node of a line */
+	Q_INVOKABLE void setExpanded(int row, bool expanded);
+	/** Shows the node of a map: the nodes above it expanded */
+	Q_INVOKABLE void reveal(int map_id);
 
 	// QAbstractListModel
 	int rowCount(const QModelIndex& parent = QModelIndex()) const override;
@@ -78,10 +86,12 @@ private:
 		QString name;
 		int depth = 0;
 		int type = 0;
+		int parent = -1;
+		bool expanded = false;
 		QList<int> children;
 	};
 	void update();
-	bool collect(int index, QList<int>& shown) const;
+	bool collect(int index, bool open, QList<int>& shown) const;
 
 	// the project at 0
 	QList<Node> m_nodes;

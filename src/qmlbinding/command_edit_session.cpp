@@ -1125,7 +1125,8 @@ std::vector<bool> CommandEditSession::shown() const {
 	std::vector<bool> result;
 	if (const Schema* schema = schemaOf()) {
 		for (const auto& one : schema->fields) {
-			result.push_back(one.isNumber() && CommandSchema::isVisible(*schema, one, m_command));
+			// a hidden field by its rules too (the map and cell of a location box)
+			result.push_back(one.isNumber() && CommandSchema::holds(*schema, one.visible, m_command));
 		}
 	}
 	return result;

@@ -49,7 +49,7 @@ Ez.DialogWindow {
     }
     RowLayout {
         spacing: Ez.Metrics.columnSpacing
-        MapCellView.ZoomButtons {
+        MapZoomButtons {
             target: view
         }
         Ez.Label {

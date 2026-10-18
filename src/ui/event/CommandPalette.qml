@@ -15,7 +15,7 @@ import org.easyrpg.editor as Ez
  * over all of them (Enter picks the command of that name, else the first
  * match). Opened by CommandEditing::pickCommand, which reads code.
  *
- * pages: [{title, entries: [{code, name, rpg2k3Only, maniacOnly}]}], an
+ * pages: [{title, entries: [{code, name, source, rpg2k3Only, maniacOnly}]}], an
  * entry of code 0 is the gap between two groups.
  */
 Ez.DialogWindow {
@@ -71,9 +71,23 @@ Ez.DialogWindow {
         }
         return [groups.slice(0, split), groups.slice(split)]
     }
-    /** The commands whose name has the text, in the order of the pages and of their columns */
+    /** A text to search in: lower case, without accents ("téléporter": "teleporter") */
+    function folded(text) {
+        return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    }
+    /** The entry is named so, in the language of the Editor or in English */
+    function named(entry, search, exact) {
+        for (const name of [entry.name, entry.source ?? ""]) {
+            const text = folded(name)
+            if (exact ? text === search : text.includes(search)) {
+                return true
+            }
+        }
+        return false
+    }
+    /** The commands whose name (or English name) has the text, in the order of the pages and of their columns */
     readonly property var matches: {
-        const search = searchField.text.trim().toLowerCase()
+        const search = folded(searchField.text.trim())
         if (search === "") {
             return []
         }
@@ -82,7 +96,7 @@ Ez.DialogWindow {
             for (const column of columnsOf(page)) {
                 for (const group of column) {
                     for (const entry of group) {
-                        if (entry.name.toLowerCase().includes(search)) {
+                        if (root.named(entry, search, false)) {
                             found.push({ entry: entry, page: page.title })
                         }
                     }
@@ -112,13 +126,13 @@ Ez.DialogWindow {
         Component.onCompleted: forceActiveFocus()
         onAccepted: {
             // the command of that name, else the first result that can be chosen
-            const search = text.trim().toLowerCase()
+            const search = root.folded(text.trim())
             let first = null
             for (const match of root.matches) {
                 if (root.whyNot(match.entry) !== "") {
                     continue
                 }
-                if (match.entry.name.toLowerCase() === search) {
+                if (root.named(match.entry, search, true)) {
                     root.choose(match.entry.code)
                     return
                 }

@@ -17,7 +17,7 @@ import org.easyrpg.editor as Ez
  * black and white. A click picks a cell, a drag a rectangle (rectangleMode,
  * up to maxWidth x maxHeight), past the edge it scrolls; a double-click
  * activates the cell. The arrows move the frame, the wheel scrolls, Ctrl +
- * wheel zooms (1/1, 1/2, 1/4: zoomButtons).
+ * wheel zooms (1/1 to 1/8: MapZoomButtons).
  */
 FocusScope {
     id: root
@@ -44,13 +44,23 @@ FocusScope {
     readonly property int columns: gridMode ? grid.cells.width : (document ? preview.lowerView.cells.width : 0)
     readonly property int rows: gridMode ? grid.cells.height : (document ? preview.lowerView.cells.height : 0)
     readonly property alias view: view
-    // the scroll bars the cells need (one makes room for the other)
+    // the scroll bars the cells need (one makes room for the other): set
+    // once the sizes settle, the size of a bar depending on what it shows
     readonly property real contentWidthNeeded: columns * cellSize
     readonly property real contentHeightNeeded: rows * cellSize
-    readonly property bool needsVerticalBar: contentHeightNeeded > height - 2
-        || (contentWidthNeeded > width - 2 && contentHeightNeeded > height - 2 - horizontalBar.implicitHeight)
-    readonly property bool needsHorizontalBar: contentWidthNeeded > width - 2
-        || (contentHeightNeeded > height - 2 && contentWidthNeeded > width - 2 - verticalBar.implicitWidth)
+    property bool needsVerticalBar: false
+    property bool needsHorizontalBar: false
+    function updateBars() {
+        const vertical = contentHeightNeeded > height - 2
+            || (contentWidthNeeded > width - 2 && contentHeightNeeded > height - 2 - horizontalBar.implicitHeight)
+        needsHorizontalBar = contentWidthNeeded > width - 2
+            || (contentHeightNeeded > height - 2 && contentWidthNeeded > width - 2 - verticalBar.implicitWidth)
+        needsVerticalBar = vertical
+    }
+    onWidthChanged: Qt.callLater(updateBars)
+    onHeightChanged: Qt.callLater(updateBars)
+    onContentWidthNeededChanged: Qt.callLater(updateBars)
+    onContentHeightNeededChanged: Qt.callLater(updateBars)
     /** Beside the cells when they are higher than the view */
     readonly property alias verticalScrollBar: verticalBar
 
@@ -97,7 +107,7 @@ FocusScope {
                         Math.max(0, Math.min(Math.floor(y / cellSize), rows - 1)))
     }
     function zoomTo(size) {
-        size = Math.max(8, Math.min(64, size))
+        size = Math.max(4, Math.min(64, size))
         if (size === cellSize) {
             return
         }
@@ -354,34 +364,6 @@ FocusScope {
                 }
                 for (; turned <= -120; turned += 120) {
                     root.zoomTo(root.cellSize / 2)
-                }
-            }
-        }
-    }
-
-    /** The 1/1, 1/2 and 1/4 buttons of RPG Maker's map views, for this view */
-    component ZoomButtons: RowLayout {
-        id: zoomButtons
-
-        required property var target
-
-        spacing: 2
-        Repeater {
-            model: [
-                { name: "zoomFull", text: qsTr("1/1"), size: 32 },
-                { name: "zoomHalf", text: qsTr("1/2"), size: 16 },
-                { name: "zoomQuarter", text: qsTr("1/4"), size: 8 },
-            ]
-            Ez.Button {
-                required property var modelData
-                objectName: modelData.name
-                text: modelData.text
-                checkable: true
-                checked: zoomButtons.target.cellSize === modelData.size
-                onClicked: {
-                    zoomButtons.target.zoomTo(modelData.size)
-                    // checked from the view again: the click toggled it
-                    checked = Qt.binding(() => zoomButtons.target.cellSize === modelData.size)
                 }
             }
         }

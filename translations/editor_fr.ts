@@ -1685,7 +1685,7 @@
 <context>
     <name>CallCommonEventWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+568"/>
+        <location filename="../src/model/command_schema.cpp" line="+572"/>
         <source>Call Common Event</source>
         <translation>Appeler un évènement commun</translation>
     </message>
@@ -1698,7 +1698,7 @@
 <context>
     <name>CallEventWidget</name>
     <message>
-        <location line="+1893"/>
+        <location line="+1894"/>
         <source>Call Event</source>
         <translation>Appeler un évènement</translation>
     </message>
@@ -1748,7 +1748,7 @@
     <name>ChangeActorFaceWidget</name>
     <message>
         <location filename="../src/ui/commands/ChangeActorFaceEditor.qml" line="+44"/>
-        <location filename="../src/model/command_schema.cpp" line="-966"/>
+        <location filename="../src/model/command_schema.cpp" line="-967"/>
         <source>Actor</source>
         <translation>Héros</translation>
     </message>
@@ -1808,7 +1808,7 @@
 <context>
     <name>ChangeBattleBGWidget</name>
     <message>
-        <location line="+1049"/>
+        <location line="+1050"/>
         <source>Change Battle Background</source>
         <translation>Modifier le fond de combat</translation>
     </message>
@@ -1821,7 +1821,7 @@
 <context>
     <name>ChangeExperienceWidget</name>
     <message>
-        <location line="-1182"/>
+        <location line="-1183"/>
         <source>Actor</source>
         <translation>Cible</translation>
     </message>
@@ -2005,7 +2005,7 @@
 <context>
     <name>ChangeMonsterConditionWidget</name>
     <message>
-        <location line="+1187"/>
+        <location line="+1188"/>
         <source>Change Monster Condition</source>
         <translation>Modifier le statut d&apos;un monstre</translation>
     </message>
@@ -2054,7 +2054,7 @@
 <context>
     <name>ChangePartyWidget</name>
     <message>
-        <location line="-1155"/>
+        <location line="-1156"/>
         <source>Operation</source>
         <translation>Opération</translation>
     </message>
@@ -2503,7 +2503,7 @@
     <name>CommentWidget</name>
     <message>
         <location filename="../src/ui/commands/CommentEditor.qml" line="+16"/>
-        <location filename="../src/model/command_schema.cpp" line="+957"/>
+        <location filename="../src/model/command_schema.cpp" line="+958"/>
         <source>Comment</source>
         <translation>Insérer un commentaire</translation>
     </message>
@@ -3810,7 +3810,7 @@ Les fichiers de RPG Maker 2000 sont dans :
 <context>
     <name>EnableComboWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1846"/>
+        <location filename="../src/model/command_schema.cpp" line="-1847"/>
         <source>Enable Combo</source>
         <translation>Activer le combo</translation>
     </message>
@@ -3838,7 +3838,7 @@ Les fichiers de RPG Maker 2000 sont dans :
 <context>
     <name>EnableDisableWidget</name>
     <message>
-        <location line="+1529"/>
+        <location line="+1530"/>
         <source>Allow</source>
         <translation>Autorisé</translation>
     </message>
@@ -4128,7 +4128,7 @@ Les fichiers de RPG Maker 2000 sont dans :
     <name>EnemyEncounterWidget</name>
     <message>
         <location filename="../src/ui/commands/EnemyEncounterEditor.qml" line="+21"/>
-        <location filename="../src/model/command_schema.cpp" line="-530"/>
+        <location filename="../src/model/command_schema.cpp" line="-531"/>
         <source>Enemy Encounter</source>
         <translation>Démarrer un combat</translation>
     </message>
@@ -4643,7 +4643,7 @@ Les fichiers de RPG Maker 2000 sont dans :
     <name>ErasePictureWidget</name>
     <message>
         <location filename="../src/ui/commands/ErasePictureEditor.qml" line="+20"/>
-        <location filename="../src/model/command_schema.cpp" line="+370"/>
+        <location filename="../src/model/command_schema.cpp" line="+371"/>
         <source>Erase Picture</source>
         <translation>Effacer une image</translation>
     </message>
@@ -4752,7 +4752,7 @@ Les fichiers de RPG Maker 2000 sont dans :
     <message>
         <location line="-161"/>
         <location line="+163"/>
-        <location filename="../src/model/command_schema.cpp" line="-744"/>
+        <location filename="../src/model/command_schema.cpp" line="-745"/>
         <source>Control Switches</source>
         <translation>Modifier interrupteur(s)</translation>
     </message>
@@ -4997,7 +4997,7 @@ Les fichiers de RPG Maker 2000 sont dans :
     <message>
         <location line="+1"/>
         <location line="+134"/>
-        <location filename="../src/model/command_schema.cpp" line="+435"/>
+        <location filename="../src/model/command_schema.cpp" line="+436"/>
         <source>Tint Screen</source>
         <translation>Modifier le ton de l&apos;écran</translation>
     </message>
@@ -5276,7 +5276,7 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../src/model/command_schema.cpp" line="-1626"/>
+        <location filename="../src/model/command_schema.cpp" line="-1627"/>
         <source>Get Save Info</source>
         <translation>Lire les informations d&apos;une sauvegarde</translation>
     </message>
@@ -5482,7 +5482,7 @@ Les fichiers de RPG Maker 2000 sont dans :
         <translation>Activer le combo</translation>
     </message>
     <message>
-        <location filename="../src/ui/event/CommandPalette.qml" line="+96"/>
+        <location filename="../src/ui/event/CommandPalette.qml" line="+110"/>
         <source>Event Commands</source>
         <translation>Commandes de l&apos;évènement</translation>
     </message>
@@ -5492,7 +5492,7 @@ Les fichiers de RPG Maker 2000 sont dans :
         <translation>Chercher une commande (Entrée choisit la meilleure)</translation>
     </message>
     <message>
-        <location line="-69"/>
+        <location line="-83"/>
         <source>Only in RPG Maker 2003</source>
         <translation>Seulement dans RPG Maker 2003</translation>
     </message>
@@ -5502,7 +5502,7 @@ Les fichiers de RPG Maker 2000 sont dans :
         <translation>Uniquement avec le Maniac Patch</translation>
     </message>
     <message>
-        <location line="+235"/>
+        <location line="+249"/>
         <source>No command matches &quot;%1&quot;</source>
         <translation>Aucune commande ne correspond à « %1 »</translation>
     </message>
@@ -6222,7 +6222,7 @@ Afficher la nouvelle version et abandonner vos modifications ?</translation>
 <context>
     <name>FadeOutBGMWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+1305"/>
+        <location filename="../src/model/command_schema.cpp" line="+1306"/>
         <source>Fade Out BGM</source>
         <translation>Faire disparaître la musique</translation>
     </message>
@@ -6361,7 +6361,7 @@ Afficher la nouvelle version et abandonner vos modifications ?</translation>
 <context>
     <name>ForceFleeWidget</name>
     <message>
-        <location line="-1510"/>
+        <location line="-1511"/>
         <source>Force Flee</source>
         <translation>Fuite forcée</translation>
     </message>
@@ -8241,7 +8241,7 @@ http://localhost:8000
     <name>KeyInputProcWidget</name>
     <message>
         <location filename="../src/ui/commands/KeyInputProcEditor.qml" line="+25"/>
-        <location filename="../src/model/command_schema.cpp" line="+1000"/>
+        <location filename="../src/model/command_schema.cpp" line="+1001"/>
         <source>Key Input Processing</source>
         <translation>Demander l&apos;appui d&apos;une touche</translation>
     </message>
@@ -8391,12 +8391,18 @@ http://localhost:8000
 <context>
     <name>LocationCommandWidget</name>
     <message>
-        <location filename="../src/ui/commands/SchemaField.qml" line="+302"/>
+        <location filename="../src/ui/commands/SchemaField.qml" line="+303"/>
+        <location line="+37"/>
         <source>Unknown Map (%1)</source>
         <translation>Carte inconnue (%1)</translation>
     </message>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-2118"/>
+        <location line="+30"/>
+        <source>%1 (%2, %3)</source>
+        <translation>%1 (%2, %3)</translation>
+    </message>
+    <message>
+        <location filename="../src/model/command_schema.cpp" line="-2119"/>
         <source>This Event</source>
         <translation>Cet évènement</translation>
     </message>
@@ -8407,29 +8413,29 @@ http://localhost:8000
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1542"/>
+        <location line="+1543"/>
         <source>Boat</source>
         <translation>Radeau</translation>
     </message>
     <message>
-        <location line="-1541"/>
-        <location line="+1542"/>
+        <location line="-1542"/>
+        <location line="+1543"/>
         <source>Ship</source>
         <translation>Bateau</translation>
     </message>
     <message>
-        <location line="-1541"/>
-        <location line="+1542"/>
+        <location line="-1542"/>
+        <location line="+1543"/>
         <source>Airship</source>
         <translation>Vaisseau</translation>
     </message>
     <message>
-        <location filename="../src/ui/commands/SchemaField.qml" line="+12"/>
+        <location filename="../src/ui/commands/SchemaField.qml" line="-55"/>
         <source>Unknown Event (%1)</source>
         <translation>Évènement inconnu (%1)</translation>
     </message>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1557"/>
+        <location filename="../src/model/command_schema.cpp" line="-1558"/>
         <source>Facing</source>
         <translation>Direction</translation>
     </message>
@@ -8459,13 +8465,12 @@ http://localhost:8000
         <translation>Gauche</translation>
     </message>
     <message>
-        <location line="-41"/>
-        <location line="+2"/>
+        <location line="-44"/>
         <source>Location</source>
         <translation>Position</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+4"/>
         <source>Specific Location</source>
         <translation>Position spécifique</translation>
     </message>
@@ -8475,7 +8480,7 @@ http://localhost:8000
         <translation>Position définie par des variables</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Map</source>
         <translation>Carte</translation>
     </message>
@@ -8490,40 +8495,40 @@ http://localhost:8000
         <translation>Coordonnée Y</translation>
     </message>
     <message>
-        <location filename="../src/ui/commands/SchemaField.qml" line="+19"/>
+        <location filename="../src/ui/commands/SchemaField.qml" line="+50"/>
         <source>Select on Map...</source>
         <translation>Choisir sur la carte...</translation>
     </message>
     <message>
         <location filename="../src/model/command_schema.cpp" line="+10"/>
-        <location line="+1559"/>
+        <location line="+1561"/>
         <source>Map ID Stored in</source>
         <translation>L&apos;ID de la carte dans</translation>
     </message>
     <message>
-        <location line="-1557"/>
-        <location line="+1558"/>
+        <location line="-1559"/>
+        <location line="+1560"/>
         <source>X Coordinate Stored in</source>
         <translation>La coordonnée X dans</translation>
     </message>
     <message>
-        <location line="-1557"/>
-        <location line="+1558"/>
+        <location line="-1559"/>
+        <location line="+1560"/>
         <source>Y Coordinate Stored in</source>
         <translation>La coordonnée Y dans</translation>
     </message>
     <message>
-        <location filename="../src/ui/commands/SchemaField.qml" line="+97"/>
+        <location filename="../src/ui/commands/SchemaField.qml" line="+88"/>
         <source>Set</source>
         <translation>Modifier</translation>
     </message>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-18"/>
+        <location filename="../src/model/command_schema.cpp" line="-19"/>
         <source>Teleport</source>
         <translation>Téléportation</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Memorize Position</source>
         <translation>Mémoriser la position</translation>
     </message>
@@ -8564,12 +8569,11 @@ http://localhost:8000
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1"/>
         <source>Vehicle</source>
         <translation>Véhicule</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Party</source>
         <translation>Équipe</translation>
     </message>
@@ -8715,7 +8719,12 @@ http://localhost:8000
         <translation>Vitesse verticale</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="-360"/>
+        <source>Character Facing</source>
+        <translation>Direction du personnage ou du véhicule</translation>
+    </message>
+    <message>
+        <location line="+367"/>
         <source>Change Encounter Rate</source>
         <translation>Modifier le taux de rencontres</translation>
     </message>
@@ -8772,12 +8781,11 @@ http://localhost:8000
     </message>
     <message>
         <location line="-15"/>
-        <location line="+1"/>
         <source>Operation</source>
         <translation>Opération</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+2"/>
         <source>Add Teleport Target</source>
         <translation>Ajouter un point</translation>
     </message>
@@ -8807,6 +8815,11 @@ http://localhost:8000
         <location line="+11"/>
         <source>Switch</source>
         <translation>Interrupteur</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/event/command_editor_registry.cpp" line="+324"/>
+        <source>Select Teleport Location</source>
+        <translation>Sélectionner l&apos;endroit où téléporter l&apos;équipe</translation>
     </message>
 </context>
 <context>
@@ -9306,13 +9319,14 @@ http://localhost:8000
         <translation>Tester le jeu en choisissant un mode, une position de départ ou une équipe</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location filename="../src/ui/maptree/MapZoomButtons.qml" line="+26"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+1"/>
         <location line="+1"/>
         <source>1/1 Ratio</source>
         <translation>100%</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+2"/>
         <source>1/1</source>
         <translation>1/1</translation>
     </message>
@@ -9322,13 +9336,14 @@ http://localhost:8000
         <translation>Zoom : 100%</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location filename="../src/ui/maptree/MapZoomButtons.qml" line="+1"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+2"/>
         <location line="+1"/>
         <source>1/2 Ratio</source>
         <translation>50%</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+2"/>
         <source>1/2</source>
         <translation>1/2</translation>
     </message>
@@ -9338,13 +9353,14 @@ http://localhost:8000
         <translation>Zoom : 50%</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location filename="../src/ui/maptree/MapZoomButtons.qml" line="+1"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+2"/>
         <location line="+1"/>
         <source>1/4 Ratio</source>
         <translation>25%</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+2"/>
         <source>1/4</source>
         <translation>1/4</translation>
     </message>
@@ -9354,13 +9370,14 @@ http://localhost:8000
         <translation>Zoom : 25%</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location filename="../src/ui/maptree/MapZoomButtons.qml" line="+1"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+2"/>
         <location line="+1"/>
         <source>1/8 Ratio</source>
         <translation>12,5 %</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location filename="../src/controller/action_catalog.cpp" line="+2"/>
         <source>1/8</source>
         <translation>1/8</translation>
     </message>
@@ -9725,7 +9742,7 @@ Les sauvegarder avant l&apos;export ?</translation>
     <message>
         <location filename="../src/ui/commands/ControlStringsEditor.qml" line="+9"/>
         <location filename="../src/ui/commands/VariableOperationsEditor.qml" line="+26"/>
-        <location filename="../src/model/command_schema.cpp" line="-1845"/>
+        <location filename="../src/model/command_schema.cpp" line="-1846"/>
         <source>Constant</source>
         <translation>Constante</translation>
     </message>
@@ -11846,17 +11863,17 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>MapLocationDialog</name>
     <message>
-        <location filename="../src/ui/maptree/MapLocationPicker.qml" line="+45"/>
+        <location filename="../src/ui/maptree/MapLocationPicker.qml" line="+47"/>
         <source>Select Location</source>
         <translation>Choisir l&apos;endroit</translation>
     </message>
     <message>
-        <location filename="../src/ui/maptree/location_picker.cpp" line="+211"/>
+        <location filename="../src/ui/maptree/location_picker.cpp" line="+247"/>
         <source>Project</source>
         <translation>Projet</translation>
     </message>
     <message>
-        <location filename="../src/ui/maptree/MapLocationPicker.qml" line="+163"/>
+        <location filename="../src/ui/maptree/MapLocationPicker.qml" line="+197"/>
         <source>Character Facing</source>
         <translation>Direction du personnage ou du véhicule</translation>
     </message>
@@ -11886,17 +11903,17 @@ Les sauvegarder avant l&apos;export ?</translation>
         <translation>Gauche</translation>
     </message>
     <message>
-        <location line="-19"/>
+        <location line="+34"/>
         <source>Choose a map</source>
         <translation>Choisir une carte</translation>
     </message>
     <message>
-        <location line="-120"/>
+        <location line="-203"/>
         <source>Search by number or name</source>
         <translation>Rechercher par numéro ou nom</translation>
     </message>
     <message>
-        <location line="+121"/>
+        <location line="+204"/>
         <source>%1 (%2, %3)</source>
         <translation>%1 (%2, %3)</translation>
     </message>
@@ -11904,7 +11921,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>MapPreview</name>
     <message>
-        <location filename="../src/ui/maptree/MapCellView.qml" line="+371"/>
+        <location filename="../src/ui/maptree/MapZoomButtons.qml" line="-3"/>
         <source>1/1</source>
         <translation>1/1</translation>
     </message>
@@ -11917,6 +11934,11 @@ Les sauvegarder avant l&apos;export ?</translation>
         <location line="+1"/>
         <source>1/4</source>
         <translation>1/4</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>1/8</source>
+        <translation>1/8</translation>
     </message>
 </context>
 <context>
@@ -12314,7 +12336,7 @@ Les sauvegarder avant l&apos;export ?</translation>
         <translation>Placer la position de départ d&apos;un véhicule</translation>
     </message>
     <message>
-        <location filename="../src/ui/map/map_editor.cpp" line="+518"/>
+        <location filename="../src/ui/map/map_editor.cpp" line="+495"/>
         <source>Event</source>
         <translation>Évènement</translation>
     </message>
@@ -12457,7 +12479,7 @@ Les sauvegarder avant l&apos;export ?</translation>
         <translation>Effet sonore associé</translation>
     </message>
     <message>
-        <location line="+586"/>
+        <location line="+587"/>
         <source>BGM</source>
         <translation>Musique</translation>
     </message>
@@ -12467,12 +12489,12 @@ Les sauvegarder avant l&apos;export ?</translation>
         <translation>Effet sonore</translation>
     </message>
     <message>
-        <location filename="../src/ui/commands/SchemaField.qml" line="-146"/>
+        <location filename="../src/ui/commands/SchemaField.qml" line="-168"/>
         <source>(OFF)</source>
         <translation>(Désactivé)</translation>
     </message>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1880"/>
+        <location filename="../src/model/command_schema.cpp" line="-1885"/>
         <source>File</source>
         <translation>Fichier</translation>
     </message>
@@ -12660,7 +12682,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>MessageOptionsWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+848"/>
+        <location filename="../src/model/command_schema.cpp" line="+852"/>
         <source>Message Options</source>
         <translation>Options d&apos;affichage des messages</translation>
     </message>
@@ -12719,7 +12741,7 @@ Les sauvegarder avant l&apos;export ?</translation>
     <name>MovePictureWidget</name>
     <message>
         <location filename="../src/ui/commands/PictureEditor.qml" line="+30"/>
-        <location filename="../src/model/command_schema.cpp" line="+889"/>
+        <location filename="../src/model/command_schema.cpp" line="+890"/>
         <source>Move Picture</source>
         <translation>Déplacer une image</translation>
     </message>
@@ -12957,7 +12979,7 @@ Les sauvegarder avant l&apos;export ?</translation>
     <name>OpenShopWidget</name>
     <message>
         <location filename="../src/ui/commands/OpenShopEditor.qml" line="+21"/>
-        <location filename="../src/model/command_schema.cpp" line="-472"/>
+        <location filename="../src/model/command_schema.cpp" line="-473"/>
         <source>Open Shop Window</source>
         <translation>Appeler un magasin</translation>
     </message>
@@ -13039,7 +13061,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>OperandWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1409"/>
+        <location filename="../src/model/command_schema.cpp" line="-1413"/>
         <source>Specific</source>
         <translation>Spécifique</translation>
     </message>
@@ -13080,7 +13102,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>PanScreenWidget</name>
     <message>
-        <location line="+1734"/>
+        <location line="+1739"/>
         <location line="+5"/>
         <source>Pan Screen</source>
         <translation>Options de défilement de l&apos;écran</translation>
@@ -13184,7 +13206,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>PartyOperandWidget</name>
     <message>
-        <location line="-1792"/>
+        <location line="-1797"/>
         <source>Entire Party</source>
         <translation>Équipe entière</translation>
     </message>
@@ -13298,7 +13320,7 @@ Les sauvegarder avant l&apos;export ?</translation>
         <translation>Inconnu (%1)</translation>
     </message>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+138"/>
+        <location filename="../src/model/command_schema.cpp" line="+142"/>
         <source>Hero</source>
         <translation>Héros</translation>
     </message>
@@ -13825,7 +13847,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>PlayBGMWidget</name>
     <message>
-        <location line="+288"/>
+        <location line="+289"/>
         <source>Play BGM</source>
         <translation>Jouer une musique</translation>
     </message>
@@ -15938,12 +15960,12 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
 <context>
     <name>SceneCommandWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1673"/>
+        <location filename="../src/model/command_schema.cpp" line="-1674"/>
         <source>Monster %1</source>
         <translation>Monstre %1</translation>
     </message>
     <message>
-        <location line="+2088"/>
+        <location line="+2089"/>
         <location line="+22"/>
         <source>Monster</source>
         <translation>Monstre</translation>
@@ -16016,7 +16038,7 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
 <context>
     <name>ScreenTransitionWidget</name>
     <message>
-        <location line="-2140"/>
+        <location line="-2141"/>
         <source>Fade In</source>
         <translation>Fondu entrant</translation>
     </message>
@@ -16156,19 +16178,19 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <translation>Zoom +</translation>
     </message>
     <message>
-        <location line="+1540"/>
+        <location line="+1541"/>
         <location line="+7"/>
         <source>Use Default</source>
         <translation>Par défaut</translation>
     </message>
     <message>
-        <location line="-353"/>
+        <location line="-354"/>
         <location line="+2"/>
         <source>No Transition</source>
         <translation>Pas de transition</translation>
     </message>
     <message>
-        <location line="+343"/>
+        <location line="+344"/>
         <location line="+7"/>
         <source>Transition Method</source>
         <translation>Méthode de transition</translation>
@@ -16748,8 +16770,8 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
     <name>ShowChoiceWidget</name>
     <message>
         <location filename="../src/ui/commands/ShowChoiceEditor.qml" line="+21"/>
-        <location filename="../src/model/command_schema.cpp" line="-1397"/>
-        <location filename="../src/ui/event/command_editor_registry.cpp" line="+214"/>
+        <location filename="../src/model/command_schema.cpp" line="-1398"/>
+        <location filename="../src/ui/event/command_editor_registry.cpp" line="-109"/>
         <source>Show Choices</source>
         <translation>Proposer un choix</translation>
     </message>
@@ -16815,7 +16837,7 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
 <context>
     <name>ShowHiddenMonsterWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+1363"/>
+        <location filename="../src/model/command_schema.cpp" line="+1364"/>
         <source>Show Hidden Monster</source>
         <translation>Faire apparaître un monstre caché</translation>
     </message>
@@ -16828,7 +16850,7 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
 <context>
     <name>ShowInnWidget</name>
     <message>
-        <location line="-888"/>
+        <location line="-889"/>
         <source>Show Inn Message</source>
         <translation>Appeler une auberge</translation>
     </message>
@@ -16886,7 +16908,7 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
     <name>ShowPictureWidget</name>
     <message>
         <location filename="../src/ui/commands/PictureEditor.qml" line="-456"/>
-        <location filename="../src/model/command_schema.cpp" line="+902"/>
+        <location filename="../src/model/command_schema.cpp" line="+903"/>
         <source>Show Picture</source>
         <translation>Afficher une image</translation>
     </message>
@@ -20408,7 +20430,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>SwitchOperationsWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-750"/>
+        <location filename="../src/model/command_schema.cpp" line="-751"/>
         <source>Switch</source>
         <translation>Interrupteur</translation>
     </message>
@@ -21401,7 +21423,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>TimerOperandWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-925"/>
+        <location filename="../src/model/command_schema.cpp" line="-929"/>
         <source>Constant</source>
         <translation>Constante</translation>
     </message>
@@ -21424,7 +21446,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>TimerOperationWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+1050"/>
+        <location filename="../src/model/command_schema.cpp" line="+1054"/>
         <source>Select Timer</source>
         <translation>Sélectionner le chrono</translation>
     </message>
@@ -21482,7 +21504,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>TintScreenWidget</name>
     <message>
-        <location line="+614"/>
+        <location line="+615"/>
         <source>Color Tone</source>
         <translation>Couleur</translation>
     </message>
@@ -21533,7 +21555,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>ValueOperandWidget</name>
     <message>
-        <location line="-1726"/>
+        <location line="-1731"/>
         <source>Constant</source>
         <translation>Constante</translation>
     </message>
@@ -21546,7 +21568,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>VariableOperationsWidget</name>
     <message>
-        <location line="+985"/>
+        <location line="+989"/>
         <source>Variable to change</source>
         <translation>Variable(s) à modifier</translation>
     </message>
@@ -22847,7 +22869,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>WaitWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+835"/>
+        <location filename="../src/model/command_schema.cpp" line="+836"/>
         <source>Wait</source>
         <translation>Attendre</translation>
     </message>
