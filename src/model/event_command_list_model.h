@@ -59,9 +59,8 @@ public:
 		/** The keys stop on the line: the first line of a command, not the
 		 *  next lines of a message nor ": Else", ": End"... */
 		CommandStartRole,
-		/** A line with no settings of its own, not selected alone: the
-		 *  structure of a block (Else, End, a choice option...) and the
-		 *  commands without settings (Loop, Game Over...) */
+		/** A line not selected alone: the structure of a block (Else,
+		 *  End, a choice option...), its block goes with its first line */
 		StructuralRole,
 		/** The empty line ending the page */
 		PageEndRole,

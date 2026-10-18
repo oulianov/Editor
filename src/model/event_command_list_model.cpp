@@ -252,8 +252,12 @@ bool EventCommandListModel::isSelectable(int index) const
 	if (index == lineCount()) {
 		return true;
 	}
+	// every command, with settings or without (Loop, Break Loop, Game
+	// Over...): a block is selected from its first line, as a Conditional
+	// Branch. Not the lines of the structure of a block (Else, a choice
+	// option, End...), the next lines of a message select their message
 	const Cmd code = codeOf((*m_commands)[static_cast<size_t>(index)]);
-	return code == Cmd::END || hasEditor(code);
+	return code == Cmd::END || isNextLine(code) || !EventCommandDefaults::isStructural(code);
 }
 
 bool EventCommandListModel::isCommandLine(int index) const
