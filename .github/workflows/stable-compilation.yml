@@ -245,8 +245,15 @@ jobs:
         run: |
           export VCPKG_ROOT=$PWD/../vcpkg
           export Qt6_Path=$QT_ROOT_DIR
+          # liblcf takes the system's ICU: its headers are found there, but
+          # the libraries would be Qt's (another version, searched first
+          # under CMAKE_PREFIX_PATH: undefined ucnv_open_74 and so on)
+          ICU_LIB=/usr/lib/$(gcc -dumpmachine)
           cmake --preset vcpkg-liblcf-release -DCMAKE_INSTALL_PREFIX=AppDir \
             -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" \
+            -DICU_UC_LIBRARY_RELEASE=$ICU_LIB/libicuuc.so \
+            -DICU_I18N_LIBRARY_RELEASE=$ICU_LIB/libicui18n.so \
+            -DICU_DATA_LIBRARY_RELEASE=$ICU_LIB/libicudata.so \
             -DVCPKG_TARGET_TRIPLET=${{ matrix.os.triplet }} -DVCPKG_HOST_TRIPLET=${{ matrix.os.triplet }} \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 

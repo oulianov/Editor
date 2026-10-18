@@ -22,6 +22,12 @@ else
 # Kirigami, Breeze and KDDockWidgets
 PRESET := vcpkg-liblcf-release
 QT_PREFIX := $(if $(QT_DIR),-DCMAKE_PREFIX_PATH="$(QT_DIR)")
+# liblcf takes the system's ICU, whose headers are found: its libraries too,
+# not the other version Qt carries (searched first under CMAKE_PREFIX_PATH)
+ICU_LIB := /usr/lib/$(shell gcc -dumpmachine 2>/dev/null)
+QT_PREFIX += $(if $(QT_DIR),-DICU_UC_LIBRARY_RELEASE=$(ICU_LIB)/libicuuc.so \
+	-DICU_I18N_LIBRARY_RELEASE=$(ICU_LIB)/libicui18n.so \
+	-DICU_DATA_LIBRARY_RELEASE=$(ICU_LIB)/libicudata.so)
 # the KDE ports of vcpkg (builds/vcpkg_overlay) build against this Qt too
 ifneq ($(QT_DIR),)
 export Qt6_Path := $(abspath $(QT_DIR))
