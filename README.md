@@ -7,6 +7,7 @@ A modern, multiplatform editor for RPG Maker 2000 and 2003 games.
 ```bash
 git clone git@github.com:oulianov/Editor.git
 cd Editor
+git switch editor-ux
 make
 make run
 ```
