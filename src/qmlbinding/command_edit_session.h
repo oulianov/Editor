@@ -315,6 +315,12 @@ public:
 	Q_INVOKABLE QVariant pickLocation(int map, int x, int y, int direction, QQuickItem* from);
 	/** Picks a tile of the chipset: its number, null when cancelled or without a picker */
 	Q_INVOKABLE QVariant pickTile(int layer, int tile, QQuickItem* from);
+	/** A tile of the chipset of the map of the event, to draw it:
+	 *  {chipset, tile} (a tile ID of the palette), empty without the map */
+	Q_INVOKABLE QVariantMap tileGraphic(int layer, int tile) const;
+	/** The music the map of the event plays (its own, or of a map above
+	 *  it): {path, volume, tempo, balance}, empty for none */
+	Q_INVOKABLE QVariantMap mapMusic() const;
 	/** Opens the guide at the topic of the command, next to from */
 	Q_INVOKABLE void help(QQuickItem* from);
 
@@ -368,6 +374,9 @@ private:
 	bool m_battle = false;
 	bool m_isNew = true;
 	int m_mapId = 0;
+	// the chipset of the map of tileGraphic(), read once
+	mutable int m_chipsetMap = 0;
+	mutable int m_chipset = 0;
 	QVariantList m_events;
 	QVariantMap m_extras;
 	Acceptor m_acceptor;

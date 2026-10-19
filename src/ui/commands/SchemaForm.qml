@@ -71,11 +71,16 @@ ColumnLayout {
         return field.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Location"].includes(field.kind)
     }
 
+    /** A sample beside the fields of its section (RPG Maker's sample of a flash) */
+    function isSide(field) {
+        return field.kind === "Sample" && field.link === "flash"
+    }
+
     /** The cells of a section's grid: a label and its controls per row (or one cell over both columns) */
     function cellsOf(section) {
         const cells = []
         for (const row of section.rows) {
-            if (hides.includes(row.field.id)) {
+            if (hides.includes(row.field.id) || isSide(row.field)) {
                 continue
             }
             const field = row.field
@@ -132,10 +137,27 @@ ColumnLayout {
                 title: section.title
             }
 
-            GridLayout {
-                id: grid
+            RowLayout {
+                id: content
                 // in the frame of the section, else on its own
                 parent: section.title !== "" ? box.body : section
+                spacing: Ez.Metrics.sectionSpacing
+                Layout.fillWidth: true
+
+                // the sample at the left of the fields
+                Repeater {
+                    model: section.modelData.rows.filter(row => root.isSide(row.field))
+                    SchemaField {
+                        required property var modelData
+                        session: root.session
+                        field: modelData.field
+                        enabled: root.session.revision < 0 ? false : root.session.isEnabled(modelData.field.id)
+                        Layout.alignment: Qt.AlignTop
+                    }
+                }
+
+            GridLayout {
+                id: grid
                 columns: 2
                 rowSpacing: Ez.Metrics.rowSpacing
                 columnSpacing: Ez.Metrics.columnSpacing
@@ -189,10 +211,20 @@ ColumnLayout {
                             id: radios
                             RowLayout {
                                 spacing: 2 * Ez.Metrics.columnSpacing
+                                // on one line; in columns, top to bottom; four directions as a cross (RPG Maker's)
+                                GridLayout {
+                                    id: radioGrid
+                                    readonly property int lines: cell.field.columns > 0 ? Math.ceil(cell.field.items.length / cell.field.columns) : 1
+                                    rowSpacing: cell.field.cross ? 0 : Ez.Metrics.rowSpacing
+                                    columnSpacing: cell.field.cross ? 0 : 2 * Ez.Metrics.columnSpacing
                                 Repeater {
                                     model: cell.field.items
                                     Ez.RadioButton {
                                         required property var modelData
+                                        required property int index
+                                        // the cross: Up, Left, Right, Down
+                                        Layout.row: cell.field.cross ? [0, 1, 1, 2][index] ?? 0 : index % radioGrid.lines
+                                        Layout.column: cell.field.cross ? [1, 0, 2, 1][index] ?? 0 : Math.floor(index / radioGrid.lines)
                                         objectName: root.radioName(cell.field, modelData)
                                         text: root.itemText(cell.field, modelData)
                                         visible: cell.revision < 0 ? false : (!modelData.kept || root.session.read(cell.field.id) === modelData.value)
@@ -202,6 +234,7 @@ ColumnLayout {
                                         key: cell.fieldVisible ? cell.field.path : "/defaults/" + cell.field.id
                                         value: modelData.value
                                     }
+                                }
                                 }
                                 Repeater {
                                     model: cell.modelData.fields
@@ -252,6 +285,7 @@ ColumnLayout {
                         }
                     }
                 }
+            }
             }
         }
     }

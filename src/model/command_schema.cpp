@@ -62,6 +62,10 @@ struct F : Field {
 	F& maniac() { return with(Flag::Maniac); }
 	F& extension() { return with(Flag::Extension); }
 	F& hidden() { return with(Flag::Hidden); }
+	F& preview() { return with(Flag::Preview); }
+	F& cross() { return with(Flag::Radio).with(Flag::Cross); }
+	/** Radio buttons in columns, filled top to bottom (1: one under the other) */
+	F& inColumns(int count) { columns = count; return with(Flag::Radio); }
 	F& bitsAt(int first, int count) { shift = first; bits = count; return *this; }
 	F& bit(int number) { return bitsAt(number, 1); }
 	F& withRange(int low, int high) { minimum = low; maximum = high; return *this; }
@@ -92,6 +96,13 @@ F section(Label title) {
 
 F note(Label text) {
 	return field(Kind::Note, "", StringIndex, text);
+}
+
+/** RPG Maker's sample of the fields of the section (Kind::Sample) */
+F sample(const char* style) {
+	auto result = field(Kind::Sample, "sample", StringIndex, {});
+	result.link = style;
+	return result;
 }
 
 F number(const char* id, int index, Label label, int minimum, int maximum) {
@@ -599,22 +610,23 @@ void addBattle2003(Table& table) {
 	table.add(Code::ChangeClass, "HeroCommandWidget", QT_TRANSLATE_NOOP("HeroCommandWidget", "Change Class"), fields(
 		partyOperand(QT_TRANSLATE_NOOP("HeroCommandWidget", "Target"), 0),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Class")),
-		ref(Kind::Class, "class", 2, QT_TRANSLATE_NOOP("HeroCommandWidget", "Class:"))
+		ref(Kind::Class, "class", 2)
 			.withItems({{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "(None)")}}).withDefault(0),
-		choice("level", 3, QT_TRANSLATE_NOOP("HeroCommandWidget", "Level:"), {
+		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Level")),
+		choice("level", 3, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Retain Current Level")},
-			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Character Becomes Level 1")}}),
+			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Character Becomes Level 1")}}).inColumns(1),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Learned Skills")),
 		choice("skills", 4, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "No Change in Skills")},
 			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Add Skills up to Current Level in New Class and Delete Old Skills")},
-			{2, QT_TRANSLATE_NOOP("HeroCommandWidget", "Add Skills up to Current Level in New Class to Old Skills")}}),
+			{2, QT_TRANSLATE_NOOP("HeroCommandWidget", "Add Skills up to Current Level in New Class to Old Skills")}}).inColumns(1),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Base Statistics")),
 		choice("statistics", 5, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "No Change in Statistics")},
 			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Halve Statistics")},
 			{2, QT_TRANSLATE_NOOP("HeroCommandWidget", "Change Statistics to Level 1 in New Class")},
-			{3, QT_TRANSLATE_NOOP("HeroCommandWidget", "Change Statistics to Current Level in New Class")}}),
+			{3, QT_TRANSLATE_NOOP("HeroCommandWidget", "Change Statistics to Current Level in New Class")}}).inColumns(1),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Option")),
 		check("message", 6, QT_TRANSLATE_NOOP("HeroCommandWidget", "Show Level-up Message if Level Differs After Class Change"))
 	), Flag::Rpg2003);
@@ -1385,10 +1397,11 @@ void addMessagesAndParty(Table& table) {
 	table.add(Code::ChangeParameters, "HeroCommandWidget", QT_TRANSLATE_NOOP("HeroCommandWidget", "Change Base Statistics"), fields(
 		partyOperand(QT_TRANSLATE_NOOP("HeroCommandWidget", "Target"), 0),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Operation")),
-		choice("operation", 2, QT_TRANSLATE_NOOP("HeroCommandWidget", "Operation:"), {
+		choice("operation", 2, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Increase Statistic")},
-			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Decrease Statistic")}}),
-		choice("statistic", 3, QT_TRANSLATE_NOOP("HeroCommandWidget", "Statistic:"), {
+			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Decrease Statistic")}}).radio(),
+		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Statistic")),
+		choice("statistic", 3, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Maximum HP")}, {1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Maximum MP")},
 			{2, QT_TRANSLATE_NOOP("HeroCommandWidget", "Attack")}, {3, QT_TRANSLATE_NOOP("HeroCommandWidget", "Defense")},
 			{4, QT_TRANSLATE_NOOP("HeroCommandWidget", "Intelligence")}, {5, QT_TRANSLATE_NOOP("HeroCommandWidget", "Agility")}}),
@@ -1401,7 +1414,7 @@ void addMessagesAndParty(Table& table) {
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Operation")),
 		choice("operation", 2, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Add Skill")},
-			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Remove Skill")}}),
+			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Remove Skill")}}).radio(),
 		entryOperand(Kind::Skill, "skill", QT_TRANSLATE_NOOP("HeroCommandWidget", "Skill"), 3)
 	));
 
@@ -1412,21 +1425,21 @@ void addMessagesAndParty(Table& table) {
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Operation")),
 		choice("operation", 2, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Equip Item")},
-			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Unequip Item")}}),
+			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Unequip Item")}}).radio(),
 		onlyWhen(fields(
 			section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Item")),
-			choice("source", 3, QT_TRANSLATE_NOOP("HeroCommandWidget", "Source:"), {
+			choice("source", 3, {}, {
 				{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Specific Item")},
-				{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Item with ID Stored in")}}),
-			ref(Kind::Item, "item", 4, QT_TRANSLATE_NOOP("HeroCommandWidget", "Specific Item:")).with(Flag::Equipment).when("source", {0}),
-			variable("itemVariable", 4, QT_TRANSLATE_NOOP("HeroCommandWidget", "Variable:")).when("source", {1})), "operation", {0}),
+				{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Item with ID Stored in")}}).radio(),
+			ref(Kind::Item, "item", 4).with(Flag::Equipment).when("source", {0}).inlined(),
+			variable("itemVariable", 4).when("source", {1}).inlined()), "operation", {0}),
 		onlyWhen(fields(
 			section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Slot from which to Unequip Item")),
 			choice("slot", 3, {}, {
 				{5, QT_TRANSLATE_NOOP("HeroCommandWidget", "All")}, {0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Weapon")},
 				{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Shield")}, {2, QT_TRANSLATE_NOOP("HeroCommandWidget", "Armor")},
 				{3, QT_TRANSLATE_NOOP("HeroCommandWidget", "Helmet")}, {4, QT_TRANSLATE_NOOP("HeroCommandWidget", "Accessory")}})
-				.withDefault(5)), "operation", {1})
+				.inColumns(3).withDefault(5)), "operation", {1})
 	));
 
 	// Change HP
@@ -1435,7 +1448,7 @@ void addMessagesAndParty(Table& table) {
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Operation")),
 		choice("operation", 2, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Increase HP")},
-			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Decrease HP")}}),
+			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Decrease HP")}}).radio(),
 		valueOperand("amount", QT_TRANSLATE_NOOP("HeroCommandWidget", "Amount"), 3, 0, 9999999),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Option")),
 		// only a decrease can kill
@@ -1448,7 +1461,7 @@ void addMessagesAndParty(Table& table) {
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Operation")),
 		choice("operation", 2, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Increase MP")},
-			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Decrease MP")}}),
+			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Decrease MP")}}).radio(),
 		valueOperand("amount", QT_TRANSLATE_NOOP("HeroCommandWidget", "Amount"), 3, 0, 9999999)
 	));
 
@@ -1458,7 +1471,7 @@ void addMessagesAndParty(Table& table) {
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Operation")),
 		choice("operation", 2, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Add Condition")},
-			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Remove Condition")}}),
+			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Remove Condition")}}).radio(),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Condition")),
 		ref(Kind::State, "condition", 3)
 	));
@@ -1949,7 +1962,11 @@ void addMapAndScreen(Table& table) {
 		number("blue", 2, QT_TRANSLATE_NOOP("TintScreenWidget", "Blue:"), 0, 200).slider().withSuffix(QT_TRANSLATE_NOOP("TintScreenWidget", " %")),
 		number("saturation", 3, QT_TRANSLATE_NOOP("TintScreenWidget", "Saturation:"), 0, 200).slider()
 			.withSuffix(QT_TRANSLATE_NOOP("TintScreenWidget", " %")),
-		number("time", 4, QT_TRANSLATE_NOOP("TintScreenWidget", "Time:"), 0, 1000).withSuffix(QT_TRANSLATE_NOOP("TintScreenWidget", "x0.1 sec")),
+		// RPG Maker's sample: colours with the tint
+		sample("tint"),
+		section(QT_TRANSLATE_NOOP("TintScreenWidget", "Transition Time")),
+		number("time", 4, {}, 0, 1000).withSuffix(QT_TRANSLATE_NOOP("TintScreenWidget", "x0.1 sec")),
+		section(QT_TRANSLATE_NOOP("TintScreenWidget", "Option")),
 		check("wait", 5, QT_TRANSLATE_NOOP("TintScreenWidget", "Wait for Completion"))
 	));
 
@@ -1965,6 +1982,7 @@ void addMapAndScreen(Table& table) {
 		number("time", 4, QT_TRANSLATE_NOOP("FlashScreenWidget", "Duration:"), 0, 1000)
 			.withSuffix(QT_TRANSLATE_NOOP("FlashScreenWidget", "x0.1 sec")).enabledUnless("mode", {2}),
 		section(QT_TRANSLATE_NOOP("FlashScreenWidget", "Flash Color")).enabledUnless("mode", {2}),
+		sample("flash").enabledUnless("mode", {2}),
 		number("red", 0, QT_TRANSLATE_NOOP("FlashScreenWidget", "Red:"), 0, 31).slider().enabledUnless("mode", {2}),
 		number("green", 1, QT_TRANSLATE_NOOP("FlashScreenWidget", "Green:"), 0, 31).slider().enabledUnless("mode", {2}),
 		number("blue", 2, QT_TRANSLATE_NOOP("FlashScreenWidget", "Blue:"), 0, 31).slider().enabledUnless("mode", {2}),
@@ -1996,14 +2014,17 @@ void addMapAndScreen(Table& table) {
 			{1, QT_TRANSLATE_NOOP("PanScreenWidget", "Unlock Pan State")},
 			{2, QT_TRANSLATE_NOOP("PanScreenWidget", "Pan Screen")},
 			{3, QT_TRANSLATE_NOOP("PanScreenWidget", "Return to Origin")}}).radio().withDefault(2),
-		section(QT_TRANSLATE_NOOP("PanScreenWidget", "Direction and Distance")),
-		choice("direction", 1, QT_TRANSLATE_NOOP("PanScreenWidget", "Direction"), {
+		// a cross of radio buttons, as RPG Maker 2003
+		section(QT_TRANSLATE_NOOP("PanScreenWidget", "Direction")),
+		choice("direction", 1, {}, {
 			{0, QT_TRANSLATE_NOOP("PanScreenWidget", "Up")},
 			{3, QT_TRANSLATE_NOOP("PanScreenWidget", "Left")},
 			{1, QT_TRANSLATE_NOOP("PanScreenWidget", "Right")},
-			{2, QT_TRANSLATE_NOOP("PanScreenWidget", "Down")}}).enabledWhen("operation", {2}),
-		number("distance", 2, QT_TRANSLATE_NOOP("PanScreenWidget", "Tiles"), 0, 9999).withDefault(1).enabledWhen("operation", {2}),
-		choice("speed", 3, QT_TRANSLATE_NOOP("PanScreenWidget", "Transition Speed"), {
+			{2, QT_TRANSLATE_NOOP("PanScreenWidget", "Down")}}).cross().enabledWhen("operation", {2}),
+		section(QT_TRANSLATE_NOOP("PanScreenWidget", "Tiles")),
+		number("distance", 2, {}, 0, 9999).withDefault(1).enabledWhen("operation", {2}),
+		section(QT_TRANSLATE_NOOP("PanScreenWidget", "Transition Speed")),
+		choice("speed", 3, {}, {
 			{1, QT_TRANSLATE_NOOP("PanScreenWidget", "1: One-Eighth Normal")},
 			{2, QT_TRANSLATE_NOOP("PanScreenWidget", "2: One-Fourth Normal")},
 			{3, QT_TRANSLATE_NOOP("PanScreenWidget", "3: One-Half Normal")},
@@ -2060,8 +2081,9 @@ void addMapAndScreen(Table& table) {
 	// Show Battle Animation
 	table.add(Code::ShowBattleAnimation, "ShowBattleAnimationWidget", QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Show Battle Animation"), fields(
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Battle Animation")),
-		ref(Kind::Animation, "animation", 0, QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Battle Animation")),
-		character("target", 1, QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Target"), pictureCharacters()),
+		ref(Kind::Animation, "animation", 0).preview(),
+		section(QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Target")),
+		character("target", 1, {}, pictureCharacters()),
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Options")),
 		check("wait", 2, QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Wait for completion")),
 		check("global", 3, QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Global Scope"))
@@ -2080,12 +2102,15 @@ void addMapAndScreen(Table& table) {
 		section(QT_TRANSLATE_NOOP("FlashSpriteWidget", "Target")),
 		character("target", 0, {}, pictureCharacters()),
 		section(QT_TRANSLATE_NOOP("FlashSpriteWidget", "Color")),
-		number("red", 1, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Red"), 0, 31).withDefault(31),
-		number("green", 2, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Green"), 0, 31).withDefault(31),
-		number("blue", 3, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Blue"), 0, 31).withDefault(31),
-		number("strength", 4, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Strength"), 0, 31).withDefault(31),
+		// as Flash Screen: the sample at the left of the sliders
+		sample("flash"),
+		number("red", 1, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Red"), 0, 31).slider().withDefault(31),
+		number("green", 2, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Green"), 0, 31).slider().withDefault(31),
+		number("blue", 3, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Blue"), 0, 31).slider().withDefault(31),
+		number("strength", 4, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Strength"), 0, 31).slider().withDefault(31),
 		section(QT_TRANSLATE_NOOP("FlashSpriteWidget", "Flash Cycle Time")),
 		number("time", 5, {}, 0, 10000).withDefault(5).withSuffix(QT_TRANSLATE_NOOP("FlashSpriteWidget", " × 0.1 s")),
+		section(QT_TRANSLATE_NOOP("FlashSpriteWidget", "Option")),
 		check("wait", 6, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Wait for completion"))
 	));
 
@@ -2147,8 +2172,10 @@ void addMediaAndMap(Table& table) {
 	// Fade Out BGM
 	table.add(Code::FadeOutBGM, "FadeOutBGMWidget", QT_TRANSLATE_NOOP("FadeOutBGMWidget", "Fade Out BGM"), fields(
 		section(QT_TRANSLATE_NOOP("FadeOutBGMWidget", "Fade Out Time")),
-		number("time", 0, QT_TRANSLATE_NOOP("FadeOutBGMWidget", "Time"), 0, 20000)
-			.withSuffix(QT_TRANSLATE_NOOP("FadeOutBGMWidget", " ms")).withStep(1000)
+		// RPG Maker's slider of 0 to 20 seconds, with buttons to hear it
+		number("time", 0, {}, 0, 20000).ticks()
+			.withSuffix(QT_TRANSLATE_NOOP("FadeOutBGMWidget", " ms")).withStep(1000),
+		sample("fade").inlined()
 	));
 
 	// Play Sound Effect
@@ -2207,7 +2234,7 @@ void addMediaAndMap(Table& table) {
 	table.add(Code::ChangePBG, "LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Change Parallax Background"), fields(
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Graphic")),
 		check("nameFromVariable", 6, {}).bit(0).hidden().extension(),
-		file("graphic", QT_TRANSLATE_NOOP("LocationCommandWidget", "Graphic"), PANORAMA).when("nameFromVariable", {0}),
+		file("graphic", {}, PANORAMA).preview().when("nameFromVariable", {0}),
 		variable("graphicVariable", 7, QT_TRANSLATE_NOOP("LocationCommandWidget", "Graphic Name Stored in"))
 			.when("nameFromVariable", {1}).extension(),
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Options")),
@@ -2236,11 +2263,13 @@ void addMediaAndMap(Table& table) {
 	// Change Single Tile
 	table.add(Code::TileSubstitution, "LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Tile Substitution"), fields(
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Tile Layer")),
-		choice("layer", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Tile Layer"), {
+		choice("layer", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Lower Layer")},
-			{1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Upper Layer")}}),
-		field(Kind::Tile, "original", 1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Original Tile")).withRange(0, 143).withLink("layer"),
-		field(Kind::Tile, "substitute", 2, QT_TRANSLATE_NOOP("LocationCommandWidget", "Substituted Tile")).withRange(0, 143).withLink("layer")
+			{1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Upper Layer")}}).radio(),
+		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Original Tile")),
+		field(Kind::Tile, "original", 1, {}).withRange(0, 143).withLink("layer").preview(),
+		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Substituted Tile")),
+		field(Kind::Tile, "substitute", 2, {}).withRange(0, 143).withLink("layer").preview()
 	));
 
 	// Set Teleport Location
@@ -2554,7 +2583,7 @@ void addBattle(Table& table) {
 	table.custom(Code::ShowBattleAnimation_B, "ShowBattleAnimation_BWidget",
 		QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Show Battle Animation"), fields(
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Animation")),
-		ref(Kind::Animation, "animation", 0),
+		ref(Kind::Animation, "animation", 0).preview(),
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Target")),
 		check("party", 3, {}).hidden().extension().rpg2003(),
 		choice("target", 1, {}, Items{{-1, QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "All Enemies")}}
@@ -2619,7 +2648,7 @@ uint32_t Field::mask() const {
 }
 
 bool Field::hasValue() const {
-	return kind != Kind::Section && kind != Kind::Note && kind != Kind::Location;
+	return kind != Kind::Section && kind != Kind::Note && kind != Kind::Sample && kind != Kind::Location;
 }
 
 bool Field::isNumber() const {
@@ -2645,8 +2674,8 @@ bool Field::isTail() const {
 
 const Field* Schema::field(std::string_view id) const {
 	for (const auto& one : fields) {
-		// a location box has no value, but its rules
-		if ((one.hasValue() || one.kind == Kind::Location) && id == one.id) {
+		// a location box, a sample have no value, but their rules
+		if ((one.hasValue() || one.kind == Kind::Location || one.kind == Kind::Sample) && id == one.id) {
 			return &one;
 		}
 	}

@@ -28,7 +28,8 @@ Loader {
     /** Its pointer in the session: its value, or its default when not bound */
     readonly property string key: bound ? field.path : "/defaults/" + field.id
     /** Its control takes the width of its row (the lists, the texts) */
-    readonly property bool wide: field.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Expression", "Location"].includes(field.kind)
+    readonly property bool wide: (field.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Expression", "Location"].includes(field.kind))
+                                 && !(field.preview && field.kind === "Tile") || (field.kind === "Sample" && field.link === "tint")
 
     /** A text of the schema in the language of the interface */
     function tr(text) {
@@ -57,8 +58,10 @@ Loader {
             return text
         case "Note":
             return note
+        case "Sample":
+            return field.link === "tint" ? tintSample : field.link === "flash" ? flashSample : fadeButtons
         case "File":
-            return file
+            return field.preview ? picture : file
         case "Map":
             return map
         case "MapX":
@@ -69,11 +72,11 @@ Loader {
         case "Character":
             return character
         case "Tile":
-            return tile
+            return field.preview ? tilePreview : tile
         case "Expression":
             return expression
         default:
-            return field.list !== "" ? entry : number
+            return field.list === "" ? number : field.preview && field.kind === "Animation" ? animation : entry
         }
     }
 
@@ -461,6 +464,309 @@ Loader {
                         current.value = chosen
                     }
                 }
+            }
+        }
+    }
+
+    /** The value of another field of the command, 0 when it has none */
+    function valueOf(id) {
+        return root.session.revision < 0 || root.session.path(id) === "" ? 0 : root.session.read(id)
+    }
+
+    Component {
+        id: tintSample
+        // RPG Maker's sample of Tint Screen: colours and greys, tinted
+        Rectangle {
+            objectName: "sample"
+            implicitWidth: 364
+            implicitHeight: 22
+            color: "transparent"
+            border.color: Ez.Metrics.sectionBorderColor
+            Layout.fillWidth: true
+            Canvas {
+                id: tintCanvas
+                anchors.fill: parent
+                anchors.margins: 1
+                readonly property var tone: [root.valueOf("red"), root.valueOf("green"), root.valueOf("blue"), root.valueOf("saturation")]
+                onToneChanged: requestPaint()
+                onWidthChanged: requestPaint()
+                onPaint: {
+                    const context = getContext("2d")
+                    const half = Math.floor(height / 2)
+                    for (let x = 0; x < width; ++x) {
+                        const hue = Qt.hsva(x / width, 1, 1, 1)
+                        const grey = x / Math.max(1, width - 1)
+                        const lines = [[hue.r, hue.g, hue.b, 0, half], [grey, grey, grey, half, height - half]]
+                        for (const line of lines) {
+                            // the saturation, then each channel (100: unchanged), as the Player
+                            const mean = (line[0] + line[1] + line[2]) / 3
+                            const channel = (value, index) => Math.max(0, Math.min(1,
+                                (mean + (value - mean) * tone[3] / 100) * tone[index] / 100))
+                            context.fillStyle = Qt.rgba(channel(line[0], 0), channel(line[1], 1), channel(line[2], 2), 1)
+                            context.fillRect(x, line[3], 1, line[4])
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: flashSample
+        // RPG Maker's sample of a flash: its colour at its strength (0-31)
+        ColumnLayout {
+            spacing: Ez.Metrics.rowSpacing
+            Ez.FormLabel {
+                text: qsTranslate("FlashScreenWidget", "Sample")
+            }
+            Rectangle {
+                objectName: "sample"
+                implicitWidth: 49
+                implicitHeight: 78
+                border.color: Ez.Metrics.sectionBorderColor
+                gradient: Gradient {
+                    GradientStop { position: 0; color: "#7fa7d8" }
+                    GradientStop { position: 0.6; color: "#d8d0b8" }
+                    GradientStop { position: 1; color: "#6f8f4f" }
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    color: Qt.rgba(root.valueOf("red") / 31, root.valueOf("green") / 31, root.valueOf("blue") / 31, 1)
+                    opacity: root.enabled ? root.valueOf("strength") / 31 : 0
+                }
+            }
+        }
+    }
+
+    Component {
+        id: fadeButtons
+        // RPG Maker's buttons beside the time: the music of the map, then its fade-out
+        RowLayout {
+            id: fade
+            spacing: Ez.Metrics.columnSpacing
+            readonly property var music: root.session.revision < 0 ? ({}) : root.session.mapMusic()
+            /** The volume while fading out, from the music's to 0 */
+            property real level: 0
+            Ez.AudioPlayer {
+                id: player
+                volume: Math.round(fade.level)
+            }
+            Timer {
+                // a moment at its volume, then the fade-out
+                id: fadeStart
+                interval: 1000
+                onTriggered: fadeOut.start()
+            }
+            NumberAnimation {
+                id: fadeOut
+                target: fade
+                property: "level"
+                to: 0
+                duration: Math.max(1, root.valueOf("time"))
+                onFinished: player.stop()
+            }
+            Ez.FieldButton {
+                objectName: "fadePlay"
+                text: ""
+                icon.name: "media-playback-start"
+                enabled: !!fade.music.path
+                Controls.ToolTip.visible: hovered
+                Controls.ToolTip.delay: 600
+                Controls.ToolTip.text: enabled ? qsTranslate("FadeOutBGMWidget", "Play the music of the map and fade it out")
+                                               : qsTranslate("FadeOutBGMWidget", "The map plays no music")
+                onClicked: {
+                    fadeOut.stop()
+                    fade.level = fade.music.volume
+                    player.tempo = fade.music.tempo
+                    player.balance = fade.music.balance
+                    player.play(fade.music.path)
+                    fadeStart.restart()
+                }
+            }
+            Ez.FieldButton {
+                objectName: "fadeStop"
+                text: ""
+                icon.name: "media-playback-stop"
+                enabled: player.state !== Ez.AudioPlayer.Stopped
+                onClicked: {
+                    fadeStart.stop()
+                    fadeOut.stop()
+                    player.stop()
+                }
+            }
+            Component.onDestruction: player.stop()
+        }
+    }
+
+    Component {
+        id: animation
+        // RPG Maker's animated preview above the list
+        ColumnLayout {
+            spacing: Ez.Metrics.rowSpacing
+            Rectangle {
+                id: animationBox
+                readonly property int animationId: Number(current.value ?? 0)
+                readonly property var animations: root.session.database ? root.session.database.list("animations") : null
+                readonly property bool animated: animationId >= 1 && !!animations && animationId <= animations.count
+                objectName: root.name + "Preview"
+                color: "black"
+                border.color: Ez.Metrics.sectionBorderColor
+                // the middle of the battle screen (320 x 240) at half its size
+                implicitWidth: 176
+                implicitHeight: 101
+                Layout.fillWidth: true
+                // inside the frame
+                Item {
+                    id: screen
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    clip: true
+                    Ez.AnimationCanvas {
+                        id: animationCanvas
+                        animationId: animationBox.animated ? animationBox.animationId : 0
+                        target: -1
+                        showOrigin: false
+                        // a preview: the cels are not edited here
+                        enabled: false
+                        visible: animationBox.animated
+                        width: 320
+                        height: 240
+                        transformOrigin: Item.TopLeft
+                        scale: 0.5
+                        x: (screen.width - 320 * scale) / 2
+                        y: (screen.height - 240 * scale) / 2
+                        onAnimationIdChanged: restart.restart()
+                        // played to its end, it starts again a moment later
+                        onPlayingChanged: {
+                            if (!playing && animationBox.animated) {
+                                restart.restart()
+                            }
+                        }
+                        Timer {
+                            id: restart
+                            interval: 400
+                            onTriggered: {
+                                if (animationBox.animated && animationBox.visible && !animationCanvas.playing) {
+                                    animationCanvas.togglePlay()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Loader {
+                sourceComponent: entry
+                Layout.fillWidth: true
+            }
+        }
+    }
+
+    Component {
+        id: picture
+        // RPG Maker's picture of the file, its Set button under it
+        ColumnLayout {
+            id: pictureColumn
+            spacing: Ez.Metrics.rowSpacing
+            readonly property string name: current.value ?? ""
+            function pick() {
+                const choice = Ez.Pickers.pickFile({ folder: root.field.folder, name: name, preview: "Image" }, pictureColumn)
+                if (choice) {
+                    current.value = choice.name
+                }
+            }
+            Rectangle {
+                objectName: root.name + "Preview"
+                implicitWidth: 164
+                implicitHeight: 124
+                color: "transparent"
+                border.color: Ez.Metrics.sectionBorderColor
+                clip: true
+                Image {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    visible: pictureColumn.name !== ""
+                    source: visible ? "image://project/" + root.field.folder + "/" + pictureColumn.name : ""
+                    fillMode: Image.PreserveAspectFit
+                    horizontalAlignment: Image.AlignLeft
+                    verticalAlignment: Image.AlignTop
+                    smooth: false
+                    asynchronous: true
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: root.bound
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: pictureColumn.pick()
+                }
+            }
+            RowLayout {
+                spacing: Ez.Metrics.columnSpacing
+                Layout.preferredWidth: 164
+                Ez.TextField {
+                    objectName: root.name
+                    jsonData: root.session
+                    key: root.key
+                    readOnly: true
+                    Layout.fillWidth: true
+                }
+                Ez.FieldButton {
+                    objectName: root.name + "Picker"
+                    text: qsTranslate("LocationCommandWidget", "Set")
+                    onClicked: pictureColumn.pick()
+                }
+            }
+        }
+    }
+
+    Component {
+        id: tilePreview
+        // RPG Maker's tile beside its Set button (the chipset of the map of the event)
+        RowLayout {
+            id: tileView
+            spacing: Ez.Metrics.columnSpacing
+            readonly property int tileLayer: root.session.revision < 0 || root.field.link === "" ? 0 : root.session.read(root.field.link)
+            readonly property var graphic: root.session.revision < 0 ? ({}) : root.session.tileGraphic(tileLayer, Number(current.value ?? 0))
+            readonly property bool drawn: graphic.chipset !== undefined
+            function pick() {
+                const chosen = root.session.pickTile(tileLayer, Number(current.value), tileView)
+                if (chosen !== null && chosen !== undefined) {
+                    current.value = chosen
+                }
+            }
+            Rectangle {
+                objectName: root.name + "Preview"
+                visible: tileView.drawn
+                implicitWidth: 36
+                implicitHeight: 36
+                color: "transparent"
+                border.color: Ez.Metrics.sectionBorderColor
+                Ez.MapLayerView {
+                    x: 2
+                    y: 2
+                    width: 32
+                    height: 32
+                    chipsetId: tileView.graphic.chipset ?? -1
+                    gridTiles: tileView.drawn ? [tileView.graphic.tile] : []
+                    gridColumns: 1
+                    zoom: 32 / Math.max(1, tileSize)
+                }
+            }
+            // without the map: its number
+            Ez.SpinBox {
+                objectName: root.name
+                visible: !tileView.drawn
+                jsonData: root.session
+                key: root.key
+                from: Math.min(root.field.minimum, Number(current.value ?? 0))
+                to: Math.max(root.field.maximum, Number(current.value ?? 0))
+            }
+            Ez.FieldButton {
+                objectName: root.name + "Picker"
+                text: qsTranslate("LocationCommandWidget", "Set")
+                visible: root.session.canPickTile
+                enabled: root.bound && root.session.eventMap > 0
+                onClicked: tileView.pick()
             }
         }
     }

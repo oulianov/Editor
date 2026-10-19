@@ -69,6 +69,12 @@ namespace CommandSchema {
 		Section,
 		/** No value: a text shown */
 		Note,
+		/** No value: RPG Maker's sample of other fields of the section, its
+		 *  style in link: "tint" (the colours of Tint Screen: red, green,
+		 *  blue, saturation), "flash" (of a flash: red, green, blue,
+		 *  strength), "fade" (buttons to hear the music of the map fade out
+		 *  in the time field) */
+		Sample,
 		/** A spin box: minimum, maximum, suffix, step */
 		Number,
 		/** A check box: 0 or 1 (or the bit) */
@@ -162,6 +168,12 @@ namespace CommandSchema {
 		Kept = 1 << 10,
 		/** Slider: a tick mark at each step, snapping to them (the trackbars of RPG Maker) */
 		Ticks = 1 << 11,
+		/** Choice, radio buttons of four directions (Up, Left, Right, Down in
+		 *  the order of the items): as a cross, as RPG Maker 2003 */
+		Cross = 1 << 12,
+		/** Animation: played above its list; File: the picture above its
+		 *  name; Tile: the tile beside its Set button (RPG Maker's previews) */
+		Preview = 1 << 13,
 	};
 	Q_DECLARE_FLAGS(Flags, Flag)
 	Q_FLAG_NS(Flags)
@@ -213,6 +225,9 @@ namespace CommandSchema {
 		 *  and gets it when the command grows (the bottom transparency of a
 		 *  picture: the top's); -1 for none */
 		int copies = -1;
+		/** Choice, radio buttons: in this many columns, filled top to bottom
+		 *  (0: all on one line) */
+		int columns = 0;
 
 		/** The bits of the parameter it uses */
 		uint32_t mask() const;

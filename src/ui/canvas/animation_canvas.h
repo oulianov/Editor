@@ -39,12 +39,17 @@
  * Cut/Copy/Paste; the frame tools (AnimationTools); the playback, without
  * sound. The patterns of the graphic are drawn for the strip under it.
  */
+class ProjectData;
+
 class AnimationCanvas : public QQuickPaintedItem
 {
 	Q_OBJECT
 	QML_ELEMENT
 	/** The animation shown (its view, "/animations/0"), null for none */
 	Q_PROPERTY(JsonView* entry READ entry WRITE setEntry NOTIFY entryChanged)
+	/** Without an entry: this animation of the project open (from 1, 0
+	 *  for none), as a preview (Show Battle Animation) */
+	Q_PROPERTY(int animationId READ animationId WRITE setAnimationId NOTIFY entryChanged)
 	/** The monster the preview shows the animation on (its index), -1: none */
 	Q_PROPERTY(int target READ target WRITE setTarget NOTIFY targetChanged)
 	Q_PROPERTY(int frameCount READ frameCount NOTIFY framesChanged)
@@ -105,6 +110,8 @@ public:
 	void setUseGrid(bool on);
 	bool showOrigin() const;
 	void setShowOrigin(bool show);
+	int animationId() const;
+	void setAnimationId(int id);
 	int moveStep() const;
 	int revision() const;
 	QColor highlight() const;
@@ -198,6 +205,8 @@ protected:
 	void keyPressEvent(QKeyEvent* event) override;
 
 private:
+	/** The project of the entry, else the one open for animationId */
+	ProjectData* projectData() const;
 	/** The animation of the entry, again (the list may have moved) */
 	void findAnimation();
 	void loadGraphic();
@@ -220,6 +229,7 @@ private:
 	QImage m_patterns;
 	QColor m_highlight = QColor(48, 140, 198);
 	bool m_showOrigin = true;
+	int m_animationId = 0;
 	QColor m_patternBackground = Qt::white;
 	int m_revision = 0;
 	bool m_editing = false;

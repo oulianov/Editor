@@ -17,6 +17,7 @@
 
 #include "animation_canvas.h"
 #include "common/dbstring.h"
+#include "core.h"
 #include "defines.h"
 #include "model/animation_tools.h"
 #include "model/project_data.h"
@@ -182,11 +183,11 @@ void AnimationCanvas::setTarget(int target)
 
 int AnimationCanvas::firstTarget() const
 {
-	const DatabaseEntry found = DatabaseEntry::of(m_entry);
-	if (!found.project) {
+	ProjectData* project = projectData();
+	if (!project) {
 		return -1;
 	}
-	const auto& enemies = found.project->database().enemies;
+	const auto& enemies = project->database().enemies;
 	for (size_t i = 0; i < enemies.size(); ++i) {
 		if (!enemies[i].battler_name.empty()) {
 			return static_cast<int>(i);
@@ -202,6 +203,9 @@ void AnimationCanvas::findAnimation()
 	if (found.valid() && found.list == QLatin1String("animations")
 			&& found.index < static_cast<int>(found.project->database().animations.size())) {
 		anim = &found.project->database().animations[static_cast<size_t>(found.index)];
+	} else if (ProjectData* project = m_entry ? nullptr : projectData();
+			project && m_animationId <= static_cast<int>(project->database().animations.size())) {
+		anim = &project->database().animations[static_cast<size_t>(m_animationId - 1)];
 	}
 	// it stops playing and shows the first frame
 	m_editor.setAnimation(anim);
@@ -215,9 +219,9 @@ void AnimationCanvas::findAnimation()
 void AnimationCanvas::loadGraphic()
 {
 	m_graphic = QImage();
-	const DatabaseEntry found = DatabaseEntry::of(m_entry);
-	if (auto* anim = m_editor.animation(); anim && found.project) {
-		m_graphic = GameGraphic::load(*found.project, anim->large ? BATTLE2 : BATTLE, ToQString(anim->animation_name));
+	ProjectData* project = projectData();
+	if (auto* anim = m_editor.animation(); anim && project) {
+		m_graphic = GameGraphic::load(*project, anim->large ? BATTLE2 : BATTLE, ToQString(anim->animation_name));
 	}
 	m_editor.setGraphicHeight(m_graphic.height());
 	emit graphicChanged();
@@ -226,10 +230,10 @@ void AnimationCanvas::loadGraphic()
 void AnimationCanvas::loadTarget()
 {
 	m_battler = QImage();
-	const DatabaseEntry found = DatabaseEntry::of(m_entry);
-	if (found.project && m_target >= 0 && m_target < static_cast<int>(found.project->database().enemies.size())) {
-		m_battler = GameGraphic::load(*found.project, MONSTER,
-			ToQString(found.project->database().enemies[static_cast<size_t>(m_target)].battler_name));
+	ProjectData* project = projectData();
+	if (project && m_target >= 0 && m_target < static_cast<int>(project->database().enemies.size())) {
+		m_battler = GameGraphic::load(*project, MONSTER,
+			ToQString(project->database().enemies[static_cast<size_t>(m_target)].battler_name));
 	}
 	m_editor.setTargetHeight(m_battler.height());
 }
@@ -391,6 +395,28 @@ void AnimationCanvas::setShowOrigin(bool show)
 		emit showOriginChanged();
 		render();
 	}
+}
+
+int AnimationCanvas::animationId() const
+{
+	return m_animationId;
+}
+
+void AnimationCanvas::setAnimationId(int id)
+{
+	if (m_animationId != id) {
+		m_animationId = id;
+		emit entryChanged();
+		findAnimation();
+	}
+}
+
+ProjectData* AnimationCanvas::projectData() const
+{
+	if (m_entry) {
+		return DatabaseEntry::of(m_entry).project;
+	}
+	return m_animationId > 0 && core().project() ? &core().project()->projectData() : nullptr;
 }
 
 int AnimationCanvas::moveStep() const

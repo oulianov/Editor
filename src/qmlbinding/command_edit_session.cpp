@@ -18,6 +18,7 @@
 #include "command_edit_session.h"
 #include "common/dbstring.h"
 #include "common/exfont.h"
+#include "defines.h"
 #include "json_view.h"
 #include "model/game_patches.h"
 #include "model/maniac_expression.h"
@@ -348,6 +349,9 @@ QVariantMap CommandSchemaView::fieldMap(const Field& field) const {
 		{QStringLiteral("radio"), bool(field.flags & Flag::Radio)},
 		{QStringLiteral("slider"), bool(field.flags & Flag::Slider)},
 		{QStringLiteral("ticks"), bool(field.flags & Flag::Ticks)},
+		{QStringLiteral("cross"), bool(field.flags & Flag::Cross)},
+		{QStringLiteral("preview"), bool(field.flags & Flag::Preview)},
+		{QStringLiteral("columns"), field.columns},
 		{QStringLiteral("inline"), bool(field.flags & Flag::Inline)},
 		{QStringLiteral("inverted"), bool(field.flags & Flag::Inverted)},
 		{QStringLiteral("hidden"), bool(field.flags & Flag::Hidden)},
@@ -911,6 +915,60 @@ QVariant CommandEditSession::pickTile(int layer, int tile, QQuickItem* from) {
 	}
 	const auto chosen = tilePicker()(Pickers::windowOf(from), *m_project, eventMap(), layer, tile);
 	return chosen ? QVariant(*chosen) : QVariant();
+}
+
+QVariantMap CommandEditSession::tileGraphic(int layer, int tile) const {
+	const int map = eventMap();
+	if (!m_project || map <= 0 || tile < 0 || tile >= 144) {
+		return {};
+	}
+	if (map != m_chipsetMap) {
+		// the open map as edited, else as saved
+		m_chipsetMap = map;
+		m_chipset = 0;
+		if (MapDocument* open = ::LocationPicker::openDocument(); open && open->id() == map && open->hasMap()) {
+			m_chipset = open->map().chipset_id;
+		} else if (auto loaded = m_project->project().loadMap(map)) {
+			m_chipset = loaded->chipset_id;
+		}
+	}
+	// the 144 tiles of the substitution: the lower ones after the autotiles
+	const QList<int> palette = MapTools::paletteTiles(layer == 0);
+	const qsizetype first = layer == 0 ? palette.size() - 144 : 0;
+	if (m_chipset <= 0 || first < 0 || first + tile >= palette.size()) {
+		return {};
+	}
+	return {{QStringLiteral("chipset"), m_chipset}, {QStringLiteral("tile"), palette[first + tile]}};
+}
+
+QVariantMap CommandEditSession::mapMusic() const {
+	if (!m_project) {
+		return {};
+	}
+	// a map inherits the music of its parent (music_type 0), 2: its own
+	const auto& maps = m_project->treeMap().maps;
+	int id = eventMap();
+	for (int depth = 0; id > 0 && depth < 100; ++depth) {
+		const auto found = std::find_if(maps.begin(), maps.end(), [id](const auto& info) { return info.ID == id; });
+		if (found == maps.end()) {
+			return {};
+		}
+		if (found->music_type == 2) {
+			const QString name = ToQString(found->music.name);
+			const QString path = name.isEmpty() || name == QLatin1String("(OFF)") ? QString()
+				: m_project->project().findFile(QStringLiteral(MUSIC), name, FileFinder::FileType::Music);
+			if (path.isEmpty()) {
+				return {};
+			}
+			return {{QStringLiteral("path"), path}, {QStringLiteral("volume"), found->music.volume},
+				{QStringLiteral("tempo"), found->music.tempo}, {QStringLiteral("balance"), found->music.balance}};
+		}
+		if (found->music_type != 0) {
+			return {};
+		}
+		id = found->parent_map;
+	}
+	return {};
 }
 
 void CommandEditSession::help(QQuickItem* from) {
