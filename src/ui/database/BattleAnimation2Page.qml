@@ -78,7 +78,7 @@ DatabaseEntryPage {
         image: model.rows
         implicitWidth: 4 * model.frameSize
         implicitHeight: 2 * model.frameSize
-        Controls.ToolTip.visible: rowsHover.hovered
+        Controls.ToolTip.visible: rowsHover.hovered && rows.enabled
         Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
         Controls.ToolTip.text: qsTr("Click a row of the graphic to use it")
         HoverHandler {
@@ -95,28 +95,58 @@ DatabaseEntryPage {
             }
         }
     }
-    /** The preview played, at twice its size in a frame */
+    /** The preview played, at twice its size in a frame; a pose of a battle
+     * animation plays it (animationId, from 1), over and over, as in battle */
     component Preview: Rectangle {
-        property string text
+        id: preview
+        property int animationId: 0
+        readonly property var animations: root.database ? root.database.list("animations") : null
+        readonly property bool animated: animationId >= 1 && !!animations && animationId <= animations.count
         Kirigami.Theme.colorSet: Kirigami.Theme.View
         Kirigami.Theme.inherit: false
-        color: "transparent"
+        color: animated ? "black" : "transparent"
         border.color: Ez.Metrics.sectionBorderColor
-        implicitWidth: 2 * model.frameSize + 4
-        implicitHeight: 2 * model.frameSize + 4
+        // the middle of the battle screen (320 x 240) at half its size
+        implicitWidth: animated ? 164 : 2 * model.frameSize + 4
+        implicitHeight: animated ? 124 : 2 * model.frameSize + 4
+        clip: true
         Ez.ImageCanvas {
             anchors.fill: parent
             image: model.preview
             zoom: 2
+            visible: !preview.animated
         }
-        Ez.Label {
-            anchors.fill: parent
-            text: parent.text
-            visible: text !== ""
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            wrapMode: Text.WordWrap
-            font: Ez.Metrics.font
+        Ez.AnimationCanvas {
+            id: animation
+            objectName: preview.objectName + "Animation"
+            entry: preview.animated ? preview.animations.entry(preview.animationId - 1) : null
+            target: -1
+            showOrigin: false
+            // a preview: the cels are not edited here
+            enabled: false
+            visible: preview.animated
+            width: 320
+            height: 240
+            transformOrigin: Item.TopLeft
+            scale: 0.5
+            x: (preview.width - 320 * scale) / 2
+            y: (preview.height - 240 * scale) / 2
+            onEntryChanged: restart.restart()
+            // played to its end, it starts again a moment later
+            onPlayingChanged: {
+                if (!playing && preview.animated) {
+                    restart.restart()
+                }
+            }
+            Timer {
+                id: restart
+                interval: 400
+                onTriggered: {
+                    if (preview.animated && preview.visible && !animation.playing) {
+                        animation.togglePlay()
+                    }
+                }
+            }
         }
     }
 
@@ -295,13 +325,21 @@ DatabaseEntryPage {
                     }
                     RowLayout {
                         spacing: Ez.Metrics.sectionSpacing
+                        Ez.JsonField {
+                            id: poseAnimationField
+                            source: root.entry
+                            path: root.pose + "battle_animation_id"
+                        }
                         Preview {
                             objectName: "picturePosePreview"
-                            text: poseFields.battle ? qsTr("Battle animation") : ""
+                            animationId: poseFields.battle && poseAnimationField.valid ? Number(poseAnimationField.value) : 0
                         }
+                        // a battle animation has no rows to pick (its place is kept: the page does not move)
                         Rows {
                             objectName: "picturePoseRows"
                             index: poseIndex
+                            opacity: poseFields.battle ? 0 : 1
+                            enabled: !poseFields.battle
                         }
                     }
                 }

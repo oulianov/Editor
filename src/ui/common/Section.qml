@@ -13,8 +13,9 @@ import org.easyrpg.editor as Ez
  * A checkable one (a checkable group box) has a check box as its title: its
  * content is enabled while checked, greyed otherwise. checked is set by the
  * page, or with jsonData and key it is a bool of the project's data (as
- * Ez.CheckBox). Automation finds the check box by its objectName (checkName,
- * or checkBox.objectName). Only a checkable one makes its check box.
+ * Ez.CheckBox). Automation finds the check box by its objectName, set with
+ * checkName: only a checkable one makes its check box, after the section is
+ * made, so checkBox is null while it is (checkBox.objectName cannot be set).
  */
 ColumnLayout {
     id: root

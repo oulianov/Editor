@@ -229,7 +229,7 @@ Ez.DialogWindow {
             Layout.fillWidth: true
 
             Ez.Section {
-                checkBox.objectName: "groupInitialPosition"
+                checkName: "groupInitialPosition"
                 title: qsTr("Replace party starting position")
                 checkable: true
                 checked: root.options.replacePosition
@@ -293,7 +293,7 @@ Ez.DialogWindow {
         }
 
         Ez.Section {
-            checkBox.objectName: "groupInitialParty"
+            checkName: "groupInitialParty"
             title: qsTr("Replace initial party")
             checkable: true
             checked: root.options.replaceParty

@@ -532,14 +532,14 @@
 <context>
     <name>BattleAnimation2Widget</name>
     <message>
-        <location filename="../src/ui/database/BattleAnimation2Page.qml" line="+133"/>
-        <location line="+187"/>
+        <location filename="../src/ui/database/BattleAnimation2Page.qml" line="+163"/>
+        <location line="+195"/>
         <location line="+23"/>
         <source>Name</source>
         <translation>Nom</translation>
     </message>
     <message>
-        <location line="-199"/>
+        <location line="-207"/>
         <source>Animation Display Speed</source>
         <translation>Vitesse de l&apos;animation</translation>
     </message>
@@ -560,52 +560,47 @@
     </message>
     <message>
         <location line="+37"/>
-        <location line="+129"/>
+        <location line="+137"/>
         <source>No.</source>
         <translation>N°</translation>
     </message>
     <message>
-        <location line="-127"/>
+        <location line="-135"/>
         <location line="+53"/>
-        <location line="+76"/>
+        <location line="+84"/>
         <location line="+33"/>
         <source>Graphic</source>
         <translation>Graphisme</translation>
     </message>
     <message>
-        <location line="-114"/>
+        <location line="-122"/>
         <source>Character Pose</source>
         <translation>Personnage</translation>
     </message>
     <message>
         <location line="+40"/>
-        <location line="+108"/>
+        <location line="+116"/>
         <source>The row of the graphic</source>
         <translation>La rangée du graphisme</translation>
     </message>
     <message>
-        <location line="-131"/>
-        <location line="+108"/>
+        <location line="-139"/>
+        <location line="+116"/>
         <source>Index</source>
         <translation>Index</translation>
     </message>
     <message>
-        <location line="-195"/>
+        <location line="-203"/>
         <source>Weapons</source>
         <translation>Armes</translation>
     </message>
     <message>
-        <location line="-120"/>
+        <location line="-150"/>
         <source>Animation: %1</source>
         <translation>Animation : %1</translation>
     </message>
     <message>
-        <location line="+250"/>
-        <source>Battle animation</source>
-        <translation>Animation de combat</translation>
-    </message>
-    <message>
-        <location line="-135"/>
+        <location line="+145"/>
         <source>Poses</source>
         <translation>Poses</translation>
     </message>
@@ -627,7 +622,7 @@
         <translation>Animation de combat</translation>
     </message>
     <message>
-        <location line="+116"/>
+        <location line="+124"/>
         <source>Right Hand</source>
         <translation>Main droite</translation>
     </message>
@@ -652,12 +647,12 @@
         <translation>Aperçu</translation>
     </message>
     <message>
-        <location line="-309"/>
+        <location line="-347"/>
         <source>Click a row of the graphic to use it</source>
         <translation>Cliquez sur une rangée du graphique pour l&apos;utiliser</translation>
     </message>
     <message>
-        <location line="+145"/>
+        <location line="+175"/>
         <source>The first %1 poses are named by RPG Maker</source>
         <translation>Les %1 premières poses sont nommées par RPG Maker</translation>
     </message>

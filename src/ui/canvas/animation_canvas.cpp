@@ -379,6 +379,20 @@ void AnimationCanvas::setUseGrid(bool on)
 	m_editor.setUseGrid(on);
 }
 
+bool AnimationCanvas::showOrigin() const
+{
+	return m_showOrigin;
+}
+
+void AnimationCanvas::setShowOrigin(bool show)
+{
+	if (m_showOrigin != show) {
+		m_showOrigin = show;
+		emit showOriginChanged();
+		render();
+	}
+}
+
 int AnimationCanvas::moveStep() const
 {
 	return m_editor.moveStep();
@@ -691,10 +705,12 @@ void AnimationCanvas::render()
 	painter.setOpacity(1.0);
 
 	// where the cel coordinates start from
-	const QPointF o = m_editor.origin();
-	painter.setPen(QColor(255, 255, 255, 100));
-	painter.drawLine(o - QPointF(6, 0), o + QPointF(6, 0));
-	painter.drawLine(o - QPointF(0, 6), o + QPointF(0, 6));
+	if (m_showOrigin) {
+		const QPointF o = m_editor.origin();
+		painter.setPen(QColor(255, 255, 255, 100));
+		painter.drawLine(o - QPointF(6, 0), o + QPointF(6, 0));
+		painter.drawLine(o - QPointF(0, 6), o + QPointF(0, 6));
+	}
 
 	if (m_editor.isCellEditable() && !m_editor.isPlaying()) {
 		painter.setPen(QPen(Qt::white, 1, Qt::DashLine));

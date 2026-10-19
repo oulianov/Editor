@@ -67,6 +67,8 @@ class AnimationCanvas : public QQuickPaintedItem
 	Q_PROPERTY(int currentTiming READ currentTiming WRITE setCurrentTiming NOTIFY currentTimingChanged)
 	Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
 	Q_PROPERTY(bool useGrid READ useGrid WRITE setUseGrid NOTIFY useGridChanged)
+	/** The cross where the cel coordinates start from is drawn (not in a mere preview) */
+	Q_PROPERTY(bool showOrigin READ showOrigin WRITE setShowOrigin NOTIFY showOriginChanged)
 	/** What an arrow key moves a cel by */
 	Q_PROPERTY(int moveStep READ moveStep NOTIFY useGridChanged)
 	/** Grows on every change of the cels: the fields shown read them again */
@@ -101,6 +103,8 @@ public:
 	bool playing() const;
 	bool useGrid() const;
 	void setUseGrid(bool on);
+	bool showOrigin() const;
+	void setShowOrigin(bool show);
 	int moveStep() const;
 	int revision() const;
 	QColor highlight() const;
@@ -179,6 +183,7 @@ signals:
 	void currentTimingChanged();
 	void playingChanged();
 	void useGridChanged();
+	void showOriginChanged();
 	void revisionChanged();
 	/** The right button on the screen (the cel under it selected first), at a point of the item */
 	void contextMenuRequested(qreal x, qreal y);
@@ -214,6 +219,7 @@ private:
 	QImage m_screen;
 	QImage m_patterns;
 	QColor m_highlight = QColor(48, 140, 198);
+	bool m_showOrigin = true;
 	QColor m_patternBackground = Qt::white;
 	int m_revision = 0;
 	bool m_editing = false;
