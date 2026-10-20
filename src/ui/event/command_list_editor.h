@@ -171,6 +171,8 @@ private:
 	/** Where the game keeps the last command of each kind */
 	QString projectDir() const;
 	bool validLine(int line) const;
+	/** The monsters of the troop of the battle page shown, -1 for no troop */
+	int troopMembers() const;
 	/** The commands of the page of an event window, and its script */
 	void followEventPage();
 
@@ -181,5 +183,7 @@ private:
 	QStringList m_scriptLocation;
 	QPointer<EventEditorController> m_controller;
 	int m_page = -1;
+	/** The troop of the battle page shown (its index), -1 for none */
+	int m_troop = -1;
 	QMetaObject::Connection m_pagesConnection;
 };

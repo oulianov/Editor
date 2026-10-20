@@ -410,8 +410,14 @@ void GameReferences::collectCommand(const lcf::rpg::EventCommand& com, const QSt
 		}
 		break;
 	case Cmd::ShowBattleAnimation:
+		addId(Animation, at(0));
+		break;
 	case Cmd::ShowBattleAnimation_B:
 		addId(Animation, at(0));
+		// a hero of the party (RPG_RT reads the side from 5 parameters on)
+		if (p.size() > 4 && at(3) != 0 && at(1) > 0) {
+			addId(Actor, at(1));
+		}
 		break;
 	case Cmd::ChangeMapTileset:
 		id(Chipset, at(0), viaVariable(1, 0));

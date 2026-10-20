@@ -44,7 +44,12 @@ namespace CommandCatalog {
 		std::vector<Entry> entries;
 	};
 
-	/** The pages of a map event, without the Maniac Patch's */
+	/** The entry of the map pages that opens the battle event commands
+	 *  (battlePage) in a window of their own: not a command */
+	constexpr Code battleCommands = static_cast<Code>(-1);
+
+	/** The pages of a map event, without the Maniac Patch's (the last one
+	 *  ends with the entry of the battle event commands) */
 	const std::vector<Page>& mapPages();
 	/** The commands of the Maniac Patch, by theme */
 	const Page& maniacPage();

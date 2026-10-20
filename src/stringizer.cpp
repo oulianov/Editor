@@ -172,8 +172,9 @@ namespace
 			case 2: target = Stringizer::tr("Monster %1").arg(com.parameters[1] + 1); break;
 			default: target = Stringizer::tr("Unknown"); break;
 		}
+		// p2: 1 (Ignore if Target is Surrounded), the target does not flee when surrounded
 		return Stringizer::tr("Force Flee") + ": " + target
-			+ (com.parameters[2] == 0 ? " " + Stringizer::tr("(Unless Surrounded)") : QString());
+			+ (com.parameters.size() > 2 && com.parameters[2] != 0 ? " " + Stringizer::tr("(Unless Surrounded)") : QString());
 	}
 
 	QString stringizeEnableCombo(const lcf::rpg::EventCommand& com)
@@ -1500,11 +1501,12 @@ namespace
 
 	QString stringizeShowBattleAnimation_B(const lcf::rpg::EventCommand& com)
 	{
-		// p1: -1 all, else a monster (0-7) or a party member (1-4) when p3 is set (2003)
+		// p1: -1 all, else a monster (from 0), or a hero ID when p3 (the
+		// side, RPG Maker 2003: read from 4 parameters on, as it does) is set
 		const bool party = com.parameters.size() > 3 && com.parameters[3] != 0;
 		const int target = com.parameters[1];
 		const QString name = target < 0 ? (party ? Stringizer::tr("Entire Party") : Stringizer::tr("All Enemies"))
-			: party ? Stringizer::tr("Party Member %1").arg(target) : Stringizer::tr("Monster %1").arg(target + 1);
+			: party ? Stringizer::heroName(target) : Stringizer::tr("Monster %1").arg(target + 1);
 		return Stringizer::tr("Show Battle Animation") + ": " + Stringizer::animationName(com.parameters[0]) + ", " + name
 			+ (com.parameters[2] ? " " + Stringizer::tr("(Wait)") : QString());
 	}

@@ -353,6 +353,9 @@ bool run(QWindow* over, ProjectData& project, std::vector<Command>& commands, in
 	const auto cleanup = qScopeGuard([session] { session->deleteLater(); });
 	session->setProject(&project);
 	session->setContext(context.battle, context.isNew, context.mapId, eventsOf(context.events));
+	if (context.troopMembers >= 0) {
+		session->setExtra(QStringLiteral("troopMembers"), context.troopMembers);
+	}
 	if (const Code next = nextLineOf(code); next != Code::END) {
 		QStringList lines = {ToQString(command.string)};
 		for (size_t i = static_cast<size_t>(index) + 1; !alone && i < commands.size() && commands[i].code == static_cast<int>(next); ++i) {

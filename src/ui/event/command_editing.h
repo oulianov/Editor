@@ -51,6 +51,8 @@ namespace CommandEditing {
 		bool isNew = false;
 		/** A command of a troop's battle page */
 		bool battle = false;
+		/** The monsters of the troop of the battle page, -1 for no troop */
+		int troopMembers = -1;
 	};
 
 	/**
@@ -66,7 +68,8 @@ namespace CommandEditing {
 
 	/**
 	 * The kind of command to insert, in the window of the commands
-	 * (CommandPalette.qml): those of a map event, or of a battle
+	 * (CommandPalette.qml): those of a map event, or of a battle (a map
+	 * event's last entry opens these in a window of their own)
 	 *
 	 * @return The code chosen, nothing when cancelled
 	 */

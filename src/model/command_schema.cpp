@@ -594,8 +594,9 @@ void addBattle2003(Table& table) {
 			{2, QT_TRANSLATE_NOOP("ForceFleeWidget", "Only this Monster Flees")}}).radio(),
 		monster("monster", 1).enabledWhen("target", {2}).inlined(),
 		section(QT_TRANSLATE_NOOP("ForceFleeWidget", "Option")),
-		// checked, a surrounded target (the party: in a pincers attack) does not flee
-		check("ignoreSurrounded", 2, QT_TRANSLATE_NOOP("ForceFleeWidget", "Ignore if Target is Surrounded")).with(Flag::Inverted)
+		// checked (1, as RPG Maker 2003 writes it), a surrounded target (the
+		// party: in a pincers attack) does not flee
+		check("ignoreSurrounded", 2, QT_TRANSLATE_NOOP("ForceFleeWidget", "Ignore if Target is Surrounded"))
 	), Flag::Rpg2003);
 
 	// Enable Combo
@@ -2577,9 +2578,12 @@ void addBattle(Table& table) {
 		file("background", {}, BACKDROP)
 	));
 
-	// Show Battle Animation (battle): one list for the target and its side
-	// (parameter 3, RPG Maker 2003: the party); monsters count from 0, party
-	// members from 1
+	// Show Battle Animation (battle), as RPG Maker 2003 writes it: one list
+	// for the target and its side (parameter 3, the party): a monster from
+	// 0, or a hero ID; -1 all of them. Parameter 4 is the line of the target
+	// in RPG Maker 2003's list (All Enemies -1, the monsters of the troop,
+	// Entire Party, then the heroes), which it reads back for the party;
+	// RPG_RT reads the side only from 5 parameters on
 	table.custom(Code::ShowBattleAnimation_B, "ShowBattleAnimation_BWidget",
 		QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Show Battle Animation"), fields(
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Animation")),
@@ -2588,8 +2592,9 @@ void addBattle(Table& table) {
 		check("party", 3, {}).hidden().extension().rpg2003(),
 		choice("target", 1, {}, Items{{-1, QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "All Enemies")}}
 			+ numbered(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Monster %1"), 8, 0)).withDefault(-1).unless("party", {1}),
-		choice("partyTarget", 1, {}, Items{{-1, QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Entire Party")}}
-			+ numbered(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Party Member %1"), 4, 1)).withDefault(-1).when("party", {1}).rpg2003(),
+		ref(Kind::Actor, "hero", 1).withItems({{-1, QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Entire Party")}})
+			.withDefault(-1).when("party", {1}).rpg2003(),
+		number("line", 4, {}, -1, 9999).hidden().extension().rpg2003(),
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Option")),
 		check("wait", 2, QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Halt Processing Until Animation Ends"))
 	));

@@ -140,6 +140,9 @@ const std::vector<Page>& mapPages()
 			{Code::ToggleAtbMode, QT_TRANSLATE_NOOP("EventCommandPalette", "Toggle ATB Mode"), true},
 			{Code::ToggleFullscreen, QT_TRANSLATE_NOOP("EventCommandPalette", "Toggle Fullscreen"), true},
 			{Code::OpenVideoOptions, QT_TRANSLATE_NOOP("EventCommandPalette", "Open Video Options"), true},
+			{Code::END, nullptr, false},
+			// RPG Maker 2003 offers them in battle pages only: last, after its own additions
+			{battleCommands, QT_TRANSLATE_NOOP("EventCommandPalette", "Battle Event Commands"), false},
 		}},
 	};
 	return pages;

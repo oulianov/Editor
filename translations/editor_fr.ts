@@ -1693,7 +1693,7 @@
 <context>
     <name>CallEventWidget</name>
     <message>
-        <location line="+1912"/>
+        <location line="+1913"/>
         <source>Call Event</source>
         <translation>Appeler un évènement</translation>
     </message>
@@ -2539,12 +2539,12 @@
 <context>
     <name>ConditionalBranchWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+89"/>
+        <location filename="../src/model/command_schema.cpp" line="+93"/>
         <source>Conditional Branch (battle)</source>
         <translation>Conditions (combat)</translation>
     </message>
     <message>
-        <location line="-117"/>
+        <location line="-121"/>
         <source>Conditional Branch</source>
         <translation>Conditions</translation>
     </message>
@@ -4758,77 +4758,77 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+1"/>
-        <location line="+164"/>
+        <location line="+167"/>
         <source>Show Message</source>
         <translation>Message</translation>
     </message>
     <message>
-        <location line="-163"/>
+        <location line="-166"/>
         <source>Message Options</source>
         <translation>Options d&apos;affichage des messages</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+163"/>
+        <location line="+166"/>
         <source>Select Face Graphic</source>
         <translation>Options d&apos;affichage des visages</translation>
     </message>
     <message>
-        <location line="-162"/>
-        <location line="+163"/>
+        <location line="-165"/>
+        <location line="+166"/>
         <source>Show Choices</source>
         <translation>Proposer un choix</translation>
     </message>
     <message>
-        <location line="-162"/>
-        <location line="+163"/>
+        <location line="-165"/>
+        <location line="+166"/>
         <source>Input Number</source>
         <translation>Entrer un nombre</translation>
     </message>
     <message>
-        <location line="-161"/>
-        <location line="+163"/>
+        <location line="-164"/>
+        <location line="+166"/>
         <location filename="../src/model/command_schema.cpp" line="-746"/>
         <source>Control Switches</source>
         <translation>Modifier interrupteur(s)</translation>
     </message>
     <message>
         <location filename="../src/ui/commands/VariableOperationsEditor.qml" line="+26"/>
-        <location filename="../src/model/command_catalog.cpp" line="-162"/>
-        <location line="+163"/>
+        <location filename="../src/model/command_catalog.cpp" line="-165"/>
+        <location line="+166"/>
         <location filename="../src/model/command_schema.cpp" line="+25"/>
         <source>Control Variables</source>
         <translation>Modifier variable(s)</translation>
     </message>
     <message>
-        <location filename="../src/model/command_catalog.cpp" line="-162"/>
+        <location filename="../src/model/command_catalog.cpp" line="-165"/>
         <location filename="../src/model/command_schema.cpp" line="+106"/>
         <source>Timer Operations</source>
         <translation>Modifier chrono</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+162"/>
+        <location line="+165"/>
         <location filename="../src/model/command_schema.cpp" line="+18"/>
         <source>Change Money</source>
         <translation>Ajouter/Retirer monnaie</translation>
     </message>
     <message>
-        <location line="-161"/>
-        <location line="+162"/>
+        <location line="-164"/>
+        <location line="+165"/>
         <location filename="../src/model/command_schema.cpp" line="+9"/>
         <source>Change Items</source>
         <translation>Ajouter/Retirer objet(s)</translation>
     </message>
     <message>
-        <location line="-161"/>
-        <location line="+162"/>
+        <location line="-164"/>
+        <location line="+165"/>
         <location filename="../src/model/command_schema.cpp" line="+10"/>
         <source>Change Party</source>
         <translation>Modifier l&apos;équipe</translation>
     </message>
     <message>
-        <location line="-160"/>
+        <location line="-163"/>
         <source>Start Combat</source>
         <translation>Démarrer un combat</translation>
     </message>
@@ -4882,55 +4882,55 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+1"/>
-        <location line="+150"/>
+        <location line="+153"/>
         <location filename="../src/model/command_schema.cpp" line="+11"/>
         <source>Change Level</source>
         <translation>Modifier le niveau</translation>
     </message>
     <message>
-        <location line="-149"/>
+        <location line="-152"/>
         <source>Change Parameters</source>
         <translation>Modifier caractéristiques de base</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+149"/>
+        <location line="+152"/>
         <source>Change Skills</source>
         <translation>Ajouter/Retirer une compétence</translation>
     </message>
     <message>
-        <location line="-148"/>
-        <location line="+149"/>
+        <location line="-151"/>
+        <location line="+152"/>
         <source>Change Equipment</source>
         <translation>Modifier l&apos;équipement</translation>
     </message>
     <message>
-        <location line="-148"/>
-        <location line="+149"/>
+        <location line="-151"/>
+        <location line="+152"/>
         <source>Change HP</source>
         <translation>Modifier les HP</translation>
     </message>
     <message>
-        <location line="-148"/>
-        <location line="+149"/>
+        <location line="-151"/>
+        <location line="+152"/>
         <source>Change MP</source>
         <translation>Modifier les MP</translation>
     </message>
     <message>
-        <location line="-148"/>
-        <location line="+149"/>
+        <location line="-151"/>
+        <location line="+152"/>
         <source>Change Condition</source>
         <translation>Modifier le statut</translation>
     </message>
     <message>
-        <location line="-148"/>
-        <location line="+149"/>
+        <location line="-151"/>
+        <location line="+152"/>
         <location filename="../src/model/command_schema.cpp" line="+94"/>
         <source>Full Recovery</source>
         <translation>Soigner complètement</translation>
     </message>
     <message>
-        <location line="-148"/>
+        <location line="-151"/>
         <source>Damage Hero</source>
         <translation>Simuler une attaque ennemie</translation>
     </message>
@@ -5032,27 +5032,27 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+1"/>
-        <location line="+134"/>
+        <location line="+137"/>
         <location filename="../src/model/command_schema.cpp" line="+436"/>
         <source>Tint Screen</source>
         <translation>Modifier le ton de l&apos;écran</translation>
     </message>
     <message>
-        <location line="-133"/>
-        <location line="+134"/>
+        <location line="-136"/>
+        <location line="+137"/>
         <location filename="../src/model/command_schema.cpp" line="+16"/>
         <source>Flash Screen</source>
         <translation>Flasher l&apos;écran</translation>
     </message>
     <message>
-        <location line="-133"/>
-        <location line="+134"/>
+        <location line="-136"/>
+        <location line="+137"/>
         <location filename="../src/model/command_schema.cpp" line="+19"/>
         <source>Shake Screen</source>
         <translation>Faire trembler l&apos;écran</translation>
     </message>
     <message>
-        <location line="-133"/>
+        <location line="-136"/>
         <source>Pan Screen</source>
         <translation>Options de défilement de l&apos;écran</translation>
     </message>
@@ -5079,12 +5079,12 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+1"/>
-        <location line="+128"/>
+        <location line="+131"/>
         <source>Show Battle Animation</source>
         <translation>Afficher une animation de combat</translation>
     </message>
     <message>
-        <location line="-127"/>
+        <location line="-130"/>
         <source>Hero Transparency</source>
         <translation>Modifier la transparence du héros</translation>
     </message>
@@ -5110,24 +5110,24 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+1"/>
-        <location line="+126"/>
+        <location line="+129"/>
         <source>Wait</source>
         <translation>Attendre</translation>
     </message>
     <message>
-        <location line="-124"/>
-        <location line="+125"/>
+        <location line="-127"/>
+        <location line="+128"/>
         <source>Play BGM</source>
         <translation>Jouer une musique</translation>
     </message>
     <message>
-        <location line="-124"/>
-        <location line="+125"/>
+        <location line="-127"/>
+        <location line="+128"/>
         <source>Fade Out BGM</source>
         <translation>Faire disparaître la musique</translation>
     </message>
     <message>
-        <location line="-124"/>
+        <location line="-127"/>
         <source>Memorize BGM</source>
         <translation>Mémoriser une musique</translation>
     </message>
@@ -5138,12 +5138,12 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+1"/>
-        <location line="+123"/>
+        <location line="+126"/>
         <source>Play Sound Effect</source>
         <translation>Jouer un effet sonore</translation>
     </message>
     <message>
-        <location line="-122"/>
+        <location line="-125"/>
         <source>Play Movie</source>
         <translation>Jouer un film</translation>
     </message>
@@ -5223,12 +5223,12 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+2"/>
-        <location line="+105"/>
+        <location line="+108"/>
         <source>Conditional Branch</source>
         <translation>Conditions</translation>
     </message>
     <message>
-        <location line="-104"/>
+        <location line="-107"/>
         <source>Label</source>
         <translation>Étiquette</translation>
     </message>
@@ -5249,12 +5249,12 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+1"/>
-        <location line="+101"/>
+        <location line="+104"/>
         <source>End Event Processing</source>
         <translation>Stopper cet évènement</translation>
     </message>
     <message>
-        <location line="-100"/>
+        <location line="-103"/>
         <source>Erase Event</source>
         <translation>Effacer cet évènement</translation>
     </message>
@@ -5265,18 +5265,18 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
     <message>
         <location line="+2"/>
-        <location line="+99"/>
+        <location line="+102"/>
         <source>Comment</source>
         <translation>Insérer un commentaire</translation>
     </message>
     <message>
-        <location line="-98"/>
-        <location line="+99"/>
+        <location line="-101"/>
+        <location line="+102"/>
         <source>Game Over</source>
         <translation>Fin du jeu</translation>
     </message>
     <message>
-        <location line="-98"/>
+        <location line="-101"/>
         <source>Return to Title Screen</source>
         <translation>Retour à l&apos;écran titre</translation>
     </message>
@@ -5306,7 +5306,7 @@ Les fichiers de RPG Maker 2000 sont dans :
         <translation>Ouvrir les options vidéo</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+12"/>
         <source>Maniac Patch</source>
         <translation>Maniac Patch</translation>
     </message>
@@ -5518,7 +5518,7 @@ Les fichiers de RPG Maker 2000 sont dans :
         <translation>Activer le combo</translation>
     </message>
     <message>
-        <location filename="../src/ui/event/CommandPalette.qml" line="+110"/>
+        <location filename="../src/ui/event/CommandPalette.qml" line="+164"/>
         <source>Event Commands</source>
         <translation>Commandes de l&apos;évènement</translation>
     </message>
@@ -5528,7 +5528,7 @@ Les fichiers de RPG Maker 2000 sont dans :
         <translation>Chercher une commande (Entrée choisit la meilleure)</translation>
     </message>
     <message>
-        <location line="-83"/>
+        <location line="-111"/>
         <source>Only in RPG Maker 2003</source>
         <translation>Seulement dans RPG Maker 2003</translation>
     </message>
@@ -5538,13 +5538,14 @@ Les fichiers de RPG Maker 2000 sont dans :
         <translation>Uniquement avec le Maniac Patch</translation>
     </message>
     <message>
-        <location line="+249"/>
+        <location line="+288"/>
         <source>No command matches &quot;%1&quot;</source>
         <translation>Aucune commande ne correspond à « %1 »</translation>
     </message>
     <message>
-        <location line="-182"/>
-        <location filename="../src/model/command_catalog.cpp" line="-31"/>
+        <location line="-193"/>
+        <location filename="../src/model/command_catalog.cpp" line="-80"/>
+        <location line="+49"/>
         <source>Battle Event Commands</source>
         <translation>Commandes d&apos;évènement de combat</translation>
     </message>
@@ -6412,7 +6413,7 @@ Afficher la nouvelle version et abandonner vos modifications ?</translation>
 <context>
     <name>ForceFleeWidget</name>
     <message>
-        <location line="-1525"/>
+        <location line="-1526"/>
         <source>Force Flee</source>
         <translation>Fuite forcée</translation>
     </message>
@@ -6442,7 +6443,7 @@ Afficher la nouvelle version et abandonner vos modifications ?</translation>
         <translation>Option</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+3"/>
         <source>Ignore if Target is Surrounded</source>
         <translation>Ignorer si la cible est cernée</translation>
     </message>
@@ -6939,7 +6940,7 @@ http://localhost:8000
         <translation>%1 : un fichier de %2 nommé par une variable</translation>
     </message>
     <message>
-        <location line="+302"/>
+        <location line="+308"/>
         <source>The database is kept as it is: the game uses Maniac Patch or EasyRPG commands, or DynRPG comments, which can use any entry.</source>
         <translation>La base de données est gardée telle quelle : le jeu utilise des commandes Maniac Patch ou EasyRPG, ou des commentaires DynRPG, qui peuvent utiliser n&apos;importe quelle entrée.</translation>
     </message>
@@ -8436,7 +8437,7 @@ http://localhost:8000
         <translation>%1 (%2, %3)</translation>
     </message>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-2137"/>
+        <location filename="../src/model/command_schema.cpp" line="-2138"/>
         <source>This Event</source>
         <translation>Cet évènement</translation>
     </message>
@@ -8447,19 +8448,19 @@ http://localhost:8000
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1545"/>
+        <location line="+1546"/>
         <source>Boat</source>
         <translation>Radeau</translation>
     </message>
     <message>
-        <location line="-1544"/>
-        <location line="+1545"/>
+        <location line="-1545"/>
+        <location line="+1546"/>
         <source>Ship</source>
         <translation>Bateau</translation>
     </message>
     <message>
-        <location line="-1544"/>
-        <location line="+1545"/>
+        <location line="-1545"/>
+        <location line="+1546"/>
         <source>Airship</source>
         <translation>Vaisseau</translation>
     </message>
@@ -8469,7 +8470,7 @@ http://localhost:8000
         <translation>Évènement inconnu (%1)</translation>
     </message>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1560"/>
+        <location filename="../src/model/command_schema.cpp" line="-1561"/>
         <source>Facing</source>
         <translation>Direction</translation>
     </message>
@@ -8535,19 +8536,19 @@ http://localhost:8000
     </message>
     <message>
         <location filename="../src/model/command_schema.cpp" line="+10"/>
-        <location line="+1563"/>
+        <location line="+1564"/>
         <source>Map ID Stored in</source>
         <translation>L&apos;ID de la carte dans</translation>
     </message>
     <message>
-        <location line="-1561"/>
-        <location line="+1562"/>
+        <location line="-1562"/>
+        <location line="+1563"/>
         <source>X Coordinate Stored in</source>
         <translation>La coordonnée X dans</translation>
     </message>
     <message>
-        <location line="-1561"/>
-        <location line="+1562"/>
+        <location line="-1562"/>
+        <location line="+1563"/>
         <source>Y Coordinate Stored in</source>
         <translation>La coordonnée Y dans</translation>
     </message>
@@ -9776,7 +9777,7 @@ Les sauvegarder avant l&apos;export ?</translation>
     <message>
         <location filename="../src/ui/commands/ControlStringsEditor.qml" line="+9"/>
         <location filename="../src/ui/commands/VariableOperationsEditor.qml" line="+26"/>
-        <location filename="../src/model/command_schema.cpp" line="-1864"/>
+        <location filename="../src/model/command_schema.cpp" line="-1865"/>
         <source>Constant</source>
         <translation>Constante</translation>
     </message>
@@ -9786,7 +9787,7 @@ Les sauvegarder avant l&apos;export ?</translation>
         <location filename="../src/ui/commands/VariableOperationsEditor.qml" line="+1"/>
         <location filename="../src/model/command_schema.cpp" line="+1"/>
         <location line="+5"/>
-        <location line="+674"/>
+        <location line="+675"/>
         <source>Variable</source>
         <translation>Variable</translation>
     </message>
@@ -9794,17 +9795,17 @@ Les sauvegarder avant l&apos;export ?</translation>
         <location line="-1"/>
         <location line="+2"/>
         <location filename="../src/ui/commands/VariableOperationsEditor.qml" line="+1"/>
-        <location filename="../src/model/command_schema.cpp" line="-678"/>
+        <location filename="../src/model/command_schema.cpp" line="-679"/>
         <location line="+5"/>
-        <location line="+674"/>
+        <location line="+675"/>
         <source>Variable pointer</source>
         <translation>Pointeur de variable</translation>
     </message>
     <message>
         <location line="+1"/>
         <location filename="../src/ui/commands/ShowStringPictureEditor.qml" line="+6"/>
-        <location filename="../src/model/command_schema.cpp" line="-670"/>
-        <location line="+538"/>
+        <location filename="../src/model/command_schema.cpp" line="-671"/>
+        <location line="+539"/>
         <location line="+858"/>
         <source>Text</source>
         <translation>Texte</translation>
@@ -9812,8 +9813,8 @@ Les sauvegarder avant l&apos;export ?</translation>
     <message>
         <location line="+1"/>
         <location filename="../src/ui/commands/ShowStringPictureEditor.qml" line="+1"/>
-        <location filename="../src/model/command_schema.cpp" line="-1395"/>
-        <location line="+670"/>
+        <location filename="../src/model/command_schema.cpp" line="-1396"/>
+        <location line="+671"/>
         <location line="+726"/>
         <source>String</source>
         <translation>Chaîne</translation>
@@ -9821,8 +9822,8 @@ Les sauvegarder avant l&apos;export ?</translation>
     <message>
         <location line="+1"/>
         <location filename="../src/ui/commands/ShowStringPictureEditor.qml" line="+1"/>
-        <location filename="../src/model/command_schema.cpp" line="-1395"/>
-        <location line="+669"/>
+        <location filename="../src/model/command_schema.cpp" line="-1396"/>
+        <location line="+670"/>
         <location line="+727"/>
         <source>String pointer</source>
         <translation>Pointeur de chaîne</translation>
@@ -9851,14 +9852,14 @@ Les sauvegarder avant l&apos;export ?</translation>
         <translation>Expression invalide au caractère %1 : elle n&apos;est pas sauvegardée.</translation>
     </message>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1316"/>
-        <location line="+524"/>
+        <location filename="../src/model/command_schema.cpp" line="-1317"/>
+        <location line="+525"/>
         <location line="+3"/>
         <source>Hero</source>
         <translation>Héros</translation>
     </message>
     <message>
-        <location line="-526"/>
+        <location line="-527"/>
         <source>Party member</source>
         <translation>Membre de l&apos;équipe</translation>
     </message>
@@ -9889,30 +9890,30 @@ Les sauvegarder avant l&apos;export ?</translation>
     </message>
     <message>
         <location line="-16"/>
-        <location line="+180"/>
+        <location line="+181"/>
         <location line="+8"/>
         <location line="+97"/>
         <source>X</source>
         <translation>X</translation>
     </message>
     <message>
-        <location line="-284"/>
-        <location line="+180"/>
+        <location line="-285"/>
+        <location line="+181"/>
         <location line="+8"/>
         <location line="+97"/>
         <source>Y</source>
         <translation>Y</translation>
     </message>
     <message>
-        <location line="-284"/>
-        <location line="+285"/>
+        <location line="-285"/>
+        <location line="+286"/>
         <location line="+157"/>
         <source>Width</source>
         <translation>Largeur</translation>
     </message>
     <message>
-        <location line="-441"/>
-        <location line="+285"/>
+        <location line="-442"/>
+        <location line="+286"/>
         <location line="+158"/>
         <source>Height</source>
         <translation>Hauteur</translation>
@@ -12528,7 +12529,7 @@ Les sauvegarder avant l&apos;export ?</translation>
         <translation>(Désactivé)</translation>
     </message>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1901"/>
+        <location filename="../src/model/command_schema.cpp" line="-1902"/>
         <source>File</source>
         <translation>Fichier</translation>
     </message>
@@ -12716,7 +12717,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>MessageOptionsWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+853"/>
+        <location filename="../src/model/command_schema.cpp" line="+854"/>
         <source>Message Options</source>
         <translation>Options d&apos;affichage des messages</translation>
     </message>
@@ -13095,7 +13096,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>OperandWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1415"/>
+        <location filename="../src/model/command_schema.cpp" line="-1416"/>
         <source>Specific</source>
         <translation>Spécifique</translation>
     </message>
@@ -13136,7 +13137,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>PanScreenWidget</name>
     <message>
-        <location line="+1746"/>
+        <location line="+1747"/>
         <location line="+5"/>
         <source>Pan Screen</source>
         <translation>Options de défilement de l&apos;écran</translation>
@@ -13235,7 +13236,7 @@ Les sauvegarder avant l&apos;export ?</translation>
 <context>
     <name>PartyOperandWidget</name>
     <message>
-        <location line="-1806"/>
+        <location line="-1807"/>
         <source>Entire Party</source>
         <translation>Équipe entière</translation>
     </message>
@@ -13382,7 +13383,7 @@ Les sauvegarder avant l&apos;export ?</translation>
     <message>
         <location line="+19"/>
         <location line="+4"/>
-        <location filename="../src/model/command_schema.cpp" line="+1345"/>
+        <location filename="../src/model/command_schema.cpp" line="+1346"/>
         <location line="+2"/>
         <location line="+1"/>
         <source>Picture No.</source>
@@ -15984,12 +15985,12 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
 <context>
     <name>SceneCommandWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-1685"/>
+        <location filename="../src/model/command_schema.cpp" line="-1686"/>
         <source>Monster %1</source>
         <translation>Monstre %1</translation>
     </message>
     <message>
-        <location line="+2107"/>
+        <location line="+2108"/>
         <location line="+22"/>
         <source>Monster</source>
         <translation>Monstre</translation>
@@ -16062,7 +16063,7 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
 <context>
     <name>ScreenTransitionWidget</name>
     <message>
-        <location line="-2159"/>
+        <location line="-2160"/>
         <source>Fade In</source>
         <translation>Fondu entrant</translation>
     </message>
@@ -16202,7 +16203,7 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <translation>Zoom +</translation>
     </message>
     <message>
-        <location line="+1543"/>
+        <location line="+1544"/>
         <location line="+7"/>
         <source>Use Default</source>
         <translation>Par défaut</translation>
@@ -16731,19 +16732,19 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
 <context>
     <name>ShowBattleAnimation_BWidget</name>
     <message>
-        <location filename="../src/ui/commands/ShowBattleAnimationEditor.qml" line="+21"/>
-        <location filename="../src/model/command_schema.cpp" line="+495"/>
+        <location filename="../src/ui/commands/ShowBattleAnimationEditor.qml" line="+24"/>
+        <location filename="../src/model/command_schema.cpp" line="+498"/>
         <source>Show Battle Animation</source>
         <translation>Afficher une animation de combat</translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+47"/>
         <location filename="../src/model/command_schema.cpp" line="+1"/>
         <source>Animation</source>
         <translation>Animation</translation>
     </message>
     <message>
-        <location line="-20"/>
+        <location line="-37"/>
         <location filename="../src/model/command_schema.cpp" line="+4"/>
         <source>All Enemies</source>
         <translation>Tous les ennemis</translation>
@@ -16761,25 +16762,19 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <translation>Équipe entière</translation>
     </message>
     <message>
-        <location line="+2"/>
-        <location filename="../src/model/command_schema.cpp" line="+1"/>
-        <source>Party Member %1</source>
-        <translation>Membre de l&apos;équipe %1</translation>
-    </message>
-    <message>
-        <location line="+4"/>
+        <location line="+7"/>
         <source>Unknown (%1)</source>
         <translation>Inconnu (%1)</translation>
     </message>
     <message>
-        <location line="+19"/>
-        <location filename="../src/model/command_schema.cpp" line="-5"/>
+        <location line="+35"/>
+        <location filename="../src/model/command_schema.cpp" line="-4"/>
         <source>Target</source>
         <translation>Cible</translation>
     </message>
     <message>
-        <location line="+18"/>
-        <location filename="../src/model/command_schema.cpp" line="+6"/>
+        <location line="+12"/>
+        <location filename="../src/model/command_schema.cpp" line="+7"/>
         <source>Option</source>
         <translation>Option</translation>
     </message>
@@ -16793,7 +16788,7 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
     <name>ShowChoiceWidget</name>
     <message>
         <location filename="../src/ui/commands/ShowChoiceEditor.qml" line="+21"/>
-        <location filename="../src/model/command_schema.cpp" line="-1415"/>
+        <location filename="../src/model/command_schema.cpp" line="-1419"/>
         <location filename="../src/ui/event/command_editor_registry.cpp" line="-109"/>
         <source>Show Choices</source>
         <translation>Proposer un choix</translation>
@@ -17615,26 +17610,26 @@ Enregistrer maintenant remplace ces modifications.</translation>
     <name>Stringizer</name>
     <message>
         <location filename="../src/stringizer.cpp" line="+55"/>
-        <location line="+778"/>
-        <location line="+673"/>
+        <location line="+779"/>
+        <location line="+674"/>
         <source>Entire Party</source>
         <translation>Équipe entière</translation>
     </message>
     <message>
-        <location line="-1447"/>
+        <location line="-1449"/>
         <location line="+21"/>
-        <location line="+299"/>
+        <location line="+300"/>
         <location line="+170"/>
         <location line="+777"/>
-        <location line="+278"/>
+        <location line="+279"/>
         <source>Hero</source>
         <translation>Héros</translation>
     </message>
     <message>
-        <location line="-1543"/>
+        <location line="-1545"/>
         <location line="+101"/>
         <location line="+11"/>
-        <location line="+47"/>
+        <location line="+48"/>
         <location line="+59"/>
         <location line="+46"/>
         <location line="+76"/>
@@ -17657,7 +17652,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <location line="+24"/>
         <location line="+14"/>
         <location line="+28"/>
-        <location line="+100"/>
+        <location line="+101"/>
         <location line="+65"/>
         <location line="+12"/>
         <location line="+215"/>
@@ -17669,8 +17664,8 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <translation>Inconnu</translation>
     </message>
     <message>
-        <location line="-1983"/>
-        <location line="+614"/>
+        <location line="-1985"/>
+        <location line="+615"/>
         <location line="+16"/>
         <location line="+122"/>
         <location line="+530"/>
@@ -17678,8 +17673,8 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <translation>Radeau</translation>
     </message>
     <message>
-        <location line="-1280"/>
-        <location line="+613"/>
+        <location line="-1281"/>
+        <location line="+614"/>
         <location line="+16"/>
         <location line="+122"/>
         <location line="+530"/>
@@ -17687,8 +17682,8 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <translation>Bateau</translation>
     </message>
     <message>
-        <location line="-1279"/>
-        <location line="+612"/>
+        <location line="-1280"/>
+        <location line="+613"/>
         <location line="+16"/>
         <location line="+122"/>
         <location line="+530"/>
@@ -17696,7 +17691,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <translation>Vaisseau</translation>
     </message>
     <message>
-        <location line="-1278"/>
+        <location line="-1279"/>
         <source>This Event</source>
         <translation>Cet évènement</translation>
     </message>
@@ -17706,7 +17701,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <translation>Appeler un évènement commun</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+24"/>
         <source>Force Flee</source>
         <translation>Fuite forcée</translation>
     </message>
@@ -17748,7 +17743,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
     <message>
         <location filename="../src/model/event_command_list_model.cpp" line="+98"/>
         <location filename="../src/stringizer.cpp" line="-1283"/>
-        <location filename="../src/ui/event/command_list_editor.cpp" line="+462"/>
+        <location filename="../src/ui/event/command_list_editor.cpp" line="+474"/>
         <source>Message</source>
         <translation>Message</translation>
     </message>
@@ -17814,20 +17809,20 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <location line="+3"/>
         <location line="+764"/>
         <location line="+169"/>
-        <location line="+779"/>
+        <location line="+780"/>
         <source>Left</source>
         <translation>Gauche</translation>
     </message>
     <message>
-        <location line="-1712"/>
+        <location line="-1713"/>
         <location line="+764"/>
         <location line="+169"/>
-        <location line="+777"/>
+        <location line="+778"/>
         <source>Right</source>
         <translation>Droite</translation>
     </message>
     <message>
-        <location line="-1709"/>
+        <location line="-1710"/>
         <source>Flipped</source>
         <translation>Inversé</translation>
     </message>
@@ -17887,24 +17882,24 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="-86"/>
-        <location line="+1341"/>
+        <location line="+1342"/>
         <source>Level</source>
         <translation>Niveau</translation>
     </message>
     <message>
-        <location line="-1339"/>
+        <location line="-1340"/>
         <source>Experience</source>
         <translation>Expérience</translation>
     </message>
     <message>
         <location line="+2"/>
         <location line="+146"/>
-        <location line="+1191"/>
+        <location line="+1192"/>
         <source>HP</source>
         <translation>HP</translation>
     </message>
     <message>
-        <location line="-1335"/>
+        <location line="-1336"/>
         <location line="+144"/>
         <source>MP</source>
         <translation>MP</translation>
@@ -18067,12 +18062,12 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+1253"/>
+        <location line="+1254"/>
         <source>Set</source>
         <translation>Modifier</translation>
     </message>
     <message>
-        <location line="-1249"/>
+        <location line="-1250"/>
         <location line="+386"/>
         <location line="+19"/>
         <source>Start</source>
@@ -18229,23 +18224,23 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1486"/>
+        <location line="+1487"/>
         <source>Victory</source>
         <translation>Victoire</translation>
     </message>
     <message>
-        <location line="-1485"/>
+        <location line="-1486"/>
         <source>Inn</source>
         <translation>Auberge</translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+1462"/>
+        <location line="+1463"/>
         <source>Game Over</source>
         <translation>Fin du jeu</translation>
     </message>
     <message>
-        <location line="-1454"/>
+        <location line="-1455"/>
         <source>Change System BGM</source>
         <translation>Modifier une musique</translation>
     </message>
@@ -18263,12 +18258,12 @@ Enregistrer maintenant remplace ces modifications.</translation>
     <message>
         <location line="-441"/>
         <location line="+442"/>
-        <location line="+371"/>
+        <location line="+372"/>
         <source>Cancel</source>
         <translation>Annuler</translation>
     </message>
     <message>
-        <location line="-812"/>
+        <location line="-813"/>
         <source>Buzzer</source>
         <translation>Signal d&apos;erreur</translation>
     </message>
@@ -18279,12 +18274,12 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1461"/>
+        <location line="+1462"/>
         <source>Escape</source>
         <translation>Fuite</translation>
     </message>
     <message>
-        <location line="-1460"/>
+        <location line="-1461"/>
         <source>Enemy Attacks</source>
         <translation>Attaque ennemie</translation>
     </message>
@@ -18382,7 +18377,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <translation>Téléportation</translation>
     </message>
     <message>
-        <location line="-666"/>
+        <location line="-667"/>
         <source>(Expression)</source>
         <translation>(Expression)</translation>
     </message>
@@ -18398,17 +18393,17 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+272"/>
+        <location line="+273"/>
         <location line="+1030"/>
         <location line="+7"/>
         <location line="+6"/>
         <location line="+6"/>
-        <location line="+14"/>
+        <location line="+15"/>
         <source>Monster %1</source>
         <translation>Monstre %1</translation>
     </message>
     <message>
-        <location line="-1331"/>
+        <location line="-1332"/>
         <source>(Unless Surrounded)</source>
         <translation>(Sauf si encerclé)</translation>
     </message>
@@ -18472,12 +18467,11 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="+0"/>
-        <location line="+1058"/>
         <source>Party Member %1</source>
         <translation>Membre de l&apos;équipe %1</translation>
     </message>
     <message>
-        <location line="-889"/>
+        <location line="+169"/>
         <source>Accessory</source>
         <translation>Accessoire</translation>
     </message>
@@ -18570,13 +18564,13 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <location line="+107"/>
         <location line="+28"/>
         <location line="+21"/>
-        <location line="+398"/>
+        <location line="+399"/>
         <location line="+313"/>
         <source>(Wait)</source>
         <translation>(Attendre)</translation>
     </message>
     <message>
-        <location line="-915"/>
+        <location line="-916"/>
         <location line="+2"/>
         <location line="+3"/>
         <source>Flash Screen</source>
@@ -18622,12 +18616,12 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+842"/>
+        <location line="+843"/>
         <source>Tiles</source>
         <translation>Nombre de carreaux</translation>
     </message>
     <message>
-        <location line="-838"/>
+        <location line="-839"/>
         <source>Reset Position</source>
         <translation>Recentrer l&apos;écran</translation>
     </message>
@@ -18802,12 +18796,12 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+421"/>
+        <location line="+422"/>
         <source>Show Battle Animation</source>
         <translation>Afficher une animation de combat</translation>
     </message>
     <message>
-        <location line="-415"/>
+        <location line="-416"/>
         <source>Global Scope</source>
         <translation>Afficher en plein écran</translation>
     </message>
@@ -18839,12 +18833,12 @@ Enregistrer maintenant remplace ces modifications.</translation>
     <message>
         <location line="+7"/>
         <location line="+2"/>
-        <location line="+847"/>
+        <location line="+848"/>
         <source>Wait</source>
         <translation>Attendre</translation>
     </message>
     <message>
-        <location line="-847"/>
+        <location line="-848"/>
         <source>Until Key Pressed</source>
         <translation>Jusqu&apos;à l&apos;appui d&apos;une touche</translation>
     </message>
@@ -19150,12 +19144,12 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="+9"/>
-        <location line="+101"/>
+        <location line="+102"/>
         <source>Branch if</source>
         <translation>Si</translation>
     </message>
     <message>
-        <location line="-96"/>
+        <location line="-97"/>
         <source>Label</source>
         <translation>Étiquette</translation>
     </message>
@@ -19208,13 +19202,13 @@ Enregistrer maintenant remplace ces modifications.</translation>
     </message>
     <message>
         <location line="-331"/>
-        <location line="+776"/>
+        <location line="+777"/>
         <source>Up</source>
         <translation>Haut</translation>
     </message>
     <message>
-        <location line="-776"/>
-        <location line="+778"/>
+        <location line="-777"/>
+        <location line="+779"/>
         <source>Down</source>
         <translation>Bas</translation>
     </message>
@@ -21446,7 +21440,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>TimerOperandWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="-930"/>
+        <location filename="../src/model/command_schema.cpp" line="-931"/>
         <source>Constant</source>
         <translation>Constante</translation>
     </message>
@@ -21469,7 +21463,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>TimerOperationWidget</name>
     <message>
-        <location filename="../src/model/command_schema.cpp" line="+1055"/>
+        <location filename="../src/model/command_schema.cpp" line="+1056"/>
         <source>Select Timer</source>
         <translation>Sélectionner le chrono</translation>
     </message>
@@ -21583,7 +21577,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>ValueOperandWidget</name>
     <message>
-        <location line="-1737"/>
+        <location line="-1738"/>
         <source>Constant</source>
         <translation>Constante</translation>
     </message>
@@ -21596,7 +21590,7 @@ Enregistrer maintenant remplace ces modifications.</translation>
 <context>
     <name>VariableOperationsWidget</name>
     <message>
-        <location line="+990"/>
+        <location line="+991"/>
         <source>Variable to change</source>
         <translation>Variable(s) à modifier</translation>
     </message>

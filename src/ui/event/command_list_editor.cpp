@@ -158,6 +158,7 @@ void CommandListEditor::showEventPage(EventEditorController* controller, int pag
 	disconnect(m_pagesConnection);
 	m_controller = controller;
 	m_page = page;
+	m_troop = -1;
 	if (controller) {
 		// the pages moved (one added, removed...): their commands too
 		m_pagesConnection = connect(controller, &EventEditorController::pagesChanged, this, &CommandListEditor::followEventPage);
@@ -178,6 +179,7 @@ void CommandListEditor::showTroopPage(int troop, int page)
 {
 	disconnect(m_pagesConnection);
 	m_controller = nullptr;
+	m_troop = troop;
 	ProjectData* data = project();
 	std::vector<lcf::rpg::EventCommand>* commands = nullptr;
 	QStringList location;
@@ -198,6 +200,7 @@ void CommandListEditor::showCommonEvent(JsonView* entry)
 {
 	disconnect(m_pagesConnection);
 	m_controller = nullptr;
+	m_troop = -1;
 	const DatabaseEntry found = DatabaseEntry::of(entry);
 	if (found.session) {
 		setSession(found.session);
@@ -257,6 +260,15 @@ bool CommandListEditor::isEmptyLine(int line) const
 	return commands() && (line == lineCount() || (validLine(line) && static_cast<Cmd>((*commands())[static_cast<size_t>(line)].code) == Cmd::END));
 }
 
+int CommandListEditor::troopMembers() const
+{
+	const ProjectData* data = project();
+	if (!data || m_troop < 0 || m_troop >= static_cast<int>(data->database().troops.size())) {
+		return -1;
+	}
+	return static_cast<int>(data->database().troops[static_cast<size_t>(m_troop)].members.size());
+}
+
 int CommandListEditor::code(int line) const
 {
 	return validLine(line) ? (*commands())[static_cast<size_t>(line)].code : 0;
@@ -285,7 +297,7 @@ int CommandListEditor::insertCommand(int index, QQuickItem* from)
 
 	// set up now; Cancel takes it back
 	const bool kept = CommandEditing::edit(over, *data, (*commands())[static_cast<size_t>(index)],
-		{commands(), index, true, m_battle});
+		{commands(), index, true, m_battle, troopMembers()});
 	if (kept) {
 		m_model->rememberCommand(index, projectDir());
 	}
@@ -319,7 +331,7 @@ int CommandListEditor::editCommand(int line, QQuickItem* from)
 	}
 	// the editors change the lines in place: shown and recorded after
 	if (!CommandEditing::edit(Pickers::windowOf(from), *data, (*commands())[static_cast<size_t>(start)],
-			{commands(), start, false, m_battle})) {
+			{commands(), start, false, m_battle, troopMembers()})) {
 		return line;
 	}
 	if (!commands()) {

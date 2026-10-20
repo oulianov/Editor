@@ -52,6 +52,9 @@ namespace CommandEditorRegistry {
 		int mapId = 0;
 		/** The events of the map of the event, for the commands naming one */
 		const QMap<int, lcf::rpg::Event*>* events = nullptr;
+		/** The monsters of the troop of a battle page, -1 for no troop (the
+		 *  editor's extra "troopMembers": RPG Maker 2003 counts them) */
+		int troopMembers = -1;
 	};
 
 	/**

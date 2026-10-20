@@ -40,48 +40,23 @@ bool execRoute(QWindow* over, MoveRouteModel& moves)
 		{{QStringLiteral("moves"), QVariant::fromValue(&moves)}, {QStringLiteral("moveEvent"), false}}) == 1;
 }
 
-CommandEditorRegistry::Context registryContext(bool battle, bool is_new)
+CommandEditorRegistry::Context registryContext(bool battle, bool is_new, int troop_members = -1)
 {
 	CommandEditorRegistry::Context context;
 	context.battle = battle;
 	context.isNew = is_new;
 	context.events = core().currentMapEvents();
+	context.troopMembers = troop_members;
 	return context;
 }
-}
 
-QString CommandEditing::title(Code code)
+/** The buttons of the palette, page by page: {title, entries: {code, name, source, rpg2k3Only, maniacOnly}},
+ *  a gap: code 0, the entry of the battle event commands: -1 */
+QVariantList palettePages(const std::vector<const CommandCatalog::Page*>& shown)
 {
-	return CommandCatalog::commandName(code);
-}
-
-bool CommandEditing::edit(QWindow* over, ProjectData& project, lcf::rpg::EventCommand& command, const Context& context)
-{
-	if (!EventCommandListModel::hasEditor(static_cast<Code>(command.code))) {
-		return true;
-	}
-	// the QML editors (CommandEditorRegistry): hand-written, made from the
-	// schema, or the raw one; those of several lines change the list
-	const auto registry = registryContext(context.battle, context.isNew);
-	const bool in_list = context.commands && context.index >= 0 && context.index < static_cast<int>(context.commands->size());
-	return in_list ? CommandEditorRegistry::edit(over, project, *context.commands, context.index, registry)
-		: CommandEditorRegistry::edit(over, project, command, registry);
-}
-
-bool CommandEditing::editRaw(QWindow* over, ProjectData& project, lcf::rpg::EventCommand& command, bool show_warning)
-{
-	// the raw editor (RawCommandEditor.qml)
-	return CommandEditorRegistry::editRaw(over, project, command, show_warning);
-}
-
-std::optional<Code> CommandEditing::pickCommand(QWindow* over, ProjectData& project, bool battle)
-{
-	const bool rpg2k3 = project.database().system.ldb_id == 2003;
-	const bool maniac = GamePatches::usesManiac(project.project());
-	// the buttons, page by page: {title, entries: {code, name, rpg2k3Only, maniacOnly}}, a gap: code 0
 	QVariantList pages;
 	int number = 1;
-	for (const auto* page : CommandCatalog::pages(battle, maniac)) {
+	for (const auto* page : shown) {
 		QVariantList entries;
 		for (const auto& entry : page->entries) {
 			if (entry.code == Code::END) {
@@ -102,10 +77,45 @@ std::optional<Code> CommandEditing::pickCommand(QWindow* over, ProjectData& proj
 			{QStringLiteral("entries"), entries},
 		});
 	}
+	return pages;
+}
+}
+
+QString CommandEditing::title(Code code)
+{
+	return CommandCatalog::commandName(code);
+}
+
+bool CommandEditing::edit(QWindow* over, ProjectData& project, lcf::rpg::EventCommand& command, const Context& context)
+{
+	if (!EventCommandListModel::hasEditor(static_cast<Code>(command.code))) {
+		return true;
+	}
+	// the QML editors (CommandEditorRegistry): hand-written, made from the
+	// schema, or the raw one; those of several lines change the list
+	const auto registry = registryContext(context.battle, context.isNew, context.troopMembers);
+	const bool in_list = context.commands && context.index >= 0 && context.index < static_cast<int>(context.commands->size());
+	return in_list ? CommandEditorRegistry::edit(over, project, *context.commands, context.index, registry)
+		: CommandEditorRegistry::edit(over, project, command, registry);
+}
+
+bool CommandEditing::editRaw(QWindow* over, ProjectData& project, lcf::rpg::EventCommand& command, bool show_warning)
+{
+	// the raw editor (RawCommandEditor.qml)
+	return CommandEditorRegistry::editRaw(over, project, command, show_warning);
+}
+
+std::optional<Code> CommandEditing::pickCommand(QWindow* over, ProjectData& project, bool battle)
+{
+	const bool rpg2k3 = project.database().system.ldb_id == 2003;
+	const bool maniac = GamePatches::usesManiac(project.project());
+	// a map event, a common event: their last entry opens the battle event
+	// commands (the palette again, over it), which are inserted as in a battle
+	const QVariantList battle_pages = battle ? QVariantList() : palettePages({&CommandCatalog::battlePage()});
 	int code = 0;
 	const int result = QmlHost::exec(QStringLiteral("CommandPalette"), over,
-		{{QStringLiteral("pages"), pages}, {QStringLiteral("battle"), battle}, {QStringLiteral("rpg2k3"), rpg2k3},
-			{QStringLiteral("maniac"), maniac}},
+		{{QStringLiteral("pages"), palettePages(CommandCatalog::pages(battle, maniac))}, {QStringLiteral("battlePages"), battle_pages},
+			{QStringLiteral("battle"), battle}, {QStringLiteral("rpg2k3"), rpg2k3}, {QStringLiteral("maniac"), maniac}},
 		[&code](QQuickWindow* window) { code = window->property("code").toInt(); });
 	if (result != 1 || code <= 0) {
 		return std::nullopt;
