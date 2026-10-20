@@ -25,7 +25,7 @@ number with the version of the Editor (`project(... VERSION)` of
 |===
 | Platform | File of the release
 
-| macOS | `*.dmg` (the one with `mac` in its name first), holding `EasyRPG Editor.app`
+| macOS | `*.dmg` for the processor (`arm64`, `x86_64`...), else one naming no processor (the one with `mac` in its name first), holding `EasyRPG Editor.app`
 | Windows | `*-Windows.zip`, holding the folder `EasyRPG Editor` with the program in `bin`
 | Linux AppImage | `*.AppImage` for the processor (`x86_64`, `aarch64`...)
 |===

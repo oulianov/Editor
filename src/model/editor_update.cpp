@@ -242,15 +242,28 @@ int EditorUpdates::pickAsset(const QStringList& names, Method method)
 	auto has = [](const QString& name, const char* part) {
 		return name.contains(QLatin1String(part), Qt::CaseInsensitive);
 	};
+	// it names a processor (none of this one's names matched it)
+	auto otherArch = [](const QString& name) {
+		static const char* const any_arch[] = {"x86_64", "amd64", "x64", "aarch64", "arm64", "i386", "i686", "armhf"};
+		for (const char* arch : any_arch) {
+			if (name.contains(QLatin1String(arch), Qt::CaseInsensitive))
+				return true;
+		}
+		return false;
+	};
 	int fallback = -1;
 	for (int i = 0; i < names.size(); i++) {
 		const QString& name = names[i];
 		switch (method) {
 		case Method::MacBundle:
+			// the disk image of this kind of Mac, else one for both (the one
+			// with "mac" in its name first), not one of the other kind
 			if (ends(name, ".dmg")) {
-				if (has(name, "mac"))
-					return i;
-				if (fallback < 0)
+				for (const QString& arch : archNames()) {
+					if (name.contains(arch, Qt::CaseInsensitive))
+						return i;
+				}
+				if (!otherArch(name) && (fallback < 0 || (has(name, "mac") && !has(names[fallback], "mac"))))
 					fallback = i;
 			}
 			break;
@@ -267,11 +280,7 @@ int EditorUpdates::pickAsset(const QStringList& names, Method method)
 						return i;
 				}
 				// one of another processor is not this one's
-				static const char* const any_arch[] = {"x86_64", "amd64", "x64", "aarch64", "arm64", "i386", "i686", "armhf"};
-				bool other = false;
-				for (const char* arch : any_arch)
-					other = other || has(name, arch);
-				if (!other && fallback < 0)
+				if (!otherArch(name) && fallback < 0)
 					fallback = i;
 			}
 			break;

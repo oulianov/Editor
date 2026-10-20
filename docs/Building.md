@@ -83,9 +83,14 @@ macOS. CI does this.
 
 `builds/macos/package.sh` then copies the application into `build/dist`
 with what it uses (macdeployqt, with the QML modules and the Kirigami
-platform plugin; without Qt Widgets, which the Editor does not use), signs
-it, and makes a disk image of it (notarized when given Apple's credentials;
-see the script). It fails if a part of the application needs a newer macOS
+platform plugin, and the offscreen platform to run scripts without
+windows; without Qt Widgets, the styles of Qt Quick Controls other
+than Basic and Fusion, the QML modules nothing imports, and the libraries
+only they used), then makes an application per kind of Mac it was built
+for, thinned to it (`build/dist/arm64`, `build/dist/x86_64`): a universal
+application is twice as big. It signs each and makes its disk image,
+`EasyRPG-Editor-VERSION-macOS-ARCH.dmg` (notarized when given Apple's
+credentials; see the script). It fails if a part of the application needs a newer macOS
 than `MACOSX_DEPLOYMENT_TARGET`, or uses Qt Widgets.
 
 ### By hand
@@ -150,9 +155,11 @@ Flatpak, `builds/flatpak/org.easyrpg.editor.yml` and its container image, to
 a KDE runtime with that Qt).
 
 The packages: the Flatpak, two AppImages (x86_64 and aarch64, each built on
-a runner of its kind), the macOS disk image (both kinds of Mac) and the
-Windows zip. The start-up test (below) runs on what each job built,
-offscreen; the AppImages, the macOS application and the Windows zip are also
+a runner of its kind), two macOS disk images (one build for both kinds of
+Mac, packaged per kind: arm64 and x86_64) and the Windows zip. The start-up
+test (below) runs on what each job built, offscreen; the AppImages, the
+macOS applications (the Intel one through Rosetta, when the runner has it)
+and the Windows zip are also
 started on the test game from the package itself, and fail if they carry Qt
 Widgets.
 

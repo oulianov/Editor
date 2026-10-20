@@ -428,7 +428,7 @@ jobs:
             ccache-macos-
 
       # one build for both kinds of Mac: the tests run on it (on this Mac's
-      # kind), then it is packaged
+      # kind), then it is packaged in a disk image per kind (package.sh)
       - name: Compile
         env:
           ARCHS: "arm64;x86_64"
@@ -484,15 +484,27 @@ jobs:
         run: |
           builds/macos/package.sh
 
-      # the packaged Editor opens the test game (tests/startup.txt), with the
-      # Qt and the QML modules it carries only
-      - name: Check the application
-        timeout-minutes: 5
+      # each packaged Editor opens the test game (tests/startup.txt), with
+      # the Qt and the QML modules it carries only (offscreen, its own
+      # platform plugin): the Intel one through Rosetta, when this Mac has it
+      - name: Check the applications
+        timeout-minutes: 10
         run: |
-          cp -R build/testgame2003 "$RUNNER_TEMP/testgame-package"
-          env -u QT_PLUGIN_PATH -u QML2_IMPORT_PATH \
-            "build/dist/EasyRPG Editor.app/Contents/MacOS/EasyRPG Editor" \
-            --script tests/startup.txt "$RUNNER_TEMP/testgame-package"
+          for arch in arm64 x86_64; do
+            run=()
+            if [ "$arch" != "$(uname -m)" ]; then
+              if ! arch -"$arch" /usr/bin/true 2>/dev/null; then
+                echo "No Rosetta: the $arch application is not run"
+                continue
+              fi
+              run=(arch -"$arch")
+            fi
+            rm -rf "$RUNNER_TEMP/testgame-package"
+            cp -R build/testgame2003 "$RUNNER_TEMP/testgame-package"
+            env -u QT_PLUGIN_PATH -u QML2_IMPORT_PATH QT_QPA_PLATFORM=offscreen "${run[@]}" \
+              "build/dist/$arch/EasyRPG Editor.app/Contents/MacOS/EasyRPG Editor" \
+              --script tests/startup.txt "$RUNNER_TEMP/testgame-package"
+          done
 
       - name: Upload the disk image
         uses: actions/upload-artifact@v7
@@ -704,7 +716,7 @@ jobs:
     steps: *attach
 
   attach-macos:
-    name: "Attach the disk image"
+    name: "Attach the disk images"
     if: inputs.attach-to-latest-release
     needs: [check-release, macos]
     runs-on: ubuntu-latest
