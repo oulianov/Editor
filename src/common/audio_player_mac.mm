@@ -20,10 +20,15 @@
 // (tempo changes the pitch too, like RPG Maker) -> a mixer for the balance.
 // MIDI: AVAudioSequencer -> Apple's DLS synth, which uses the system's GS sound
 // bank (gs_instruments.dls); the sequencer's rate changes the tempo only.
+// The engine stays from file to file, open() replacing the nodes of the file:
+// the output goes on, quicker than a new engine for each file.
 
 #include "audio_backend.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <vector>
 
 #import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
@@ -39,25 +44,140 @@ QString describe(NSError* error) {
 	return error ? QString::fromNSString(error.localizedDescription) : QString();
 }
 
+/** Where a MIDI file starts: seconds before its first note */
+constexpr Float64 kMidiLeadIn = 0.05;
+
+/**
+ * Where a MIDI file starts, and what comes before (in beats).
+ *
+ * Most RTP files begin with a silent measure of setup (programs, controllers,
+ * a GS reset), one or two seconds long. Like RPG_RT, which starts at the first
+ * note, or at the loop point when that comes first (EasyRPG Player's
+ * get_start_skipping_silence), the preview skips it: what comes before is sent
+ * at once, and the file starts right before its first note. (RPG_RT starts
+ * half a beat before, and plays the whole measure when a SysEx comes first.)
+ */
+struct MidiStart {
+	MusicTimeStamp beat = 0;
+	/** The last controller 111, the beginning when none */
+	MusicTimeStamp loopBeat = 0;
+	/** The channel messages and SysEx before the start, in their order */
+	std::vector<std::vector<uint8_t>> setup;
+};
+
+MidiStart findMidiStart(NSURL* url) {
+	struct Message {
+		MusicTimeStamp beat;
+		std::vector<uint8_t> bytes;
+	};
+	MidiStart start;
+	std::vector<Message> messages;
+	MusicTimeStamp firstNote = std::numeric_limits<MusicTimeStamp>::max();
+	MusicTimeStamp firstLoop = std::numeric_limits<MusicTimeStamp>::max();
+
+	// AVMusicTrack does not give the bytes of a SysEx: the file is read again by AudioToolbox
+	MusicSequence sequence = nullptr;
+	if (NewMusicSequence(&sequence) != noErr) {
+		return start;
+	}
+	UInt32 count = 0;
+	if (MusicSequenceFileLoad(sequence, (__bridge CFURLRef)url, kMusicSequenceFile_MIDIType,
+			kMusicSequenceLoadSMF_PreserveTracks) != noErr
+			|| MusicSequenceGetTrackCount(sequence, &count) != noErr) {
+		count = 0;
+	}
+	for (UInt32 i = 0; i < count; ++i) {
+		MusicTrack track = nullptr;
+		MusicEventIterator iterator = nullptr;
+		if (MusicSequenceGetIndTrack(sequence, i, &track) != noErr || NewMusicEventIterator(track, &iterator) != noErr) {
+			continue;
+		}
+		Boolean current = false;
+		while (MusicEventIteratorHasCurrentEvent(iterator, &current) == noErr && current) {
+			MusicTimeStamp beat = 0;
+			MusicEventType type = kMusicEventType_NULL;
+			const void* data = nullptr;
+			UInt32 size = 0;
+			if (MusicEventIteratorGetEventInfo(iterator, &beat, &type, &data, &size) == noErr && data) {
+				if (type == kMusicEventType_MIDINoteMessage) {
+					firstNote = std::min(firstNote, beat);
+				} else if (type == kMusicEventType_MIDIChannelMessage) {
+					const auto* message = static_cast<const MIDIChannelMessage*>(data);
+					const uint8_t kind = message->status & 0xF0;
+					if (kind == 0xB0 && message->data1 == 111) {
+						firstLoop = std::min(firstLoop, beat);
+						start.loopBeat = std::max(start.loopBeat, beat);
+					}
+					// program change and channel pressure: one byte of data
+					if (kind == 0xC0 || kind == 0xD0) {
+						messages.push_back({beat, {message->status, message->data1}});
+					} else {
+						messages.push_back({beat, {message->status, message->data1, message->data2}});
+					}
+				} else if (type == kMusicEventType_MIDIRawData) {
+					const auto* raw = static_cast<const MIDIRawData*>(data);
+					if (raw->length > 0 && raw->data[0] == 0xF0) {
+						messages.push_back({beat, std::vector<uint8_t>(raw->data, raw->data + raw->length)});
+					}
+				}
+			}
+			MusicEventIteratorNextEvent(iterator);
+		}
+		DisposeMusicEventIterator(iterator);
+	}
+	const MusicTimeStamp first = std::min(firstNote, firstLoop);
+	Float64 seconds = 0;
+	if (first != std::numeric_limits<MusicTimeStamp>::max()
+			&& MusicSequenceGetSecondsForBeats(sequence, first, &seconds) == noErr && seconds > kMidiLeadIn) {
+		MusicSequenceGetBeatsForSeconds(sequence, seconds - kMidiLeadIn, &start.beat);
+	}
+	DisposeMusicSequence(sequence);
+
+	if (start.beat > 0) {
+		// the tracks one after another: in the order of time, then of the tracks
+		std::stable_sort(messages.begin(), messages.end(), [](const Message& a, const Message& b) {
+			return a.beat < b.beat;
+		});
+		for (Message& message : messages) {
+			if (message.beat >= start.beat) {
+				break;
+			}
+			start.setup.push_back(std::move(message.bytes));
+		}
+	}
+	return start;
+}
+
 class AppleAudioBackend final : public AudioBackend {
 public:
 	~AppleAudioBackend() override {
-		close();
+		unload();
+		if (m_engine) {
+			[m_engine stop];
+		}
+		m_sequencer = nil;
+		m_mixer = nil;
+		m_engine = nil;
 	}
 
+	bool canReopen() const override { return true; }
+
 	bool open(const QString& path, bool midi, QString& error) override {
-		close();
+		unload();
 		m_midi = midi;
 		@autoreleasepool {
 			NSURL* url = [NSURL fileURLWithPath:path.toNSString()];
 			NSError* err = nil;
 
-			m_engine = [[AVAudioEngine alloc] init];
-			m_mixer = [[AVAudioMixerNode alloc] init];
-			[m_engine attachNode:m_mixer];
-			[m_engine connect:m_mixer to:m_engine.mainMixerNode format:nil];
+			if (!m_engine) {
+				m_engine = [[AVAudioEngine alloc] init];
+				m_mixer = [[AVAudioMixerNode alloc] init];
+				[m_engine attachNode:m_mixer];
+				[m_engine connect:m_mixer to:m_engine.mainMixerNode format:nil];
+			}
 
 			if (midi) {
+				// a new synth for each file: no note, program or controller of the last one stays
 				AudioComponentDescription desc = {};
 				desc.componentType = kAudioUnitType_MusicDevice;
 				desc.componentSubType = kAudioUnitSubType_DLSSynth;
@@ -66,32 +186,32 @@ public:
 				[m_engine attachNode:m_synth];
 				[m_engine connect:m_synth to:m_mixer format:nil];
 
-				m_sequencer = [[AVAudioSequencer alloc] initWithAudioEngine:m_engine];
+				// one sequencer loading each file: releasing a sequencer after another one
+				// is made on the same engine stops the new one
+				if (!m_sequencer) {
+					m_sequencer = [[AVAudioSequencer alloc] initWithAudioEngine:m_engine];
+				}
 				if (![m_sequencer loadFromURL:url options:AVMusicSequenceLoadSMF_PreserveTracks error:&err]) {
 					error = describe(err);
-					close();
+					unload();
 					return false;
 				}
 				NSTimeInterval length = 0;
-				__block AVMusicTimeStamp loopBeat = 0;
 				for (AVMusicTrack* track in m_sequencer.tracks) {
 					track.destinationAudioUnit = m_synth;
 					length = std::max(length, track.lengthInSeconds);
-					[track enumerateEventsInRange:AVMakeBeatRange(0, AVMusicTimeStampEndOfTrack)
-						usingBlock:^(AVMusicEvent* event, AVMusicTimeStamp* timeStamp, BOOL*) {
-							if ([event isKindOfClass:[AVMIDIControlChangeEvent class]] &&
-								static_cast<AVMIDIControlChangeEvent*>(event).messageType == 111) {
-								loopBeat = std::max(loopBeat, *timeStamp);
-							}
-						}];
 				}
+				MidiStart start = findMidiStart(url);
+				m_startBeat = start.beat;
+				m_setup = std::move(start.setup);
 				m_durationMs = static_cast<qint64>(length * 1000);
-				m_loopStartMs = static_cast<qint64>([m_sequencer secondsForBeats:loopBeat] * 1000);
+				m_loopStartMs = static_cast<qint64>([m_sequencer secondsForBeats:start.loopBeat] * 1000);
+				m_startMs = static_cast<qint64>([m_sequencer secondsForBeats:m_startBeat] * 1000);
 			} else {
 				m_file = [[AVAudioFile alloc] initForReading:url error:&err];
 				if (!m_file) {
 					error = describe(err);
-					close();
+					unload();
 					return false;
 				}
 				AVAudioFormat* format = m_file.processingFormat;
@@ -106,21 +226,26 @@ public:
 				[m_engine connect:m_varispeed to:m_mixer format:format];
 			}
 
-			[m_engine prepare];
-			if (![m_engine startAndReturnError:&err]) {
-				error = describe(err);
-				close();
-				return false;
+			if (!m_engine.isRunning) {
+				[m_engine prepare];
+				if (![m_engine startAndReturnError:&err]) {
+					error = describe(err);
+					unload();
+					return false;
+				}
 			}
 			if (m_midi) {
+				m_sequencer.currentPositionInBeats = m_startBeat;
 				[m_sequencer prepareToPlay];
 			}
+			m_heldMs = m_startMs;
+			m_fromStart = true;
 		}
 		return true;
 	}
 
 	void play() override {
-		if (!m_engine) {
+		if (!loaded()) {
 			return;
 		}
 		@autoreleasepool {
@@ -129,6 +254,10 @@ public:
 				[m_engine startAndReturnError:nil];
 			}
 			if (m_midi) {
+				if (m_fromStart) {
+					sendSetup();
+					m_sequencer.currentPositionInBeats = m_startBeat;
+				}
 				[m_sequencer startAndReturnError:nil];
 			} else {
 				if (!m_scheduled) {
@@ -137,11 +266,12 @@ public:
 				[m_node play];
 			}
 		}
+		m_fromStart = false;
 		m_playing = true;
 	}
 
 	void pause() override {
-		if (!m_engine || !m_playing) {
+		if (!loaded() || !m_playing) {
 			return;
 		}
 		m_heldMs = position();
@@ -155,24 +285,25 @@ public:
 	}
 
 	void stop() override {
-		if (!m_engine) {
+		if (!loaded()) {
 			return;
 		}
 		if (m_midi) {
 			[m_sequencer stop];
-			m_sequencer.currentPositionInSeconds = 0;
+			m_sequencer.currentPositionInBeats = m_startBeat;
 			notesOff();
 		} else {
 			[m_node stop];
 			m_scheduled = false;
 			m_startFrame = 0;
 		}
-		m_heldMs = 0;
+		m_heldMs = m_startMs;
+		m_fromStart = true;
 		m_playing = false;
 	}
 
 	void seek(qint64 ms) override {
-		if (!m_engine) {
+		if (!loaded()) {
 			return;
 		}
 		ms = std::clamp<qint64>(ms, 0, m_durationMs);
@@ -190,6 +321,7 @@ public:
 			}
 		}
 		m_heldMs = ms;
+		m_fromStart = false;
 	}
 
 	void setGain(float gain) override {
@@ -247,6 +379,10 @@ public:
 	}
 
 private:
+	bool loaded() const {
+		return m_synth || m_file;
+	}
+
 	void schedule() {
 		const AVAudioFramePosition left = m_file.length - m_startFrame;
 		if (left > 0) {
@@ -254,6 +390,19 @@ private:
 				frameCount:static_cast<AVAudioFrameCount>(left) atTime:nil completionHandler:nil];
 		}
 		m_scheduled = true;
+	}
+
+	/** What the MIDI file sends before where it starts (MidiStart) */
+	void sendSetup() {
+		for (const std::vector<uint8_t>& bytes : m_setup) {
+			if (bytes[0] == 0xF0) {
+				[m_synth sendMIDISysExEvent:[NSData dataWithBytes:bytes.data() length:bytes.size()]];
+			} else if (bytes.size() == 2) {
+				[m_synth sendMIDIEvent:bytes[0] data1:bytes[1]];
+			} else {
+				[m_synth sendMIDIEvent:bytes[0] data1:bytes[1] data2:bytes[2]];
+			}
+		}
 	}
 
 	void notesOff() {
@@ -266,27 +415,36 @@ private:
 		}
 	}
 
-	void close() {
-		if (m_sequencer) {
+	/** Stops the file and takes its nodes out of the engine, which stays for the next one */
+	void unload() {
+		if (m_synth) {
 			[m_sequencer stop];
 		}
 		if (m_node) {
 			[m_node stop];
 		}
-		if (m_engine) {
-			[m_engine stop];
+		// out of the engine, nothing of them is heard any more
+		if (m_synth) {
+			[m_engine detachNode:m_synth];
 		}
-		m_sequencer = nil;
+		if (m_node) {
+			[m_engine detachNode:m_node];
+		}
+		if (m_varispeed) {
+			[m_engine detachNode:m_varispeed];
+		}
 		m_synth = nil;
 		m_node = nil;
 		m_varispeed = nil;
 		m_file = nil;
-		m_mixer = nil;
-		m_engine = nil;
+		m_setup.clear();
 		m_playing = false;
 		m_scheduled = false;
+		m_fromStart = true;
 		m_startFrame = 0;
+		m_startBeat = 0;
 		m_heldMs = 0;
+		m_startMs = 0;
 		m_durationMs = 0;
 		m_loopStartMs = 0;
 	}
@@ -306,11 +464,17 @@ private:
 	// MIDI
 	AVAudioUnitMIDIInstrument* m_synth = nil;
 	AVAudioSequencer* m_sequencer = nil;
+	AVMusicTimeStamp m_startBeat = 0;
+	std::vector<std::vector<uint8_t>> m_setup;
 
 	bool m_midi = false;
 	bool m_playing = false;
+	// the next play() starts the file: a MIDI file sends its setup first
+	bool m_fromStart = true;
 	// the position while paused or stopped
 	qint64 m_heldMs = 0;
+	// where the file starts, after the silence at the beginning of a MIDI file
+	qint64 m_startMs = 0;
 	qint64 m_durationMs = 0;
 	qint64 m_loopStartMs = 0;
 };

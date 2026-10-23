@@ -49,8 +49,6 @@ Ez.Dialog {
             Layout.fillWidth: true
             // the dialog as wide as its buttons need
             Layout.preferredWidth: 190
-            Keys.onReturnPressed: root.accept()
-            Keys.onEnterPressed: root.accept()
         }
     }
 }

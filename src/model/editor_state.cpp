@@ -147,7 +147,8 @@ void EditorState::restoreEditingState(const QVariantMap& state)
 			brush = {{"tiles", state.value("tiles")}, {"width", state.value("tile_width")}, {"height", state.value("tile_height")}};
 		const int width = brush.value("width").toInt(), height = brush.value("height").toInt();
 		const QVariantList tiles = brush.value("tiles").toList();
-		if (width <= 0 || width > 6 || height <= 0 || height > 30 || tiles.size() != width * height) continue;
+		// tiles picked on the map: as large as a map (500 x 500 in RPG Maker)
+		if (width <= 0 || width > 500 || height <= 0 || height > 500 || tiles.size() != width * height) continue;
 		auto& selection = layer == LOWER ? m_lowerSel : m_upperSel;
 		selection.clear();
 		for (const auto& tile : tiles) selection.push_back(static_cast<short>(tile.toInt()));

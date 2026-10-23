@@ -195,12 +195,18 @@ void TilePalette::showState()
 		return;
 	// the palette index of the first tile: the terrain for lower tiles, from
 	// 162 for upper tiles; the row 0 is the eraser
-	int index = Autotile::translate(m_state->selection(0, 0));
-	if (m_state->layer() == EditorState::UPPER)
-		index -= LowerTiles;
+	const int offset = m_state->layer() == EditorState::UPPER ? LowerTiles : 0;
+	const int index = Autotile::translate(m_state->selection(0, 0)) - offset;
 	if (index < 0)
 		return;
-	m_last = QRect(index % Columns, index / Columns + 1, m_state->selWidth(), m_state->selHeight());
+	// tiles picked on the map are framed when they are a rectangle of the palette
+	const int width = m_state->selWidth();
+	const int height = m_state->selHeight();
+	bool framed = index % Columns + width <= Columns;
+	for (int y = 0; framed && y < height; y++)
+		for (int x = 0; framed && x < width; x++)
+			framed = Autotile::translate(m_state->selection(x, y)) - offset == index + x + y * Columns;
+	m_last = framed ? QRect(index % Columns, index / Columns + 1, width, height) : QRect();
 	setSelection(m_last);
 }
 

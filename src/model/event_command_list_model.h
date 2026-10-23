@@ -99,6 +99,10 @@ public:
 	Range commandRange(int index) const;
 	/** The lines from first to last (excluded) grown to whole commands and blocks */
 	Range wholeCommands(int first, int last) const;
+	/** The names the lines show changed (an entry of the database renamed):
+	 *  the views read the lines again. The commands stay as they are: no
+	 *  undo step, no commandsChanged */
+	void refreshNames();
 
 	/*
 	 * The changes: each is one undo step

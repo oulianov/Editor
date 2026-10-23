@@ -63,6 +63,9 @@ public:
 		std::vector<short> tiles{0};
 		int width = 1;
 		int height = 1;
+		/** false: the tiles go down as they are, the autotiles drawn and
+		 *  those around them keeping their borders (Shift) */
+		bool bind = true;
 		short at(int off_x, int off_y) const;
 	};
 
@@ -89,8 +92,12 @@ public:
 	/** Shows map, read from its file or made by the caller: no edit is left */
 	void setMap(std::unique_ptr<lcf::rpg::Map> map);
 	/** Take the map info (name...) from the map tree again, unless Map
-	 *  Properties edited it: the other edits keep it as the tree has it */
+	 *  Properties edited it: the other edits keep it as the tree has it.
+	 *  The name is always the tree's. */
 	void refreshMapInfo();
+	/** The map was renamed in the map tree, which was written at once: the
+	 *  name is not an edit of the map, to save or to undo (renamed) */
+	void setSavedName(const QString& name);
 	/** The map is in the map tree: another program can delete it (its
 	 *  entry and its file) while it is open */
 	bool hasTreeEntry() const;
@@ -103,11 +110,18 @@ public:
 	std::optional<lcf::rpg::Event> eventData(int id) const;
 	/** Adds, replaces or (none) removes the event with this id */
 	void setEventData(int id, const std::optional<lcf::rpg::Event>& data);
-	/** The whole map and its info (undo of Map Properties and Shift Map) */
+	/** The whole map and its info (undo of Map Properties and Shift Map);
+	 *  the name stays: a rename is not undone */
 	void setMapData(const lcf::rpg::Map& map, const lcf::rpg::MapInfo& info);
 	/** The start positions, in the map tree: shared by all maps */
 	const lcf::rpg::Start& startData() const;
+	/** Sets them; the documents of the maps they left or came to say so */
 	void setStartData(const lcf::rpg::Start& start);
+	/** The start positions of project changed from before (an edit, an
+	 *  undo, the map tree read again): every document of project whose map
+	 *  one of them left or came to emits startChanged, the one edited and
+	 *  the others open */
+	static void notifyStartChanged(const ProjectData& project, const lcf::rpg::Start& before);
 
 	/*
 	 * Tiles
@@ -121,7 +135,7 @@ public:
 	short workingTile(Layer layer, int x, int y) const;
 
 	/** The pen: the brush on the cells from cell, origin the first cell of
-	 *  the stroke; autotiles get their borders */
+	 *  the stroke; autotiles get their borders (unless the brush has no bind) */
 	void drawPen(Layer layer, const QPoint& cell, const QPoint& origin, const Brush& brush);
 	/** The rectangle from origin to cell, in place of the stroke's last one */
 	void drawRect(Layer layer, const QPoint& origin, const QPoint& cell, const Brush& brush);
@@ -269,6 +283,8 @@ signals:
 	void mapReplaced(bool size_changed);
 	/** Pasted tiles started or stopped floating */
 	void floatingChanged();
+	/** Its name changed in the map tree (setSavedName) */
+	void renamed();
 	/** An edit was made, undone or redone */
 	void edited();
 	void modifiedChanged(bool modified);
@@ -286,8 +302,8 @@ private:
 	std::vector<short>& working(Layer layer);
 	/** Autotile borders on the working lower layer, in x1, y1 - x2, y2 */
 	void bindArea(int x1, int y1, int x2, int y2);
-	/** The borders of the lower layer near a stroke, and the redraw */
-	void updateArea(Layer layer, int x1, int y1, int x2, int y2);
+	/** The borders of the lower layer near a stroke (unless not bind), and the redraw */
+	void updateArea(Layer layer, int x1, int y1, int x2, int y2, bool bind = true);
 	void pushStart(const lcf::rpg::Start& old_start);
 	/** Merges what another program changed in the file since it was read;
 	 *  false when both sides changed the same thing (conflicts) */

@@ -89,10 +89,14 @@ bool AudioPlayer::isMidi(const QString& path) {
 }
 
 bool AudioPlayer::play(const QString& path) {
-	if (m_backend) {
-		m_backend->stop();
+	// the backend of macOS loads the next file in its engine, whose output goes on: quicker
+	std::unique_ptr<AudioBackend> previous = std::move(m_backend);
+	if (previous) {
+		previous->stop();
+		if (!previous->canReopen()) {
+			previous.reset();
+		}
 	}
-	m_backend.reset();
 	m_path = path;
 	m_error.clear();
 	m_lastDuration = 0;
@@ -107,7 +111,7 @@ bool AudioPlayer::play(const QString& path) {
 	const bool midi = isMidi(path);
 	QString error;
 #ifdef Q_OS_MACOS
-	m_backend = createAppleAudioBackend();
+	m_backend = previous ? std::move(previous) : createAppleAudioBackend();
 	if (!m_backend->open(path, midi, error)) {
 		m_backend.reset();
 	}
@@ -122,10 +126,11 @@ bool AudioPlayer::play(const QString& path) {
 		m_backend->open(path, midi, error);
 	}
 
+	// the fade-in starts silent
+	m_started.start();
 	applyGain();
 	m_backend->setPan((std::clamp(m_balance, 0, 100) - 50) / 50.0f);
 	m_backend->setRate(std::clamp(m_tempo, 50, 150) / 100.0f);
-	m_started.start();
 	m_backend->play();
 	setState(State::Playing);
 	tick();

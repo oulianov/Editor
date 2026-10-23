@@ -438,7 +438,7 @@ FocusScope {
                 const cell = root.cellAt(mouse.x, mouse.y)
                 // the zoom tool keeps the cell clicked under the pointer
                 d.anchor = d.pointer
-                root.editor.press(cell.x, cell.y, mouse.button)
+                root.editor.press(cell.x, cell.y, mouse.button, mouse.modifiers)
                 d.anchor = Qt.point(-1, -1)
             }
             onPositionChanged: (mouse) => {

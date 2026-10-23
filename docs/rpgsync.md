@@ -78,6 +78,11 @@ tree:
   follows.
 - Nothing goes under an area: rpgsync refuses it.
 
+The other way, a map renamed in the Editor (Map Properties) has its new name
+written to `RPG_RT.lmt` at once, without saving the map, so `map_tree.py`
+follows. Its other changes, the start positions among them, wait for the map
+to be saved. Area Properties are written at once.
+
 
 ## Open in Script Editor
 

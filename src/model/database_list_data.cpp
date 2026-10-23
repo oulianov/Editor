@@ -49,6 +49,11 @@ void DatabaseListNotifier::assign(ProjectData& target, const ProjectData& source
 	check(&Database::battleranimations);
 	check(&Database::switches);
 	check(&Database::variables);
+	// the battle commands of RPG Maker 2003, a list in the battle settings
+	// (the Conditional Branches of battle pages name them)
+	if (!(target.database().battlecommands.commands == source.database().battlecommands.commands)) {
+		changed.push_back(&target.database().battlecommands.commands);
+	}
 
 	// the vectors keep their address: the views find their list again
 	target = source;

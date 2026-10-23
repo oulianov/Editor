@@ -134,7 +134,8 @@ public:
 
 	/** The cell under the pointer, (-1, -1) when it is not over the map */
 	QPoint pointerCell() const;
-	/** The cells the tool would draw on under the pointer, framed; empty: none */
+	/** The cells the tool would draw on under the pointer, or those the right
+	 *  button is dragged over to pick their tiles, framed; empty: none */
 	QRect brushRect() const;
 	/** The cell of the event layer the event actions apply to, (-1, -1): none */
 	QPoint selectedCell() const;
@@ -162,7 +163,8 @@ public:
 	/** A button is held on the map: a stroke, a selection or a drag (the
 	 *  view scrolls when the pointer goes past its edges) */
 	bool isDragging() const;
-	/** The cell under the pointer, and its events on the event layer */
+	/** The cell under the pointer (or the one the arrow keys selected on
+	 *  the event layer, since), and its events on the event layer */
 	QString hoverText() const;
 
 	/** The zoom, 0 until set */
@@ -184,7 +186,10 @@ public:
 	 * Input, the pointer on a cell (outside the map: any cell out of it)
 	 */
 
-	Q_INVOKABLE void press(int x, int y, Qt::MouseButton button);
+	/** With a drawing tool, the left button draws (Shift: the tiles as they
+	 *  are, without the borders of the autotiles), the right button picks
+	 *  the tiles of the cell, or of the rectangle it is dragged over */
+	Q_INVOKABLE void press(int x, int y, Qt::MouseButton button, Qt::KeyboardModifiers modifiers = Qt::NoModifier);
 	Q_INVOKABLE void move(int x, int y, Qt::MouseButtons buttons);
 	/** buttons: those still held */
 	Q_INVOKABLE void release(int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons);
@@ -221,6 +226,9 @@ public slots:
 	void selectTile(int x, int y);
 	/** RPG Maker's eyedropper: the tile under the pointer becomes the tile picked */
 	void pickTile();
+	/** The tiles of cells of the layer edited, as the map has them, become
+	 *  the tiles picked; nothing is picked unless they all belong to it */
+	void pickTiles(const QRect& cells);
 
 	// The event layer's menu, on the selected cell
 	void newEvent();
@@ -261,7 +269,8 @@ signals:
 	void antsOffsetChanged();
 	void cursorChanged();
 	void draggingChanged();
-	/** The pointer is on another cell, for the status bar */
+	/** The pointer is on another cell, or the arrow keys selected one: for
+	 *  the status bar */
 	void cellHovered(const QString& text);
 	void scaleChanged();
 	void devicePixelRatioChanged();
@@ -289,7 +298,7 @@ signals:
 private:
 	using Layer = EditorState::Layer;
 
-	void onPress(int x, int y, Qt::MouseButton button);
+	void onPress(int x, int y, Qt::MouseButton button, Qt::KeyboardModifiers modifiers);
 	void onMove(int x, int y, Qt::MouseButtons buttons);
 	void onRelease(int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons);
 	void onDoubleClick(int x, int y);
@@ -311,6 +320,8 @@ private:
 	void selectCell(int x, int y);
 	/** The arrow keys of the event layer: the cell next to the selected one */
 	void moveSelectedCell(int dx, int dy);
+	/** The status bar shows a cell and, on the event layer, its events */
+	void showCell(const QPoint& cell);
 	/** The selection tool on the event layer: it selects events and start positions */
 	bool selectingItems() const;
 	/** Select the events and the start positions in cells; none: the selection is cleared */
@@ -335,8 +346,14 @@ private:
 	// the frame of the tool is not drawn on a map just opened
 	QPoint m_cur{-1, -1};
 	QRect m_brush;
-	// the first cell of a stroke, or of the cells being selected
+	// the first cell of a stroke, or of the cells being selected or picked
 	QPoint m_first;
+	// Shift was held when the stroke started: its tiles go down as they are
+	bool m_raw = false;
+	// the right button of a drawing tool is held: the tiles of the cells
+	// from m_first to m_pickEnd are picked when it is released
+	bool m_picking = false;
+	QPoint m_pickEnd;
 	// event layer: the selected cell, and the cell framed (where an event
 	// or a start position is dragged)
 	QPoint m_last;

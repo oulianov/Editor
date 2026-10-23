@@ -29,6 +29,7 @@
 #include "common/dbstring.h"
 #include "model/command_colors.h"
 #include "model/command_schema.h"
+#include "model/database_list_data.h"
 #include "model/event_command_defaults.h"
 #include "stringizer.h"
 
@@ -123,6 +124,10 @@ EventCommandListModel::EventCommandListModel(QObject* parent) :
 	QAbstractListModel(parent), m_undoStack(new QUndoStack(this))
 {
 	m_undoStack->setUndoLimit(100);
+	// The lines name entries of the database (a hero, a switch, an item...):
+	// renamed in a picker, a list's box or the database window, they show
+	// the new name at once, not once their command is edited again
+	connect(&DatabaseListNotifier::instance(), &DatabaseListNotifier::listChanged, this, &EventCommandListModel::refreshNames);
 }
 
 EventCommandListModel::~EventCommandListModel() = default;
@@ -338,6 +343,16 @@ EventCommandListModel::Range EventCommandListModel::wholeCommands(int first, int
 		--last;
 	}
 	return {first, last};
+}
+
+void EventCommandListModel::refreshNames()
+{
+	// Whichever list changed (the project's, a window's copy): the lines are
+	// read from the project's database, and a view reads again only the
+	// lines it shows
+	if (rowCount() > 0) {
+		emit dataChanged(index(0), index(rowCount() - 1), {Qt::DisplayRole, TextRole});
+	}
 }
 
 int EventCommandListModel::insertLines(int index, const Commands& lines)

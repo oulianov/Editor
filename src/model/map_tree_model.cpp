@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <set>
 #include "common/dbstring.h"
+#include "model/database_list_data.h"
 
 using lcf::rpg::TreeMap;
 
@@ -252,6 +253,7 @@ QHash<int, int> MapTreeModel::update(const lcf::rpg::TreeMap& before)
 		if (const QModelIndex changed = indexOf(id); map && map->expanded_node)
 			emit dataChanged(changed, changed, {ExpandedRole});
 	}
+	namesChanged();
 	return removed;
 }
 
@@ -532,6 +534,7 @@ QList<int> MapTreeModel::removeMap(int id)
 	m_infoIndex.clear();
 	endRemoveRows();
 	syncOrder();
+	namesChanged();
 	return ids;
 }
 
@@ -624,4 +627,11 @@ void MapTreeModel::entryChanged(int id)
 {
 	if (const QModelIndex changed = indexOf(id); changed.isValid())
 		emit dataChanged(changed, changed);
+	namesChanged();
+}
+
+void MapTreeModel::namesChanged()
+{
+	if (m_tree)
+		DatabaseListNotifier::notify(&m_tree->maps);
 }

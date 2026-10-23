@@ -153,6 +153,9 @@ private:
 	QModelIndex indexOf(const Node* node) const;
 	lcf::rpg::MapInfo* info(int id) const;
 	void collect(const Node* node, QList<int>& ids, bool children_first) const;
+	/** The names of the maps changed: the command lists naming them (a
+	 *  teleport) show them again (DatabaseListNotifier) */
+	void namesChanged();
 
 	lcf::rpg::TreeMap* m_tree = nullptr;
 	QString m_rootName;

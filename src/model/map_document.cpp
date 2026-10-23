@@ -53,6 +53,15 @@ StartFields startFields(lcf::rpg::Start& start, int kind)
 		return {start.party_map_id, start.party_x, start.party_y};
 	}
 }
+
+// Every document there is, whatever its project: a start position is in the
+// map tree, and the map it leaves can be open in another document than the
+// one that moves it
+QList<MapDocument*>& documents()
+{
+	static QList<MapDocument*> list;
+	return list;
+}
 }
 
 short MapDocument::Brush::at(int off_x, int off_y) const
@@ -81,9 +90,13 @@ MapDocument::MapDocument(ProjectData& project, int id, QObject* parent) :
 	connect(m_undoStack, &QUndoStack::cleanChanged, this, [this](bool clean) {
 		emit modifiedChanged(!clean);
 	});
+	documents().append(this);
 }
 
-MapDocument::~MapDocument() = default;
+MapDocument::~MapDocument()
+{
+	documents().removeOne(this);
+}
 
 int MapDocument::id() const
 {
@@ -176,15 +189,28 @@ void MapDocument::refreshMapInfo()
 	// Map Properties' edit is kept, saving writes it; the tiles and the
 	// events do not change the info: a map renamed by another program
 	// (rpgsync) shows its new name and is saved with it
-	if (isModified() && infoEdited())
-		return;
+	const bool keep_edit = isModified() && infoEdited();
 	for (const auto& info : m_project.treeMap().maps)
 		if (info.ID == m_info.ID)
 		{
+			if (keep_edit)
+			{
+				// the name is not part of that edit: renaming writes it at once
+				m_info.name = info.name;
+				m_savedInfo.name = info.name;
+				break;
+			}
 			m_info = info;
 			m_savedInfo = info;
 			break;
 		}
+}
+
+void MapDocument::setSavedName(const QString& name)
+{
+	m_info.name = ToDBString(name);
+	m_savedInfo.name = m_info.name;
+	emit renamed();
 }
 
 bool MapDocument::hasTreeEntry() const
@@ -255,7 +281,11 @@ void MapDocument::setMapData(const lcf::rpg::Map& map, const lcf::rpg::MapInfo& 
 {
 	const bool size_changed = map.width != m_map->width || map.height != m_map->height;
 	*m_map = map;
+	// the name is the map tree's, written there when it was renamed: undoing
+	// Map Properties does not bring the old one back
+	const auto name = m_info.name;
 	m_info = info;
+	m_info.name = name;
 	m_lower = m_map->lower_layer;
 	m_upper = m_map->upper_layer;
 	m_moveContents = {};
@@ -270,8 +300,30 @@ const lcf::rpg::Start& MapDocument::startData() const
 
 void MapDocument::setStartData(const lcf::rpg::Start& start)
 {
+	const lcf::rpg::Start before = startData();
 	m_project.treeMap().start = start;
-	emit startChanged();
+	notifyStartChanged(m_project, before);
+}
+
+void MapDocument::notifyStartChanged(const ProjectData& project, const lcf::rpg::Start& before)
+{
+	// the maps a start position left or came to
+	lcf::rpg::Start old_start = before;
+	lcf::rpg::Start new_start = project.treeMap().start;
+	QList<int> maps;
+	for (int kind = Party; kind <= Airship; kind++) {
+		const StartFields was = startFields(old_start, kind);
+		const StartFields is = startFields(new_start, kind);
+		if (was.map_id != is.map_id || was.x != is.x || was.y != is.y)
+			maps << was.map_id << is.map_id;
+	}
+	if (maps.isEmpty())
+		return;
+	// a copy: a view told can open or close a map (one closed is not told)
+	const QList<MapDocument*> open = documents();
+	for (MapDocument* doc : open)
+		if (documents().contains(doc) && &doc->m_project == &project && maps.contains(doc->id()))
+			emit doc->startChanged();
 }
 
 int MapDocument::index(int x, int y) const
@@ -315,7 +367,7 @@ void MapDocument::drawPen(Layer layer, const QPoint& cell, const QPoint& origin,
 				continue;
 			tiles[static_cast<size_t>(index(x, y))] = brush.at(x - origin.x(), y - origin.y());
 		}
-	updateArea(layer, cell.x() - 1, cell.y() - 1, cell.x() + brush.width + 1, cell.y() + brush.height + 1);
+	updateArea(layer, cell.x() - 1, cell.y() - 1, cell.x() + brush.width + 1, cell.y() + brush.height + 1, brush.bind);
 }
 
 void MapDocument::drawRect(Layer layer, const QPoint& origin, const QPoint& cell, const Brush& brush)
@@ -333,7 +385,7 @@ void MapDocument::drawRect(Layer layer, const QPoint& origin, const QPoint& cell
 	for (int x = x1; x <= x2; x++)
 		for (int y = y1; y <= y2; y++)
 			tiles[static_cast<size_t>(index(x, y))] = brush.at(x - origin.x(), y - origin.y());
-	updateArea(layer, x1 - 2, y1 - 2, x2 + 2, y2 + 2);
+	updateArea(layer, x1 - 2, y1 - 2, x2 + 2, y2 + 2, brush.bind);
 }
 
 void MapDocument::drawEllipse(Layer layer, const QPoint& origin, const QPoint& cell, const Brush& brush)
@@ -361,7 +413,7 @@ void MapDocument::drawEllipse(Layer layer, const QPoint& origin, const QPoint& c
 				continue;
 			tiles[static_cast<size_t>(index(x, y))] = brush.at(x - origin.x(), y - origin.y());
 		}
-	updateArea(layer, x1 - 2, y1 - 2, x2 + 2, y2 + 2);
+	updateArea(layer, x1 - 2, y1 - 2, x2 + 2, y2 + 2, brush.bind);
 }
 
 void MapDocument::drawFill(Layer layer, const QPoint& origin, const Brush& brush)
@@ -400,12 +452,12 @@ void MapDocument::drawFill(Layer layer, const QPoint& origin, const Brush& brush
 			todo.push_back(n);
 		}
 	}
-	updateArea(layer, 0, 0, m_map->width - 1, m_map->height - 1);
+	updateArea(layer, 0, 0, m_map->width - 1, m_map->height - 1, brush.bind);
 }
 
-void MapDocument::updateArea(Layer layer, int x1, int y1, int x2, int y2)
+void MapDocument::updateArea(Layer layer, int x1, int y1, int x2, int y2, bool bind)
 {
-	if (layer == EditorState::LOWER)
+	if (layer == EditorState::LOWER && bind)
 		bindArea(x1, y1, x2, y2);
 	emit cellsChanged(QRect(QPoint(x1, y1), QPoint(x2, y2)) & bounds(), layer);
 }
@@ -777,9 +829,10 @@ void MapDocument::pushStart(const lcf::rpg::Start& old_start)
 {
 	if (old_start == startData())
 		return;
-	// The start is in the map tree, saved with this map
+	// The start is in the map tree, saved with this map; the map it left,
+	// open in another tab, draws it no more
 	m_undoStack->push(new UndoStart(old_start, this));
-	emit startChanged();
+	notifyStartChanged(m_project, old_start);
 	emit edited();
 }
 
@@ -825,8 +878,9 @@ bool MapDocument::canMoveItems(const QList<int>& events, const QList<int>& start
 		if (const auto* ev = findEvent(ev_id); ev && !free(QPoint(ev->x, ev->y) + offset))
 			return false;
 	for (int kind : starts) {
+		// one placed on another map since it was selected stays there
 		const StartFields fields = startFields(start, kind);
-		if (!free(QPoint(fields.x, fields.y) + offset))
+		if (fields.map_id == id() && !free(QPoint(fields.x, fields.y) + offset))
 			return false;
 	}
 	return true;
@@ -852,6 +906,8 @@ bool MapDocument::moveItems(const QList<int>& events, const QList<int>& starts, 
 	const lcf::rpg::Start old_start = startData();
 	for (int kind : starts) {
 		const StartFields fields = startFields(m_project.treeMap().start, kind);
+		if (fields.map_id != id())
+			continue;
 		fields.x += offset.x();
 		fields.y += offset.y();
 	}
@@ -861,8 +917,7 @@ bool MapDocument::moveItems(const QList<int>& events, const QList<int>& starts, 
 	m_undoStack->endMacro();
 	if (moved_events)
 		emit eventsChanged();
-	if (moved_starts)
-		emit startChanged();
+	notifyStartChanged(m_project, old_start);
 	emit edited();
 	return true;
 }
@@ -977,5 +1032,6 @@ void MapDocument::shiftMap(int dx, int dy)
 	if (!(old_start == start))
 		m_undoStack->push(new UndoStart(old_start, this));
 	m_undoStack->endMacro();
+	notifyStartChanged(m_project, old_start);
 	emit edited();
 }

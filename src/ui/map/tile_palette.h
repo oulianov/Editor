@@ -34,8 +34,8 @@
  * Its cells are those of the palette, the eraser row 0. A drag of the left
  * button picks a rectangle of tiles, at most 6 rows high, which the right
  * button cancels; the eraser row is picked alone. The tiles picked go to
- * the EditorState, whose selection (the eyedropper of the map too) the
- * palette frames.
+ * the EditorState, whose selection the palette frames: the tiles picked on
+ * the map too (the right button), when they are a rectangle of the palette.
  */
 class TilePalette : public QObject
 {

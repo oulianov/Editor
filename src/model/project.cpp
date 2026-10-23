@@ -33,6 +33,7 @@
 #include <QFile>
 #include <QSettings>
 #include <QTemporaryFile>
+#include <algorithm>
 #include <filesystem>
 #include <functional>
 #include <sstream>
@@ -518,16 +519,41 @@ bool Project::saveDatabase(bool inc_savecount) {
 }
 
 bool Project::saveTreeMap() {
-	auto lcf_engine = lcf::GetEngineVersion(m_data.database());
-	const bool saved = writeFile(treeMapFile(), [&](std::ostream& out) {
-		return projectType() == FileFinder::ProjectType::Legacy
-			? lcf::LMT_Reader::Save(out, m_data.treeMap(), lcf_engine, encoding().toStdString())
-			: lcf::LMT_Reader::SaveXml(out, m_data.treeMap(), lcf_engine);
-	});
+	const bool saved = writeTreeMap(m_data.treeMap());
 	if (saved) {
 		m_savedTreeMap = m_data.treeMap();
 	}
 	return saved;
+}
+
+bool Project::saveTreeMapEntry(const lcf::rpg::MapInfo& info) {
+	lcf::rpg::TreeMap tree = m_savedTreeMap;
+	auto entry = std::find_if(tree.maps.begin(), tree.maps.end(), [&](const lcf::rpg::MapInfo& map) {
+		return map.ID == info.ID;
+	});
+	if (entry == tree.maps.end()) {
+		return false;
+	}
+	// the file's tree keeps its shape: only the entry's own data changes
+	lcf::rpg::MapInfo changed = info;
+	changed.parent_map = entry->parent_map;
+	changed.indentation = entry->indentation;
+	changed.expanded_node = entry->expanded_node;
+	*entry = std::move(changed);
+	if (!writeTreeMap(tree)) {
+		return false;
+	}
+	m_savedTreeMap = std::move(tree);
+	return true;
+}
+
+bool Project::writeTreeMap(const lcf::rpg::TreeMap& tree) {
+	auto lcf_engine = lcf::GetEngineVersion(m_data.database());
+	return writeFile(treeMapFile(), [&](std::ostream& out) {
+		return projectType() == FileFinder::ProjectType::Legacy
+			? lcf::LMT_Reader::Save(out, tree, lcf_engine, encoding().toStdString())
+			: lcf::LMT_Reader::SaveXml(out, tree, lcf_engine);
+	});
 }
 
 std::unique_ptr<lcf::rpg::Database> Project::readDatabase() const {

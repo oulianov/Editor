@@ -57,6 +57,18 @@ MapEditor::MapEditor(MapDocument* document, EditorState& state, QObject* parent)
 	connect(m_doc, &MapDocument::mapReplaced, this, &MapEditor::mapChanged);
 	connect(m_doc, &MapDocument::loaded, this, &MapEditor::historyChanged);
 	connect(m_doc, &MapDocument::edited, this, &MapEditor::historyChanged);
+	// a start position selected that went to another map (placed there, an
+	// undo there) is selected no more
+	connect(m_doc, &MapDocument::startChanged, this, [this] {
+		const qsizetype selected = m_selStarts.size();
+		m_selStarts.removeIf([this](int kind) { return !m_doc->startCell(kind); });
+		if (m_selStarts.size() == selected)
+			return;
+		if (m_selEvents.isEmpty() && m_selStarts.isEmpty())
+			clearSelection();
+		else
+			updateSelection();
+	});
 	m_cursor = currentCursor();
 }
 
@@ -269,9 +281,9 @@ void MapEditor::setViewCells(const QRectF& cells)
 	emit viewCellsChanged();
 }
 
-void MapEditor::press(int x, int y, Qt::MouseButton button)
+void MapEditor::press(int x, int y, Qt::MouseButton button, Qt::KeyboardModifiers modifiers)
 {
-	onPress(x, y, button);
+	onPress(x, y, button, modifiers);
 	refresh();
 }
 
@@ -299,7 +311,7 @@ void MapEditor::leave()
 	setBrushRect(QRect());
 }
 
-void MapEditor::onPress(int x, int y, Qt::MouseButton button)
+void MapEditor::onPress(int x, int y, Qt::MouseButton button, Qt::KeyboardModifiers modifiers)
 {
 	const bool inside = setPointer(x, y);
 	const Layer layer = m_state.layer();
@@ -344,11 +356,22 @@ void MapEditor::onPress(int x, int y, Qt::MouseButton button)
 			emit contextMenuRequested(AreaMenu, m_cur);
 			return;
 		}
-		pickTile();
+		// the eyedropper, or a rectangle of tiles dragged over (RPG Maker MV)
+		m_picking = true;
+		m_first = m_cur;
+		m_pickEnd = m_cur;
+		updateBrush();
 		return;
 	}
 	if (button != Qt::LeftButton)
 		return;
+	if (m_picking)
+	{
+		// the left button cancels the tiles being picked
+		m_picking = false;
+		updateBrush();
+		return;
+	}
 	// what the press grabs moves once the pointer is dragged (startDrag)
 	m_dragStarted = false;
 
@@ -393,6 +416,7 @@ void MapEditor::onPress(int x, int y, Qt::MouseButton button)
 		return;
 
 	m_first = m_cur;
+	m_raw = modifiers & Qt::ShiftModifier;
 	switch (tool)
 	{
 	case EditorState::PENCIL:
@@ -431,7 +455,7 @@ void MapEditor::onPress(int x, int y, Qt::MouseButton button)
 			// (without an autotile variant) and a transparent upper tile.
 			short background = m_state.selection(0, 0, EditorState::LOWER);
 			if (background < 5000)
-				background -= background % 50;
+				background = Autotile::translate(Autotile::translate(background));
 			m_doc->beginMoveArea(m_selArea, background);
 			m_selMoving = true;
 			m_selGrab = m_cur - m_selArea.topLeft();
@@ -449,6 +473,11 @@ void MapEditor::onPress(int x, int y, Qt::MouseButton button)
 
 void MapEditor::onMove(int x, int y, Qt::MouseButtons buttons)
 {
+	if (m_picking)
+	{
+		// the rectangle picked stays inside the map
+		m_pickEnd = QPoint(std::clamp(x, 0, m_doc->map().width - 1), std::clamp(y, 0, m_doc->map().height - 1));
+	}
 	const QPoint old = m_cur;
 	if (!setPointer(x, y)) {
 		updateBrush();
@@ -483,14 +512,19 @@ void MapEditor::onMove(int x, int y, Qt::MouseButtons buttons)
 	if (m_dragStarted && (buttons & Qt::LeftButton))
 		dragTo();
 
-	// Show coordinates of current tile
-	QString status_msg = QString("(%0, %1)").arg(m_cur.x()).arg(m_cur.y());
-	if (layer == EditorState::EVENT)
+	showCell(m_cur);
+}
+
+void MapEditor::showCell(const QPoint& cell)
+{
+	// Show coordinates of the cell
+	QString status_msg = QString("(%0, %1)").arg(cell.x()).arg(cell.y());
+	if (m_state.layer() == EditorState::EVENT)
 	{
-		// Show events on current tile
+		// Show events on the cell
 		for (const lcf::rpg::Event& evt : m_doc->map().events)
 		{
-			if (QPoint(evt.x, evt.y) == m_cur)
+			if (QPoint(evt.x, evt.y) == cell)
 			{
 				status_msg.append(QString(" - " + QCoreApplication::translate("MapScene", "Event") + " %0: %1")
 					.arg(evt.ID).arg(ToQString(evt.name)));
@@ -549,6 +583,10 @@ void MapEditor::cancelPress()
 	// opened by a double-click): nothing dragged is dropped
 	m_dragEventId = 0;
 	m_dragStart = -1;
+	if (m_picking) {
+		m_picking = false;
+		updateBrush();
+	}
 	if (m_itemsMoving) {
 		m_itemsMoving = false;
 		setItemsOffset(QPoint());
@@ -561,6 +599,13 @@ void MapEditor::cancelPress()
 
 void MapEditor::onRelease(int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons)
 {
+	if (m_picking && button == Qt::RightButton)
+	{
+		m_picking = false;
+		pickTiles(QRect(m_first, m_pickEnd).normalized());
+		updateBrush();
+		return;
+	}
 	if (m_cancelled && !buttons)
 	{
 		m_cancelled = false;
@@ -862,12 +907,28 @@ void MapEditor::selectTile(int x, int y)
 
 void MapEditor::pickTile()
 {
-	// RPG Maker's eyedropper: the tile under the cursor becomes the current tile
-	const short tile = m_doc->workingTile(m_state.layer(), m_cur.x(), m_cur.y());
-	const int terrain = Autotile::translate(tile);
-	if (terrain < 0 || Autotile::isFblock(terrain) != (m_state.layer() == EditorState::UPPER))
+	if (m_cur.x() >= 0)
+		pickTiles(QRect(m_cur, QSize(1, 1)));
+}
+
+void MapEditor::pickTiles(const QRect& cells)
+{
+	// the tiles as they are, autotiles with their borders: a stroke binds
+	// them again, a stroke with Shift puts them down as they were
+	const Layer layer = m_state.layer();
+	if (layer == EditorState::EVENT || !m_doc->bounds().contains(cells))
 		return;
-	m_state.setSelection({Autotile::translate(terrain, SAMPLE)}, 1, 1);
+	std::vector<short> tiles;
+	for (int y = cells.top(); y <= cells.bottom(); y++)
+		for (int x = cells.left(); x <= cells.right(); x++)
+		{
+			const short tile = m_doc->workingTile(layer, x, y);
+			const int terrain = Autotile::translate(tile);
+			if (terrain < 0 || Autotile::isFblock(terrain) != (layer == EditorState::UPPER))
+				return;
+			tiles.push_back(tile);
+		}
+	m_state.setSelection(std::move(tiles), cells.width(), cells.height());
 }
 
 void MapEditor::newEvent()
@@ -1081,6 +1142,7 @@ void MapEditor::onLayerChanged()
 		stopSelecting();
 	m_dragEventId = 0;
 	m_dragStart = -1;
+	m_picking = false;
 	commitFloating();
 	// the tile selection ends; the selection tool selects events there
 	if (m_state.layer() == EditorState::EVENT)
@@ -1095,6 +1157,7 @@ void MapEditor::onToolChanged()
 		stopDrawing();
 	if (m_selecting)
 		stopSelecting();
+	m_picking = false;
 	// RPG Maker: another tool ends the selection
 	commitFloating();
 	clearSelection();
@@ -1130,6 +1193,11 @@ bool MapEditor::setPointer(int x, int y)
 
 void MapEditor::updateBrush()
 {
+	if (m_picking) {
+		// the cells whose tiles the right button picks
+		setBrushRect(QRect(m_first, m_pickEnd).normalized());
+		return;
+	}
 	const EditorState::Tool tool = m_state.tool();
 	const bool shown = m_cur.x() >= 0 && m_cur.y() >= 0 && m_state.layer() != EditorState::EVENT
 		&& tool != EditorState::ZOOM && tool != EditorState::SELECT;
@@ -1156,10 +1224,19 @@ MapDocument::Brush MapEditor::brush() const
 	MapDocument::Brush brush;
 	brush.width = m_state.selWidth();
 	brush.height = m_state.selHeight();
+	brush.bind = !m_raw;
 	brush.tiles.clear();
 	for (int y = 0; y < brush.height; y++)
 		for (int x = 0; x < brush.width; x++)
-			brush.tiles.push_back(m_state.selection(x, y));
+		{
+			short tile = m_state.selection(x, y);
+			// Shift: an autotile of the palette goes down without borders,
+			// one picked on the map as it was
+			const int terrain = Autotile::translate(tile);
+			if (m_raw && terrain >= 0 && tile == Autotile::translate(terrain, SAMPLE))
+				tile = Autotile::translate(terrain);
+			brush.tiles.push_back(tile);
+		}
 	return brush;
 }
 
@@ -1199,6 +1276,9 @@ void MapEditor::moveSelectedCell(int dx, int dy)
 	x = std::clamp(x, 0, m_doc->map().width - 1);
 	y = std::clamp(y, 0, m_doc->map().height - 1);
 	selectCell(x, y);
+	// the status bar shows it, not the cell under the pointer, until the
+	// pointer goes to another cell
+	showCell(QPoint(x, y));
 	// scrolled only as far as needed to show it
 	emit revealRequested(QPoint(x, y));
 }
@@ -1313,6 +1393,6 @@ MapEditor::Cursor MapEditor::currentCursor() const
 
 bool MapEditor::currentlyDragging() const
 {
-	return m_drawing || m_selDragging || m_selMoving || m_floatDragging || m_itemsSelecting || m_itemsMoving
+	return m_drawing || m_picking || m_selDragging || m_selMoving || m_floatDragging || m_itemsSelecting || m_itemsMoving
 		|| m_dragEventId || m_dragStart >= 0;
 }

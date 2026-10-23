@@ -174,6 +174,22 @@ Controls.SpinBox {
         }
     }
 
+    // Return and Enter take the number typed, then go on to the window (its
+    // OK sees the number): Qt's spin box takes it only once they are released
+    Keys.onReturnPressed: (event) => root.takeTyped(event)
+    Keys.onEnterPressed: (event) => root.takeTyped(event)
+    function takeTyped(event) {
+        event.accepted = false
+        const input = contentItem as TextInput
+        if (!editable || !input) {
+            return
+        }
+        const typed = valueFromText(input.text, locale)
+        if (!isNaN(typed)) {
+            scrub.set(Math.trunc(typed))
+        }
+    }
+
     // Escape before the shortcuts of the window (its Cancel)
     Keys.onShortcutOverride: (event) => {
         event.accepted = root.scrubbing && !scrub.cancelled && event.key === Qt.Key_Escape

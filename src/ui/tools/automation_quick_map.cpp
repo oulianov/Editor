@@ -253,27 +253,29 @@ private:
 		QWindowSystemInterface::handleMouseEvent<Sync>(m_window, m_timestamp += 10, native(position), nativeGlobal(position),
 			buttons, button, type, modifiers);
 	}
-	void click(const QPointF& position, Qt::MouseButton button, bool twice = false)
+	void click(const QPointF& position, Qt::MouseButton button, bool twice = false,
+		Qt::KeyboardModifiers modifiers = Qt::NoModifier)
 	{
-		mouse(QEvent::MouseMove, position, Qt::NoButton, Qt::NoButton);
+		mouse(QEvent::MouseMove, position, Qt::NoButton, Qt::NoButton, modifiers);
 		for (int i = 0; i < (twice ? 2 : 1); i++) {
-			mouse(QEvent::MouseButtonPress, position, button, button);
-			mouse(QEvent::MouseButtonRelease, position, button, Qt::NoButton);
+			mouse(QEvent::MouseButtonPress, position, button, button, modifiers);
+			mouse(QEvent::MouseButtonRelease, position, button, Qt::NoButton, modifiers);
 		}
 	}
 	/** Through every cell between two, as a hand would */
-	void drag(const QPoint& from, const QPoint& to, Qt::MouseButton button, bool palette = false)
+	void drag(const QPoint& from, const QPoint& to, Qt::MouseButton button, bool palette = false,
+		Qt::KeyboardModifiers modifiers = Qt::NoModifier)
 	{
 		auto at = [&](int x, int y) { return palette ? paletteCellPoint(x, y) : cellPoint(x, y, false); };
 		const QPointF start = palette ? paletteCellPoint(from.x(), from.y()) : cellPoint(from.x(), from.y(), true);
-		mouse(QEvent::MouseMove, start, Qt::NoButton, Qt::NoButton);
-		mouse(QEvent::MouseButtonPress, start, button, button);
+		mouse(QEvent::MouseMove, start, Qt::NoButton, Qt::NoButton, modifiers);
+		mouse(QEvent::MouseButtonPress, start, button, button, modifiers);
 		const int steps = std::max(std::abs(to.x() - from.x()), std::abs(to.y() - from.y()));
 		for (int i = 1; i <= steps; i++) {
 			mouse(QEvent::MouseMove, at(from.x() + (to.x() - from.x()) * i / steps, from.y() + (to.y() - from.y()) * i / steps),
-				Qt::NoButton, button);
+				Qt::NoButton, button, modifiers);
 		}
-		mouse(QEvent::MouseButtonRelease, at(to.x(), to.y()), button, Qt::NoButton);
+		mouse(QEvent::MouseButtonRelease, at(to.x(), to.y()), button, Qt::NoButton, modifiers);
 	}
 	bool expectRect(const QString& what, const QRect& shown, const QStringList& args)
 	{
@@ -389,17 +391,28 @@ std::optional<bool> MapDriver::run(const QStringList& args)
 		}
 		return true;
 	}
-	if ((cmd == "map-click" || cmd == "map-double-click") && (args.size() == 3 || args.size() == 4)
-			&& toInts(args, 1, {&x, &y})) {
-		if (args.size() == 4 && args[3] != "left" && args[3] != "right")
+	// the words after the cells: the button, Shift held
+	auto options = [&](qsizetype from, const QStringList& allowed) -> std::optional<QStringList> {
+		const QStringList words = args.mid(from);
+		for (const QString& word : words)
+			if (!allowed.contains(word))
+				return std::nullopt;
+		return words;
+	};
+	if ((cmd == "map-click" || cmd == "map-double-click") && args.size() >= 3 && toInts(args, 1, {&x, &y})) {
+		const auto words = options(3, {"left", "right", "shift"});
+		if (!words)
 			return false;
-		click(cellPoint(x, y, true), args.value(3) == "right" ? Qt::RightButton : Qt::LeftButton, cmd == "map-double-click");
+		click(cellPoint(x, y, true), words->contains("right") ? Qt::RightButton : Qt::LeftButton, cmd == "map-double-click",
+			words->contains("shift") ? Qt::ShiftModifier : Qt::NoModifier);
 		return true;
 	}
-	if (cmd == "map-drag" && (args.size() == 5 || args.size() == 6) && toInts(args, 1, {&x, &y, &x2, &y2})) {
-		if (args.size() == 6 && args[5] != "right")
+	if (cmd == "map-drag" && args.size() >= 5 && toInts(args, 1, {&x, &y, &x2, &y2})) {
+		const auto words = options(5, {"right", "shift"});
+		if (!words)
 			return false;
-		drag(QPoint(x, y), QPoint(x2, y2), args.size() == 6 ? Qt::RightButton : Qt::LeftButton);
+		drag(QPoint(x, y), QPoint(x2, y2), words->contains("right") ? Qt::RightButton : Qt::LeftButton, false,
+			words->contains("shift") ? Qt::ShiftModifier : Qt::NoModifier);
 		return true;
 	}
 	if (cmd == "map-press" && (args.size() == 3 || args.size() == 4) && toInts(args, 1, {&x, &y})) {
@@ -523,11 +536,12 @@ std::optional<bool> MapDriver::run(const QStringList& args)
 		new FrameProbe(m_window, view, a, QPointF(x, y), args.mid(4).join(u' '));
 		return true;
 	}
-	if (cmd == "expect-tile" && args.size() == 5 && (args[1] == "lower" || args[1] == "upper")
-			&& toInts(args, 2, {&x, &y, &a})) {
+	if (cmd == "expect-tile" && (args.size() == 5 || (args.size() == 6 && args[5] == "exact"))
+			&& (args[1] == "lower" || args[1] == "upper") && toInts(args, 2, {&x, &y, &a})) {
 		const int tile = m_doc->tileAt(args[1] == "lower" ? EditorState::LOWER : EditorState::UPPER, x, y);
-		// lower tiles: the terrain is compared (autotiles change with their neighbours)
-		const bool same = args[1] == "lower"
+		// lower tiles: the terrain is compared (autotiles change with their
+		// neighbours), unless exact: the borders too
+		const bool same = args[1] == "lower" && args.size() == 5
 			? Autotile::translate(static_cast<short>(tile)) == Autotile::translate(static_cast<short>(a))
 			: tile == a;
 		if (!same) {

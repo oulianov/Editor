@@ -1930,7 +1930,8 @@ namespace Stringizer
 
 	QString mapName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->treeMap().maps.size()))
+		// the ids of the maps can go past their count (maps deleted)
+		if (id < 1)
 			return QString("<%1?>").arg(id);
 		for (unsigned i = 0; i < core().project()->treeMap().maps.size(); i++)
 			if (core().project()->treeMap().maps[i].ID == id)

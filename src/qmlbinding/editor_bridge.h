@@ -119,6 +119,13 @@ public:
 	 * pop-up of its own window fits (mapToGlobal)
 	 */
 	Q_INVOKABLE QRectF screenArea(QQuickItem* item) const;
+	/**
+	 * A key an item has (the event of Keys.onPressed...) given on to the
+	 * items around it, as when the item leaves it: its parent first, then
+	 * the parent's... (Return on a closed combo box, which Qt's takes: the
+	 * window's OK). Whether one of them took it.
+	 */
+	Q_INVOKABLE bool passKey(QQuickItem* item, QObject* event) const;
 
 signals:
 	void settingsChanged();

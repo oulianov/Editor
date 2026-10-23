@@ -55,6 +55,34 @@ Controls.DialogButtonBox {
         }
     }
 
+    /**
+     * Return or Enter that the control in focus left (a field once it took
+     * its text, a spin box once it took its number, a check box): OK is
+     * pressed, as the default button of a desktop dialog. A button shown in
+     * focus (Tab) is pressed instead; OK greyed takes the key and does
+     * nothing. A box without OK leaves the key (event.accepted false), and
+     * so do Return with Ctrl, Alt, Shift or Cmd and a key held down.
+     * Ez.DialogWindow and Ez.Dialog call it for the keys that come up to
+     * them.
+     */
+    function pressDefault(event: var) {
+        const ok = standardButton(Controls.DialogButtonBox.Ok)
+        if (!ok || !ok.visible || (event.modifiers & ~Qt.KeypadModifier) !== Qt.NoModifier || event.isAutoRepeat) {
+            event.accepted = false
+            return
+        }
+        event.accepted = true
+        const focused = Window.activeFocusItem as T.Button
+        if (focused && focused.visualFocus) {
+            if (focused.enabled) {
+                focused.click()
+            }
+        } else if (ok.enabled) {
+            // as a click on it, without taking the focus from the control
+            ok.clicked()
+        }
+    }
+
     /** The size of a button of the box: Ez.DialogButton's, from its text */
     function buttonSize(button: Item): size {
         // the width of its text (the box's own padding, not the button's)

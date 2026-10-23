@@ -30,6 +30,8 @@ public:
 
 	/** Loads the file; false with a message when this backend cannot play it */
 	virtual bool open(const QString& path, bool midi, QString& error) = 0;
+	/** Whether open() can load another file after this one (quicker than a new backend) */
+	virtual bool canReopen() const { return false; }
 
 	virtual void play() = 0;
 	virtual void pause() = 0;

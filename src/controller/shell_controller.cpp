@@ -418,6 +418,10 @@ void ShellController::mapProperties()
 		lcf::rpg::MapInfo info = doc->mapInfo();
 		if (!m_dialogs->mapProperties(info, map))
 			return;
+		// A new name goes into the map tree file at once, as the tree shows
+		// it; the other properties are an edit of the map, saved with it
+		if (info.name != doc->mapInfo().name)
+			m_project->renameNode(id, ToQString(info.name));
 		doc->setMapProperties(map, info);
 		return;
 	}

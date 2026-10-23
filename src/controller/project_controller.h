@@ -171,6 +171,16 @@ public:
 	 *  written, the tree keeps its parents, its order and the nodes the
 	 *  interface shows expanded */
 	void keepTreeAfterMapSave();
+	/** Gives a map or an area the map info info (its properties) and
+	 *  writes this entry alone into the map tree file at once: what else
+	 *  the tree holds unsaved (the start positions of the maps not saved
+	 *  yet) stays unsaved. The tree another program changed is read
+	 *  first. false: not written (the node is gone, or an error was shown) */
+	bool saveTreeEntry(int id, lcf::rpg::MapInfo info);
+	/** Renames a map or an area, written at once as saveTreeEntry() does;
+	 *  an open map takes the name as saved, not as an edit to save or to
+	 *  undo (its other unsaved properties stay so) */
+	bool renameNode(int id, const QString& name);
 
 	/** New Map: the map info of a new map, a child of parent when it is a map */
 	lcf::rpg::MapInfo newMapInfo(int parent) const;
@@ -195,7 +205,8 @@ public:
 		ProjectWatcher::Stamp stamp;
 	};
 	std::optional<MapEdit> readMapProperties(int id);
-	/** Writes the map and its tree entry, asking when the file changed */
+	/** Writes the map, asking when the file changed, and its tree entry
+	 *  (saveTreeEntry) */
 	bool saveMapProperties(int id, const MapEdit& edit);
 
 	/** Generate Dungeon: the map generated from (the one open, unsaved
@@ -221,6 +232,7 @@ public:
 	std::optional<AreaEdit> editArea(int id);
 	/** Adds an area to the tree (its map can be gone); its id, 0 for none */
 	int addArea(lcf::rpg::MapInfo info);
+	/** Area Properties: written at once (saveTreeEntry) */
 	void setAreaInfo(int id, const lcf::rpg::MapInfo& info);
 	/** Delete Area: asks, then removes it; name: as the interface shows it */
 	bool deleteArea(int id, const QString& name);

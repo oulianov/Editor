@@ -28,6 +28,7 @@
 #include <QFontInfo>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QKeyEvent>
 #include <QQuickItem>
 #include <QQuickTextDocument>
 #include <QQuickWindow>
@@ -150,6 +151,24 @@ QRectF EditorBridge::screenArea(QQuickItem* item) const {
 	}
 	screen = screen ? screen : QGuiApplication::primaryScreen();
 	return screen ? QRectF(screen->availableGeometry()) : QRectF();
+}
+
+bool EditorBridge::passKey(QQuickItem* item, QObject* event) const {
+	if (!item || !event) {
+		return false;
+	}
+	QKeyEvent press(QEvent::KeyPress, event->property("key").toInt(),
+		Qt::KeyboardModifiers(event->property("modifiers").toInt()), event->property("text").toString(),
+		event->property("isAutoRepeat").toBool(), quint16(event->property("count").toInt()));
+	// as the window delivers a key the item in focus leaves
+	for (QQuickItem* parent = item->parentItem(); parent; parent = parent->parentItem()) {
+		press.accept();
+		QCoreApplication::sendEvent(parent, &press);
+		if (press.isAccepted()) {
+			return true;
+		}
+	}
+	return false;
 }
 
 void EditorBridge::resetLocalState() {

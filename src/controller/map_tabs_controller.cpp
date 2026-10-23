@@ -219,8 +219,9 @@ void MapTabsController::connectDocument(int id)
 	connect(doc, &MapDocument::edited, this, [this, id] { onEdited(id); });
 	connect(doc, &MapDocument::loaded, this, [this, id] { onSavedOrReverted(id); });
 	connect(doc, &MapDocument::saved, this, [this, id] { onSavedOrReverted(id); });
-	// undoing Map Properties can rename it
+	// its name: read again with the map, or renamed in the map tree
 	connect(doc, &MapDocument::mapReplaced, this, [this, id] { updateTab(id); });
+	connect(doc, &MapDocument::renamed, this, [this, id] { updateTab(id); });
 	connect(doc, &MapDocument::eventsChanged, this, [this, id] { updateTab(id); });
 }
 

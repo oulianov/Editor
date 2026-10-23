@@ -58,6 +58,17 @@ Ez.DialogWindow {
         source: root.form.map
         path: "generator_mode"
     }
+    // how the music and the battle background are chosen (2: specified)
+    Ez.JsonField {
+        id: musicType
+        source: root.form.info
+        path: "music_type"
+    }
+    Ez.JsonField {
+        id: backgroundType
+        source: root.form.info
+        path: "background_type"
+    }
 
     function pickPanorama() {
         const choice = Ez.Pickers.pickFile({ folder: "Panorama", preview: "Image", name: panoramaName.value ?? "" },
@@ -411,6 +422,12 @@ Ez.DialogWindow {
                         music: true
                         fieldName: "lineBGMname"
                         buttonName: "toolSetBGM"
+                        // a music picked is the map's: Specify
+                        onPicked: (choice) => {
+                            if (choice.name) {
+                                musicType.value = 2
+                            }
+                        }
                     }
                 }
                 Ez.Section {
@@ -448,6 +465,12 @@ Ez.DialogWindow {
                         folder: "Backdrop"
                         fieldName: "lineBackdropName"
                         buttonName: "toolSetBackdrop"
+                        // a background picked is the map's: Specify
+                        onPicked: (choice) => {
+                            if (choice.name) {
+                                backgroundType.value = 2
+                            }
+                        }
                     }
                 }
             }

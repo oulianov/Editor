@@ -27,7 +27,9 @@
  * Tells every view of a database list that it changed: entries added or
  * removed (Array Size, Paste...) or renamed. Lists are identified by the
  * address of their vector, so the copies edited by the database window and
- * by the "..." pickers do not mix.
+ * by the "..." pickers do not mix. The command lists and move routes hear
+ * it too: their lines name the entries, and the maps (the map tree tells
+ * of its maps renamed, MapTreeModel).
  */
 class DatabaseListNotifier : public QObject {
 	Q_OBJECT

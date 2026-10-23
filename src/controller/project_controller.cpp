@@ -555,6 +555,8 @@ bool ProjectController::reloadTreeMap()
 	}
 	m_tree.setRootName(core().project()->gameTitle());
 	m_treeRemoved = m_tree.update(before);
+	// the start positions another program moved, on the maps open
+	MapDocument::notifyStartChanged(core().project()->projectData(), before.start);
 	emit treeMapReloaded();
 	emit statusMessage(tr("Map tree reloaded"), 3000);
 	qCInfo(lcReload) << "map tree reloaded";
@@ -578,6 +580,48 @@ void ProjectController::keepTreeAfterMapSave()
 	const bool order = m_tree.syncOrder();
 	if (expanded || order)
 		writeTreeMapAfterSave();
+}
+
+bool ProjectController::saveTreeEntry(int id, lcf::rpg::MapInfo info)
+{
+	// another program can have changed the tree while a dialog was open:
+	// the entry goes into its version
+	refreshTreeMap();
+	const lcf::rpg::MapInfo* stored = m_tree.mapInfo(id);
+	if (!stored)
+		return false;
+	// the tree owns the hierarchy
+	info.ID = id;
+	info.parent_map = stored->parent_map;
+	info.indentation = stored->indentation;
+	info.expanded_node = stored->expanded_node;
+	m_tree.setMapInfo(id, info);
+	// The file takes this entry and nothing else of the tree: the start
+	// positions moved on a map are written when that map is saved
+	if (!core().project()->saveTreeMapEntry(info))
+	{
+		dialogs().error(tr("Map Tree"), tr("The map tree could not be written."));
+		return false;
+	}
+	return true;
+}
+
+bool ProjectController::renameNode(int id, const QString& name)
+{
+	refreshTreeMap();
+	const lcf::rpg::MapInfo* stored = m_tree.mapInfo(id);
+	if (!stored)
+		return false;
+	// the entry of the tree with the new name: the other unsaved edits of
+	// an open map's info (Map Properties) stay in its document, saved with it
+	lcf::rpg::MapInfo info = *stored;
+	info.name = ToDBString(name);
+	const bool saved = saveTreeEntry(id, info);
+	// the tree has the name, even unwritten (written with the tree then):
+	// the map open shows it, and saving the map does not write the old one
+	if (MapDocument* doc = document(id); doc && m_tree.mapInfo(id))
+		doc->setSavedName(ToQString(m_tree.mapInfo(id)->name));
+	return saved;
 }
 
 lcf::rpg::MapInfo ProjectController::newMapInfo(int parent) const
@@ -765,10 +809,7 @@ bool ProjectController::saveMapProperties(int id, const MapEdit& edit)
 		dialogs().error(tr("Map Properties"), tr("The file %1 cannot be written.").arg(mapFileName(id)));
 		return false;
 	}
-	if (m_tree.mapInfo(id))
-		m_tree.setMapInfo(id, edit.info);
-	writeTreeMap();
-	return true;
+	return saveTreeEntry(id, edit.info);
 }
 
 std::optional<ProjectController::DungeonSource> ProjectController::dungeonSource(int id)
@@ -897,9 +938,7 @@ int ProjectController::addArea(lcf::rpg::MapInfo info)
 
 void ProjectController::setAreaInfo(int id, const lcf::rpg::MapInfo& info)
 {
-	if (m_tree.mapInfo(id))
-		m_tree.setMapInfo(id, info);
-	writeTreeMap();
+	saveTreeEntry(id, info);
 }
 
 bool ProjectController::deleteArea(int id, const QString& name)

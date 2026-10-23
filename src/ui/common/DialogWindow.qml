@@ -4,6 +4,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
+import QtQuick.Templates as T
 import org.easyrpg.editor as Ez
 
 /**
@@ -11,10 +12,10 @@ import org.easyrpg.editor as Ez
  * column, then its buttons (OK and Cancel unless told otherwise). It is as
  * large as its content needs, at least.
  *
- * result says how it closed (QmlHost::Result): 1 accepted (OK), 0 rejected
- * (Cancel, Escape, the close button of the window). accept() can be
- * refused by onAccepting: set accepting.ok to false; reject() (and closing
- * the window) by onRejecting the same way, while something runs.
+ * result says how it closed (QmlHost::Result): 1 accepted (OK, Return),
+ * 0 rejected (Cancel, Escape, the close button of the window). accept() can
+ * be refused by onAccepting: set accepting.ok to false; reject() (and
+ * closing the window) by onRejecting the same way, while something runs.
  */
 Controls.ApplicationWindow {
     id: root
@@ -104,6 +105,9 @@ Controls.ApplicationWindow {
         anchors.margins: Ez.Metrics.dialogMargin
         spacing: Ez.Metrics.sectionSpacing
 
+        /** The tool tip the items share (Ez.ToolTip) */
+        readonly property T.ToolTip toolTip: Controls.ToolTip.toolTip
+
         ColumnLayout {
             id: body
             Layout.fillWidth: true
@@ -138,25 +142,62 @@ Controls.ApplicationWindow {
         when: target !== null
     }
 
+    /**
+     * A pop-up is open over the window (the search of a list, a menu, a
+     * dialog drawn in it): it takes Escape and Return first. The tool tip
+     * the items share takes no keys: it does not count (as for Qt's
+     * shortcuts).
+     */
+    function popupOpen(): bool {
+        const overlay = Controls.Overlay.overlay
+        if (!overlay) {
+            return false
+        }
+        const toolTip = layout.toolTip
+        const toolTipItem = toolTip && toolTip.contentItem ? toolTip.contentItem.parent : null
+        for (let i = 0; i < overlay.children.length; ++i) {
+            const child = overlay.children[i]
+            if (child.visible && child !== toolTipItem) {
+                return true
+            }
+        }
+        return false
+    }
+
     Shortcut {
         sequences: [StandardKey.Cancel]
         // only in the window in front (not under the dialog it opened), and
-        // a pop-up open (the search of a list, a menu) takes Escape first
-        enabled: {
-            if (!root.active || !root.activeFocusItem) {
-                return false
-            }
-            const overlay = Controls.Overlay.overlay
-            if (!overlay) {
-                return true
-            }
-            for (let i = 0; i < overlay.children.length; ++i) {
-                if (overlay.children[i].visible) {
-                    return false
-                }
-            }
-            return true
-        }
+        // a pop-up open takes Escape first
+        enabled: root.active && root.activeFocusItem !== null && !root.popupOpen()
         onActivated: root.reject()
+    }
+
+    // Return and Enter that the control in focus leaves (a field once it
+    // took its text, a check box; not a text of several lines, a list
+    // opening its lines with them, an open drop-down) press OK
+    // (Ez.ButtonBox.pressDefault): they come up from the control to the
+    // window's own item, as to a desktop dialog. A pop-up open takes them
+    // first.
+    Connections {
+        target: {
+            let item = root.contentItem
+            while (item && item.parent) {
+                item = item.parent
+            }
+            return item ? item.Keys : null
+        }
+        function onReturnPressed(event) {
+            root.pressDefault(event)
+        }
+        function onEnterPressed(event) {
+            root.pressDefault(event)
+        }
+    }
+    function pressDefault(event) {
+        if (root.closed || root.popupOpen()) {
+            event.accepted = false
+            return
+        }
+        box.pressDefault(event)
     }
 }

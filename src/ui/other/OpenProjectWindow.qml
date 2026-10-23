@@ -141,6 +141,9 @@ Ez.DialogWindow {
                 typing.stop()
                 root.chooseFolder(text)
             }
+            // Return lists the folder typed: it does not open a project (OK)
+            Keys.onReturnPressed: (event) => event.accepted = true
+            Keys.onEnterPressed: (event) => event.accepted = true
         }
     }
 

@@ -117,6 +117,13 @@ public:
 
 	bool saveDatabase(bool incSavecount = true);
 	bool saveTreeMap();
+	/** Writes the map tree as last read or written with only one entry
+	 *  replaced by info (found by its id; its parent, its depth and its
+	 *  expanded flag kept): what else the map tree holds and its file does
+	 *  not (the start positions of the maps not saved yet) stays unsaved.
+	 *  The map tree itself is the caller's to change. false when the file
+	 *  has no such entry or could not be written. */
+	bool saveTreeMapEntry(const lcf::rpg::MapInfo& info);
 
 private:
 	FileFinder::ProjectType m_projectType;
@@ -126,6 +133,7 @@ private:
 	QString m_gameTitle;
 	bool reloadDatabase(lcf::rpg::Database* target);
 	bool reloadTreeMap(lcf::rpg::TreeMap* target);
+	bool writeTreeMap(const lcf::rpg::TreeMap& tree);
 
 	ProjectData m_data;
 	/** The map tree as last read or written */

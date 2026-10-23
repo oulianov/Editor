@@ -21,6 +21,7 @@
 #include <QPalette>
 #include <algorithm>
 #include "common/dbstring.h"
+#include "model/database_list_data.h"
 #include "stringizer.h"
 
 MoveRouteModel::Moves MoveRouteModel::s_clipboard;
@@ -28,6 +29,13 @@ MoveRouteModel::Moves MoveRouteModel::s_clipboard;
 MoveRouteModel::MoveRouteModel(QObject* parent) :
 	QAbstractListModel(parent)
 {
+	// Switch ON and Switch OFF name their switch: renamed (in the picker of
+	// a move, the database window), the lines show the new name at once
+	connect(&DatabaseListNotifier::instance(), &DatabaseListNotifier::listChanged, this, [this] {
+		if (moveCount() > 0) {
+			emit dataChanged(index(0), index(moveCount() - 1), {Qt::DisplayRole});
+		}
+	});
 }
 
 void MoveRouteModel::setRoute(const lcf::rpg::MoveRoute& route)

@@ -105,11 +105,11 @@ at once: the next commands act on the dialog, until `close`.
 | `expect-option-enabled NAME INDEX on\|off` | The same for one item of a combo box.
 | `inspect-controls FILE` | Writes the controls and group boxes of the dialog to a JSON file: values, choices, enabled states, position and widths (to find what makes a window too wide).
 | `check-option-spacing PIXELS` | Checks the vertical clearance between sibling check boxes and radio buttons, including their rendered indicators.
-| `map-click X Y [left\|right]` | Clicks a cell of the map shown (see the map canvas below).
+| `map-click X Y [left\|right] [shift]` | Clicks a cell of the map shown (see the map canvas below); `shift`: with Shift held.
 | `map-double-click X Y` | Double-clicks a cell of the map shown.
-| `map-drag X1 Y1 X2 Y2` | Drags on the map with the left button, through every cell.
+| `map-drag X1 Y1 X2 Y2 [right] [shift]` | Drags on the map with the left button (`right`: the right one), through every cell; `shift`: with Shift held.
 | `palette INDEX [W H]` | Selects tiles of the palette of the current layer (0: the first tile after the eraser row), a block of W x H tiles.
-| `expect-tile lower\|upper X Y ID` | Fails unless the tile of the cell is ID (lower layer: the same terrain).
+| `expect-tile lower\|upper X Y ID [exact]` | Fails unless the tile of the cell is ID (lower layer: the same terrain, unless `exact`: the borders too).
 | `expect-event X Y ID` | Fails unless the event on the cell has this ID (0: no event).
 | `expect-cell X Y` | Fails unless the cell selected on the event layer is this one.
 | `expect-start party\|boat\|ship\|airship MAP X Y` | Fails unless the start position is there.

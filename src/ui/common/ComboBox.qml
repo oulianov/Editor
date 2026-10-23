@@ -117,4 +117,18 @@ Controls.ComboBox {
             field.value = currentValue
         }
     }
+
+    // Return and Enter on the closed box go on to the items around it (the
+    // window's OK), as a desktop combo box leaves them: Qt's takes them even
+    // closed. Open, they choose the entry marked.
+    Keys.onReturnPressed: (event) => root.passReturn(event)
+    Keys.onEnterPressed: (event) => root.passReturn(event)
+    function passReturn(event) {
+        if (popup && popup.visible) {
+            event.accepted = false
+            return
+        }
+        Ez.Editor.passKey(root, event)
+        event.accepted = true
+    }
 }
