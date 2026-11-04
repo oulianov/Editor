@@ -6,7 +6,8 @@
 #   builds/macos/build.sh --tests    # also the start-up test (and its game)
 #
 # Homebrew gives Qt 6 and the libraries. The Editor is built in BUILD_DIR,
-# with liblcf cloned into lib/liblcf and built alongside. The libraries of its
+# with liblcf of the submodule lib/liblcf built alongside (checked out by
+# CMake when missing: git submodule update --init). The libraries of its
 # QML interface, KDE's Kirigami with its Breeze style and KDDockWidgets, are
 # built once per Qt into DEPS_DIR/kde (they use Qt's private headers).
 #

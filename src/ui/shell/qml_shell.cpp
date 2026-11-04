@@ -326,6 +326,8 @@ void QmlShell::trigger(const QString& name, bool checked)
 		exportGame();
 	else if (is("actionProjectConvert2003"))
 		m_shell->convertProject();
+	else if (is("actionProjectManiacCheck"))
+		m_shell->checkManiac(ShellController::ManiacCheck::Asked);
 	else if (is("actionProjectImport"))
 		m_shell->importProjectWindow();
 	else if (is("actionQuit"))
@@ -396,8 +398,13 @@ void QmlShell::trigger(const QString& name, bool checked)
 		ResourceWindows::jukebox(m_window);
 	else if (is("actionSearch"))
 		openSearch();
-	else if (is("actionSettings"))
+	else if (is("actionSettings")) {
+		const bool maniac = EditorSettings::instance().maniacMode();
 		m_dialogs->settings();
+		// the Maniac mode switched on with a game open: what the Maniac Patch does not run in it
+		if (!maniac && EditorSettings::instance().maniacMode())
+			m_shell->checkManiac(ShellController::ManiacCheck::ModeOn);
+	}
 	// Game
 	else if (is("actionPlayTest"))
 		TestPlay::launch(m_window, {});

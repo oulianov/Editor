@@ -25,6 +25,7 @@
 #include <lcf/rpg/map.h>
 #include <lcf/rpg/mapinfo.h>
 #include "controller/project_controller.h"
+#include "model/maniac_compat.h"
 #include "model/project_convert.h"
 
 class Project;
@@ -81,6 +82,24 @@ public:
 	virtual std::optional<ProjectConvert::Options> convertProject(const Project& project) = 0;
 	/** What the conversion did: error empty when it worked */
 	virtual void convertResult(const QString& error, const QString& backup) = 0;
+
+	/** The Maniac mode's check of the project (ManiacCompat): what it uses
+	 *  that the Maniac Patch does not run; true: convert what can be.
+	 *  backup: the folder the files go to first */
+	virtual bool maniacCheck(const ManiacCompat::Report& report, const QString& backup) = 0;
+	/** What the Maniac conversion did */
+	struct ManiacResult {
+		/** Empty when it worked */
+		QString error;
+		/** The uses converted, those that stay */
+		int converted = 0;
+		int remaining = 0;
+		/** The folders of the files as they were: before the conversion, and
+		 *  the files of RPG Maker 2000 when it was converted first */
+		QString backup;
+		QString backup2000;
+	};
+	virtual void maniacResult(const ManiacResult& result) = 0;
 
 	/** Map Properties (of a new map too): false when cancelled */
 	virtual bool mapProperties(lcf::rpg::MapInfo& info, lcf::rpg::Map& map) = 0;

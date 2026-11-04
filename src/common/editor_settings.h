@@ -52,6 +52,11 @@ public:
 	bool reloadExternalChanges() const;
 	void setReloadExternalChanges(bool on);
 
+	/** Maniac mode (off by default): every game is edited as a game of the
+	 *  Maniac Patch (GamePatches::usesManiac), its commands and options offered */
+	bool maniacMode() const;
+	void setManiacMode(bool on);
+
 	/** Water and animated tiles move in the map view */
 	bool animateTiles() const;
 	void setAnimateTiles(bool on);

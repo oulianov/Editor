@@ -18,9 +18,13 @@
 #include "command_schema.h"
 #include "common/dbstring.h"
 #include "defines.h"
+#include "core.h"
+#include "model/game_patches.h"
+#include "model/project.h"
 #include <QCoreApplication>
 #include <algorithm>
 #include <deque>
+#include <limits>
 #include <string>
 
 using namespace CommandSchema;
@@ -60,6 +64,9 @@ struct F : Field {
 	F& inlined() { return with(Flag::Inline); }
 	F& rpg2003() { return with(Flag::Rpg2003); }
 	F& maniac() { return with(Flag::Maniac); }
+	/** An option of the Maniac Patch in a command of RPG Maker: hidden in the other games */
+	F& maniacOnly() { return with(Flag::Maniac).with(Flag::ManiacOnly); }
+	F& notManiac() { return with(Flag::NotManiac); }
 	F& extension() { return with(Flag::Extension); }
 	F& hidden() { return with(Flag::Hidden); }
 	F& preview() { return with(Flag::Preview); }
@@ -75,6 +82,11 @@ struct F : Field {
 	F& withLink(const char* id) { link = id; return *this; }
 	F& withLimit(int characters) { limit = characters; return *this; }
 	F& withItems(Items more) { items.insert(items.end(), more.begin(), more.end()); return *this; }
+	/** The range in the games of the Maniac Patch (by default RPG Maker's,
+	 *  the range of the variables widened to int32's) */
+	F& maniacRange(int low, int high) { maniacMinimum = low; maniacMaximum = high; return *this; }
+	/** Radio buttons in columns in the games of the Maniac Patch (its items shown) */
+	F& maniacColumns(int count) { maniacColumnCount = count; return *this; }
 	F& when(const char* id, std::vector<int> values) { visible.push_back({id, std::move(values), false}); return *this; }
 	F& unless(const char* id, std::vector<int> values) { visible.push_back({id, std::move(values), true}); return *this; }
 	F& enabledWhen(const char* id, std::vector<int> values) { enabled.push_back({id, std::move(values), false}); return *this; }
@@ -213,39 +225,62 @@ Items operator+(Items first, const Items& second) {
 
 // The party, a hero, or the hero in a variable (mode at index, hero at
 // index + 1)
-Fields partyOperand(Label group, int index) {
-	return fields(
+Fields partyOperand(Label group, int index, bool pointer = false) {
+	Items targets = {
+		{0, in("PartyOperandWidget", QT_TRANSLATE_NOOP("PartyOperandWidget", "Entire Party"))},
+		{1, in("PartyOperandWidget", QT_TRANSLATE_NOOP("PartyOperandWidget", "Specific"))},
+		{2, in("PartyOperandWidget", QT_TRANSLATE_NOOP("PartyOperandWidget", "By Variable"))}};
+	if (pointer) {
+		// Maniac Patch (Change Condition): 3, the hero in a variable pointer
+		targets.push_back({3, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable pointer")), Flag::Maniac});
+	}
+	Fields list = fields(
 		section(group),
-		choice("target", index, {}, {
-			{0, in("PartyOperandWidget", QT_TRANSLATE_NOOP("PartyOperandWidget", "Entire Party"))},
-			{1, in("PartyOperandWidget", QT_TRANSLATE_NOOP("PartyOperandWidget", "Specific"))},
-			{2, in("PartyOperandWidget", QT_TRANSLATE_NOOP("PartyOperandWidget", "By Variable"))}}).radio(),
+		choice("target", index, {}, targets).radio(),
 		ref(Kind::Actor, "actor", index + 1).when("target", {1}).inlined(),
 		variable("actorVariable", index + 1).when("target", {2}).inlined());
+	if (pointer) {
+		append(list, variable("actorPointer", index + 1).when("target", {3}).inlined().maniac());
+	}
+	return list;
 }
 
-// A constant or a variable (mode at index, value at index + 1)
+/** The Maniac Patch's mode of a value in a variable pointer: V[V[x]] */
+Item pointerItem() {
+	return {2, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable pointer")), Flag::Maniac};
+}
+
+// A constant or a variable (mode at index, value at index + 1); with the
+// Maniac Patch, a variable pointer
 Fields valueOperand(const char* id, Label group, int index, int minimum = -9999999, int maximum = 9999999) {
 	const char* operand = name(id, "Operand");
 	return fields(
 		section(group),
 		choice(operand, index, {}, {
 			{0, in("ValueOperandWidget", QT_TRANSLATE_NOOP("ValueOperandWidget", "Constant"))},
-			{1, in("ValueOperandWidget", QT_TRANSLATE_NOOP("ValueOperandWidget", "By Variable"))}}).radio(),
+			{1, in("ValueOperandWidget", QT_TRANSLATE_NOOP("ValueOperandWidget", "By Variable"))},
+			pointerItem()}).radio(),
 		number(id, index + 1, {}, minimum, maximum).when(operand, {0}).inlined(),
-		variable(name(id, "Variable"), index + 1).when(operand, {1}).inlined());
+		variable(name(id, "Variable"), index + 1).when(operand, {1}).inlined(),
+		variable(name(id, "Pointer"), index + 1).when(operand, {2}).inlined().maniac());
 }
 
-// An entry of the database or the one in a variable
-Fields entryOperand(Kind kind, const char* id, Label group, int index) {
+// An entry of the database or the one in a variable; with the Maniac Patch,
+// a variable pointer (pointer: EasyRPG Player reads it)
+Fields entryOperand(Kind kind, const char* id, Label group, int index, bool pointer = true) {
 	const char* operand = name(id, "Operand");
-	return fields(
+	Items items = {
+		{0, in("OperandWidget", QT_TRANSLATE_NOOP("OperandWidget", "Specific"))},
+		{1, in("OperandWidget", QT_TRANSLATE_NOOP("OperandWidget", "By Variable"))}};
+	Fields list = fields(
 		section(group),
-		choice(operand, index, {}, {
-			{0, in("OperandWidget", QT_TRANSLATE_NOOP("OperandWidget", "Specific"))},
-			{1, in("OperandWidget", QT_TRANSLATE_NOOP("OperandWidget", "By Variable"))}}).radio(),
+		choice(operand, index, {}, pointer ? items + Items{pointerItem()} : items).radio(),
 		ref(kind, id, index + 1).when(operand, {0}).inlined(),
 		variable(name(id, "Variable"), index + 1).when(operand, {1}).inlined());
+	if (pointer) {
+		append(list, variable(name(id, "Pointer"), index + 1).when(operand, {2}).inlined().maniac());
+	}
+	return list;
 }
 
 // A switch, a range of them, or the one in a variable
@@ -272,9 +307,11 @@ Fields timerOperand(Label group, int index) {
 		section(group),
 		choice("timeOperand", index, {}, {
 			{0, in("TimerOperandWidget", QT_TRANSLATE_NOOP("TimerOperandWidget", "Constant"))},
-			{1, in("TimerOperandWidget", QT_TRANSLATE_NOOP("TimerOperandWidget", "By Variable"))}}).radio(),
+			{1, in("TimerOperandWidget", QT_TRANSLATE_NOOP("TimerOperandWidget", "By Variable"))},
+			pointerItem()}).radio(),
 		time("time", index + 1).when("timeOperand", {0}).inlined(),
-		variable("timeVariable", index + 1).when("timeOperand", {1}).inlined());
+		variable("timeVariable", index + 1).when("timeOperand", {1}).inlined(),
+		variable("timePointer", index + 1).when("timeOperand", {2}).inlined().maniac());
 }
 
 // The file, then the volume, tempo and balance from volume
@@ -298,15 +335,22 @@ Fields audio(int volume) {
 }
 
 // A location: a map (map < 0: the map of the event) and
-// a cell, given or in variables (mode < 0: given). The given one is shown
-// as RPG Maker 2003's location box, its map and cell hidden
-Fields location(int mode, int map, int x, int y) {
+// a cell, given or in variables (mode < 0: given; its bits: the low ones
+// of the parameter, modeBits of them). The given one is shown as RPG Maker
+// 2003's location box, its map and cell hidden. pointer: with the Maniac
+// Patch, the variables can be pointers (2)
+Fields location(int mode, int map, int x, int y, int modeBits = 32, bool pointer = false) {
 	Fields list = fields(section(in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Location"))));
 	if (mode >= 0) {
 		// radio buttons under the title, as RPG Maker 2003
-		append(list, choice("locationMode", mode, {}, {
+		Items items = {
 			{0, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Specific Location"))},
-			{1, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Location Referenced from Variables"))}}).radio());
+			{1, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Location Referenced from Variables"))}};
+		if (pointer) {
+			items.push_back({2, in("LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Location Referenced from Variable Pointers")),
+				Flag::Maniac});
+		}
+		append(list, choice("locationMode", mode, {}, items).bitsAt(0, modeBits).radio());
 	}
 	const char* link = map >= 0 ? "map" : nullptr;
 	Fields given;
@@ -445,6 +489,11 @@ Modes stringModes() {
 		{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "String pointer")), Kind::Variable}};
 }
 
+Modes operator+(Modes first, const Modes& second) {
+	first.insert(first.end(), second.begin(), second.end());
+	return first;
+}
+
 /** The mode of a value: in the nibble slot of the parameter, slot < 0: the whole parameter */
 F mode(const char* id, Label label, int index, int slot, const Modes& modes) {
 	Items items;
@@ -535,6 +584,81 @@ Items layers() {
 }
 
 /*
+ * The Maniac Patch in the commands of RPG Maker: a value can be given by a
+ * variable, a variable pointer, a string variable... its mode in a nibble
+ * of another parameter (0 in the other games: RPG Maker's value). The
+ * editors show the mode before the value in its games, the fields of the
+ * other kinds of values in its place
+ */
+
+/** value with its modes, in the nibble slot of parameter modeIndex (slot < 0:
+ *  the whole parameter). The variables and strings of the other modes are in
+ *  parameter index, else the value's (a text: in a parameter of its own) */
+Fields modal(F value, int modeIndex, int slot, const Modes& modes, int index = -1) {
+	const char* modeId = name(value.id, "Mode");
+	value.mode = modeId;
+	// shown with the value: its default written with it (the parameter of
+	// the mode has other uses where the value is not shown)
+	F modeField = mode(modeId, value.label, modeIndex, slot, modes).hidden().maniac().extension();
+	modeField.visible = value.visible;
+	modeField.enabled = value.enabled;
+	Fields list = fields(modeField, value);
+	std::vector<Kind> kinds;
+	for (const auto& one : modes) {
+		if (one.mode != 0 && std::find(kinds.begin(), kinds.end(), one.kind) == kinds.end()) {
+			kinds.push_back(one.kind);
+		}
+	}
+	for (Kind kind : kinds) {
+		std::vector<int> values;
+		for (const auto& one : modes) {
+			if (one.mode != 0 && one.kind == kind) {
+				values.push_back(one.mode);
+			}
+		}
+		const int at = index >= 0 ? index : value.index;
+		F other = kind == Kind::StringId ? field(Kind::StringId, name(value.id, "String"), at, value.label).withRange(0, 99999).withDefault(1)
+			: kind == Kind::Switch ? ref(Kind::Switch, name(value.id, "Switch"), at, value.label)
+			: variable(name(value.id, "Variable"), at, value.label);
+		other.replaces = value.id;
+		other.visible = value.visible;
+		other.enabled = value.enabled;
+		append(list, other.when(modeId, values).hidden().maniac().extension());
+	}
+	return list;
+}
+
+/** A number or an ID of RPG Maker, or the one in a variable or a variable pointer */
+Fields modalNumber(F value, int modeIndex, int slot) {
+	return modal(std::move(value), modeIndex, slot, numberModes());
+}
+
+/** A text or a file of RPG Maker (the string of the command), or a string
+ *  variable (T[x], T[V[x]]: in parameter index) */
+Fields modalText(F value, int modeIndex, int slot, int index) {
+	return modal(std::move(value), modeIndex, slot, stringModes(), index);
+}
+
+/** The fields of a music or a sound with their modes, one per field in the
+ *  nibbles of parameter modes from the first one (the file's: its string
+ *  variable in parameter string) */
+Fields withModes(const Fields& list, int modes, int string) {
+	Fields result;
+	int slot = 0;
+	for (const auto& one : list) {
+		if (!one.hasValue()) {
+			append(result, one);
+			continue;
+		}
+		F value;
+		static_cast<Field&>(value) = one;
+		append(result, one.usesString() ? modalText(value, modes, slot, string) : modalNumber(value, modes, slot));
+		++slot;
+	}
+	return result;
+}
+
+/*
  * The table
  */
 
@@ -548,11 +672,25 @@ public:
 		schema.fields = std::move(list);
 		schema.flags = flags;
 		schema.custom = custom;
+		// the notes get ids of their own, for their rules
+		static const char* const notes[] = {"note1", "note2", "note3", "note4", "note5", "note6", "note7", "note8",
+			"note9", "note10", "note11", "note12", "note13", "note14", "note15", "note16"};
+		size_t note = 0;
 		for (auto& one : schema.fields) {
+			if (one.kind == Kind::Note && !*one.id && note < std::size(notes)) {
+				one.id = notes[note++];
+			}
 			one.label = resolve(one.label, context);
 			one.suffix = resolve(one.suffix, context);
 			for (auto& item : one.items) {
 				item.text = resolve(item.text, context);
+			}
+			if (one.maniacMinimum == 0 && one.maniacMaximum == 0) {
+				// the Maniac Patch takes any int32 where RPG Maker takes the
+				// values of its variables
+				constexpr int variables = 9999999;
+				one.maniacMinimum = one.minimum <= -variables ? std::numeric_limits<int32_t>::min() : one.minimum;
+				one.maniacMaximum = one.maximum >= variables ? std::numeric_limits<int32_t>::max() : one.maximum;
 			}
 		}
 		m_schemas.push_back(std::move(schema));
@@ -592,7 +730,8 @@ void addBattle2003(Table& table) {
 			{0, QT_TRANSLATE_NOOP("ForceFleeWidget", "Party Flees")},
 			{1, QT_TRANSLATE_NOOP("ForceFleeWidget", "All Monsters Flee")},
 			{2, QT_TRANSLATE_NOOP("ForceFleeWidget", "Only this Monster Flees")}}).radio(),
-		monster("monster", 1).enabledWhen("target", {2}).inlined(),
+		// Maniac Patch: the monster's mode in p3
+		modalNumber(monster("monster", 1).enabledWhen("target", {2}).inlined(), 3, 0),
 		section(QT_TRANSLATE_NOOP("ForceFleeWidget", "Option")),
 		// checked (1, as RPG Maker 2003 writes it), a surrounded target (the
 		// party: in a pincers attack) does not flee
@@ -602,17 +741,19 @@ void addBattle2003(Table& table) {
 	// Enable Combo
 	table.add(Code::EnableCombo, "EnableComboWidget", QT_TRANSLATE_NOOP("EnableComboWidget", "Enable Combo"), fields(
 		section(QT_TRANSLATE_NOOP("EnableComboWidget", "Parameters")),
-		ref(Kind::Actor, "hero", 0, QT_TRANSLATE_NOOP("EnableComboWidget", "Target Hero")),
-		ref(Kind::BattleCommand, "command", 1, QT_TRANSLATE_NOOP("EnableComboWidget", "Target Battle Command")),
-		number("repetitions", 2, QT_TRANSLATE_NOOP("EnableComboWidget", "Number of Repetitions"), 1, 99)
+		// Maniac Patch: their modes in p3
+		modalNumber(ref(Kind::Actor, "hero", 0, QT_TRANSLATE_NOOP("EnableComboWidget", "Target Hero")), 3, 0),
+		modalNumber(ref(Kind::BattleCommand, "command", 1, QT_TRANSLATE_NOOP("EnableComboWidget", "Target Battle Command")), 3, 1),
+		modalNumber(number("repetitions", 2, QT_TRANSLATE_NOOP("EnableComboWidget", "Number of Repetitions"), 1, 99), 3, 2)
 	), Flag::Rpg2003);
 
 	// Change Class
 	table.add(Code::ChangeClass, "HeroCommandWidget", QT_TRANSLATE_NOOP("HeroCommandWidget", "Change Class"), fields(
 		partyOperand(QT_TRANSLATE_NOOP("HeroCommandWidget", "Target"), 0),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Class")),
-		ref(Kind::Class, "class", 2)
-			.withItems({{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "(None)")}}).withDefault(0),
+		// Maniac Patch: its mode in nibble 1 of p7
+		modalNumber(ref(Kind::Class, "class", 2)
+			.withItems({{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "(None)")}}).withDefault(0), 7, 1),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Level")),
 		choice("level", 3, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Retain Current Level")},
@@ -637,8 +778,9 @@ void addBattle2003(Table& table) {
 		partyOperand(QT_TRANSLATE_NOOP("HeroCommandWidget", "Target"), 0),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Battle Command")),
 		// "All" (0) only means something for Remove
-		ref(Kind::BattleCommand, "command", 2, QT_TRANSLATE_NOOP("HeroCommandWidget", "Command:"))
-			.withItems({{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "All")}}),
+		// Maniac Patch: its mode in nibble 1 of p4
+		modalNumber(ref(Kind::BattleCommand, "command", 2, QT_TRANSLATE_NOOP("HeroCommandWidget", "Command:"))
+			.withItems({{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "All")}}), 4, 1),
 		choice("operation", 3, QT_TRANSLATE_NOOP("HeroCommandWidget", "Operation:"), {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Remove")},
 			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Add")}})
@@ -654,34 +796,135 @@ Items maniacOrigins() {
 		{8, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Right"))}};
 }
 
-// Maniac Patch: the layouts
-// EasyRPG Player reads, the titles of the palette
+// The values of the Maniac Patch are int32s
+constexpr int int32Min = std::numeric_limits<int32_t>::min();
+constexpr int int32Max = std::numeric_limits<int32_t>::max();
+
+/** A constant or a variable holding it (no pointer) */
+Modes constantOrVariable() {
+	return {{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Constant")), Kind::Number},
+		{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable")), Kind::Variable}};
+}
+
+/** A string variable: its number, or the number in a variable */
+Modes stringIdModes() {
+	return {{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "String")), Kind::StringId},
+		{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "String pointer")), Kind::Variable}};
+}
+
+/** The string variables of the fields up to the largest int32, from minimum */
+Fields anyString(Fields list, int minimum = 0) {
+	for (auto& one : list) {
+		if (one.kind == Kind::StringId) {
+			one.minimum = minimum;
+			one.maximum = int32Max;
+			one.defaultValue = std::max(one.defaultValue, minimum);
+		}
+	}
+	return list;
+}
+
+F stringId(const char* id, int index, Label label = {}) {
+	return field(Kind::StringId, id, index, label).withRange(0, int32Max);
+}
+
+/** A mode and its value, an int32 by default */
+Fields int32Value(const char* id, Label label, int modeIndex, int slot, int index, const Modes& modes = numberModes(),
+	int minimum = int32Min, int maximum = int32Max) {
+	return anyString(value(id, label, modeIndex, slot, index, minimum, maximum, modes));
+}
+
+/** X, Y, width and height (int32s), their modes in the nibbles first.. of modeIndex */
+Fields maniacArea(const char* prefix, int modeIndex, int first, int index) {
+	return fields(
+		int32Value(name(prefix, "X"), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "X")), modeIndex, first, index),
+		int32Value(name(prefix, "Y"), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y")), modeIndex, first + 1, index + 1),
+		int32Value(name(prefix, "Width"), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Width")), modeIndex, first + 2, index + 2),
+		int32Value(name(prefix, "Height"), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Height")), modeIndex, first + 3, index + 3));
+}
+
+/** A picture number given by a mode */
+Fields pictureNumber(const char* id, int modeIndex, int slot, int index) {
+	return int32Value(id, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture No.")), modeIndex, slot, index, numberModes(), 1, int32Max);
+}
+
+/** The constant of a value written when its fields are shown */
+Fields startingAt(Fields list, int constant) {
+	for (auto& one : list) {
+		if (one.kind == Kind::Number) {
+			one.defaultValue = constant;
+		}
+	}
+	return list;
+}
+
+/** An entry of the database (kind, after the entries specials), or its ID
+ *  in a variable or a variable pointer: the mode in the nibble slot of
+ *  modeIndex, the value on its row */
+Fields entryValue(const char* id, Label label, int modeIndex, int slot, int index, Kind kind, Label entry, Items specials = {}) {
+	const char* modeId = name(id, "Mode");
+	auto given = ref(kind, id, index).withItems(specials).inlined().when(modeId, {0});
+	if (!specials.empty()) {
+		given.withDefault(specials.front().value);
+	}
+	return fields(
+		mode(modeId, label, modeIndex, slot, {{0, entry, kind},
+			{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable")), Kind::Variable},
+			{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable pointer")), Kind::Variable}}),
+		given,
+		variable(name(id, "Variable"), index).inlined().when(modeId, {1, 2}));
+}
+
+/** Control Self Variable: the owner of switches, variables and strings (the
+ *  game, or an event: its own ones) in the nibble slot of parameter 0, the
+ *  modes of its event (index) and map (index + 1) in the next nibbles */
+Fields selfOwner(const char* id, Label label, int slot, int index) {
+	return fields(
+		choice(id, 0, label, {
+			{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "The game"))},
+			{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common event"))},
+			{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Map event"))},
+			{3, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Current event"))},
+			{4, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Calling event"))}}).bitsAt(slot * 4, 4),
+		onlyWhen(entryValue(name(id, "CommonEvent"), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common event")), 0, slot + 1, index,
+			Kind::CommonEvent, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common event"))), id, {1}),
+		onlyWhen(startingAt(int32Value(name(id, "Event"), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Event (10005: this event)")),
+			0, slot + 1, index, numberModes(), 1, int32Max), 10005), id, {2}),
+		onlyWhen(entryValue(name(id, "Map"), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Map")), 0, slot + 2, index + 1,
+			Kind::Map, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Map"))), id, {2}));
+}
+
+// Maniac Patch: the layouts EasyRPG Player reads, else those of the EasyRPG
+// wiki, of the Maniac Patch's own documents, editor dialogs and TPC; the
+// titles of the palette
 void addManiac(Table& table) {
 	const char* context = "ManiacCommandWidget";
 
-	// Get Save Info
+	// Get Save Info: the mode of the slot in nibble 0, 16: the name of the
+	// first member to a string variable
 	table.add(Code::Maniac_GetSaveInfo, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Get Save Info")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save File")),
-		// EasyRPG Player reads the whole parameter 0 as the mode
-		value("slot", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save slot"), 0, -1, 1, 1, 9999),
+		int32Value("slot", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save slot"), 0, 0, 1, constantOrVariable()),
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Store In")),
 		variable("date", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Date (YYMMDD)")),
 		variable("time", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Time (HHMMSS)")),
 		variable("level", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Level")),
 		variable("hp", 5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "HP")),
+		check("storeName", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name of the first member in a string")).bit(4),
+		stringId("name", 6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name")).withDefault(1).enabledUnless("storeName", {0}),
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Faces as Pictures (0: none)")),
 		// one mode for the four picture numbers
-		mode("faceMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture numbers"), 7, -1, numberModes()),
-		modeValue("face1", "faceMode", 8, 0, 9999, numberModes(), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face %1"), 1)),
-		modeValue("face2", "faceMode", 9, 0, 9999, numberModes(), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face %1"), 2)),
-		modeValue("face3", "faceMode", 10, 0, 9999, numberModes(), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face %1"), 3)),
-		modeValue("face4", "faceMode", 11, 0, 9999, numberModes(), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face %1"), 4))
+		mode("faceMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture numbers"), 7, -1, constantOrVariable()),
+		modeValue("face1", "faceMode", 8, 0, int32Max, constantOrVariable(), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face %1"), 1)),
+		modeValue("face2", "faceMode", 9, 0, int32Max, constantOrVariable(), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face %1"), 2)),
+		modeValue("face3", "faceMode", 10, 0, int32Max, constantOrVariable(), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face %1"), 3)),
+		modeValue("face4", "faceMode", 11, 0, int32Max, constantOrVariable(), maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face %1"), 4))
 	), Flag::Maniac);
 
 	// Save Game
 	table.add(Code::Maniac_Save, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Save Game")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save File")),
-		value("slot", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save slot"), 0, -1, 1, 1, 9999),
+		int32Value("slot", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save slot"), 0, -1, 1, constantOrVariable(), 1, int32Max),
 		check("storeResult", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Store the result in a variable")),
 		variable("result", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Result")).enabledUnless("storeResult", {0})
 	), Flag::Maniac);
@@ -689,23 +932,26 @@ void addManiac(Table& table) {
 	// Load Game
 	table.add(Code::Maniac_Load, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Load Game")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save File")),
-		value("slot", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save slot"), 0, -1, 1, 1, 9999),
-		check("skipCheck", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Do not check that the save exists"))
+		int32Value("slot", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save slot"), 0, -1, 1, constantOrVariable(), 1, int32Max),
+		check("skipCheck", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Do not check that the save exists")),
+		check("noBlackout", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Do not black out the screen"))
 	), Flag::Maniac);
 
-	// Get Mouse Position
+	// Get Mouse Position: parameter 2 unused
 	table.add(Code::Maniac_GetMousePosition, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Get Mouse Position")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Store In")),
 		variable("x", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "X")),
-		variable("y", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y"))
+		variable("y", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y")),
+		check("ignoreRatio", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Ignore the window size ratio"))
 	), Flag::Maniac);
 
-	// Set Mouse Position: not run by EasyRPG Player, the layout of rpgsync (one mode for both)
+	// Set Mouse Position: not run by EasyRPG Player, the layout of the wiki (one mode for both)
 	table.add(Code::Maniac_SetMousePosition, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Set Mouse Position")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Position")),
-		mode("mode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Given as"), 0, 0, numberModes()),
-		modeValue("x", "mode", 1, -9999, 9999, numberModes(), QT_TRANSLATE_NOOP("ManiacCommandWidget", "X")),
-		modeValue("y", "mode", 2, -9999, 9999, numberModes(), QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y"))
+		mode("mode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Given as"), 0, 0, constantOrVariable()),
+		modeValue("x", "mode", 1, int32Min, int32Max, constantOrVariable(), QT_TRANSLATE_NOOP("ManiacCommandWidget", "X")),
+		modeValue("y", "mode", 2, int32Min, int32Max, constantOrVariable(), QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y")),
+		check("ignoreRatio", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Ignore the window size ratio"))
 	), Flag::Maniac);
 
 	// Show String Picture: its string holds the text, the system graphic and
@@ -715,9 +961,9 @@ void addManiac(Table& table) {
 		section(QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Text")),
 		string("text", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Text")),
 		// the string of the text when its mode (in the string) is not 0
-		field(Kind::StringId, "textId", 22, {}).withRange(0, 99999),
+		stringId("textId", 22),
 		section(QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Font")),
-		value("fontSize", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Size"), 0, 5, 20, 0, 999),
+		value("fontSize", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Size"), 0, 5, 20, 0, int32Max),
 		number("letterSpacing", 14, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Letter spacing"), 0, 255).bitsAt(8, 8),
 		number("lineSpacing", 14, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Line spacing"), 0, 255).bitsAt(16, 8),
 		check("bold", 13, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Bold")).bit(15),
@@ -725,8 +971,8 @@ void addManiac(Table& table) {
 		check("noGradient", 13, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "No gradient")).bit(13),
 		section(QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Window")),
 		mode("sizeMode", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Size given as"), 0, 4, numberModes()),
-		modeValue("width", "sizeMode", 18, 0, 9999, numberModes(), QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Width (0: fit the text)")),
-		modeValue("height", "sizeMode", 19, 0, 9999, numberModes(), QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Height (0: fit the text)")),
+		modeValue("width", "sizeMode", 18, 0, int32Max, numberModes(), QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Width (0: fit the text)")),
+		modeValue("height", "sizeMode", 19, 0, int32Max, numberModes(), QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Height (0: fit the text)")),
 		choice("background", 13, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Background"), {
 			{0, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "None")},
 			{1, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Stretched")},
@@ -735,10 +981,10 @@ void addManiac(Table& table) {
 		check("noFrame", 13, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "No frame")).bit(12),
 		check("noPadding", 13, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "No padding")).bit(16),
 		section(QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Picture")),
-		value("picture", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Picture No."), 0, 0, 1, 1, 9999),
+		value("picture", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Picture No."), 0, 0, 1, 1, int32Max),
 		mode("positionMode", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Position given as"), 0, 1, numberModes()),
-		modeValue("x", "positionMode", 2, -9999, 9999, numberModes(), QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "X")),
-		modeValue("y", "positionMode", 3, -9999, 9999, numberModes(), QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Y")),
+		modeValue("x", "positionMode", 2, int32Min, int32Max, numberModes(), QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "X")),
+		modeValue("y", "positionMode", 3, int32Min, int32Max, numberModes(), QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Y")),
 		choice("origin", 0, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Origin"), {
 			{0, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Center")}, {1, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Top left")},
 			{2, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Bottom left")}, {3, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Top right")},
@@ -749,12 +995,12 @@ void addManiac(Table& table) {
 		number("mapLayer", 15, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Map layer"), 0, 10),
 		number("battleLayer", 16, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Battle layer"), 0, 10),
 		section(QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Magnification and Transparency")),
-		value("magnification", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Magnification (%)"), 0, 2, 4, 0, 2000),
+		value("magnification", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Magnification (%)"), 0, 2, 4, 0, int32Max),
 		check("separateHeight", 0, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Height magnified apart")).bit(28),
 		// the mode of the height: the 3 highest bits, after this flag
 		mode("heightMode", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Height (%)"), 0, -1, numberModes())
 			.bitsAt(29, 3).enabledUnless("separateHeight", {0}),
-		modeValue("heightMagnification", "heightMode", 23, 0, 2000, numberModes()),
+		modeValue("heightMagnification", "heightMode", 23, 0, int32Max, numberModes()),
 		value("transparency", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Transparency (%)"), 0, 3, 5, 0, 100),
 		section(QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Options")),
 		check("eraseOnMapChange", 17, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Erased when the map changes")).bit(0),
@@ -780,15 +1026,15 @@ void addManiac(Table& table) {
 			{1, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Rotation")},
 			{2, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Wave")},
 			{3, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Fixed angle")}}),
-		number("power", 11, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Power"), -9999, 9999).when("effect", {1, 2}),
-		onlyWhen(value("angle", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Angle"), 13, 6, 11), "effect", {3}),
-		onlyWhen(value("divisor", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Divided by"), 13, 7, 21), "effect", {3})
+		number("power", 11, QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Power"), int32Min, int32Max).when("effect", {1, 2}),
+		onlyWhen(int32Value("angle", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Angle"), 13, 6, 11), "effect", {3}),
+		onlyWhen(int32Value("divisor", QT_TRANSLATE_NOOP("ManiacShowStringPictureWidget", "Divided by"), 13, 7, 21), "effect", {3})
 	), Flag::Maniac);
 
 	// Get Picture Info
 	table.add(Code::Maniac_GetPictureInfo, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Get Picture Info")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture")),
-		value("picture", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture No."), 0, 0, 3, 1, 9999),
+		pictureNumber("picture", 0, 0, 3),
 		choice("info", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Information"), {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Position and original size")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Current position and size")},
@@ -806,8 +1052,8 @@ void addManiac(Table& table) {
 		variable("storeWidth", 6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Width")).when("info", {0, 1, 2}),
 		variable("storeHeight", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Height")).when("info", {0, 1, 2}),
 		// pixels: an area of the picture, written from a variable on
-		onlyWhen(rectangle("pixel", 0, 1, 4), "info", {3}),
-		onlyWhen(value("pixels", QT_TRANSLATE_NOOP("ManiacCommandWidget", "First variable"), 0, 5, 8, 1, 99999999, targetModes()), "info", {3})
+		onlyWhen(maniacArea("pixel", 0, 1, 4), "info", {3}),
+		onlyWhen(value("pixels", QT_TRANSLATE_NOOP("ManiacCommandWidget", "First variable"), 0, 5, 8, 1, int32Max, targetModes()), "info", {3})
 	), Flag::Maniac);
 
 	// Control Battle
@@ -819,7 +1065,7 @@ void addManiac(Table& table) {
 			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Targets are chosen")},
 			{3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "A condition changes")},
 			{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "A parameter changes")}}),
-		value("commonEvent", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common event"), 1, -1, 2, 0, 9999),
+		int32Value("commonEvent", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common event (0: none)"), 1, -1, 2, numberModes(), 0, int32Max),
 		variable("variable", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "First variable"))
 	), Flag::Maniac);
 
@@ -827,13 +1073,13 @@ void addManiac(Table& table) {
 	table.add(Code::Maniac_ControlAtbGauge, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Control ATB Gauge")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Target")),
 		choice("target", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Target"), battleTargets()),
-		onlyWhen(value("targetId", QT_TRANSLATE_NOOP("ManiacCommandWidget", "ID or position"), 1, -1, 2, 0, 9999), "target", {0, 1, 3}),
+		onlyWhen(int32Value("targetId", QT_TRANSLATE_NOOP("ManiacCommandWidget", "ID or position"), 1, -1, 2), "target", {0, 1, 3}),
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation")),
 		choice("operation", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation"), {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Set")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Increase")},
 			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Decrease")}}),
-		value("value", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), 5, -1, 6),
+		int32Value("value", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), 5, -1, 6),
 		choice("unit", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Unit"), {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Points")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Percent of the gauge")}})
@@ -855,7 +1101,7 @@ void addManiac(Table& table) {
 	table.add(Code::Maniac_GetBattleInfo, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Get Battle Info")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Target")),
 		choice("target", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Target"), battleTargets()),
-		onlyWhen(value("targetId", QT_TRANSLATE_NOOP("ManiacCommandWidget", "ID or position"), 2, -1, 3, 0, 9999), "target", {0, 1, 3}),
+		onlyWhen(int32Value("targetId", QT_TRANSLATE_NOOP("ManiacCommandWidget", "ID or position"), 2, -1, 3), "target", {0, 1, 3}),
 		choice("info", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Information"), {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Parameter changes")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Conditions")},
@@ -868,7 +1114,7 @@ void addManiac(Table& table) {
 		variable("variable", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "First variable"))
 	), Flag::Maniac);
 
-	// Control Variable Array
+	// Control Variable Array: the modes of A, the length and B in nibbles 0-2
 	table.add(Code::Maniac_ControlVarArray, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Control Variable Array")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable Arrays")),
 		choice("operation", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation"), {
@@ -879,39 +1125,60 @@ void addManiac(Table& table) {
 			{8, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Multiply by B")}, {9, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Divide by B")},
 			{10, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Modulo B")}, {11, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Bitwise OR")},
 			{12, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Bitwise AND")}, {13, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Bitwise XOR")},
-			{14, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Shift left")}, {15, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Shift right")}}),
-		value("arrayA", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Array A from"), 1, 0, 2, 1, 99999999, targetModes()),
-		value("length", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Length"), 1, 1, 3, 1),
+			{14, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Shift left")}, {15, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Shift right")},
+			{16, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Dereference B (A = V[B])")},
+			{17, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Sort ascending, B in step")},
+			{18, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Sort descending, B in step")},
+			{19, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Shuffle, B in step")},
+			{20, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Fill with a value")}, {21, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Reverse")},
+			{22, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Copy B to A")}}),
+		value("arrayA", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Array A from"), 1, 0, 2, 1, int32Max, targetModes()),
+		int32Value("length", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Length"), 1, 1, 3),
 		// the mode of B is the one of the first value
-		onlyWhen(value("arrayB", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Array B from"), 1, 2, 4, 1, 99999999, targetModes()),
-			"operation", {0, 1, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}),
-		onlyWhen(value("start", QT_TRANSLATE_NOOP("ManiacCommandWidget", "First value"), 1, 2, 4), "operation", {5})
+		onlyWhen(value("arrayB", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Array B from"), 1, 2, 4, 1, int32Max, targetModes()),
+			"operation", {0, 1, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22}),
+		onlyWhen(int32Value("start", QT_TRANSLATE_NOOP("ManiacCommandWidget", "First value"), 1, 2, 4), "operation", {5}),
+		onlyWhen(int32Value("fill", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), 1, 2, 4), "operation", {20}),
+		note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "In step: B gets the moves of A (each value of B stays with the one of A at "
+			"its place).")).when("operation", {17, 18, 19})
 	), Flag::Maniac);
 
-	// Key Input Processing Ex
+	// Key Input Processing Ex: 0 reads the keys of the list with the keys
+	// given to the joypad buttons, 1 without them
 	table.add(Code::Maniac_KeyInputProcEx, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Key Input Processing Ex")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Keys")),
-		choice("operation", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Read"), {
-			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "All keys (keyboard)")},
-			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "All keys (keyboard and joypad)")},
-			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "One key")},
-			{3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Joypad")}}),
+		choice("operation", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Keyboard keys (with the joypad assignment)")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Keyboard keys (without the joypad assignment)")},
+			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "One key, by its code")},
+			{3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Joypad buttons")},
+			{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Get the joypad assignment")},
+			{5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Set the joypad assignment")}}),
 		onlyWhen(value("key", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Virtual key code"), 2, -1, 3, 0, 255), "operation", {2}),
-		variable("variable", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Store in (from)"))
+		variable("variable", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Store in (from)")).unless("operation", {5}),
+		variable("source", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Read from (from)")).when("operation", {5}),
+		note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "A key pressed gives 1. The assignment: per key of the list, the joypad button "
+			"given to it (-1: none).")).when("operation", {0, 1, 4, 5})
 	), Flag::Maniac);
 
-	// Rewrite Map
+	// Rewrite Map: one tile (a constant, a variable, a pointer), or one per
+	// cell from the variables from the tile value (a variable, a pointer)
 	table.add(Code::Maniac_RewriteMap, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Rewrite Map")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tiles")),
 		choice("layer", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Layer"), layers()),
-		value("tile", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tile"), 0, 0, 3, 0),
-		check("fromVariables", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "One tile per cell, from the variables from the tile value")),
+		choice("fromVariables", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tiles"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "The same tile everywhere")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "A tile per cell, from variables")}}),
+		onlyWhen(int32Value("tile", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tile"), 0, 0, 3), "fromVariables", {0}),
+		onlyWhen(value("tiles", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tiles from"), 0, 0, 3, 1, int32Max, targetModes()),
+			"fromVariables", {1}),
 		check("noAutotile", 8, QT_TRANSLATE_NOOP("ManiacCommandWidget", "No autotile update")),
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Area")),
-		rectangle("area", 0, 1, 4)
+		maniacArea("area", 0, 1, 4)
 	), Flag::Maniac);
 
-	// Control Global Save
+	// Control Global Save: the first switch or variable of the game and of
+	// the global save, constants or variables; the count, also a pointer
 	table.add(Code::Maniac_ControlGlobalSave, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Control Global Save")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Global Save")),
 		choice("operation", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation"), {
@@ -921,26 +1188,30 @@ void addManiac(Table& table) {
 		onlyWhen(fields(
 			choice("type", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Data"), {
 				{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Switches")},
-				{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variables")}}),
-			value("game", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Game from"), 1, 0, 3, 1),
-			value("global", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Global save from"), 1, 1, 4, 1),
-			value("count", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count"), 1, 2, 5, 1)), "operation", {4, 5})
+				{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variables")},
+				{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Strings")}}),
+			int32Value("game", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Game from"), 1, 0, 3, constantOrVariable()),
+			int32Value("global", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Global save from"), 1, 1, 4, constantOrVariable()),
+			int32Value("count", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count"), 1, 2, 5)), "operation", {4, 5})
 	), Flag::Maniac);
 
-	// Change Picture ID: not run by EasyRPG Player, the layout of rpgsync
+	// Change Picture ID: the modes of the first picture, the count and the
+	// target (or distance) in nibbles 0-2
 	table.add(Code::Maniac_ChangePictureId, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Change Picture ID")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Pictures")),
 		choice("operation", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation"), {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Move")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Swap")},
 			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Slide")}}),
-		value("first", QT_TRANSLATE_NOOP("ManiacCommandWidget", "First picture"), 1, 0, 2, 1, 9999),
-		value("count", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count"), 1, 1, 3, 1, 9999),
-		value("target", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Target picture"), 1, 2, 4, 1, 9999),
+		int32Value("first", QT_TRANSLATE_NOOP("ManiacCommandWidget", "First picture"), 1, 0, 2),
+		int32Value("count", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count"), 1, 1, 3),
+		onlyWhen(int32Value("target", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Target picture"), 1, 2, 4), "operation", {0, 1}),
+		onlyWhen(int32Value("distance", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Distance"), 1, 2, 4), "operation", {2}),
 		check("ignoreRange", 5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Ignore out of range"))
 	), Flag::Maniac);
 
-	// Set Game Option: the mode of parameter 0 applies to both values
+	// Set Game Option: the mode of the value in nibble 0 of parameter 0, of
+	// the height of the faces in nibble 1
 	table.add(Code::Maniac_SetGameOption, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Set Game Option")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Option")),
 		choice("option", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Option"), {
@@ -948,47 +1219,56 @@ void addManiac(Table& table) {
 			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture limit")}, {3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Frame skip")},
 			{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Mouse in messages")}, {5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Battle origin")},
 			{6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Battle animation limit")}, {7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face size")}}),
-		mode("valueMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value given as"), 0, -1, numberModes()).when("option", {0, 1, 2, 4, 6, 7}),
-		onlyWhen(modeValue("inactive", "valueMode", 2, -99999999, 99999999, numberModes(),
-			QT_TRANSLATE_NOOP("ManiacCommandWidget", "Run when inactive (1: yes)")), "option", {0}),
-		onlyWhen(modeValue("fps", "valueMode", 2, -99999999, 99999999, numberModes(),
-			QT_TRANSLATE_NOOP("ManiacCommandWidget", "Frames per second")), "option", {1}),
-		onlyWhen(modeValue("pictures", "valueMode", 2, -99999999, 99999999, numberModes(),
-			QT_TRANSLATE_NOOP("ManiacCommandWidget", "Pictures")), "option", {2}),
-		onlyWhen(modeValue("mouse", "valueMode", 2, -99999999, 99999999, numberModes(),
-			QT_TRANSLATE_NOOP("ManiacCommandWidget", "No mouse in messages (1: yes)")), "option", {4}),
-		onlyWhen(modeValue("animations", "valueMode", 2, -99999999, 99999999, numberModes(),
-			QT_TRANSLATE_NOOP("ManiacCommandWidget", "Animations")), "option", {6}),
-		onlyWhen(modeValue("faceWidth", "valueMode", 2, -99999999, 99999999, numberModes(),
-			QT_TRANSLATE_NOOP("ManiacCommandWidget", "Width")), "option", {7}),
-		onlyWhen(modeValue("faceHeight", "valueMode", 3, -99999999, 99999999, numberModes(),
-			QT_TRANSLATE_NOOP("ManiacCommandWidget", "Height")), "option", {7}),
+		// the options without a mode write 0 (the parameters of a fast forward: none)
+		number("noMode", 0, {}, 0, 0).hidden().when("option", {0, 3, 4, 5}),
+		number("fatal", 3, {}, 0, 0).hidden().when("option", {1}),
+		choice("inactive", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "When the window is inactive"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Pause")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Keep running")}}).when("option", {0}),
+		onlyWhen(startingAt(int32Value("fps", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Frames per second"), 0, 0, 2), 60), "option", {1}),
+		onlyWhen(startingAt(int32Value("pictures", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Pictures"), 0, 0, 2), 1000), "option", {2}),
+		choice("mouse", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Mouse in messages"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Allowed")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Not allowed")}}).when("option", {4}),
+		onlyWhen(int32Value("animations", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Animations"), 0, 0, 2), "option", {6}),
+		onlyWhen(startingAt(int32Value("faceWidth", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Width"), 0, 0, 2), 48), "option", {7}),
+		onlyWhen(startingAt(int32Value("faceHeight", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Height"), 0, 1, 3), 48), "option", {7}),
 		choice("testPlay", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Test play"), {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Keep")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Off")},
 			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "On")}}).bitsAt(0, 2).when("option", {1}),
-		check("fastText", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Fast forward text")).bit(4).when("option", {1}),
-		choice("frameSkip", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Frames drawn"), {
-			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Every frame")}, {1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "1/5")},
+		check("fastText", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Right Shift skips the messages")).bit(4).when("option", {1}),
+		choice("frameSkip", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Frames skipped"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "None")}, {1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "1/5")},
 			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "1/3")}, {3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "1/2")}}).when("option", {3}),
 		choice("origin", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Position"), maniacOrigins()).when("option", {5})
 	), Flag::Maniac);
 
-	// Call Command
-	table.add(Code::Maniac_CallCommand, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Call Command")), fields(
+	// Call Command: the code, the string of the command called (a text, a
+	// string), its parameters: variables from a variable (or a pointer), or
+	// written in the command (CallCommandEditor): their values from
+	// parameter 5, the modes of four of them per parameter from the one in
+	// parameter 2; or expressions from parameter 5
+	table.custom(Code::Maniac_CallCommand, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Call Command")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Command")),
-		value("code", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Command code"), 0, 0, 1, 0, 99999),
+		int32Value("code", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Command code"), 0, 0, 1, numberModes(), 0, int32Max),
 		// the string of the called command: this command's string, or a string
 		mode("textMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Text"), 0, 3, stringModes()),
-		modeValue("text", "textMode", 4, 0, 99999, stringModes()),
-		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Parameters")),
-		// the values of the variables from a variable id (or a pointer); other
-		// modes are values written in the command, kept
-		mode("firstMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "From"), 0, 1, targetModes()),
+		anyString(modeValue("text", "textMode", 4, 0, int32Max, stringModes())),
+		// in the editor's section of the parameters, with the values and expressions
+		section({}),
+		mode("firstMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Given as"), 0, 1, {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variables from"), Kind::Variable},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variables from pointer"), Kind::Variable},
+			{3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Values"), Kind::Number},
+			{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Expressions"), Kind::Expression}}),
 		variable("first", 2).when("firstMode", {0, 1}).inlined(),
-		onlyWhen(value("count", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count"), 0, 2, 3, 0, 9999), "firstMode", {0, 1}),
-		note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Values written in the command (inline values or expressions): kept as they are, use Edit raw to change them."))
-			.unless("firstMode", {0, 1})
+		onlyWhen(int32Value("count", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count"), 0, 2, 3, numberModes(), 0, int32Max),
+			"firstMode", {0, 1}),
+		// written here: their count, the parameter of their first modes
+		number("valueCount", 3, {}, 0, int32Max).hidden().when("firstMode", {3}),
+		number("modesAt", 2, {}, 0, int32Max).withDefault(5).hidden().when("firstMode", {3}),
+		field(Kind::Expression, "expressions", 5, {}).hidden().when("firstMode", {4})
 	), Flag::Maniac);
 
 	// Control Strings: the arguments (parameters 4 to 7) depend on the
@@ -1001,10 +1281,10 @@ void addManiac(Table& table) {
 			{1, QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "Range"), Kind::StringId},
 			{2, QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "Pointer"), Kind::Variable},
 			{3, QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "Pointer range"), Kind::Variable}}),
-		modeValue("first", "targetMode", 1, 1, 99999, {{0, {}, Kind::StringId}, {1, {}, Kind::StringId},
-			{2, {}, Kind::Variable}, {3, {}, Kind::Variable}}, QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "String")),
-		onlyWhen(modeValue("last", "targetMode", 2, 1, 99999, {{1, {}, Kind::StringId}, {3, {}, Kind::Variable}},
-			QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "To")), "targetMode", {1, 3}),
+		anyString(modeValue("first", "targetMode", 1, 1, int32Max, {{0, {}, Kind::StringId}, {1, {}, Kind::StringId},
+			{2, {}, Kind::Variable}, {3, {}, Kind::Variable}}, QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "String")), 1),
+		onlyWhen(anyString(modeValue("last", "targetMode", 2, 1, int32Max, {{1, {}, Kind::StringId}, {3, {}, Kind::Variable}},
+			QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "To")), 1), "targetMode", {1, 3}),
 		section(QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "Operation")),
 		choice("operation", 3, QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "Operation"), {
 			{0, QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "Set")}, {1, QT_TRANSLATE_NOOP("ManiacControlStringsWidget", "Append")},
@@ -1044,22 +1324,21 @@ void addManiac(Table& table) {
 			{10, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Current BGM")}}),
 		choice("layer", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Layer"), layers()).when("info", {1}),
 		check("ignoreAlpha", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Ignore alpha")).bit(0).when("info", {3}),
-		onlyWhen(rectangle("area", 0, 0, 3), "info", {1, 3}),
-		onlyWhen(value("nest", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Levels up"), 0, 2, 4, 0, 99), "info", {4}),
+		onlyWhen(maniacArea("area", 0, 0, 3), "info", {1, 3}),
+		onlyWhen(int32Value("nest", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Levels up"), 0, 2, 4, numberModes(), 0, int32Max), "info", {4}),
 		choice("face", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Of"), {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Hero")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Message")}}).when("info", {6}),
 		choice("character", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Of"), {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Hero")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Event")}}).when("info", {7}),
-		onlyWhen(value("id", QT_TRANSLATE_NOOP("ManiacCommandWidget", "ID"), 0, 0, 5, 0, 99999), "info", {6, 7}),
+		onlyWhen(int32Value("id", QT_TRANSLATE_NOOP("ManiacCommandWidget", "ID"), 0, 0, 5), "info", {6, 7}),
 		choice("dynamic", 6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Graphic"), {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Original")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Current")}}).when("info", {6, 7}),
 		variable("variable", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Store in")).when("info", {0, 2, 4, 5, 8, 9}),
 		variable("first", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Store from")).when("info", {1, 3}),
-		field(Kind::StringId, "fileName", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "File name in")).withRange(0, 99999)
-			.when("info", {6, 7, 10}),
+		stringId("fileName", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "File name in")).when("info", {6, 7, 10}),
 		variable("index", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Index in")).when("info", {6, 7}),
 		variable("bgm", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Fade, volume, tempo, balance from")).when("info", {10})
 	), Flag::Maniac);
@@ -1067,11 +1346,11 @@ void addManiac(Table& table) {
 	// Edit Picture
 	table.add(Code::Maniac_EditPicture, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Edit Picture")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture")),
-		value("picture", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture No."), 0, 0, 1, 1, 9999),
+		pictureNumber("picture", 0, 0, 1),
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Area")),
-		rectangle("area", 0, 1, 2),
+		maniacArea("area", 0, 1, 2),
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Pixels")),
-		value("pixels", QT_TRANSLATE_NOOP("ManiacCommandWidget", "From variable"), 0, 5, 6, 1, 99999999, targetModes()),
+		value("pixels", QT_TRANSLATE_NOOP("ManiacCommandWidget", "From variable"), 0, 5, 6, 1, int32Max, targetModes()),
 		check("opaque", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Opaque (replace the pixels)")).bit(0),
 		check("skipTransparent", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Skip transparent pixels")).bit(1)
 	), Flag::Maniac);
@@ -1083,59 +1362,302 @@ void addManiac(Table& table) {
 			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Screen")},
 			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture")}}),
 		onlyWhen(fields(
-			value("picture", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture No."), 0, 0, 2, 1, 9999),
+			pictureNumber("picture", 0, 0, 2),
 			check("dynamic", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "With the effects (tone, flash...)")).bit(0),
 			check("opaque", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Opaque")).bit(1)), "target", {1}),
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "File (PNG)")),
 		mode("fileMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name given as"), 0, 1, stringModes()),
-		modeValue("file", "fileMode", 3, 0, 99999, stringModes(), QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name"))
+		anyString(modeValue("file", "fileMode", 3, 0, int32Max, stringModes(), QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name")))
 	), Flag::Maniac);
 
-	// Edit Tile: not run by EasyRPG Player, the layout of rpgsync
+	// Add Move Route: a step added to the route of the Set Move Route just
+	// before it (it works there only), its values given by variables. The
+	// modes of the action p1 and of the values p2-p4 in nibbles 0-3, of the
+	// file name (the string, p5) in nibble 4. An action in a variable takes
+	// the values as they are
+	{
+		auto forAction = [](Fields list, const std::vector<int>& actions) {
+			return onlyWhen(onlyWhen(std::move(list), "actionMode", {0}), "action", actions);
+		};
+		table.add(Code::Maniac_AddMoveRoute, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Add Move Route")), fields(
+			section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Step")),
+			mode("actionMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Action"), 0, 0, numberModes()),
+			choice("action", 1, {}, {
+				{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Move")}, {1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Face")},
+				{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Wait")}, {3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Jump")},
+				{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Turn on or off")}, {5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Set a value")},
+				{6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Switch")}, {7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Change graphic")},
+				{8, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Play sound effect")}}).inlined().when("actionMode", {0}),
+			variable("actionVariable", 1).inlined().when("actionMode", {1, 2}),
+			note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Works right after a Set Move Route command only: the step is added to its route.")),
+			// Move, Face: a direction (the codes of the moves of RPG Maker) or a value
+			forAction(fields(
+				mode("directionMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Direction"), 0, 1, numberModes()),
+				choice("move", 2, {}, {
+					{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Up")}, {1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Right")},
+					{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Down")}, {3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Left")},
+					{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Up-right")}, {5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Down-right")},
+					{6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Down-left")}, {7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Up-left")},
+					{8, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Random")}, {9, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Toward the hero")},
+					{10, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Away from the hero")}, {11, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Forward")}})
+					.inlined().when("action", {0}).when("directionMode", {0}),
+				choice("face", 2, {}, {
+					{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Up")}, {1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Right")},
+					{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Down")}, {3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Left")},
+					{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Turn 90° right")}, {5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Turn 90° left")},
+					{6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Turn 180°")}, {7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Turn 90° left or right")},
+					{8, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Random")}, {9, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Toward the hero")},
+					{10, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Away from the hero")}})
+					.inlined().when("action", {1}).when("directionMode", {0}),
+				variable("directionVariable", 2).inlined().when("directionMode", {1, 2})), {0, 1}),
+			forAction(startingAt(int32Value("steps", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Steps"), 0, 2, 3), 1), {0}),
+			forAction(fields(
+				int32Value("jumpX", QT_TRANSLATE_NOOP("ManiacCommandWidget", "X"), 0, 1, 2),
+				int32Value("jumpY", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y"), 0, 2, 3)), {3}),
+			// Turn on or off: 1 begins the jump, fixes the direction, the phasing
+			forAction(fields(
+				choice("state", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Setting"), {
+					{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Jump (begin, end)")}, {1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Fixed direction")},
+					{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Phasing")}, {3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Stepping animation")}}),
+				choice("on", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), {
+					{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "On")}, {0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Off")}}).radio(),
+				note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Stepping animation: the Maniac Patch's editor writes On to resume it, "
+					"its TPC to pause it.")).when("state", {3})), {4}),
+			forAction(fields(
+				choice("setting", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Setting"), {
+					{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Movement speed")}, {1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Movement frequency")},
+					{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Transparency")}}),
+				int32Value("settingValue", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), 0, 2, 3)), {5}),
+			forAction(fields(
+				mode("switchMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Switch"), 0, 1, {
+					{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Switch")), Kind::Switch},
+					{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Switch pointer")), Kind::Variable}}),
+				ref(Kind::Switch, "switch", 2).inlined().when("switchMode", {0}),
+				variable("switchVariable", 2).inlined().when("switchMode", {1}),
+				int32Value("switchValue", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), 0, 2, 3)), {6}),
+			// Change graphic, Play sound effect: a file named by the string
+			forAction(fields(
+				mode("fileMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "File"), 0, 4, stringModes()),
+				file("graphicFile", {}, CHARSET).inlined().when("action", {7}).when("fileMode", {0}),
+				file("soundFile", {}, SOUND).with(Flag::Off).inlined().when("action", {8}).when("fileMode", {0}),
+				stringId("fileString", 5).withDefault(1).inlined().when("fileMode", {1}),
+				variable("fileVariable", 5).inlined().when("fileMode", {2})), {7, 8}),
+			forAction(int32Value("graphicIndex", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Index in the file"), 0, 1, 2), {7}),
+			forAction(fields(
+				startingAt(int32Value("volume", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Volume"), 0, 1, 2), 100),
+				startingAt(int32Value("tempo", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tempo"), 0, 2, 3), 100),
+				startingAt(int32Value("balance", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Balance"), 0, 3, 4), 50)), {8}),
+			// an action in a variable: the values of the actions above, by their place
+			onlyWhen(fields(
+				int32Value("value1", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value 1"), 0, 1, 2),
+				int32Value("value2", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value 2"), 0, 2, 3),
+				int32Value("value3", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value 3"), 0, 3, 4),
+				anyString(value("name", QT_TRANSLATE_NOOP("ManiacCommandWidget", "File"), 0, 4, 5, 0, int32Max, stringModes()))),
+				"actionMode", {1, 2})
+		), Flag::Maniac);
+	}
+
+	// Edit Tile (Edit Picture (Tile) in the Maniac Patch's editor): tiles of
+	// a chipset drawn in a picture, at x, y (pixels), w x h tiles: one tile,
+	// or a tile per cell from variables (p8). The modes of the picture, the
+	// area, the tile, the chipset and the animation frame in nibbles 0-7
 	table.add(Code::Maniac_EditTile, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Edit Tile")), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture")),
+		pictureNumber("picture", 0, 0, 1),
+		int32Value("x", QT_TRANSLATE_NOOP("ManiacCommandWidget", "X (pixels)"), 0, 1, 2),
+		int32Value("y", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y (pixels)"), 0, 2, 3),
+		int32Value("width", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Width (tiles)"), 0, 3, 4),
+		int32Value("height", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Height (tiles)"), 0, 4, 5),
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tiles")),
-		value("picture", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture No."), 0, 0, 1, 1, 9999),
-		value("chipset", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Chipset"), 0, 6, 10, 0, 9999),
+		choice("fromVariables", 8, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tiles"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "The same tile")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "A tile per cell, from variables")}}),
+		onlyWhen(int32Value("tile", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tile"), 0, 5, 6), "fromVariables", {0}),
+		onlyWhen(value("tiles", QT_TRANSLATE_NOOP("ManiacCommandWidget", "From variable"), 0, 5, 6, 1, int32Max, targetModes()),
+			"fromVariables", {1}),
 		choice("layer", 9, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Layer"), layers()),
-		value("tile", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Tile"), 0, 5, 6, 0),
-		value("pattern", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Pattern"), 0, 7, 11, 0),
-		check("fromVariables", 8, QT_TRANSLATE_NOOP("ManiacCommandWidget", "One tile per cell, from the variables from the tile value")),
-		check("noAutotile", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "No autotile update")).bit(0),
-		check("clear", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Clear the area")).bit(1),
-		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Area")),
-		rectangle("area", 0, 1, 2)
+		entryValue("chipset", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Chipset"), 0, 6, 10, Kind::Chipset,
+			maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Chipset")),
+			{{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "(The map's)"))}}),
+		startingAt(int32Value("pattern", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Animation frame"), 0, 7, 11), -1),
+		note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Animation frame -1: the current one.")),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Options")),
+		check("autotile", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Autotile")).bit(0).with(Flag::Inverted),
+		check("clear", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Clear the pixels before drawing")).bit(1)
 	), Flag::Maniac);
 
-	// Control Text Processing: not run by EasyRPG Player, the layout of rpgsync
+	// Control Text Processing (Control Message in the Maniac Patch's
+	// editor): a common event the messages call (p1: when), its mode in
+	// nibble 0 (newer builds: 3-5 by its name, a text or a string), the
+	// first variables and strings that get its arguments (0: none)
 	table.add(Code::Maniac_ControlTextProcessing, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Control Text Processing")), fields(
-		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common Event")),
-		choice("source", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Given as"), {
-			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "ID")}, {1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable")},
-			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable pointer")}, {3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name")},
-			{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "String")}, {5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "String pointer")}}),
-		number("event", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), 0, 99999999).when("source", {0, 1, 2, 4, 5}),
-		string("name", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name")).when("source", {3}),
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Called")),
-		check("onMarker", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "On a marker")).bit(0),
-		check("onOpen", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "When the message opens")).bit(1),
-		check("onClose", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "When the message closes")).bit(2),
-		check("onCharacter", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "On each character")).bit(3),
-		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Data")),
-		variable("info", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Information in")),
-		field(Kind::StringId, "text", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Text in string")).withRange(0, 99999),
-		number("numbers", 5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Number arguments"), 0, 99999),
-		number("strings", 6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "String arguments"), 0, 99999)
+		check("onMarker", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "User event (\\e[] in a message)")).bit(0),
+		check("onOpen", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Window created")).bit(1),
+		check("onClose", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Window destroyed")).bit(2),
+		check("onCharacter", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Each character drawn")).bit(3),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common Event")),
+		mode("eventMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common event"), 0, 0, {
+			{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common event")), Kind::CommonEvent},
+			{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable")), Kind::Variable},
+			{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable pointer")), Kind::Variable},
+			{3, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name")), Kind::String},
+			{4, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name in a string")), Kind::StringId},
+			{5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name in a string pointer")), Kind::Variable}}),
+		ref(Kind::CommonEvent, "event", 2).withItems({{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "(None)")}}).withDefault(0)
+			.inlined().when("eventMode", {0}),
+		variable("eventVariable", 2).inlined().when("eventMode", {1, 2, 5}),
+		string("eventName").inlined().when("eventMode", {3}),
+		stringId("eventString", 2).withDefault(1).inlined().when("eventMode", {4}),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Arguments")),
+		variable("systemNumbers", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "System numbers from"))
+			.withItems({{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "(None)")}}).withDefault(0),
+		stringId("systemTexts", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "System texts from"))
+			.withItems({{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "(None)")}}),
+		variable("userNumbers", 5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "User numbers from"))
+			.withItems({{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "(None)")}}).withDefault(0),
+		stringId("userTexts", 6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "User texts from"))
+			.withItems({{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "(None)")}}),
+		note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "The first system number is the reason of the call (1, 2, 4, 8: in the order "
+			"above), then come the window's position and size, which the common event can change. The user values are those of "
+			"\\e[] in the message, in their order. 0: none."))
 	), Flag::Maniac);
 
-	// Zoom: not run by EasyRPG Player, the layout of rpgsync
+	// Script: JavaScript, its code in the string and in its next lines
+	// (Maniac_Script_2), or in a string; the values it returns to the
+	// targets from parameter 5, their count in parameter 4: a kind (switch,
+	// variable, string, each by a pointer too), a number (ScriptEditor)
+	table.custom(Code::Maniac_Script, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Script")), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Code")),
+		mode("sourceMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Code"), 0, -1, {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Text"), Kind::Lines},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "String"), Kind::StringId},
+			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "String pointer"), Kind::Variable}}),
+		field(Kind::Lines, "code", StringIndex, {}).when("sourceMode", {0}),
+		stringId("codeString", 1).withDefault(1).when("sourceMode", {1}),
+		variable("codeVariable", 1).when("sourceMode", {2}),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Returned Values")),
+		number("returns", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count"), 0, int32Max).hidden()
+	), Flag::Maniac);
+
+	// Zoom: not run by EasyRPG Player; the modes of x, y, magnification,
+	// duration and layer in nibbles 0-4
 	table.add(Code::Maniac_Zoom, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Zoom")), fields(
 		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Zoom")),
-		value("x", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Center X"), 0, 0, 1, -99999, 99999),
-		value("y", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Center Y"), 0, 1, 2, -99999, 99999),
-		value("scale", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Magnification (%)"), 0, 2, 3, 0, 99999),
-		value("duration", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Duration (frames)"), 0, 3, 4, 0, 99999),
-		value("layer", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Layer"), 0, 4, 5, 0, 99),
+		int32Value("x", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Center X"), 0, 0, 1),
+		int32Value("y", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Center Y"), 0, 1, 2),
+		startingAt(int32Value("scale", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Magnification (%, from 100)"), 0, 2, 3), 100),
+		int32Value("duration", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Duration (frames)"), 0, 3, 4, numberModes(), 0, int32Max),
+		int32Value("layer", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Zoomed up to layer"), 0, 4, 5),
+		note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Layers, as those of pictures: 1 panorama, 2 lower tiles, 3 events below the hero, "
+			"4 events at the hero's level, 5 upper tiles, 6 events above the hero, 7 weather, 8 battle animations, 9 windows, "
+			"10 timers. 0 ends the zoom.")),
 		check("wait", 6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Wait for completion"))
+	), Flag::Maniac);
+
+	// Console: the modes in nibbles 2 (the text, the string of the input,
+	// the text color) and 3 (the length of the input, the background color).
+	// A text of several lines (ConsoleEditor): its lines end with "\r\n"
+	table.custom(Code::Maniac_Console, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Console")), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Console")),
+		choice("operation", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Open")}, {1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Close")},
+			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Write a text")}, {3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Read a text")},
+			{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Set the text color")}}),
+		// in the editor's section of the text
+		section({}),
+		onlyWhen(anyString(value("text", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Text"), 0, 2, 3, 0, int32Max, stringModes())),
+			"operation", {2}),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Input")),
+		onlyWhen(anyString(value("input", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Store in"), 0, 2, 3, 0, int32Max, stringIdModes()), 1),
+			"operation", {3}),
+		onlyWhen(int32Value("length", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Maximum length (0: none)"), 0, 3, 4), "operation", {3}),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Colors")),
+		check("changeFront", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Change the text color")).bit(3).when("operation", {4}),
+		onlyWhen(int32Value("front", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Text color"), 0, 2, 3), "operation", {4}),
+		check("changeBack", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Change the background color")).bit(4).when("operation", {4}),
+		onlyWhen(int32Value("back", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Background color"), 0, 3, 4), "operation", {4}),
+		note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Colors: 0 black, 1 blue, 2 green, 3 aqua, 4 red, 5 purple, 6 yellow, 7 white, "
+			"8 gray, 9-15 the light ones (15 bright white).")).when("operation", {4}),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Options")),
+		check("extract", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Evaluate the control codes (\\V, \\N, \\T...)")).bit(0)
+			.when("operation", {2, 3}),
+		check("hex", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Hexadecimal")).bit(1).when("operation", {2, 3}),
+		check("noLineBreak", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "No line break after the text")).bit(2).when("operation", {2})
+	), Flag::Maniac);
+
+	// Control Self Variable (newer builds of the Maniac Patch; the layout
+	// read from the commands of games): the switches, variables or strings
+	// of an event (its own ones, from 1) or of the game. p0: nibbles 0-3 the
+	// target (its owner, the modes of its event p1, its map p2 and the first
+	// one p3: 1 a number, 2 in a variable), nibbles 4-7 the value (the owner
+	// of the one copied, the modes of its event p4 and map p5, the mode of
+	// the value p6); p7: the mode of the count p8 in bits 0-3, the data in
+	// bits 4-5, bit 8 an array copied; p9 the operation. A text set has its
+	// length in p6 (CommandEditorRegistry)
+	table.add(Code::Maniac_ControlSelfVariable, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Control Self Variable")), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation")),
+		choice("operation", 9, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Set")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Reset (0, OFF, empty)")},
+			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Reset all, event by event")}}).radio(),
+		choice("data", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Data"), {
+			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Switches")}, {0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variables")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Strings")},
+			{3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "All of them (reset only)")}}).bitsAt(4, 2),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Target")),
+		selfOwner("owner", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Owner"), 0, 1),
+		onlyWhen(fields(
+			mode("firstMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "First"), 0, 3, {
+				{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Constant")), Kind::Number},
+				{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable")), Kind::Variable}}).withDefault(1),
+			startingAt(modeValue("first", "firstMode", 3, int32Min, int32Max, {
+				{1, {}, Kind::Number}, {2, {}, Kind::Variable}}), 1),
+			startingAt(int32Value("count", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count"), 7, 0, 8), 1)), "operation", {0, 1}),
+		onlyWhen(fields(
+			startingAt(int32Value("events", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Events"), 7, 0, 8), 1),
+			note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Events: the owner and the next ones, this many (0: none; less "
+				"than 0: all of them)."))), "operation", {2}),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value")),
+		onlyWhen(fields(
+			mode("valueMode", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), 0, 7, {
+				{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Constant")), Kind::Number},
+				{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Copy of")), Kind::Number},
+				{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Copy of the one in")), Kind::Variable}}),
+			number("value", 6, {}, int32Min, int32Max).inlined().when("valueMode", {0}).unless("data", {1}),
+			string("text").inlined().when("valueMode", {0}).when("data", {1}),
+			number("from", 6, {}, int32Min, int32Max).withDefault(1).inlined().when("valueMode", {1}),
+			variable("fromVariable", 6).inlined().when("valueMode", {2}),
+			onlyWhen(fields(
+				selfOwner("source", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Of"), 4, 4),
+				check("array", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "An array: a value per item, from this one")).bit(8)),
+				"valueMode", {1, 2}),
+			note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Switches: 0 is OFF, another value ON. A copy is of the data chosen above."))),
+			"operation", {0})
+	), Flag::Maniac);
+
+	// Control Media Option: get a setting of the engine into a variable (a
+	// variable or a pointer), or set it (a constant, a variable or a
+	// pointer), the mode in nibble 2
+	table.add(Code::Maniac_ControlMediaOption, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Control Media Option")), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Media Option")),
+		choice("operation", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Get")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Set")}}).radio(),
+		choice("setting", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Setting"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Screen mode (0: window, 1: full screen)")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Window: zoom (1-4)")},
+			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Window: interpolation (0, 1)")},
+			{3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Window: keep within the display (0, 1)")},
+			{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Full screen: interpolation (0, 1)")},
+			{5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Full screen: uneven pixel size (0, 1)")},
+			{6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Full screen: stretch, ignoring the aspect ratio (0, 1)")},
+			{7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Show the frame rate (0, 1)")},
+			{8, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save the settings as the default (0, 1)")},
+			{9, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Audio volume (0-100)")}}),
+		onlyWhen(value("target", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Store in"), 0, 2, 3, 1, int32Max, targetModes()),
+			"operation", {0}),
+		onlyWhen(int32Value("value", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), 0, 2, 3), "operation", {1})
 	), Flag::Maniac);
 }
 
@@ -1159,7 +1681,21 @@ void addMessagesAndParty(Table& table) {
 			{2, QT_TRANSLATE_NOOP("MessageOptionsWidget", "Bottom")}}).radio(),
 		section(QT_TRANSLATE_NOOP("MessageOptionsWidget", "Options")),
 		check("autoPosition", 2, QT_TRANSLATE_NOOP("MessageOptionsWidget", "Autoselect window position to prevent hero from being obscure")),
-		check("parallel", 3, QT_TRANSLATE_NOOP("MessageOptionsWidget", "Allow other events to continue while message is shown"))
+		check("parallel", 3, QT_TRANSLATE_NOOP("MessageOptionsWidget", "Allow other events to continue while message is shown")),
+		// Maniac Patch: the size of the window, the font and the spacing, their
+		// modes in the nibbles of p4 (the font's name: the string of the
+		// command, or T[p7]); 0 keeps a value, -1 restores its default (a
+		// font name: empty, "*"), a spacing is written plus 1
+		section(maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Window Size"))),
+		modalNumber(number("width", 5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Width:")), -1, 9999999).maniacOnly().extension(), 4, 0),
+		modalNumber(number("height", 6, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Height:")), -1, 9999999).maniacOnly().extension(), 4, 1),
+		section(maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Font"))),
+		modalText(string("fontName", maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name:"))).maniacOnly(), 4, 2, 7),
+		modalNumber(number("fontSize", 8, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Size:")), -1, 9999999).maniacOnly().extension(), 4, 3),
+		section(maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Spacing"))),
+		modalNumber(number("charSpacing", 9, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Char:")), -9999999, 9999999).maniacOnly().extension(), 4, 4),
+		modalNumber(number("lineSpacing", 10, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Line:")), -9999999, 9999999).maniacOnly().extension(), 4, 5),
+		note(maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "0 keeps a value, -1 restores its default; a spacing is written plus 1"))).maniacOnly()
 	));
 
 	// Select Face Graphic: a picker with the face and its index
@@ -1172,7 +1708,36 @@ void addMessagesAndParty(Table& table) {
 			{0, QT_TRANSLATE_NOOP("ChangeFaceGraphicWidget", "Left")},
 			{1, QT_TRANSLATE_NOOP("ChangeFaceGraphicWidget", "Right")}}).radio(),
 		section(QT_TRANSLATE_NOOP("ChangeFaceGraphicWidget", "Option")),
-		check("flip", 2, QT_TRANSLATE_NOOP("ChangeFaceGraphicWidget", "Flip Image Horizontally"))
+		check("flip", 2, QT_TRANSLATE_NOOP("ChangeFaceGraphicWidget", "Flip Image Horizontally")),
+		// Maniac Patch: the file from a string variable, the index from a
+		// variable (their modes in p3); the face picker edits the same values
+		section(in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Maniac Patch"))),
+		modalText(string("fileName", QT_TRANSLATE_NOOP("ChangeFaceGraphicWidget", "File")), 3, 0, 4),
+		modalNumber(number("fileIndex", 0, QT_TRANSLATE_NOOP("ChangeFaceGraphicWidget", "Index"), 0, 15), 3, 1),
+		// and an animation from the index to the end index (p6), its
+		// options in the bits of p5, the modes of its values in p3
+		section(maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Animation"))),
+		check("animated", 5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Animation"))).bit(1).maniacOnly().extension(),
+		modalNumber(number("endIndex", 6, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Animation End Index")), 0, 15)
+			.maniacOnly().extension().enabledWhen("animated", {1}), 3, 2),
+		modalNumber(number("interval", 7, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Animation Interval")), 0, 9999999)
+			.maniacOnly().extension().enabledWhen("animated", {1}), 3, 3),
+		modalNumber(number("intervalVariation", 8, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Interval Variation")), 0, 9999999)
+			.maniacOnly().extension().enabledWhen("animated", {1}), 3, 4),
+		modalNumber(number("framesPerCell", 9, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Frame Per Cell")), 0, 9999999)
+			.maniacOnly().extension().enabledWhen("animated", {1}), 3, 5),
+		modalNumber(number("framesVariation", 10, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Fpc Variation")), 0, 9999999)
+			.maniacOnly().extension().enabledWhen("animated", {1}), 3, 6),
+		check("forceUpdate", 5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Force Update"))).bit(0).maniacOnly().extension(),
+		check("turnaround", 5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Enable Turnaround"))).bit(2).maniacOnly().extension()
+			.enabledWhen("animated", {1}),
+		check("once", 5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Once"))).bit(3).maniacOnly().extension().enabledWhen("animated", {1}),
+		check("intervalPositive", 5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Limit Interval Variation to Positive Number")))
+			.bit(4).maniacOnly().extension().enabledWhen("animated", {1}),
+		check("framesPositive", 5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Limit Fpc Variation to Positive Number")))
+			.bit(5).maniacOnly().extension().enabledWhen("animated", {1}),
+		check("turnaroundInterval", 5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Apply Interval at Turnaround")))
+			.bit(6).maniacOnly().extension().enabledWhen("animated", {1})
 	));
 
 	// Show Choices: the choices are the texts of its option lines, the
@@ -1191,7 +1756,7 @@ void addMessagesAndParty(Table& table) {
 
 	// Input Number: 1 to 6 digits in RPG Maker, 9 with Maniac Patch
 	table.add(Code::InputNumber, "InputNumberWidget", QT_TRANSLATE_NOOP("InputNumberWidget", "Input Number"), fields(
-		number("digits", 0, QT_TRANSLATE_NOOP("InputNumberWidget", "Digits Allowed"), 1, 9).withDefault(1),
+		number("digits", 0, QT_TRANSLATE_NOOP("InputNumberWidget", "Digits Allowed"), 1, 6).withDefault(1).maniacRange(1, 9),
 		variable("variable", 1, QT_TRANSLATE_NOOP("InputNumberWidget", "Store in Variable"))
 	));
 
@@ -1467,14 +2032,15 @@ void addMessagesAndParty(Table& table) {
 	));
 
 	// Change Condition
+	// Maniac Patch: the hero in a variable pointer, the condition's mode in p4
 	table.add(Code::ChangeCondition, "HeroCommandWidget", QT_TRANSLATE_NOOP("HeroCommandWidget", "Change Character Condition"), fields(
-		partyOperand(QT_TRANSLATE_NOOP("HeroCommandWidget", "Target"), 0),
+		partyOperand(QT_TRANSLATE_NOOP("HeroCommandWidget", "Target"), 0, true),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Operation")),
 		choice("operation", 2, {}, {
 			{0, QT_TRANSLATE_NOOP("HeroCommandWidget", "Add Condition")},
 			{1, QT_TRANSLATE_NOOP("HeroCommandWidget", "Remove Condition")}}).radio(),
 		section(QT_TRANSLATE_NOOP("HeroCommandWidget", "Condition")),
-		ref(Kind::State, "condition", 3)
+		modalNumber(ref(Kind::State, "condition", 3), 4, -1)
 	));
 
 	// Full Recovery
@@ -1497,34 +2063,43 @@ void addMessagesAndParty(Table& table) {
 		variable("variable", 7, QT_TRANSLATE_NOOP("HeroCommandWidget", "Variable:")).enabledUnless("store", {0})
 	));
 
-	// Change Hero Name: a new hero suggests its name, unless one was typed
+	// Change Hero Name: a new hero suggests its name, unless one was typed.
+	// Maniac Patch: the hero from a variable, the name from a string (modes in p1)
 	table.add(Code::ChangeHeroName, "ChangeActorNameWidget", palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Change Hero Name")), fields(
-		ref(Kind::Actor, "hero", 0, QT_TRANSLATE_NOOP("ChangeActorNameWidget", "Actor:")),
+		modalNumber(ref(Kind::Actor, "hero", 0, QT_TRANSLATE_NOOP("ChangeActorNameWidget", "Actor:")), 1, 0),
 		// the length of a hero's name in the database
-		string("name", QT_TRANSLATE_NOOP("ChangeActorNameWidget", "New Name:")).withLimit(12)
+		modalText(string("name", QT_TRANSLATE_NOOP("ChangeActorNameWidget", "New Name:")).withLimit(12), 1, 1, 2)
 	));
 
 	// Change Hero Title: the same with the title
 	table.add(Code::ChangeHeroTitle, "ChangeActorTitleWidget", palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Change Hero Title")), fields(
-		ref(Kind::Actor, "hero", 0, QT_TRANSLATE_NOOP("ChangeActorTitleWidget", "Actor:")),
-		string("title", QT_TRANSLATE_NOOP("ChangeActorTitleWidget", "New Title:")).withLimit(12)
+		modalNumber(ref(Kind::Actor, "hero", 0, QT_TRANSLATE_NOOP("ChangeActorTitleWidget", "Actor:")), 1, 0),
+		modalText(string("title", QT_TRANSLATE_NOOP("ChangeActorTitleWidget", "New Title:")).withLimit(12), 1, 1, 2)
 	));
 
-	// Change Hero Graphic: a picker; a new hero shows its graphic
+	// Change Hero Graphic: a picker; a new hero shows its graphic. Maniac
+	// Patch: the modes of the hero, the file (a string, in p4) and the index in p3
 	table.custom(Code::ChangeSpriteAssociation, "ChangeActorGraphicWidget", palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Change Hero Graphic")), fields(
 		section(QT_TRANSLATE_NOOP("ChangeActorGraphicWidget", "Actor")),
-		ref(Kind::Actor, "hero", 0),
+		modalNumber(ref(Kind::Actor, "hero", 0), 3, 0),
 		section(QT_TRANSLATE_NOOP("ChangeActorGraphicWidget", "Character Graphic")),
 		graphic(Kind::Charset, "graphic", 1, CHARSET),
-		check("translucent", 2, QT_TRANSLATE_NOOP("ChangeActorGraphicWidget", "Translucent"))
+		check("translucent", 2, QT_TRANSLATE_NOOP("ChangeActorGraphicWidget", "Translucent")),
+		section(in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Maniac Patch"))),
+		modalText(string("fileName", QT_TRANSLATE_NOOP("ChangeActorGraphicWidget", "File")), 3, 1, 4),
+		modalNumber(number("fileIndex", 1, QT_TRANSLATE_NOOP("ChangeActorGraphicWidget", "Index"), 0, 7), 3, 2)
 	));
 
-	// Change Hero Face: a picker; a new hero shows its face
+	// Change Hero Face: a picker; a new hero shows its face. Maniac Patch:
+	// the modes of the hero, the file (a string, in p3) and the index in p2
 	table.custom(Code::ChangeActorFace, "ChangeActorFaceWidget", palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Change Hero Face")), fields(
 		section(QT_TRANSLATE_NOOP("ChangeActorFaceWidget", "Actor")),
-		ref(Kind::Actor, "hero", 0),
+		modalNumber(ref(Kind::Actor, "hero", 0), 2, 0),
 		section(QT_TRANSLATE_NOOP("ChangeActorFaceWidget", "Faceset")),
-		graphic(Kind::Face, "face", 1, FACESET)
+		graphic(Kind::Face, "face", 1, FACESET),
+		section(in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Maniac Patch"))),
+		modalText(string("fileName", QT_TRANSLATE_NOOP("ChangeActorFaceWidget", "File")), 2, 1, 3),
+		modalNumber(number("fileIndex", 1, QT_TRANSLATE_NOOP("ChangeActorFaceWidget", "Index"), 0, 15), 2, 2)
 	));
 
 	// Change Vehicle Graphic: a picker; a new vehicle shows its graphic
@@ -1550,9 +2125,8 @@ void addSystemAndScenes(Table& table) {
 			{4, QT_TRANSLATE_NOOP("MediaAudioWidget", "Ship")}, {5, QT_TRANSLATE_NOOP("MediaAudioWidget", "Airship")},
 			{6, QT_TRANSLATE_NOOP("MediaAudioWidget", "Game Over")}}),
 		section(QT_TRANSLATE_NOOP("MediaAudioWidget", "Associated BGM")),
-		audioFile(MUSIC),
-		fadeIn(1),
-		audio(2)
+		// Maniac Patch: modes in p5, the file's string in p6
+		withModes(fields(audioFile(MUSIC), fadeIn(1), audio(2)), 5, 6)
 	));
 
 	// Change System SE
@@ -1566,14 +2140,14 @@ void addSystemAndScenes(Table& table) {
 			{8, QT_TRANSLATE_NOOP("MediaAudioWidget", "Ally Damage")}, {9, QT_TRANSLATE_NOOP("MediaAudioWidget", "Evasion")},
 			{10, QT_TRANSLATE_NOOP("MediaAudioWidget", "Enemy Defeated")}, {11, QT_TRANSLATE_NOOP("MediaAudioWidget", "Use Item")}}),
 		section(QT_TRANSLATE_NOOP("MediaAudioWidget", "Associated Sound")),
-		audioFile(SOUND),
-		audio(1)
+		// Maniac Patch: modes in p4, the file's string in p5
+		withModes(fields(audioFile(SOUND), audio(1)), 4, 5)
 	));
 
-	// Change System Graphics
+	// Change System Graphics: the Maniac Patch's mode of the file in p2, its string in p3
 	table.add(Code::ChangeSystemGraphics, "ChangeSystemGraphicsWidget", QT_TRANSLATE_NOOP("ChangeSystemGraphicsWidget", "Change System Graphics"), fields(
 		section(QT_TRANSLATE_NOOP("ChangeSystemGraphicsWidget", "System Graphic")),
-		file("graphic", {}, SYSTEM),
+		modalText(file("graphic", {}, SYSTEM), 2, 0, 3),
 		section(QT_TRANSLATE_NOOP("ChangeSystemGraphicsWidget", "Graphic Pattern")),
 		choice("pattern", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("ChangeSystemGraphicsWidget", "Stretch to Fit")},
@@ -1608,9 +2182,11 @@ void addSystemAndScenes(Table& table) {
 		section(QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Monster Group")),
 		choice("troopKind", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Specific Monster Group")},
-			{1, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Monster Group with ID Stored in")}}).radio(),
+			{1, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Monster Group with ID Stored in")},
+			pointerItem()}).radio(),
 		ref(Kind::Troop, "troop", 1).when("troopKind", {0}).inlined(),
 		variable("troopVariable", 1).when("troopKind", {1}).inlined(),
+		variable("troopPointer", 1).when("troopKind", {2}).inlined().maniac(),
 		section(QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Battle Background")),
 		choice("background", 2, {}, {
 			{0, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Use Background Defined in Map or Terrain Settings")},
@@ -1624,6 +2200,8 @@ void addSystemAndScenes(Table& table) {
 			{2, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Tight Formation")}}).withDefault(1).enabledWhen("background", {1}).rpg2003(),
 		section(QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Option")),
 		check("firstStrike", 5, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Begin Battle with First Strike without Affecting Enemy Disposition")),
+		// Maniac Patch: bit 0 of p9
+		check("noFlash", 9, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "No Flash Before the Battle"))).bit(0).maniacOnly().extension(),
 		section(QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Escape Handler")),
 		choice("escape", 3, {}, {
 			{0, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Disallow Escape")},
@@ -1654,12 +2232,23 @@ void addSystemAndScenes(Table& table) {
 		choice("messages", 1, {}, {
 			{0, QT_TRANSLATE_NOOP("OpenShopWidget", "A")},
 			{1, QT_TRANSLATE_NOOP("OpenShopWidget", "B")},
-			{2, QT_TRANSLATE_NOOP("OpenShopWidget", "C")}}),
+			{2, QT_TRANSLATE_NOOP("OpenShopWidget", "C")}}).bitsAt(0, 8),
 		section(QT_TRANSLATE_NOOP("OpenShopWidget", "Option")),
 		check("handlers", 2, QT_TRANSLATE_NOOP("OpenShopWidget", "Define Custom Handlers for \"Transaction Made\" and \"Transaction not Made\"")),
 		// a shop that only buys sells nothing
 		section(QT_TRANSLATE_NOOP("OpenShopWidget", "Goods for Sale")).enabledUnless("transactions", {2}),
-		field(Kind::ItemList, "goods", 4, {}).enabledUnless("transactions", {2})
+		// Maniac Patch: the item IDs in variables from p3 (or from the one in
+		// p3: a pointer), as many as p4 (its mode in nibble 3 of p1)
+		choice("goodsMode", 1, {}, {
+			{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Item list"))},
+			{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Item IDs in variables")), Flag::Maniac},
+			{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Item IDs in variables from a variable pointer")), Flag::Maniac}})
+			.bitsAt(8, 4).maniacOnly().enabledUnless("transactions", {2}),
+		field(Kind::ItemList, "goods", 4, {}).when("goodsMode", {0}).enabledUnless("transactions", {2}),
+		variable("goodsVariable", 3, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "From"))).when("goodsMode", {1, 2}).maniac()
+			.enabledUnless("transactions", {2}),
+		modalNumber(number("goodsCount", 4, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count")), 0, 9999999).withDefault(1)
+			.when("goodsMode", {1, 2}).maniac().enabledUnless("transactions", {2}), 1, 3)
 	));
 
 	// Call Inn: the stay branches follow it when its handler is custom
@@ -1674,10 +2263,14 @@ void addSystemAndScenes(Table& table) {
 		check("handlers", 2, QT_TRANSLATE_NOOP("ShowInnWidget", "Use Custom Inn Handler"))
 	));
 
-	// Enter Hero Name: the first page of the keyboard depends on the encoding
+	// Enter Hero Name: the first page of the keyboard depends on the encoding.
+	// Maniac Patch: the modes of the hero and of the character limit in p3
 	table.add(Code::EnterHeroName, "EnterHeroNameWidget", QT_TRANSLATE_NOOP("EnterHeroNameWidget", "Enter Hero Name"), fields(
 		section(QT_TRANSLATE_NOOP("EnterHeroNameWidget", "Hero")),
-		ref(Kind::Actor, "hero", 0),
+		modalNumber(ref(Kind::Actor, "hero", 0), 3, 0),
+		// 1 to 30 characters, 0: RPG Maker's limit
+		modalNumber(number("limit", 4, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Character limit (0: default)")), 0, 30)
+			.maniacOnly().extension(), 3, 4),
 		section(QT_TRANSLATE_NOOP("EnterHeroNameWidget", "Initial Character Set")),
 		// the pages of the other encodings: Hiragana, Katakana, Hangul 1...
 		field(Kind::CharacterSet, "characterSet", 1, {}).withItems({
@@ -1765,7 +2358,9 @@ Fields pictureFields(bool move) {
 		append(list, fields(
 			section(QT_TRANSLATE_NOOP("PictureWidget", "Transition Time")),
 			valueMode("durationMode", 17, 8, 4),
-			number("duration", 14, {}, 0, 10000).withSuffix(QT_TRANSLATE_NOOP("PictureWidget", " × 0.1 s")).when("durationMode", {0}),
+			// Maniac Patch: a negative time is in frames
+			number("duration", 14, {}, 0, 10000).maniacRange(-10000, 10000)
+				.withSuffix(QT_TRANSLATE_NOOP("PictureWidget", " × 0.1 s")).when("durationMode", {0}),
 			valueVariable("durationVariable", 14, "durationMode", {}),
 			section(QT_TRANSLATE_NOOP("PictureWidget", "Option")),
 			// the other bits: the Maniac Patch options below
@@ -1902,41 +2497,43 @@ void addMapAndScreen(Table& table) {
 			{0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Boat")},
 			{1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Ship")},
 			{2, QT_TRANSLATE_NOOP("LocationCommandWidget", "Airship")},
-			{-1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Party"), Flag::Kept}}).radio(),
-		location(1, 2, 3, 4)
+			// the party itself: RPG_RT moves it (the Maniac Patch's option)
+			{-1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Party"), Flag::Maniac}}).radio(),
+		location(1, 2, 3, 4),
+		// Maniac Patch: the facing after the move
+		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Character Facing")),
+		facing(5, false).maniacOnly().extension()
 	));
 
-	// Set Event Location: the cell on the map of the event
+	// Set Event Location: the cell on the map of the event. The cell's mode
+	// is the low byte of p1; Maniac Patch: the event's mode in its nibble 2
+	// (256 a variable, 512 a variable pointer)
 	table.add(Code::ChangeEventLocation, context, QT_TRANSLATE_NOOP("LocationCommandWidget", "Change Event Location"), fields(
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Event")),
-		character("event", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Event"), locationCharacters()),
-		location(1, -1, 2, 3),
+		modalNumber(character("event", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Event"), locationCharacters()), 1, 2),
+		location(1, -1, 2, 3, 8),
 		facing(4).enabledWhen("locationMode", {0})
 	));
 
-	// Swap Event Locations: the bits of parameter 2 take an event from a
-	// variable (an engine extension: shown, not set)
+	// Swap Event Locations: Maniac Patch: the modes of the events in the
+	// nibbles of p2 (a variable, a variable pointer)
 	table.add(Code::TradeEventLocations, context, QT_TRANSLATE_NOOP("LocationCommandWidget", "Trade Event Locations"), fields(
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "First Event")),
-		check("firstFromVariable", 2, {}).bit(0).hidden(),
-		character("first", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Event"), locationCharacters()).when("firstFromVariable", {0}),
-		variable("firstVariable", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Event ID Stored in")).when("firstFromVariable", {1}),
+		modalNumber(character("first", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Event"), locationCharacters()), 2, 0),
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Second Event")),
-		check("secondFromVariable", 2, {}).bit(1).hidden(),
-		character("second", 1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Event"), locationCharacters()).when("secondFromVariable", {0}),
-		variable("secondVariable", 1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Event ID Stored in")).when("secondFromVariable", {1})
+		modalNumber(character("second", 1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Event"), locationCharacters()), 2, 1)
 	));
 
 	// Get Terrain ID
 	table.add(Code::StoreTerrainID, context, QT_TRANSLATE_NOOP("LocationCommandWidget", "Store Terrain ID"), fields(
-		location(0, -1, 1, 2),
+		location(0, -1, 1, 2, 32, true),
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Storage Location")),
 		variable("result", 3, QT_TRANSLATE_NOOP("LocationCommandWidget", "Store Terrain ID in Variable"))
 	));
 
 	// Get Event ID
 	table.add(Code::StoreEventID, context, QT_TRANSLATE_NOOP("LocationCommandWidget", "Store Event ID"), fields(
-		location(0, -1, 1, 2),
+		location(0, -1, 1, 2, 32, true),
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Storage Location")),
 		variable("result", 3, QT_TRANSLATE_NOOP("LocationCommandWidget", "Store Event ID in Variable"))
 	));
@@ -1944,15 +2541,16 @@ void addMapAndScreen(Table& table) {
 	// Erase Screen
 	table.add(Code::EraseScreen, "ScreenTransitionWidget", in("EraseScreenWidget", QT_TRANSLATE_NOOP("EraseScreenWidget", "Erase Screen")), fields(
 		section(QT_TRANSLATE_NOOP("ScreenTransitionWidget", "Transition Method")),
-		choice("transition", 0, {}, Items{{-1, QT_TRANSLATE_NOOP("ScreenTransitionWidget", "Use Default")}} + transitions(false))
-			.withDefault(-1)
+		// Maniac Patch: the transition in a variable (its mode in p1)
+		modalNumber(choice("transition", 0, {}, Items{{-1, QT_TRANSLATE_NOOP("ScreenTransitionWidget", "Use Default")}} + transitions(false))
+			.withDefault(-1), 1, -1)
 	));
 
 	// Show Screen
 	table.add(Code::ShowScreen, "ScreenTransitionWidget", in("ShowScreenWidget", QT_TRANSLATE_NOOP("ShowScreenWidget", "Show Screen")), fields(
 		section(QT_TRANSLATE_NOOP("ScreenTransitionWidget", "Transition Method")),
-		choice("transition", 0, {}, Items{{-1, QT_TRANSLATE_NOOP("ScreenTransitionWidget", "Use Default")}} + transitions(true))
-			.withDefault(-1)
+		modalNumber(choice("transition", 0, {}, Items{{-1, QT_TRANSLATE_NOOP("ScreenTransitionWidget", "Use Default")}} + transitions(true))
+			.withDefault(-1), 1, -1)
 	));
 
 	// Tint Screen
@@ -2010,11 +2608,20 @@ void addMapAndScreen(Table& table) {
 	// Pan Screen
 	table.add(Code::PanScreen, "PanScreenWidget", QT_TRANSLATE_NOOP("PanScreenWidget", "Pan Screen"), fields(
 		section(QT_TRANSLATE_NOOP("PanScreenWidget", "Operation")),
+		// Maniac Patch: a lock that teleports do not move (9), and the
+		// scrolling by pixels: shifted or to a position, at a speed (0.001
+		// pixel a frame) or in a number of frames (4 to 7)
 		choice("operation", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("PanScreenWidget", "Lock Pan State")},
+			{9, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Lock Even When Teleporting")), Flag::Maniac},
 			{1, QT_TRANSLATE_NOOP("PanScreenWidget", "Unlock Pan State")},
 			{2, QT_TRANSLATE_NOOP("PanScreenWidget", "Pan Screen")},
-			{3, QT_TRANSLATE_NOOP("PanScreenWidget", "Return to Origin")}}).radio().withDefault(2),
+			{3, QT_TRANSLATE_NOOP("PanScreenWidget", "Return to Origin")},
+			{4, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Shift by Pixels")), Flag::Maniac},
+			{5, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Shift by Pixels in Frames")), Flag::Maniac},
+			{6, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Scroll to Pixel Position")), Flag::Maniac},
+			{7, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Scroll to Pixel Position in Frames")), Flag::Maniac}})
+			.radio().withDefault(2).maniacColumns(3),
 		// a cross of radio buttons, as RPG Maker 2003
 		section(QT_TRANSLATE_NOOP("PanScreenWidget", "Direction")),
 		choice("direction", 1, {}, {
@@ -2031,8 +2638,23 @@ void addMapAndScreen(Table& table) {
 			{3, QT_TRANSLATE_NOOP("PanScreenWidget", "3: One-Half Normal")},
 			{4, QT_TRANSLATE_NOOP("PanScreenWidget", "4: Normal")},
 			{5, QT_TRANSLATE_NOOP("PanScreenWidget", "5: Twice Normal")},
-			{6, QT_TRANSLATE_NOOP("PanScreenWidget", "6: Four Times Normal")}}).withDefault(4).enabledWhen("operation", {2, 3}),
-		check("wait", 4, QT_TRANSLATE_NOOP("PanScreenWidget", "Wait for completion")).bit(0).enabledWhen("operation", {2, 3})
+			{6, QT_TRANSLATE_NOOP("PanScreenWidget", "6: Four Times Normal")},
+			{0, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "0: Instantly")), Flag::Maniac}})
+			.withDefault(4).enabledWhen("operation", {2, 3}),
+		check("wait", 4, QT_TRANSLATE_NOOP("PanScreenWidget", "Wait for completion")).bit(0).enabledWhen("operation", {2, 3, 4, 5, 6, 7}),
+		// Maniac Patch: the pixels, their modes in the nibbles of p1
+		section(in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Pixel Scrolling"))),
+		modalNumber(number("pixelX", 2, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "X (pixels)")), -9999999, 9999999)
+			.when("operation", {4, 5, 6, 7}).maniacOnly(), 1, 0),
+		modalNumber(number("pixelY", 3, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y (pixels)")), -9999999, 9999999)
+			.when("operation", {4, 5, 6, 7}).maniacOnly(), 1, 1),
+		// 0.001 pixel a frame, or frames
+		modalNumber(number("pixelSpeed", 5, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Speed or frames")), -9999999, 9999999)
+			.when("operation", {4, 5, 6, 7}).maniacOnly().extension(), 1, 2),
+		check("centered", 4, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Position of the center of the screen")))
+			.bit(1).when("operation", {6, 7}).maniacOnly(),
+		check("relative", 4, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Relative to the current position")))
+			.bit(2).when("operation", {6, 7}).maniacOnly()
 	));
 
 	// Weather Effects
@@ -2079,15 +2701,36 @@ void addMapAndScreen(Table& table) {
 		variable("lastVariable", 2, QT_TRANSLATE_NOOP("ErasePictureWidget", "Through Variable")).when("selection", {3}).extension().rpg2003()
 	));
 
-	// Show Battle Animation
+	// Show Battle Animation. Maniac Patch: where it is shown in p3 (an event,
+	// on the entire map with "Global Scope", a picture, a position, the one
+	// in two variables), the cache of its file in bit 1 of p2, a buffer (p5,
+	// several animations at once), the position (p6, p7) and the flip (p8);
+	// the modes of the values in the nibbles of p4
 	table.add(Code::ShowBattleAnimation, "ShowBattleAnimationWidget", QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Show Battle Animation"), fields(
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Battle Animation")),
-		ref(Kind::Animation, "animation", 0).preview(),
+		modalNumber(ref(Kind::Animation, "animation", 0).preview(), 4, 0),
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Target")),
-		character("target", 1, {}, pictureCharacters()),
+		choice("placement", 3, {}, {
+			{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Follow Map Event"))},
+			{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Follow Map Event, on the Entire Map"))},
+			{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Follow Picture")), Flag::Maniac},
+			{3, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Fixed Position")), Flag::Maniac},
+			{4, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Binding")), Flag::Maniac}}).maniacOnly(),
+		modalNumber(character("target", 1, {}, pictureCharacters()).when("placement", {0, 1}), 4, 1),
+		modalNumber(number("picture", 1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Picture")), 1, 9999999)
+			.withDefault(1).when("placement", {2}).maniacOnly(), 4, 1),
+		modalNumber(number("x", 6, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "X")), -9999999, 9999999)
+			.when("placement", {3}).maniacOnly().extension(), 4, 3),
+		modalNumber(number("y", 7, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y")), -9999999, 9999999)
+			.when("placement", {3}).maniacOnly().extension(), 4, 4),
+		modal(variable("bindX", 6, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "X"))).when("placement", {4}).maniacOnly().extension(), 4, 3, targetModes()),
+		modal(variable("bindY", 7, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y"))).when("placement", {4}).maniacOnly().extension(), 4, 4, targetModes()),
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Options")),
-		check("wait", 2, QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Wait for completion")),
-		check("global", 3, QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Global Scope"))
+		check("wait", 2, QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Wait for completion")).bit(0),
+		check("global", 3, QT_TRANSLATE_NOOP("ShowBattleAnimationWidget", "Global Scope")).notManiac(),
+		check("cache", 2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Cache Source"))).bit(1).maniacOnly(),
+		modalNumber(check("flip", 8, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Flip"))).maniacOnly().extension(), 4, 5),
+		modalNumber(number("buffer", 5, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Buffer")), 0, 9999999).maniacOnly().extension(), 4, 2)
 	));
 
 	// Hero Transparency
@@ -2098,17 +2741,18 @@ void addMapAndScreen(Table& table) {
 			{1, QT_TRANSLATE_NOOP("PlayerVisibilityWidget", "Opaque")}}).radio().withDefault(1)
 	));
 
-	// Flash Event: colors of 0-31
+	// Flash Event: colors of 0-31. Maniac Patch: the modes of the event and
+	// of the colors in the nibbles of p7
 	table.add(Code::FlashSprite, "FlashSpriteWidget", QT_TRANSLATE_NOOP("FlashSpriteWidget", "Flash Sprite"), fields(
 		section(QT_TRANSLATE_NOOP("FlashSpriteWidget", "Target")),
-		character("target", 0, {}, pictureCharacters()),
+		modalNumber(character("target", 0, {}, pictureCharacters()), 7, 0),
 		section(QT_TRANSLATE_NOOP("FlashSpriteWidget", "Color")),
 		// as Flash Screen: the sample at the left of the sliders
 		sample("flash"),
-		number("red", 1, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Red"), 0, 31).slider().withDefault(31),
-		number("green", 2, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Green"), 0, 31).slider().withDefault(31),
-		number("blue", 3, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Blue"), 0, 31).slider().withDefault(31),
-		number("strength", 4, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Strength"), 0, 31).slider().withDefault(31),
+		modalNumber(number("red", 1, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Red"), 0, 31).slider().withDefault(31), 7, 1),
+		modalNumber(number("green", 2, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Green"), 0, 31).slider().withDefault(31), 7, 2),
+		modalNumber(number("blue", 3, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Blue"), 0, 31).slider().withDefault(31), 7, 3),
+		modalNumber(number("strength", 4, QT_TRANSLATE_NOOP("FlashSpriteWidget", "Strength"), 0, 31).slider().withDefault(31), 7, 4),
 		section(QT_TRANSLATE_NOOP("FlashSpriteWidget", "Flash Cycle Time")),
 		number("time", 5, {}, 0, 10000).withDefault(5).withSuffix(QT_TRANSLATE_NOOP("FlashSpriteWidget", " × 0.1 s")),
 		section(QT_TRANSLATE_NOOP("FlashSpriteWidget", "Option")),
@@ -2127,8 +2771,10 @@ void addMapAndScreen(Table& table) {
 			{1, literal("1")}, {2, literal("2")}, {3, literal("3")}, {4, literal("4")},
 			{5, literal("5")}, {6, literal("6")}, {7, literal("7")}, {8, literal("8")}}).withDefault(6),
 		field(Kind::MoveRoute, "route", 4, {}),
-		// the other bits of parameter 2 are Maniac Patch flags, kept
+		// the other bits of parameter 2 are Maniac Patch flags, kept: bits 8-11
+		// the target's mode (a variable, a variable pointer), set by the editor
 		check("repeat", 2, QT_TRANSLATE_NOOP("MoveRouteDialog", "Repeat the moves")).bit(0),
+		mode("targetMode", QT_TRANSLATE_NOOP("MoveRouteDialog", "Target"), 2, 2, numberModes()).hidden().maniac(),
 		check("skippable", 3, QT_TRANSLATE_NOOP("MoveRouteDialog", "Skip moves that cannot be done"))
 	));
 }
@@ -2154,36 +2800,43 @@ void access(Table& table, Code code, const char* title) {
 
 // Wait, music and sounds, keys, and the settings of the map
 void addMediaAndMap(Table& table) {
-	// Wait: a time, or (RPG Maker 2003) until a key is pressed
+	// Wait: a time, or (RPG Maker 2003) until a key is pressed. Maniac
+	// Patch: frames (bit 8 of p1: 256), the time's mode in p2
 	table.add(Code::Wait, "WaitWidget", QT_TRANSLATE_NOOP("WaitWidget", "Wait"), fields(
 		choice("mode", 1, {}, {
 			{0, QT_TRANSLATE_NOOP("WaitWidget", "Wait for")},
-			{1, QT_TRANSLATE_NOOP("WaitWidget", "Wait until a key is pressed"), Flag::Rpg2003}}).radio(),
-		number("time", 0, {}, 0, 9999).withSuffix(QT_TRANSLATE_NOOP("WaitWidget", " × 0.1 s")).enabledWhen("mode", {0}).inlined()
+			{1, QT_TRANSLATE_NOOP("WaitWidget", "Wait until a key is pressed"), Flag::Rpg2003}}).bitsAt(0, 8).radio(),
+		// one of them on the row, in the unit chosen
+		modalNumber(number("time", 0, {}, 0, 9999).withSuffix(QT_TRANSLATE_NOOP("WaitWidget", " × 0.1 s"))
+			.unless("inFrames", {1}).enabledWhen("mode", {0}).inlined(), 2, -1),
+		modalNumber(number("frames", 0, {}, 0, 9999).withSuffix(in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", " frames")))
+			.when("inFrames", {1}).enabledWhen("mode", {0}).inlined().maniacOnly(), 2, -1),
+		check("inFrames", 1, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "In frames (1/60 s)")))
+			.bit(8).enabledWhen("mode", {0}).maniacOnly()
 	));
 
 	// Play BGM
 	table.add(Code::PlayBGM, "MediaAudioWidget", in("PlayBGMWidget", QT_TRANSLATE_NOOP("PlayBGMWidget", "Play BGM")), fields(
 		section(QT_TRANSLATE_NOOP("MediaAudioWidget", "BGM")),
-		audioFile(MUSIC),
-		fadeIn(0),
-		audio(1)
+		// Maniac Patch: modes in p4, the file's string in p5
+		withModes(fields(audioFile(MUSIC), fadeIn(0), audio(1)), 4, 5)
 	));
 
 	// Fade Out BGM
 	table.add(Code::FadeOutBGM, "FadeOutBGMWidget", QT_TRANSLATE_NOOP("FadeOutBGMWidget", "Fade Out BGM"), fields(
 		section(QT_TRANSLATE_NOOP("FadeOutBGMWidget", "Fade Out Time")),
-		// RPG Maker's slider of 0 to 20 seconds, with buttons to hear it
-		number("time", 0, {}, 0, 20000).ticks()
-			.withSuffix(QT_TRANSLATE_NOOP("FadeOutBGMWidget", " ms")).withStep(1000),
+		// RPG Maker's slider of 0 to 20 seconds, with buttons to hear it.
+		// Maniac Patch: the time in a variable (its mode in p1)
+		modalNumber(number("time", 0, {}, 0, 20000).ticks()
+			.withSuffix(QT_TRANSLATE_NOOP("FadeOutBGMWidget", " ms")).withStep(1000), 1, -1),
 		sample("fade").inlined()
 	));
 
 	// Play Sound Effect
 	table.add(Code::PlaySound, "MediaAudioWidget", in("PlaySoundWidget", QT_TRANSLATE_NOOP("PlaySoundWidget", "Play Sound Effect")), fields(
 		section(QT_TRANSLATE_NOOP("MediaAudioWidget", "Sound Effect")),
-		audioFile(SOUND),
-		audio(0)
+		// Maniac Patch: modes in p3, the file's string in p4
+		withModes(fields(audioFile(SOUND), audio(0)), 3, 4)
 	));
 
 	// Play Movie: the position, or the variables holding it
@@ -2196,11 +2849,12 @@ void addMediaAndMap(Table& table) {
 		section(QT_TRANSLATE_NOOP("PlayMovieWidget", "Coordinates of Upper-Left Pixel")),
 		choice("position", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("PlayMovieWidget", "Specific Coordinates")},
-			{1, QT_TRANSLATE_NOOP("PlayMovieWidget", "Variable Reference")}}).radio(),
+			{1, QT_TRANSLATE_NOOP("PlayMovieWidget", "Variable Reference")},
+			{2, in("PictureWidget", QT_TRANSLATE_NOOP("PictureWidget", "Variable Pointer")), Flag::Maniac}}).radio(),
 		number("x", 1, QT_TRANSLATE_NOOP("PlayMovieWidget", "X"), -9999, 9999).when("position", {0}),
 		number("y", 2, QT_TRANSLATE_NOOP("PlayMovieWidget", "Y"), -9999, 9999).when("position", {0}),
-		variable("xVariable", 1, QT_TRANSLATE_NOOP("PlayMovieWidget", "X")).when("position", {1}),
-		variable("yVariable", 2, QT_TRANSLATE_NOOP("PlayMovieWidget", "Y")).when("position", {1})
+		variable("xVariable", 1, QT_TRANSLATE_NOOP("PlayMovieWidget", "X")).when("position", {1, 2}),
+		variable("yVariable", 2, QT_TRANSLATE_NOOP("PlayMovieWidget", "Y")).when("position", {1, 2})
 	));
 
 	// Key Input Processing: the place of each key depends on the engine and
@@ -2220,39 +2874,38 @@ void addMediaAndMap(Table& table) {
 		check("up", 9, QT_TRANSLATE_NOOP("KeyInputProcWidget", "Up Key (4)")),
 		check("decision", 3, QT_TRANSLATE_NOOP("KeyInputProcWidget", "Decision Key (5)")).bit(0),
 		check("cancel", 4, QT_TRANSLATE_NOOP("KeyInputProcWidget", "Cancel Key (6)")).bit(0),
-		check("shift", 5, QT_TRANSLATE_NOOP("KeyInputProcWidget", "Shift Key (7)"))
+		check("shift", 5, QT_TRANSLATE_NOOP("KeyInputProcWidget", "Shift Key (7)")),
+		// Maniac Patch: the mouse, in bit 1 of the decision, cancel, Shift,
+		// down and up keys of RPG Maker 2003's newer layout
+		section(in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Mouse"))),
+		check("mouseLeft", 3, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Left Button (1005)"))).bit(1).maniacOnly(),
+		check("mouseRight", 4, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Right Button (1006)"))).bit(1).maniacOnly(),
+		check("mouseMiddle", 9, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Middle Button (1007)"))).bit(1).maniacOnly(),
+		check("wheelDown", 10, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Wheel Down (1001)"))).bit(1).maniacOnly(),
+		check("wheelUp", 13, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Wheel Up (1004)"))).bit(1).maniacOnly()
 	));
 
-	// Change Chipset: bit 0 of parameter 1 takes the chipset from a variable
+	// Change Chipset: the Maniac Patch's mode of the chipset in p1 (bit 0 alone:
+	// a variable, also in other engines)
 	table.add(Code::ChangeMapTileset, "LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Change Map Tileset"), fields(
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "New Tileset")),
-		check("fromVariable", 1, {}).bit(0).hidden().extension(),
-		ref(Kind::Chipset, "chipset", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Tileset")).when("fromVariable", {0}),
-		variable("chipsetVariable", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Tileset ID Stored in")).when("fromVariable", {1})
+		modalNumber(ref(Kind::Chipset, "chipset", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Tileset")), 1, 0)
 	));
 
-	// Change Panorama: bits of parameter 6 take the name and the speeds from variables
+	// Change Panorama: the Maniac Patch's modes of the name (nibble 0 of
+	// p6, its string in p7) and of the speeds (nibbles 4 and 6)
 	table.add(Code::ChangePBG, "LocationCommandWidget", QT_TRANSLATE_NOOP("LocationCommandWidget", "Change Parallax Background"), fields(
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Graphic")),
-		check("nameFromVariable", 6, {}).bit(0).hidden().extension(),
-		file("graphic", {}, PANORAMA).preview().when("nameFromVariable", {0}),
-		variable("graphicVariable", 7, QT_TRANSLATE_NOOP("LocationCommandWidget", "Graphic Name Stored in"))
-			.when("nameFromVariable", {1}).extension(),
+		modalText(file("graphic", {}, PANORAMA).preview(), 6, 0, 7),
 		section(QT_TRANSLATE_NOOP("LocationCommandWidget", "Options")),
 		check("horizontal", 0, QT_TRANSLATE_NOOP("LocationCommandWidget", "Horizontal Scrolling")),
 		check("horizontalAuto", 2, QT_TRANSLATE_NOOP("LocationCommandWidget", "Horizontal Autoscroll")).enabledUnless("horizontal", {0}),
-		check("horizontalFromVariable", 6, {}).bit(4).hidden().extension(),
-		number("horizontalSpeed", 3, QT_TRANSLATE_NOOP("LocationCommandWidget", "Horizontal Speed"), -8, 8)
-			.when("horizontalFromVariable", {0}).enabledUnless("horizontal", {0}).enabledUnless("horizontalAuto", {0}),
-		variable("horizontalSpeedVariable", 3, QT_TRANSLATE_NOOP("LocationCommandWidget", "Horizontal Speed Stored in"))
-			.when("horizontalFromVariable", {1}).enabledUnless("horizontal", {0}).enabledUnless("horizontalAuto", {0}),
+		modalNumber(number("horizontalSpeed", 3, QT_TRANSLATE_NOOP("LocationCommandWidget", "Horizontal Speed"), -8, 8)
+			.enabledUnless("horizontal", {0}).enabledUnless("horizontalAuto", {0}), 6, 4),
 		check("vertical", 1, QT_TRANSLATE_NOOP("LocationCommandWidget", "Vertical Scrolling")),
 		check("verticalAuto", 4, QT_TRANSLATE_NOOP("LocationCommandWidget", "Vertical Autoscroll")).enabledUnless("vertical", {0}),
-		check("verticalFromVariable", 6, {}).bit(6).hidden().extension(),
-		number("verticalSpeed", 5, QT_TRANSLATE_NOOP("LocationCommandWidget", "Vertical Speed"), -8, 8)
-			.when("verticalFromVariable", {0}).enabledUnless("vertical", {0}).enabledUnless("verticalAuto", {0}),
-		variable("verticalSpeedVariable", 5, QT_TRANSLATE_NOOP("LocationCommandWidget", "Vertical Speed Stored in"))
-			.when("verticalFromVariable", {1}).enabledUnless("vertical", {0}).enabledUnless("verticalAuto", {0})
+		modalNumber(number("verticalSpeed", 5, QT_TRANSLATE_NOOP("LocationCommandWidget", "Vertical Speed"), -8, 8)
+			.enabledUnless("vertical", {0}).enabledUnless("verticalAuto", {0}), 6, 6)
 	));
 
 	// Change Encounter Rate
@@ -2301,7 +2954,24 @@ void addMediaAndMap(Table& table) {
 	access(table, Code::ChangeEscapeAccess, QT_TRANSLATE_NOOP("EventCommandPalette", "Enable Escape"));
 
 	// Enable Saving
-	access(table, Code::ChangeSaveAccess, QT_TRANSLATE_NOOP("EventCommandPalette", "Enable Saving"));
+	// Enable Saving. Maniac Patch: Control System Functions (-1), the
+	// functions the player cannot open in the bits of p1
+	const auto allowed = [](const char* id, int bit, const char* text) {
+		return check(id, 1, in("ManiacCommandWidget", text)).bit(bit).with(Flag::Inverted).when("access", {-1}).maniacOnly();
+	};
+	table.add(Code::ChangeSaveAccess, "EnableDisableWidget", palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Enable Saving")), fields(
+		choice("access", 0, {}, {
+			{0, QT_TRANSLATE_NOOP("EnableDisableWidget", "Forbid")},
+			{1, QT_TRANSLATE_NOOP("EnableDisableWidget", "Allow")},
+			{-1, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Control System Functions")), Flag::Maniac}}).radio(),
+		section(in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Functions Allowed"))),
+		allowed("allowSave", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save menu")),
+		allowed("allowMenu", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Party menu")),
+		allowed("allowScreenMode", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Window and full screen (F4)")),
+		allowed("allowOptions", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Media options (F5)")),
+		allowed("allowDebug", 5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Debug menu (F9)")),
+		allowed("allowReset", 7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Reset (F12)"))
+	));
 
 	// Enable System Menu
 	access(table, Code::ChangeMainMenuAccess, QT_TRANSLATE_NOOP("EventCommandPalette", "Enable System Menu"));
@@ -2493,32 +3163,150 @@ void addFlow(Table& table) {
 		number("label", 0, QT_TRANSLATE_NOOP("LabelWidget", "Label"), 1, 9999).withDefault(1)
 	));
 
-	// Call Event: a common event, an event of the map and its page, or both from variables
+	// Call Event: a common event, an event of the map and its page, or both
+	// from variables; Maniac Patch: a common event from a variable or a
+	// pointer, or by its name (the string of the command, a string variable
+	// or one from a variable), and an offset added to the ID (its mode in
+	// p3, the value in p4)
 	table.add(Code::CallEvent, "CallEventWidget", QT_TRANSLATE_NOOP("CallEventWidget", "Call Event"), fields(
 		choice("kind", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("CallEventWidget", "Common Event")},
+			{3, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common Event in a Variable")), Flag::Maniac},
+			{4, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common Event in a Variable Pointer")), Flag::Maniac},
+			{5, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common Event by Name")), Flag::Maniac},
+			{6, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common Event Named in a String")), Flag::Maniac},
+			{7, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Common Event Named in a String Pointer")), Flag::Maniac},
 			{1, QT_TRANSLATE_NOOP("CallEventWidget", "Map Event")},
-			{2, QT_TRANSLATE_NOOP("CallEventWidget", "Map Event chosen by variables")}}).radio(),
+			{2, QT_TRANSLATE_NOOP("CallEventWidget", "Map Event chosen by variables")}}).radio().maniacColumns(2),
 		ref(Kind::CommonEvent, "commonEvent", 1, QT_TRANSLATE_NOOP("CallEventWidget", "Common Event")).when("kind", {0}),
+		variable("commonEventVariable", 1, QT_TRANSLATE_NOOP("CallEventWidget", "Common Event")).when("kind", {3, 4}).maniacOnly(),
+		string("commonEventName", maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Name"))).when("kind", {5}).maniacOnly(),
+		field(Kind::StringId, "commonEventString", 1, QT_TRANSLATE_NOOP("CallEventWidget", "Common Event"))
+			.withRange(0, 99999).withDefault(1).when("kind", {6}).maniacOnly(),
+		variable("commonEventStringVariable", 1, QT_TRANSLATE_NOOP("CallEventWidget", "Common Event")).when("kind", {7}).maniacOnly(),
 		character("event", 1, QT_TRANSLATE_NOOP("CallEventWidget", "Event"), {
 			{10005, QT_TRANSLATE_NOOP("CallEventWidget", "This Event")}}).when("kind", {1}),
 		number("page", 2, QT_TRANSLATE_NOOP("CallEventWidget", "Page"), 1, 100).withDefault(1).when("kind", {1}),
 		variable("eventVariable", 1, QT_TRANSLATE_NOOP("CallEventWidget", "Event ID in")).when("kind", {2}),
-		variable("pageVariable", 2, QT_TRANSLATE_NOOP("CallEventWidget", "Page in")).when("kind", {2})
+		variable("pageVariable", 2, QT_TRANSLATE_NOOP("CallEventWidget", "Page in")).when("kind", {2}),
+		modalNumber(number("offset", 4, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Added to the ID")), int32Min, int32Max)
+			.maniacOnly().extension(), 3, -1)
 	));
 
 	// Comment: its text over several lines
 	table.custom(Code::Comment, "CommentWidget", QT_TRANSLATE_NOOP("CommentWidget", "Comment"), fields(
 		field(Kind::Lines, "comment", StringIndex, {})
 	));
+
+	// The Maniac Patch's settings of commands without any in RPG Maker (their
+	// editors only in its games)
+	const char* context = "ManiacCommandWidget";
+	const Items comparisons = {
+		{0, in("ConditionalBranchWidget", QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Equal to"))},
+		{1, in("ConditionalBranchWidget", QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Greater than or Equal to"))},
+		{2, in("ConditionalBranchWidget", QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Less than or Equal to"))},
+		{3, in("ConditionalBranchWidget", QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Greater than"))},
+		{4, in("ConditionalBranchWidget", QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Less than"))},
+		{5, in("ConditionalBranchWidget", QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Not Equal to"))}};
+	// a switch reads 1 when on
+	const Modes values = numberModes() + Modes{
+		{3, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Switch")), Kind::Switch},
+		{4, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Switch pointer")), Kind::Variable}};
+
+	// Loop: forever (RPG Maker), a number of times, counting up or down, while
+	// a comparison holds (checked before or after each loop), for each value
+	// of a list, of an array of variables or for each event of the map in p0;
+	// the modes of the two values (p2, p3) in nibbles 0 and 1 of p1, the
+	// comparison in nibble 2; the variable of the index (or of the value) in
+	// p4 (0: none). A list (6) has its values from p5, their modes in words
+	// from p2: kept as they are. Its End Loop has the same parameters
+	// (EasyRPG Player reads them there)
+	table.add(Code::Loop, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Loop")), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Repeat")),
+		choice("type", 0, {}, {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Forever")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "A number of times")},
+			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Counting up")},
+			{3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Counting down")},
+			{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "While (checked before each loop)")},
+			{5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "While (checked after each loop)")},
+			{6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "For each value of a list"), Flag::Kept},
+			{7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "For each variable of an array")},
+			{8, QT_TRANSLATE_NOOP("ManiacCommandWidget", "For each event of the map")}}).inColumns(2),
+		modal(number("times", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Times"), 0, 9999999).withDefault(1).when("type", {1}), 1, 0, values),
+		modal(number("from", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "From"), -9999999, 9999999).when("type", {2, 3}), 1, 0, values),
+		modal(number("to", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "To"), -9999999, 9999999).when("type", {2, 3}), 1, 1, values),
+		modal(number("left", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Value"), -9999999, 9999999).when("type", {4, 5}), 1, 0, values),
+		choice("comparison", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Comparison"), comparisons).bitsAt(8, 4).when("type", {4, 5}),
+		modal(number("right", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Compared with"), -9999999, 9999999).when("type", {4, 5}), 1, 1, values),
+		ref(Kind::Variable, "array", 2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "From")).when("type", {7}),
+		modal(number("count", 3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Count"), 0, 9999999).withDefault(1).when("type", {7}), 1, 1, values),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Index")),
+		// from 0, or the value counted
+		ref(Kind::Variable, "index", 4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Stored in"))
+			.withItems({{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "(None)")}}).withDefault(0).unless("type", {0})
+	), Flag::Maniac);
+
+	// Erase Event: another event (p2: 0 or 10005 this one; its mode in
+	// nibble 1 of p0), erased or brought back (p1)
+	table.add(Code::EraseEvent, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Erase Event")), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Event")),
+		modalNumber(character("event", 2, {}, {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "This Event")},
+			{10005, QT_TRANSLATE_NOOP("ManiacCommandWidget", "This Event"), Flag::Kept}}), 0, 1),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation")),
+		choice("operation", 1, {}, {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Erase")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Bring back")}}).radio()
+	), Flag::Maniac);
+
+	// Call System Functions (Open Save Menu): the function (p0) and its option (p1)
+	table.add(Code::OpenSaveMenu, context, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Call System Functions"), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Function")),
+		choice("function", 0, {}, {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Save menu")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Load menu")},
+			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Party menu")},
+			{3, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Window or full screen")},
+			{4, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Media options")},
+			{5, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Debug menu")},
+			{6, QT_TRANSLATE_NOOP("ManiacCommandWidget", "License")},
+			{7, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Reset (F12)")}}).inColumns(2),
+		choice("screenMode", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Screen"), {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Toggle")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Window")},
+			{2, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Full screen")}}).radio().when("function", {3}),
+		check("pause", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Pause the game")).when("function", {5})
+	), Flag::Maniac);
+
+	// Break Loop: out of the loop or to its next turn (p0), of the loop it is
+	// in or of one around it (p1: the loops left before it)
+	table.add(Code::BreakLoop, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Break Loop")), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Operation")),
+		choice("operation", 0, {}, {
+			{0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Break")},
+			{1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Continue")}}).radio(),
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Level")),
+		number("outer", 1, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Outer loops"), 0, 9999999),
+		note(QT_TRANSLATE_NOOP("ManiacCommandWidget", "0: the loop it is in; 1: the loop around it..."))
+	), Flag::Maniac);
+
+	// End Event Processing: the self values of the event reset with it (p0)
+	table.add(Code::EndEventProcessing, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "End Event Processing")), fields(
+		section(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Reset")),
+		check("selfVariables", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Self variables")).bit(0),
+		check("selfStrings", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Self string variables")).bit(1),
+		check("selfSwitches", 0, QT_TRANSLATE_NOOP("ManiacCommandWidget", "Self switches")).bit(2)
+	), Flag::Maniac);
 }
 
 // Battle event commands
 void addBattle(Table& table) {
-	// Change Enemy HP: the monster of the troop, from 0
+	// Change Enemy HP: the monster of the troop, from 0 (Maniac Patch: its
+	// mode in p5)
 	table.add(Code::ChangeMonsterHP, "SceneCommandWidget", in("ChangeMonsterHPWidget", QT_TRANSLATE_NOOP("ChangeMonsterHPWidget", "Change Monster HP")), fields(
 		section(QT_TRANSLATE_NOOP("SceneCommandWidget", "Monster")),
-		monster("monster", 0),
+		modalNumber(monster("monster", 0), 5, -1),
 		section(QT_TRANSLATE_NOOP("SceneCommandWidget", "Operation")),
 		choice("operation", 1, {}, {
 			{0, QT_TRANSLATE_NOOP("SceneCommandWidget", "Increase HP")},
@@ -2537,10 +3325,10 @@ void addBattle(Table& table) {
 		check("lethal", 4, QT_TRANSLATE_NOOP("SceneCommandWidget", "HP Reduction can Kill Target")).enabledUnless("operation", {0})
 	));
 
-	// Change Enemy MP
+	// Change Enemy MP (Maniac Patch: the monster's mode in p5)
 	table.add(Code::ChangeMonsterMP, "SceneCommandWidget", in("ChangeMonsterMPWidget", QT_TRANSLATE_NOOP("ChangeMonsterMPWidget", "Change Monster MP")), fields(
 		section(QT_TRANSLATE_NOOP("SceneCommandWidget", "Monster")),
-		monster("monster", 0),
+		modalNumber(monster("monster", 0), 5, -1),
 		section(QT_TRANSLATE_NOOP("SceneCommandWidget", "Operation")),
 		choice("operation", 1, {}, {
 			{0, QT_TRANSLATE_NOOP("SceneCommandWidget", "Increase MP")},
@@ -2553,23 +3341,24 @@ void addBattle(Table& table) {
 		variable("amountVariable", 3).when("amountKind", {1}).inlined()
 	));
 
-	// Change Enemy Condition
+	// Change Enemy Condition (Maniac Patch: the modes of the monster and of
+	// the condition in p3)
 	table.add(Code::ChangeMonsterCondition, "ChangeMonsterConditionWidget",
 		QT_TRANSLATE_NOOP("ChangeMonsterConditionWidget", "Change Monster Condition"), fields(
 		section(QT_TRANSLATE_NOOP("ChangeMonsterConditionWidget", "Monster")),
-		monster("monster", 0),
+		modalNumber(monster("monster", 0), 3, 0),
 		section(QT_TRANSLATE_NOOP("ChangeMonsterConditionWidget", "Operation")),
 		choice("operation", 1, {}, {
 			{0, QT_TRANSLATE_NOOP("ChangeMonsterConditionWidget", "Add Condition")},
 			{1, QT_TRANSLATE_NOOP("ChangeMonsterConditionWidget", "Remove Condition")}}).radio(),
 		section(QT_TRANSLATE_NOOP("ChangeMonsterConditionWidget", "Condition")),
-		ref(Kind::State, "condition", 2)
+		modalNumber(ref(Kind::State, "condition", 2), 3, 1)
 	));
 
-	// Show Hidden Enemy
+	// Show Hidden Enemy (Maniac Patch: the monster's mode in p1)
 	table.add(Code::ShowHiddenMonster, "ShowHiddenMonsterWidget", QT_TRANSLATE_NOOP("ShowHiddenMonsterWidget", "Show Hidden Monster"), fields(
 		section(QT_TRANSLATE_NOOP("ShowHiddenMonsterWidget", "Monster to Show")),
-		monster("monster", 0)
+		modalNumber(monster("monster", 0), 1, -1)
 	));
 
 	// Change Battle Background
@@ -2583,12 +3372,16 @@ void addBattle(Table& table) {
 	// 0, or a hero ID; -1 all of them. Parameter 4 is the line of the target
 	// in RPG Maker 2003's list (All Enemies -1, the monsters of the troop,
 	// Entire Party, then the heroes), which it reads back for the party;
-	// RPG_RT reads the side only from 5 parameters on
+	// RPG_RT reads the side only from 5 parameters on. Maniac Patch: the
+	// modes of the animation and of the target in p5 (a target from a
+	// variable: its side still in p3)
 	table.custom(Code::ShowBattleAnimation_B, "ShowBattleAnimation_BWidget",
 		QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Show Battle Animation"), fields(
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Animation")),
-		ref(Kind::Animation, "animation", 0).preview(),
+		modalNumber(ref(Kind::Animation, "animation", 0).preview(), 5, 0),
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Target")),
+		mode("targetMode", {}, 5, 1, numberModes()).hidden().maniac().extension(),
+		variable("targetVariable", 1).when("targetMode", {1, 2}).hidden().maniac().extension(),
 		check("party", 3, {}).hidden().extension().rpg2003(),
 		choice("target", 1, {}, Items{{-1, QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "All Enemies")}}
 			+ numbered(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Monster %1"), 8, 0)).withDefault(-1).unless("party", {1}),
@@ -2679,8 +3472,8 @@ bool Field::isTail() const {
 
 const Field* Schema::field(std::string_view id) const {
 	for (const auto& one : fields) {
-		// a location box, a sample have no value, but their rules
-		if ((one.hasValue() || one.kind == Kind::Location || one.kind == Kind::Sample) && id == one.id) {
+		// a location box, a sample, a note have no value, but their rules
+		if ((one.hasValue() || one.kind == Kind::Location || one.kind == Kind::Sample || one.kind == Kind::Note) && id == one.id) {
 			return &one;
 		}
 	}
@@ -2688,20 +3481,40 @@ const Field* Schema::field(std::string_view id) const {
 }
 
 bool CommandSchema::hasEditor(Code code) {
+	switch (code) {
+		case Code::OpenSaveMenu:
+		case Code::Loop:
+		case Code::BreakLoop:
+		case Code::EndEventProcessing:
+		case Code::EraseEvent: {
+			// settings of the Maniac Patch (read only for them: the other
+			// lines do not need the game's patches)
+			const auto& project = core().project();
+			return hasEditor(code, project && GamePatches::usesManiac(*project));
+		}
+		default:
+			return hasEditor(code, false);
+	}
+}
+
+bool CommandSchema::hasEditor(Code code, bool maniac) {
 	// the commands without settings, and the lines of the structure of a block
 	switch (code) {
+		case Code::OpenSaveMenu:
+		case Code::Loop:
+		case Code::BreakLoop:
+		case Code::EndEventProcessing:
+		case Code::EraseEvent:
+			// Call System Functions, the loops, another event (or back), the
+			// self values reset: the Maniac Patch's
+			return maniac;
 		case Code::END:
 		case Code::EnterExitVehicle:
 		case Code::ProceedWithMovement:
 		case Code::HaltAllMovement:
 		case Code::MemorizeBGM:
 		case Code::PlayMemorizedBGM:
-		case Code::OpenSaveMenu:
 		case Code::OpenMainMenu:
-		case Code::Loop:
-		case Code::BreakLoop:
-		case Code::EndEventProcessing:
-		case Code::EraseEvent:
 		case Code::GameOver:
 		case Code::ReturntoTitleScreen:
 		case Code::OpenLoadMenu:
@@ -2732,6 +3545,14 @@ bool CommandSchema::hasEditor(Code code) {
 		default:
 			return true;
 	}
+}
+
+int CommandSchema::minimumOf(const Field& field, bool maniac) {
+	return maniac ? field.maniacMinimum : field.minimum;
+}
+
+int CommandSchema::maximumOf(const Field& field, bool maniac) {
+	return maniac ? field.maniacMaximum : field.maximum;
 }
 
 const Schema* CommandSchema::find(Code code) {
@@ -2795,6 +3616,22 @@ QString CommandSchema::readString(const lcf::rpg::EventCommand& command) {
 
 void CommandSchema::writeString(lcf::rpg::EventCommand& command, const QString& text) {
 	command.string = ToDBString(text);
+}
+
+void CommandSchema::syncBlock(std::vector<lcf::rpg::EventCommand>& commands, int index) {
+	if (index < 0 || index >= static_cast<int>(commands.size()) || commands[index].code != static_cast<int>(Code::Loop)) {
+		return;
+	}
+	// the first line back at the indent of the loop closes it
+	const auto& loop = commands[index];
+	for (size_t i = static_cast<size_t>(index) + 1; i < commands.size() && commands[i].indent >= loop.indent; ++i) {
+		if (commands[i].indent == loop.indent) {
+			if (commands[i].code == static_cast<int>(Code::EndLoop)) {
+				commands[i].parameters = loop.parameters;
+			}
+			return;
+		}
+	}
 }
 
 bool CommandSchema::holds(const Schema& schema, const std::vector<Condition>& conditions, const lcf::rpg::EventCommand& command) {

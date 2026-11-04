@@ -101,7 +101,10 @@ jobs:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
       options: --privileged
     steps:
+      # with liblcf (the submodule lib/liblcf), which the Editor builds
       - uses: actions/checkout@v7
+        with:
+          submodules: true
       # without a cache-key, the cache of the libraries is named after the
       # manifest: it is saved again only when the manifest changes
       - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
@@ -192,10 +195,13 @@ jobs:
           restore-keys: |
             ccache-${{ matrix.os.triplet }}-
 
+      # with liblcf (the submodule lib/liblcf), which the Editor builds
       - &clone
         name: Clone Repository
         uses: actions/checkout@v7
         if: github.event.inputs.git-ref == ''
+        with:
+          submodules: true
 
       - &cloneref
         name: Clone Repository (with custom ref)
@@ -203,6 +209,7 @@ jobs:
         if: github.event.inputs.git-ref != ''
         with:
           ref: ${{ github.event.inputs.git-ref }}
+          submodules: true
 
       - name: Use gcc problem matcher
         run: echo "::add-matcher::.github/gcc_comment_matcher.json"

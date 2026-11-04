@@ -61,6 +61,7 @@ Ez.ComboBox {
     /** Its tool tip, a sentence */
     property string pickToolTip: listKey === "switches" ? qsTr("Opens the window of the switches, to choose one or to rename them")
         : listKey === "variables" ? qsTr("Opens the window of the variables, to choose one or to rename them")
+        : listKey === "maniac_string_variables" ? qsTr("Opens the window of the string variables, to choose one or to rename them")
         : qsTr("Opens the window of the list, to choose an entry or to rename the entries")
     /** The title of the picker (empty: the name of the list) */
     property string pickTitle: ""
@@ -118,7 +119,7 @@ Ez.ComboBox {
     readonly property var nameLimits: ({
         actors: 12, classes: 12, skills: 20, items: 20, enemies: 20, troops: 20, terrains: 16,
         attributes: 8, states: 8, animations: 20, chipsets: 20, commonevents: 20,
-        switches: 20, variables: 20, battleranimations: 16
+        switches: 20, variables: 20, battleranimations: 16, maniac_string_variables: 20
     })
 
     /** An entry was chosen in the picker (its ID, noneValue for "(None)") */

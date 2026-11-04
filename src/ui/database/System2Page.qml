@@ -6,6 +6,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls as Controls
 import org.easyrpg.editor as Ez
 
 /**
@@ -13,7 +14,10 @@ import org.easyrpg.editor as Ez
  * frame, battle graphics and title screen of RPG Maker 2003; the battle
  * tests, their party (up to four heroes with their level and equipment;
  * the members without a hero are left out), formation, condition and
- * background.
+ * background. With the Maniac Patch: Quit Game can be hidden from the menu,
+ * the title and save scenes call a common event (Title Scene Control,
+ * Save/Load Scene Control), and the message window has settings of its own
+ * (ManiacMessageDialog.qml).
  */
 DatabaseEntryPage {
     id: root
@@ -24,8 +28,12 @@ DatabaseEntryPage {
     single: true
     fillWidth: true
 
-    /** The commands of the main menu: as many as were chosen, in order */
-    readonly property var menuCommands: menuField.valid && menuField.value ? Array.from(menuField.value) : []
+    /** The list of the menu as the data has it */
+    readonly property var menuValues: menuField.valid && menuField.value ? Array.from(menuField.value).map(Number) : []
+    /** The commands of the main menu: as many as were chosen, in order (not the Maniac Patch's Quit Game, 9 or -9) */
+    readonly property var menuCommands: menuValues.filter(id => Math.abs(id) !== 9)
+    /** The Maniac Patch's Quit Game in the list: 9 shown, -9 hidden (none: shown) */
+    readonly property var quitGame: menuValues.filter(id => Math.abs(id) === 9)
     readonly property var commandChoices: [qsTr("<none>"), qsTr("Item"), qsTr("Skill"), qsTr("Equipment"), qsTr("Save"),
                                            qsTr("Status"), qsTr("Row"), qsTr("Order"), qsTr("Wait")]
         .map((text, i) => ({ text: text, value: i }))
@@ -37,7 +45,12 @@ DatabaseEntryPage {
                 ids.push(command)
             }
         }
-        menuField.value = ids
+        // Quit Game stays last
+        menuField.value = ids.concat(quitGame)
+    }
+    /** Shows or hides Quit Game, as the Maniac Patch's editor: -9 hidden, 9 shown (left out when it was) */
+    function setQuitGame(shown) {
+        menuField.value = menuCommands.concat(shown ? (quitGame.length > 0 ? [9] : []) : [-9])
     }
     Ez.JsonField {
         id: menuField
@@ -123,6 +136,78 @@ DatabaseEntryPage {
         onShownValueChanged: show()
         onActivated: chosen(Number(currentValue))
     }
+    /**
+     * The common event a scene calls (Maniac Patch), the first of the
+     * variables it writes its state to before, and when it calls it
+     */
+    component SceneControl: Ez.Section {
+        id: scene
+        /** The fields: prefix + "_common_event_id"... */
+        required property string prefix
+        /** The objectNames: "comboTitleSceneEvent"... */
+        required property string names
+        /** The title scene's New Game */
+        required property bool newGame
+        Layout.alignment: Qt.AlignTop
+        Layout.fillHeight: true
+        Layout.preferredWidth: Math.max(implicitWidth, (root.column.room - scenes.spacing) / 2)
+        Ez.Form {
+            Ez.FormLabel {
+                text: qsTr("Common Event")
+            }
+            Ez.RefComboBox {
+                objectName: "combo" + scene.names + "SceneEvent"
+                database: root.database
+                listKey: "commonevents"
+                noneText: qsTr("(None)")
+                jsonData: root.system
+                key: scene.prefix + "_common_event_id"
+                Layout.fillWidth: true
+            }
+            Ez.FormLabel {
+                text: qsTr("Variable")
+            }
+            Ez.RefComboBox {
+                objectName: "combo" + scene.names + "SceneVariable"
+                database: root.database
+                listKey: "variables"
+                noneText: qsTr("(None)")
+                jsonData: root.system
+                key: scene.prefix + "_variable_id"
+                Layout.fillWidth: true
+                Controls.ToolTip.visible: hovered
+                Controls.ToolTip.delay: 700
+                Controls.ToolTip.text: qsTr("The first of the variables the scene writes its state to before calling the event")
+            }
+            Ez.FormLabel {
+                text: qsTr("Call On")
+                Layout.alignment: Qt.AlignTop
+            }
+            GridLayout {
+                columns: 3
+                rowSpacing: Ez.Metrics.rowSpacing
+                columnSpacing: 2 * Ez.Metrics.columnSpacing
+                Repeater {
+                    model: [
+                        { key: "initialize", text: qsTr("Initialize") },
+                        { key: "create_picture", text: qsTr("Create Picture") },
+                        { key: "begin_scene", text: qsTr("Begin Scene") },
+                        { key: "end_scene", text: qsTr("End Scene") },
+                        { key: "every_frame", text: qsTr("Every Frame") },
+                        { key: "selection_changed", text: qsTr("Selection Changed") },
+                    ].concat(scene.newGame ? [{ key: "new_game", text: qsTr("New Game") }] : [])
+                    Ez.CheckBox {
+                        required property var modelData
+                        objectName: "check" + scene.names + "Scene_" + modelData.key
+                        text: modelData.text
+                        jsonData: root.system
+                        key: scene.prefix + "_hook_flags/" + modelData.key
+                    }
+                }
+            }
+        }
+    }
+
     /** A combo box of a member of the party */
     component PartyBox: ListBox {
         property int row
@@ -175,6 +260,20 @@ DatabaseEntryPage {
                     text: qsTr("Quit Game")
                     font: Ez.Metrics.font
                     leftPadding: Ez.Metrics.columnSpacing
+                    visible: !root.maniac
+                    Layout.row: 4
+                    Layout.column: 1
+                }
+                // the Maniac Patch can hide it
+                Ez.CheckBox {
+                    objectName: "checkQuitGame"
+                    text: qsTr("Quit Game")
+                    visible: root.maniac
+                    Binding on checked {
+                        value: !root.quitGame.includes(-9)
+                        restoreMode: Binding.RestoreNone
+                    }
+                    onToggled: root.setQuitGame(checked)
                     Layout.row: 4
                     Layout.column: 1
                 }
@@ -230,7 +329,42 @@ DatabaseEntryPage {
                     key: "show_title"
                     Layout.columnSpan: 2
                 }
+                // the Maniac Patch's Extra Settings: the message window
+                Ez.Button {
+                    id: messageWindow
+                    objectName: "pushMessageWindow"
+                    text: qsTr("Message Window...")
+                    visible: root.maniac
+                    Layout.columnSpan: 2
+                    Controls.ToolTip.visible: hovered
+                    Controls.ToolTip.delay: 700
+                    Controls.ToolTip.text: qsTr("The font, size and layout of the message window (Maniac Patch)")
+                    onClicked: Ez.Editor.exec("ManiacMessageDialog", { system: root.system }, messageWindow)
+                }
             }
+        }
+    }
+
+    // the Maniac Patch: the common event the title and save scenes call
+    RowLayout {
+        id: scenes
+        spacing: Ez.Metrics.sectionSpacing
+        visible: root.maniac
+        Layout.fillWidth: true
+
+        SceneControl {
+            objectName: "groupTitleScene"
+            title: qsTr("Title Scene Control")
+            prefix: "maniac_title_scene"
+            names: "Title"
+            newGame: true
+        }
+        SceneControl {
+            objectName: "groupSaveScene"
+            title: qsTr("Save/Load Scene Control")
+            prefix: "maniac_save_scene"
+            names: "Save"
+            newGame: false
         }
     }
 

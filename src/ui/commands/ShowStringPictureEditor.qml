@@ -173,7 +173,7 @@ ColumnLayout {
                 objectName: namePart.name + "Id"
                 visible: root.modes[namePart.part] !== 0
                 from: 0
-                to: 99999
+                to: 1073741823
                 value: root.modes[namePart.part] === 0 ? 0 : root.decodeId(root.parts[namePart.part])
                 onValueModified: root.setPart(namePart.part, root.modes[namePart.part], root.encodeId(value))
             }
@@ -235,14 +235,16 @@ ColumnLayout {
                     RowLayout {
                         visible: root.modes[0] !== 0
                         spacing: Ez.Metrics.columnSpacing
-                        Ez.SpinBox {
+                        Ez.RefComboBox {
                             objectName: "stringPictureTextIdString"
                             visible: root.modes[0] === 1
-                            prefix: qsTranslate("ManiacCommandWidget", "String ")
-                            from: 0
-                            to: 99999
+                            database: root.session.database
+                            listKey: "maniac_string_variables"
+                            pickable: true
                             jsonData: root.session
                             key: visible ? "/parameters/22" : ""
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 200
                         }
                         Ez.RefComboBox {
                             objectName: "stringPictureTextIdVariable"

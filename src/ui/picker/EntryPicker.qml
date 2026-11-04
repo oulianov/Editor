@@ -77,7 +77,8 @@ Ez.DialogWindow {
         chipsets: qsTranslate("DatabaseDialog", "Chipset"),
         commonevents: qsTranslate("DatabaseDialog", "Common events"),
         switches: qsTranslate("DatabaseDialog", "Switches"),
-        variables: qsTranslate("DatabaseDialog", "Variables")
+        variables: qsTranslate("DatabaseDialog", "Variables"),
+        maniac_string_variables: qsTranslate("DatabaseDialog", "String Variables")
     })
 
     objectName: "EntryPicker"
@@ -105,7 +106,7 @@ Ez.DialogWindow {
         }
         function onHelpRequested() {
             Ez.Editor.help(root.listName === "switches" || root.listName === "variables"
-                           ? "database-switches" : "database", root.contentItem)
+                           || root.listName === "maniac_string_variables" ? "database-switches" : "database", root.contentItem)
         }
     }
 

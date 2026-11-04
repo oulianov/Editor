@@ -27,6 +27,7 @@ Ez.DialogWindow {
     Component.onCompleted: {
         language.currentIndex = Math.max(0, language.indexOfValue(Ez.Editor.language))
         reloadExternal.checked = Ez.Editor.reloadExternalChanges
+        maniacMode.checked = Ez.Editor.maniacMode
         searchCache.checked = Ez.Editor.searchCache
         rtpPath.text = Ez.Editor.rtpPath
         playerPath.text = Ez.Editor.playerPath
@@ -45,6 +46,7 @@ Ez.DialogWindow {
             rtp += "/"
         }
         const reload = reloadExternal.checked
+        const maniac = maniacMode.checked
         const cache = searchCache.checked
         const player = playerPath.text.trim()
         const editor = scriptEditor.text.trim()
@@ -54,6 +56,7 @@ Ez.DialogWindow {
         const updates = checkUpdates.checked
         const code = language.currentValue
         Ez.Editor.reloadExternalChanges = reload
+        Ez.Editor.maniacMode = maniac
         Ez.Editor.searchCache = cache
         Ez.Editor.rtpPath = rtp
         Ez.Editor.playerPath = player
@@ -99,6 +102,17 @@ Ez.DialogWindow {
             Controls.ToolTip.visible: hovered
             Controls.ToolTip.text: qsTr("For rpgsync and other programs that edit the game while the Editor is open: "
                 + "what they change is shown, and merged with your unsaved changes when you save.")
+        }
+        // switched on with a game open: its compatibility is checked once the window closes
+        Ez.CheckBox {
+            id: maniacMode
+            objectName: "checkManiacMode"
+            text: qsTr("Maniac mode: edit every game as a Maniac Patch game")
+            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.text: qsTr("The event commands are edited as Maniac Patch commands: its commands, options "
+                + "and value ranges are offered in every game. Switched on, and when a game opens, the game is checked "
+                + "for what the Maniac Patch does not run (EasyRPG Player commands, RPG Maker 2000, Power Mode 2003, "
+                + "the Ineluki Key Patch), which can be converted.")
         }
         Ez.CheckBox {
             id: searchCache

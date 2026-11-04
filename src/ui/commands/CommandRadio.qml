@@ -11,15 +11,21 @@ import org.easyrpg.editor as Ez
  * (RPG Maker 2003, the Maniac Patch) and is not the command's.
  *
  *   CommandRadio { session: root.session; fieldId: "escape"; value: 2; objectName: "encounterEscape2" }
+ *
+ * hidesManiac: an item of the Maniac Patch is hidden in the other games,
+ * unless it is the command's (its options added to RPG Maker's).
  */
 Ez.RadioButton {
     id: root
 
     required property Ez.CommandEditSession session
     required property string fieldId
+    property bool hidesManiac: false
     readonly property var field: session.schema.field(fieldId)
     readonly property var item: (field.items ?? []).find(one => one.value === root.value) ?? null
     readonly property int revision: session.revision
+    /** Hidden: an item of the Maniac Patch in another game */
+    readonly property bool hidden: hidesManiac && !!item && item.maniac && !session.maniac && !checked
 
     text: {
         const label = item ? item.text : null
@@ -36,6 +42,7 @@ Ez.RadioButton {
         const engine = !item || ((!item.rpg2003 || session.rpg2k3) && (!item.maniac || session.maniac))
         return session.isVisible(fieldId) && session.isEnabled(fieldId) && (engine || checked)
     }
+    visible: !hidden
     jsonData: session
     key: field.path ?? ""
 }

@@ -210,6 +210,10 @@ set(EDITOR_SOURCES
 	src/model/map_undo.h
 	src/model/maniac_expression.cpp
 	src/model/maniac_expression.h
+	src/model/maniac_expression_list.cpp
+	src/model/maniac_expression_list.h
+	src/model/maniac_compat.cpp
+	src/model/maniac_compat.h
 	src/model/dungeon_generator.cpp
 	src/model/dungeon_generator.h
 	src/common/script_link.cpp
@@ -307,12 +311,15 @@ set(EDITOR_SOURCES
 	src/ui/map/map_editor.h
 	src/ui/maptree/map_tree_dialogs.cpp
 	src/ui/maptree/map_tree_dialogs.h
+	src/ui/other/maniac_check_window.cpp
+	src/ui/other/maniac_check_window.h
 	src/ui/other/search_window_host.cpp
 	src/ui/other/search_window_host.h
 )
 
 # The interface in QML (the module org.easyrpg.editor): its files...
 set(EDITOR_QML_UI
+	src/ui/commands/CallCommandEditor.qml
 	src/ui/commands/ChangeActorFaceEditor.qml
 	src/ui/commands/ChangeActorGraphicEditor.qml
 	src/ui/commands/ChangeFaceGraphicEditor.qml
@@ -322,6 +329,7 @@ set(EDITOR_QML_UI
 	src/ui/commands/CommandRadio.qml
 	src/ui/commands/CommentEditor.qml
 	src/ui/commands/ConditionalBranchEditor.qml
+	src/ui/commands/ConsoleEditor.qml
 	src/ui/commands/ControlStringsEditor.qml
 	src/ui/commands/EnemyEncounterEditor.qml
 	src/ui/commands/ErasePictureEditor.qml
@@ -332,6 +340,7 @@ set(EDITOR_QML_UI
 	src/ui/commands/OpenShopEditor.qml
 	src/ui/commands/PictureEditor.qml
 	src/ui/commands/RawCommandEditor.qml
+	src/ui/commands/ScriptEditor.qml
 	src/ui/commands/SchemaField.qml
 	src/ui/commands/SchemaForm.qml
 	src/ui/commands/SchemaRows.qml
@@ -413,6 +422,7 @@ set(EDITOR_QML_UI
 	src/ui/database/ExperienceSummary.qml
 	src/ui/database/FrameRange.qml
 	src/ui/database/ItemPage.qml
+	src/ui/database/ManiacMessageDialog.qml
 	src/ui/database/MassCopyClearDialog.qml
 	src/ui/database/MassModifyDialog.qml
 	src/ui/database/ParameterGraphs.qml
@@ -421,6 +431,7 @@ set(EDITOR_QML_UI
 	src/ui/database/SkillPage.qml
 	src/ui/database/SkillTable.qml
 	src/ui/database/StatePage.qml
+	src/ui/database/StringVariablePage.qml
 	src/ui/database/SwitchPage.qml
 	src/ui/database/System2Page.qml
 	src/ui/database/SystemPage.qml
@@ -462,6 +473,7 @@ set(EDITOR_QML_UI
 	src/ui/other/ImportProjectWindow.qml
 	src/ui/other/ImportProgressWindow.qml
 	src/ui/other/JukeboxWindow.qml
+	src/ui/other/ManiacCheckWindow.qml
 	src/ui/other/NewProjectWindow.qml
 	src/ui/other/OpenProjectWindow.qml
 	src/ui/other/PlayerMissingWindow.qml
@@ -834,20 +846,30 @@ ecm_target_qml_sources(${EXE_NAME}
 	PATH kddockwidgets
 )
 
-# liblcf
-option(EDITOR_BUILD_LIBLCF "Instead of detecting liblcf the liblcf repository is cloned into lib/liblcf and built together with the Player. This is convenient for development" OFF)
-set(EDITOR_BUILD_LIBLCF_GIT "https://github.com/EasyRPG/liblcf.git" CACHE STRING "Git repository of liblcf to clone when building liblcf. Requires EDITOR_BUILD_LIBLCF=ON.")
+# liblcf: the submodule lib/liblcf (git clone --recursive, or git submodule
+# update --init), a liblcf with the Maniac Patch support, built with the
+# Editor whenever it is checked out. When it is not: EDITOR_BUILD_LIBLCF
+# checks it out; OFF takes the liblcf of the system instead, which deletes
+# on save the data of the Maniac Patch it does not know
+set(LIBLCF_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/liblcf")
+option(EDITOR_BUILD_LIBLCF "Check out the submodule lib/liblcf when it is missing (OFF: use the liblcf of the system instead)" ON)
 
-if(EDITOR_BUILD_LIBLCF)
-	# liblcf is built as part of this cmake file
-	set(LIBLCF_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/liblcf")
-	if(NOT EXISTS ${LIBLCF_PATH})
-		find_package(Git REQUIRED)
-		execute_process(COMMAND ${GIT_EXECUTABLE} clone "--depth=1"
-			"${EDITOR_BUILD_LIBLCF_GIT}"
-			"${LIBLCF_PATH}")
+if(EDITOR_BUILD_LIBLCF AND NOT EXISTS "${LIBLCF_PATH}/CMakeLists.txt")
+	find_package(Git)
+	if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+		message(STATUS "Checking out the submodule lib/liblcf")
+		execute_process(COMMAND "${GIT_EXECUTABLE}" submodule update --init lib/liblcf
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 	endif()
-	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/liblcf/builds/cmake/Modules")
+	if(NOT EXISTS "${LIBLCF_PATH}/CMakeLists.txt")
+		message(FATAL_ERROR "The submodule lib/liblcf is not checked out: run "
+			"git submodule update --init (or clone with --recursive). See docs/Building.md.")
+	endif()
+endif()
+
+if(EXISTS "${LIBLCF_PATH}/CMakeLists.txt")
+	# liblcf is built as part of this cmake file
+	list(APPEND CMAKE_MODULE_PATH "${LIBLCF_PATH}/builds/cmake/Modules")
 
 	option(BUILD_SHARED_LIBS "Not used. Supresses CMP0077 in liblcf" ON)
 
@@ -866,6 +888,8 @@ if(EDITOR_BUILD_LIBLCF)
 	target_link_libraries(editor_core PUBLIC lcf)
 else()
 	# Use system package
+	message(WARNING "lib/liblcf is not checked out: the liblcf of the system is used. "
+		"It deletes on save the data of the Maniac Patch it does not know.")
 	find_package(liblcf REQUIRED)
 	set(EDITOR_LCF_TARGET liblcf::liblcf)
 	target_link_libraries(editor_core PUBLIC liblcf::liblcf)

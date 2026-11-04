@@ -41,6 +41,8 @@ namespace Stringizer {
 
 	// Common stringize operations
 	QString varName(int id);
+	/** The name of a string variable of the Maniac Patch (T[id]) */
+	QString stringVarName(int id);
 	QString switchName(int id);
 	QString itemName(int id);
 	QString heroName(int id);

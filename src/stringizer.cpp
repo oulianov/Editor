@@ -20,6 +20,7 @@
 #include "stringizer.h"
 #include "model/event_command_defaults.h"
 #include "model/maniac_expression.h"
+#include "model/maniac_expression_list.h"
 #include "model/move_route_codec.h"
 #include "common/dbstring.h"
 #include <lcf/rpg/eventcommand.h>
@@ -47,6 +48,40 @@ namespace
 						   : QString::number(value);
 	}
 
+	// a value of RPG Maker, or with the Maniac Patch the one in a variable
+	// or a variable pointer (mode 0: the value itself, shown by given)
+	QString valueOr(int mode, int value, const QString& given)
+	{
+		switch (mode)
+		{
+		case 0:
+			return given;
+		case 1:
+			return variable(value);
+		case 2:
+			return QString("V[%1]").arg(variable(value));
+		default:
+			return "?";
+		}
+	}
+
+	// a text of the command, or with the Maniac Patch a string variable:
+	// T[x] (mode 1) or T[V[x]] (mode 2)
+	QString textOr(int mode, int id, const QString& text)
+	{
+		switch (mode)
+		{
+		case 0:
+			return text;
+		case 1:
+			return QString("T[%1:%2]").arg(id, 4, 10, QChar('0')).arg(Stringizer::stringVarName(id));
+		case 2:
+			return QString("T[%1]").arg(variable(id));
+		default:
+			return "?";
+		}
+	}
+
 	QString heroes(int mode, int id)
 	{
 		switch (mode)
@@ -57,6 +92,8 @@ namespace
 			return Stringizer::heroName(id);
 		case 2:
 			return Stringizer::tr("Hero") + " " + variable(id);
+		case 3: // Maniac Patch: a variable pointer
+			return Stringizer::tr("Hero") + " " + QString("V[%1]").arg(variable(id));
 		default:
 			return Stringizer::tr("Unknown");
 		}
@@ -169,7 +206,12 @@ namespace
 		switch (com.parameters[0]) {
 			case 0: target = Stringizer::tr("Party"); break;
 			case 1: target = Stringizer::tr("All Monsters"); break;
-			case 2: target = Stringizer::tr("Monster %1").arg(com.parameters[1] + 1); break;
+			case 2: {
+				// Maniac Patch: the monster's mode in p3
+				const int mode = modeOf(parameter(com, 3), 0);
+				target = Stringizer::tr("Monster %1").arg(valueOr(mode, com.parameters[1], QString::number(com.parameters[1] + 1)));
+				break;
+			}
 			default: target = Stringizer::tr("Unknown"); break;
 		}
 		// p2: 1 (Ignore if Target is Surrounded), the target does not flee when surrounded
@@ -179,17 +221,20 @@ namespace
 
 	QString stringizeEnableCombo(const lcf::rpg::EventCommand& com)
 	{
+		// Maniac Patch: the modes of the hero, the command and the times in p3
+		const int modes = parameter(com, 3);
 		return Stringizer::tr("Enable Combo") + ": "
-			+ Stringizer::heroName(com.parameters[0]) + ", "
-			+ QString::number(com.parameters[2]) + "x"
-			+ Stringizer::battleCommandName(com.parameters[1]);
+			+ valueOr(modeOf(modes, 0), com.parameters[0], Stringizer::heroName(com.parameters[0])) + ", "
+			+ valueOr(modeOf(modes, 2), com.parameters[2], QString::number(com.parameters[2])) + "x"
+			+ valueOr(modeOf(modes, 1), com.parameters[1], Stringizer::battleCommandName(com.parameters[1]));
 	}
 
 	QString stringizeChangeClass(const lcf::rpg::EventCommand& com)
 	{
 		return Stringizer::tr("Change Class") + ": "
 			+ heroes(com.parameters[0], com.parameters[1]) + ", "
-			+ Stringizer::className(com.parameters[2]);
+			// Maniac Patch: the class's mode in nibble 1 of p7
+			+ valueOr(modeOf(parameter(com, 7), 1), com.parameters[2], Stringizer::className(com.parameters[2]));
 	}
 
 	QString stringizeChangeBattleCommands(const lcf::rpg::EventCommand& com)
@@ -197,13 +242,36 @@ namespace
 		return Stringizer::tr("Change Battle Commands") + ": "
 			+ heroes(com.parameters[0], com.parameters[1]) + ", "
 			+ (com.parameters[3] ? Stringizer::tr("Add") : Stringizer::tr("Remove")) + " "
-			+ Stringizer::battleCommandName(com.parameters[2]);
+			// Maniac Patch: the command's mode in nibble 1 of p4
+			+ valueOr(modeOf(parameter(com, 4), 1), com.parameters[2], Stringizer::battleCommandName(com.parameters[2]));
 	}
 
 	QString stringizeShowMessage(const lcf::rpg::EventCommand& com)
 	{
 		// the next lines are aligned under the text by the command list
 		return Stringizer::tr("Message") + ": " + ToQString(com.string);
+	}
+
+	// Maniac Patch: the size of the window, the font and the spacing set by
+	// Message Options (0 keeps one; their modes in the nibbles of p4)
+	QString messageExtras(const lcf::rpg::EventCommand& com)
+	{
+		const int modes = parameter(com, 4);
+		QStringList extras;
+		const auto value = [&](int slot, size_t index) { return modeValue(modeOf(modes, slot), parameter(com, index)); };
+		if (parameter(com, 5) != 0 || parameter(com, 6) != 0 || modeOf(modes, 0) || modeOf(modes, 1)) {
+			extras << Stringizer::tr("Window") + " " + value(0, 5) + "x" + value(1, 6);
+		}
+		if (!com.string.empty() || modeOf(modes, 2)) {
+			extras << Stringizer::tr("Font") + " " + textOr(modeOf(modes, 2), parameter(com, 7), "\"" + ToQString(com.string) + "\"");
+		}
+		if (parameter(com, 8) != 0 || modeOf(modes, 3)) {
+			extras << Stringizer::tr("Size") + " " + value(3, 8);
+		}
+		if (parameter(com, 9) != 0 || parameter(com, 10) != 0 || modeOf(modes, 4) || modeOf(modes, 5)) {
+			extras << Stringizer::tr("Spacing") + " " + value(4, 9) + "/" + value(5, 10);
+		}
+		return extras.isEmpty() ? QString() : ", " + extras.join(", ");
 	}
 
 	QString stringizeMessageOptions(const lcf::rpg::EventCommand& com)
@@ -224,16 +292,21 @@ namespace
 			+ (com.parameters[0] ? Stringizer::tr("Transp") : Stringizer::tr("Normal")) + ", "
 			+ position + ", "
 			+ (com.parameters[2] ? Stringizer::tr("Auto") : Stringizer::tr("Fixed")) + ", "
-			+ (com.parameters[3] ? Stringizer::tr("Continue Processes") : Stringizer::tr("Halt Processes"));
+			+ (com.parameters[3] ? Stringizer::tr("Continue Processes") : Stringizer::tr("Halt Processes"))
+			+ messageExtras(com);
 	}
 
 	QString stringizeChangeFaceGraphic(const lcf::rpg::EventCommand& com)
 	{
+		// Maniac Patch: the modes of the file (T[p4]) and of the index in p3
+		const int modes = parameter(com, 3);
 		return Stringizer::tr("Change Face Graphic") + ": "
-			+ ToQString(com.string) + ", "
-			+ QString::number(com.parameters[0]) + ", "
+			+ textOr(modeOf(modes, 0), parameter(com, 4), ToQString(com.string)) + ", "
+			+ modeValue(modeOf(modes, 1), com.parameters[0]) + ", "
 			+ (com.parameters[1] ? Stringizer::tr("Right") : Stringizer::tr("Left"))
-			+ (com.parameters[2] ? ", " + Stringizer::tr("Flipped") : "");
+			+ (com.parameters[2] ? ", " + Stringizer::tr("Flipped") : "")
+			// and an animation to the end index in p6
+			+ (parameter(com, 5) & 2 ? ", " + Stringizer::tr("Animated to %1").arg(modeValue(modeOf(modes, 2), parameter(com, 6))) : "");
 	}
 
 	QString stringizeShowChoice(const lcf::rpg::EventCommand& com)
@@ -516,8 +589,7 @@ namespace
 		{
 		case 0:
 			return command + ": " + Stringizer::tr("Set") + " "
-				+ (com.parameters[1] ? variable(com.parameters[2])
-									 : formatTime(com.parameters[2]));
+				+ valueOr(com.parameters[1], com.parameters[2], formatTime(com.parameters[2]));
 		case 1:
 			return command + ": " + Stringizer::tr("Start");
 		case 2:
@@ -531,15 +603,15 @@ namespace
 	{
 		return Stringizer::tr("Change Gold") + ": "
 			+ (com.parameters[0] ? "-" : "+")
-			+ valueOrVariable(com.parameters[1], com.parameters[2]);
+			+ modeValue(com.parameters[1], com.parameters[2]);
 	}
 
 	QString stringizeChangeItems(const lcf::rpg::EventCommand& com)
 	{
 		return Stringizer::tr("Change Items") + ": "
 			+ (com.parameters[0] ? "-" : "+") + " "
-			+ valueOrVariable(com.parameters[3], com.parameters[4])
-			+ (com.parameters[1] ? Stringizer::tr("Item") + " " + variable(com.parameters[2])
+			+ modeValue(com.parameters[3], com.parameters[4])
+			+ (com.parameters[1] ? Stringizer::tr("Item") + " " + modeValue(com.parameters[1], com.parameters[2])
 								 : Stringizer::itemName(com.parameters[2]));
 	}
 
@@ -547,7 +619,7 @@ namespace
 	{
 		return Stringizer::tr("Change Party Members") + ": "
 			+ (com.parameters[0] ? Stringizer::tr("Remove") : Stringizer::tr("Add")) + " "
-			+ (com.parameters[1] ? Stringizer::tr("Hero") + " " + variable(com.parameters[2])
+			+ (com.parameters[1] ? Stringizer::tr("Hero") + " " + modeValue(com.parameters[1], com.parameters[2])
 								 : Stringizer::heroName(com.parameters[2]));
 	}
 
@@ -556,7 +628,7 @@ namespace
 		return Stringizer::tr("Change Exp") + ": "
 			+ heroes(com.parameters[0], com.parameters[1]) + ", "
 			+ (com.parameters[2] ? "-" : "+")
-			+ valueOrVariable(com.parameters[3], com.parameters[4]);
+			+ modeValue(com.parameters[3], com.parameters[4]);
 	}
 
 	QString stringizeChangeLevel(const lcf::rpg::EventCommand& com)
@@ -564,7 +636,7 @@ namespace
 		return Stringizer::tr("Change Level") + ": "
 			+ heroes(com.parameters[0], com.parameters[1])+ ", "
 			+ (com.parameters[2] ? "-" : "+")
-			+ valueOrVariable(com.parameters[3], com.parameters[4]);
+			+ modeValue(com.parameters[3], com.parameters[4]);
 	}
 
 	QString stringizeChangeParameters(const lcf::rpg::EventCommand& com)
@@ -592,7 +664,7 @@ namespace
 			+ heroes(com.parameters[0], com.parameters[1])+ ", "
 			+ parameter + " "
 			+ (com.parameters[2] ? "-" : "+")
-			+ valueOrVariable(com.parameters[4], com.parameters[5]);
+			+ modeValue(com.parameters[4], com.parameters[5]);
 	}
 
 	QString stringizeChangeSkills(const lcf::rpg::EventCommand& com)
@@ -600,7 +672,7 @@ namespace
 		return Stringizer::tr("Change Skills") + ": "
 			+ heroes(com.parameters[0], com.parameters[1])+ ", "
 			+ (com.parameters[2] ? Stringizer::tr("Remove") : Stringizer::tr("Add")) + " "
-			+ (com.parameters[3] ? variable(com.parameters[4])
+			+ (com.parameters[3] ? modeValue(com.parameters[3], com.parameters[4])
 								 : Stringizer::skillName(com.parameters[4]));
 	}
 
@@ -630,7 +702,7 @@ namespace
 		return Stringizer::tr("Change HP") + ": "
 			+ heroes(com.parameters[0], com.parameters[1])+ ", "
 			+ (com.parameters[2] ? "-" : "+")
-			+ valueOrVariable(com.parameters[3], com.parameters[4]);
+			+ modeValue(com.parameters[3], com.parameters[4]);
 	}
 
 	QString stringizeChangeSP(const lcf::rpg::EventCommand& com)
@@ -638,7 +710,7 @@ namespace
 		return Stringizer::tr("Change SP") + ": "
 			+ heroes(com.parameters[0], com.parameters[1])+ ", "
 			+ (com.parameters[2] ? "-" : "+")
-			+ valueOrVariable(com.parameters[3], com.parameters[4]);
+			+ modeValue(com.parameters[3], com.parameters[4]);
 	}
 
 	QString stringizeChangeCondition(const lcf::rpg::EventCommand& com)
@@ -646,7 +718,8 @@ namespace
 		return Stringizer::tr("Change Condition") + ": "
 			+ heroes(com.parameters[0], com.parameters[1])+ ", "
 			+ (com.parameters[2] ? Stringizer::tr("Remove") : Stringizer::tr("Add")) + " "
-			+ Stringizer::stateName(com.parameters[3]);
+			// Maniac Patch: the condition's mode in p4
+			+ valueOr(parameter(com, 4), com.parameters[3], Stringizer::stateName(com.parameters[3]));
 	}
 
 	QString stringizeFullHeal(const lcf::rpg::EventCommand& com)
@@ -661,34 +734,47 @@ namespace
 			+ heroes(com.parameters[0], com.parameters[1]);
 	}
 
+	// a hero, or with the Maniac Patch the one in a variable or a pointer
+	QString heroOr(int mode, int id)
+	{
+		return mode ? Stringizer::tr("Hero") + " " + modeValue(mode, id) : Stringizer::heroName(id);
+	}
+
 	QString stringizeChangeHeroName(const lcf::rpg::EventCommand& com)
 	{
+		// Maniac Patch: the modes of the hero and of the name (T[p2]) in p1
+		const int modes = parameter(com, 1);
 		return Stringizer::tr("Change Hero Name") + ": "
-			+ Stringizer::heroName(com.parameters[0]) + " -> "
-			+ ToQString(com.string);
+			+ heroOr(modeOf(modes, 0), com.parameters[0]) + " -> "
+			+ textOr(modeOf(modes, 1), parameter(com, 2), ToQString(com.string));
 	}
 
 	QString stringizeChangeHeroTitle(const lcf::rpg::EventCommand& com)
 	{
+		const int modes = parameter(com, 1);
 		return Stringizer::tr("Change Hero Title") + ": "
-			+ Stringizer::heroName(com.parameters[0]) + ", "
-			+ ToQString(com.string);
+			+ heroOr(modeOf(modes, 0), com.parameters[0]) + ", "
+			+ textOr(modeOf(modes, 1), parameter(com, 2), ToQString(com.string));
 	}
 
 	QString stringizeChangeSpriteAssociation(const lcf::rpg::EventCommand& com)
 	{
+		// Maniac Patch: the modes of the hero, the file (T[p4]) and the index in p3
+		const int modes = parameter(com, 3);
 		return Stringizer::tr("Change Sprite Association") + ": "
-			+ Stringizer::heroName(com.parameters[0]) + ", "
-			+ ToQString(com.string) + "-"
-			+ QString::number(com.parameters[1]);
+			+ heroOr(modeOf(modes, 0), com.parameters[0]) + ", "
+			+ textOr(modeOf(modes, 1), parameter(com, 4), ToQString(com.string)) + "-"
+			+ modeValue(modeOf(modes, 2), com.parameters[1]);
 	}
 
 	QString stringizeChangeActorFace(const lcf::rpg::EventCommand& com)
 	{
+		// Maniac Patch: the modes of the hero, the file (T[p3]) and the index in p2
+		const int modes = parameter(com, 2);
 		return Stringizer::tr("Change Actor Face") + ": "
-			+ Stringizer::heroName(com.parameters[0]) + ", "
-			+ ToQString(com.string) + "-"
-			+ QString::number(com.parameters[1]);
+			+ heroOr(modeOf(modes, 0), com.parameters[0]) + ", "
+			+ textOr(modeOf(modes, 1), parameter(com, 3), ToQString(com.string)) + "-"
+			+ modeValue(modeOf(modes, 2), com.parameters[1]);
 	}
 
 	QString stringizeChangeVehicleGraphic(const lcf::rpg::EventCommand& com)
@@ -721,8 +807,9 @@ namespace
 			context = Stringizer::tr("Unknown");
 		else
 			context = Stringizer::tr(bgm_contexts[static_cast<size_t>(com.parameters[0])]);
+		// Maniac Patch: the file's mode in p5, its string in p6
 		return Stringizer::tr("Change System BGM") + ": " + context + ", "
-			+ ToQString(com.string);
+			+ textOr(modeOf(parameter(com, 5), 0), parameter(com, 6), ToQString(com.string));
 	}
 
 	QString stringizeChangeSystemSFX(const lcf::rpg::EventCommand& com)
@@ -747,13 +834,16 @@ namespace
 			sfx = Stringizer::tr("Unknown");
 		else
 			sfx = Stringizer::tr(system_sfx[static_cast<size_t>(com.parameters[0])]);
+		// Maniac Patch: the file's mode in p4, its string in p5
 		return Stringizer::tr("Change System SFX") + ": " + sfx + ", "
-			+ ToQString(com.string);
+			+ textOr(modeOf(parameter(com, 4), 0), parameter(com, 5), ToQString(com.string));
 	}
 
 	QString stringizeChangeSystemGraphics(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Change System Graphics") + ": " + ToQString(com.string);
+		// Maniac Patch: the file's mode in p2, its string in p3
+		return Stringizer::tr("Change System Graphics") + ": "
+			+ textOr(modeOf(parameter(com, 2), 0), parameter(com, 3), ToQString(com.string));
 	}
 
 	QString stringizeChangeScreenTransitions(const lcf::rpg::EventCommand& com)
@@ -770,9 +860,11 @@ namespace
 
 	QString stringizeEnemyEncounter(const lcf::rpg::EventCommand& com)
 	{
+		// Maniac Patch: bit 0 of p9, no flash before the battle
 		return Stringizer::tr("Enemy Encounter") + ": "
-			+ (com.parameters[0] ? Stringizer::tr("Troop") + " " + variable(com.parameters[1])
-								 : Stringizer::troopName(com.parameters[1]));
+			+ (com.parameters[0] ? Stringizer::tr("Troop") + " " + modeValue(com.parameters[0], com.parameters[1])
+								 : Stringizer::troopName(com.parameters[1]))
+			+ (parameter(com, 9) & 1 ? " " + Stringizer::tr("(No Flash)") : QString());
 	}
 
 	QString stringizeOpenShop(const lcf::rpg::EventCommand& com)
@@ -789,6 +881,14 @@ namespace
 			case 2:
 				buysell = Stringizer::tr("Sell");
 		}
+		// Maniac Patch: the item IDs of the goods in variables from p3 (mode
+		// in nibble 2 of p1), as many as p4 (mode in nibble 3)
+		const int modes = parameter(com, 1);
+		if (modeOf(modes, 2) != 0) {
+			const QString first = modeOf(modes, 2) == 1 ? variable(parameter(com, 3)) : QString("V[%1]").arg(variable(parameter(com, 3)));
+			buysell += ", " + Stringizer::tr("Goods") + " " + Stringizer::tr("%1 Variables from %2")
+				.arg(valueOr(modeOf(modes, 3), parameter(com, 4), QString::number(parameter(com, 4))), first);
+		}
 		return Stringizer::tr("Open Shop") + ": " + buysell;
 	}
 
@@ -799,7 +899,13 @@ namespace
 
 	QString stringizeEnterHeroName(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Enter Hero Name") + ": " + Stringizer::heroName(com.parameters[0]);
+		// Maniac Patch: the modes of the hero and of the character limit (p4) in p3
+		const int modes = parameter(com, 3);
+		QString result = Stringizer::tr("Enter Hero Name") + ": " + heroOr(modeOf(modes, 0), com.parameters[0]);
+		if (parameter(com, 4) != 0 || modeOf(modes, 4) != 0) {
+			result += ", " + Stringizer::tr("Limit") + " " + modeValue(modeOf(modes, 4), parameter(com, 4));
+		}
+		return result;
 	}
 
 	QString stringizeTeleport(const lcf::rpg::EventCommand& com)
@@ -829,6 +935,12 @@ namespace
 			+ variable(com.parameters[2]) + ")";
 	}
 
+	// a facing after a move (RPG Maker 2003, the Maniac Patch's for a vehicle)
+	QString facingName(int facing)
+	{
+		return facing <= 0 || facing > 4 ? Stringizer::tr("Retain Facing") : Stringizer::direction(facing - 1);
+	}
+
 	QString stringizeSetVehicleLocation(const lcf::rpg::EventCommand& com)
 	{
 		const QString vehicle = com.parameters[0] == -1 ? Stringizer::tr("Entire Party") :
@@ -836,57 +948,70 @@ namespace
 			com.parameters[0] == 1 ? Stringizer::tr("Ship") :
 			com.parameters[0] == 2 ? Stringizer::tr("Airship") : Stringizer::tr("Unknown");
 		const bool variables = com.parameters[1] != 0;
-		return Stringizer::tr("Set Vehicle Location") + ": " + vehicle + ", "
+		QString result = Stringizer::tr("Set Vehicle Location") + ": " + vehicle + ", "
 			+ (variables ? variable(com.parameters[2]) : map(com.parameters[2])) + " ("
 			+ valueOrVariable(variables, com.parameters[3]) + ","
 			+ valueOrVariable(variables, com.parameters[4]) + ")";
+		// Maniac Patch: the facing (p5, 0 retained)
+		if (parameter(com, 5) != 0) {
+			result += ", " + facingName(parameter(com, 5));
+		}
+		return result;
 	}
 
 	QString stringizeChangeEventLocation(const lcf::rpg::EventCommand& com)
 	{
+		// the cell's mode in the low byte of p1; Maniac Patch: the event's in its nibble 2
+		const int mode = com.parameters[1] & 0xFF;
+		const int event_mode = modeOf(com.parameters[1], 2);
 		QString result = Stringizer::tr("Change Event Location") + ": "
-			+ characterName(com.parameters[0]) + ", ("
-			+ valueOrVariable(com.parameters[1], com.parameters[2]) + ","
-			+ valueOrVariable(com.parameters[1], com.parameters[3]) + ")";
-		if (com.parameters[1] == 0 && com.parameters.size() > 4) {
-			const int facing = com.parameters[4];
-			result += ", " + (facing == 0 ? Stringizer::tr("Retain Facing") : Stringizer::direction(facing - 1));
+			+ (event_mode ? Stringizer::tr("Event") + " " + modeValue(event_mode, com.parameters[0]) : characterName(com.parameters[0])) + ", ("
+			+ valueOrVariable(mode, com.parameters[2]) + ","
+			+ valueOrVariable(mode, com.parameters[3]) + ")";
+		if (mode == 0 && com.parameters.size() > 4) {
+			result += ", " + facingName(com.parameters[4]);
 		}
 		return result;
 	}
 
 	QString stringizeTradeEventLocations(const lcf::rpg::EventCommand& com)
 	{
-		const int flags = com.parameters.size() > 2 ? com.parameters[2] : 0;
-		return Stringizer::tr("Trade Event Locations") + ": "
-			+ ((flags & 1) ? variable(com.parameters[0]) : characterName(com.parameters[0])) + ", "
-			+ ((flags & 2) ? variable(com.parameters[1]) : characterName(com.parameters[1]));
+		// Maniac Patch: the modes of the events in the nibbles of p2
+		const int modes = parameter(com, 2);
+		auto event = [&](int slot) {
+			const int id = com.parameters[slot];
+			return modeOf(modes, slot) ? Stringizer::tr("Event") + " " + modeValue(modeOf(modes, slot), id) : characterName(id);
+		};
+		return Stringizer::tr("Trade Event Locations") + ": " + event(0) + ", " + event(1);
 	}
 
 	QString stringizeStoreTerrainID(const lcf::rpg::EventCommand& com)
 	{
 		return Stringizer::tr("Store Terrain ID") + ": "
-			+ "(" + valueOrVariable(com.parameters[0], com.parameters[1]) + ","
-			+ valueOrVariable(com.parameters[0], com.parameters[2]) + "), "
+			+ "(" + modeValue(com.parameters[0], com.parameters[1]) + ","
+			+ modeValue(com.parameters[0], com.parameters[2]) + "), "
 			+ variable(com.parameters[3]);
 	}
 
 	QString stringizeStoreEventID(const lcf::rpg::EventCommand& com)
 	{
 		return Stringizer::tr("Store Event ID") + ": "
-			+ "(" + valueOrVariable(com.parameters[0], com.parameters[1]) + ","
-			+ valueOrVariable(com.parameters[0], com.parameters[2]) + "), "
+			+ "(" + modeValue(com.parameters[0], com.parameters[1]) + ","
+			+ modeValue(com.parameters[0], com.parameters[2]) + "), "
 			+ variable(com.parameters[3]);
 	}
 
 	QString stringizeEraseScreen(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Erase Screen") + ": " + Stringizer::eraseTransitionName(com.parameters[0]);
+		// Maniac Patch: the transition in a variable (its mode in p1)
+		return Stringizer::tr("Erase Screen") + ": "
+			+ valueOr(parameter(com, 1), com.parameters[0], Stringizer::eraseTransitionName(com.parameters[0]));
 	}
 
 	QString stringizeShowScreen(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Show Screen") + ": " + Stringizer::showTransitionName(com.parameters[0]);
+		return Stringizer::tr("Show Screen") + ": "
+			+ valueOr(parameter(com, 1), com.parameters[0], Stringizer::showTransitionName(com.parameters[0]));
 	}
 
 	QString stringizeTintScreen(const lcf::rpg::EventCommand& com)
@@ -938,6 +1063,9 @@ namespace
 
 	QString stringizePanScreen(const lcf::rpg::EventCommand& com)
 	{
+		const QString wait = (com.parameters[4] & 1) ? Stringizer::tr("(Wait)") : "";
+		// speed 0: instantly (Maniac Patch)
+		const QString speed = com.parameters[3] == 0 ? Stringizer::tr("Instantly") : Stringizer::tr("Speed") + " " + QString::number(com.parameters[3]);
 		switch (com.parameters[0])
 		{
 		case 0:
@@ -948,12 +1076,35 @@ namespace
 			return Stringizer::tr("Pan Screen") + ": "
 				+ Stringizer::direction(com.parameters[1]) + " "
 				+ QString::number(com.parameters[2]) + " " + Stringizer::tr("Tiles")
-				+ ", " + Stringizer::tr("Speed") + " " + QString::number(com.parameters[3]) + " "
-				+ (com.parameters[4] ? Stringizer::tr("(Wait)") : "");
-		default:
+				+ ", " + speed + " " + wait;
+		case 3:
 			return Stringizer::tr("Pan Screen") + ": " + Stringizer::tr("Reset Position")
-				+ ", " + Stringizer::tr("Speed") + " " + QString::number(com.parameters[3]) + " "
-				+ (com.parameters[4] ? Stringizer::tr("(Wait)") : "");
+				+ ", " + speed + " " + wait;
+		case 4:
+		case 5:
+		case 6:
+		case 7: {
+			// Maniac Patch: by pixels, shifted (4, 5) or to a position (6, 7), at a
+			// speed (0.001 pixel a frame) or in frames (5, 7); modes in the nibbles of p1
+			const int modes = com.parameters[1];
+			const int op = com.parameters[0];
+			QString result = Stringizer::tr("Pan Screen") + ": "
+				+ (op < 6 ? Stringizer::tr("Shift") : Stringizer::tr("Scroll to")) + " ("
+				+ modeValue(modeOf(modes, 0), com.parameters[2]) + "," + modeValue(modeOf(modes, 1), com.parameters[3]) + ") px, "
+				+ (op == 4 || op == 6 ? Stringizer::tr("Speed") + " " + modeValue(modeOf(modes, 2), parameter(com, 5))
+					: modeValue(modeOf(modes, 2), parameter(com, 5)) + " " + Stringizer::tr("frames"));
+			if (op >= 6 && (com.parameters[4] & 2)) {
+				result += ", " + Stringizer::tr("Centered");
+			}
+			if (op >= 6 && (com.parameters[4] & 4)) {
+				result += ", " + Stringizer::tr("Relative");
+			}
+			return result + " " + wait;
+		}
+		case 9:
+			return Stringizer::tr("Pan Screen") + ": " + Stringizer::tr("Lock Position") + ", " + Stringizer::tr("Even When Teleporting");
+		default:
+			return Stringizer::tr("Pan Screen") + ": " + Stringizer::tr("Unknown");
 		}
 	}
 
@@ -1058,7 +1209,9 @@ namespace
 			+ QString::number(p(16, p(6)) & 0xff) + "%, "
 			+ Stringizer::tr("Color") + QStringLiteral(" (R%1,G%2,B%3,S%4)").arg(p(8, 100)).arg(p(9, 100)).arg(p(10, 100)).arg(p(11, 100));
 		result += ", " + pictureEffect(p(12), p(13));
-		result += ", " + (modeOf(p(17), 2) ? modeValue(modeOf(p(17), 2), p(14)) + "/10s" : tenthSeconds(p(14)));
+		// Maniac Patch: a negative time is in frames
+		result += ", " + (modeOf(p(17), 2) ? modeValue(modeOf(p(17), 2), p(14)) + "/10s"
+			: p(14) < 0 ? Stringizer::tr("%1 frames").arg(-p(14)) : tenthSeconds(p(14)));
 		if (p(15) & 1) {
 			result += " " + Stringizer::tr("(Wait)");
 		}
@@ -1085,12 +1238,34 @@ namespace
 
 	QString stringizeShowBattleAnimation(const lcf::rpg::EventCommand& com)
 	{
+		// Maniac Patch: where it is shown in p3 (2 a picture, 3 a position,
+		// 4 the one in two variables), the modes of the values in p4
+		const int modes = parameter(com, 4);
+		const int target = parameter(com, 1);
+		QString where;
+		switch (parameter(com, 3)) {
+			case 0:
+			case 1:
+				where = modeOf(modes, 1) ? Stringizer::tr("Event") + " " + valueOr(modeOf(modes, 1), target, {}) : characterName(target);
+				break;
+			case 2:
+				where = Stringizer::tr("Picture") + " " + valueOr(modeOf(modes, 1), target, QString::number(target));
+				break;
+			case 3:
+				where = QString("(%1, %2)").arg(modeValue(modeOf(modes, 3), parameter(com, 6)), modeValue(modeOf(modes, 4), parameter(com, 7)));
+				break;
+			case 4:
+				where = QString("(%1, %2)").arg(modeValue(modeOf(modes, 3) + 1, parameter(com, 6)), modeValue(modeOf(modes, 4) + 1, parameter(com, 7)));
+				break;
+			default:
+				where = Stringizer::tr("Unknown");
+		}
 		QString result = Stringizer::tr("Show Battle Animation") + ": "
-			+ Stringizer::animationName(com.parameters[0]) + ", " + characterName(com.parameters[1]);
-		if (com.parameters.size() > 2 && com.parameters[2] > 0) {
+			+ valueOr(modeOf(modes, 0), com.parameters[0], Stringizer::animationName(com.parameters[0])) + ", " + where;
+		if (parameter(com, 2) & 1) {
 			result += " " + Stringizer::tr("(Wait)");
 		}
-		if (com.parameters.size() > 3 && com.parameters[3] > 0) {
+		if (parameter(com, 3) == 1) {
 			result += ", " + Stringizer::tr("Global Scope");
 		}
 		return result;
@@ -1104,9 +1279,13 @@ namespace
 
 	QString stringizeFlashSprite(const lcf::rpg::EventCommand& com)
 	{
-		QString result = Stringizer::tr("Flash Sprite") + ": " + characterName(com.parameters[0])
-			+ QStringLiteral(", (R%1,G%2,B%3)").arg(com.parameters[1]).arg(com.parameters[2]).arg(com.parameters[3])
-			+ ", " + Stringizer::tr("Strength") + " " + QString::number(com.parameters[4])
+		// Maniac Patch: the modes of the event and of the colors in p7
+		const int modes = parameter(com, 7);
+		QString result = Stringizer::tr("Flash Sprite") + ": "
+			+ (modeOf(modes, 0) ? Stringizer::tr("Event") + " " + modeValue(modeOf(modes, 0), com.parameters[0]) : characterName(com.parameters[0]))
+			+ QStringLiteral(", (R%1,G%2,B%3)").arg(modeValue(modeOf(modes, 1), com.parameters[1]), modeValue(modeOf(modes, 2), com.parameters[2]),
+				modeValue(modeOf(modes, 3), com.parameters[3]))
+			+ ", " + Stringizer::tr("Strength") + " " + modeValue(modeOf(modes, 4), com.parameters[4])
 			+ ", " + tenthSeconds(com.parameters[5]);
 		if (com.parameters.size() > 6 && com.parameters[6] > 0) {
 			result += " " + Stringizer::tr("(Wait)");
@@ -1125,32 +1304,65 @@ namespace
 			movements.append(", ").append(Stringizer::moveCommand(moves[i]));
 		if (moves.size() > 4)
 			movements.append("...");
-		return Stringizer::tr("Move Event") + ": " + characterName(move.target) + movements;
+		// Maniac Patch: the event in a variable or a pointer (nibble 2 of p2)
+		const int mode = modeOf(parameter(com, 2), 2);
+		return Stringizer::tr("Move Event") + ": "
+			+ (mode ? Stringizer::tr("Event") + " " + modeValue(mode, move.target) : characterName(move.target)) + movements;
 	}
 
 	QString stringizeWait(const lcf::rpg::EventCommand& com)
 	{
-		if (com.parameters.size() <= 1 ||
-			(com.parameters.size() > 1 && com.parameters[1] == 0)) {
-			return Stringizer::tr("Wait") + ": " + tenthSeconds(com.parameters[0]) + " ";
-		} else {
+		// p1: 1 until a key is pressed; Maniac Patch: 256 frames, the time's mode in p2
+		const int kind = parameter(com, 1);
+		if (kind == 1) {
 			return Stringizer::tr("Wait") + ": " + Stringizer::tr("Until Key Pressed");
 		}
+		const int mode = parameter(com, 2);
+		if (kind == 256) {
+			return Stringizer::tr("Wait") + ": " + (mode ? modeValue(mode, com.parameters[0]) + " " + Stringizer::tr("frames")
+				: Stringizer::tr("%1 frames").arg(com.parameters[0]));
+		}
+		return Stringizer::tr("Wait") + ": " + (mode ? modeValue(mode, com.parameters[0]) + "/10s" : tenthSeconds(com.parameters[0])) + " ";
+	}
+
+	// Maniac Patch: the settings of a music or a sound given by variables
+	// (their modes in the nibbles of modes after the file's)
+	QString audioSettings(const lcf::rpg::EventCommand& com, int modes, std::initializer_list<std::pair<int, const char*>> settings)
+	{
+		QStringList shown;
+		int slot = 1;
+		for (const auto& [index, name] : settings) {
+			if (modeOf(modes, slot)) {
+				shown << Stringizer::tr(name) + " " + modeValue(modeOf(modes, slot), parameter(com, index));
+			}
+			++slot;
+		}
+		return shown.isEmpty() ? QString() : " (" + shown.join(", ") + ")";
 	}
 
 	QString stringizePlayBGM(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Play BGM") + ": " + ToQString(com.string);
+		// Maniac Patch: modes in p4, the file's string in p5
+		const int modes = parameter(com, 4);
+		return Stringizer::tr("Play BGM") + ": " + textOr(modeOf(modes, 0), parameter(com, 5), ToQString(com.string))
+			+ audioSettings(com, modes, {{0, QT_TRANSLATE_NOOP("Stringizer", "Fade-in")}, {1, QT_TRANSLATE_NOOP("Stringizer", "Volume")},
+				{2, QT_TRANSLATE_NOOP("Stringizer", "Tempo")}, {3, QT_TRANSLATE_NOOP("Stringizer", "Balance")}});
 	}
 
 	QString stringizeFadeOutBGM(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Fade Out BGM") + ": " + QString::number(com.parameters[0] / 1000) + "s";
+		// Maniac Patch: the time in a variable (its mode in p1)
+		return Stringizer::tr("Fade Out BGM") + ": "
+			+ valueOr(parameter(com, 1), com.parameters[0], QString::number(com.parameters[0] / 1000) + "s");
 	}
 
 	QString stringizePlaySound(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Play Sound") + ": " + ToQString(com.string);
+		// Maniac Patch: modes in p3, the file's string in p4
+		const int modes = parameter(com, 3);
+		return Stringizer::tr("Play Sound") + ": " + textOr(modeOf(modes, 0), parameter(com, 4), ToQString(com.string))
+			+ audioSettings(com, modes, {{0, QT_TRANSLATE_NOOP("Stringizer", "Volume")}, {1, QT_TRANSLATE_NOOP("Stringizer", "Tempo")},
+				{2, QT_TRANSLATE_NOOP("Stringizer", "Balance")}});
 	}
 
 	QString stringizePlayMovie(const lcf::rpg::EventCommand& com)
@@ -1168,15 +1380,24 @@ namespace
 		const QStringList arrows{Stringizer::tr("Down"), Stringizer::tr("Left"), Stringizer::tr("Right"), Stringizer::tr("Up")};
 		for (int i = 0; i < 4; ++i) {
 			const int index = modern2003 ? i + 10 : modern2000 ? i + 6 : 2;
-			if (parameter(index) != 0) {
+			// down and up: in bit 0 in the newer layout of RPG Maker 2003
+			if (modern2003 && (i == 0 || i == 3) ? (parameter(index) & 1) : parameter(index) != 0) {
 				keys << arrows[i];
 			}
 		}
-		if (parameter(3) != 0) { keys << Stringizer::tr("Decision"); }
-		if (parameter(4) != 0) { keys << Stringizer::tr("Cancel"); }
-		if ((modern2003 && parameter(9) != 0) || (modern2000 && parameter(5) != 0)) { keys << Stringizer::tr("Shift"); }
+		// RPG Maker 2003 packs keys in bit 0, bit 1 is the Maniac Patch's mouse
+		const int key_bit = rpg2003 ? 1 : ~0;
+		if (parameter(3) & key_bit) { keys << Stringizer::tr("Decision"); }
+		if (parameter(4) & key_bit) { keys << Stringizer::tr("Cancel"); }
+		if ((modern2003 && (parameter(9) & key_bit)) || (modern2000 && parameter(5) != 0)) { keys << Stringizer::tr("Shift"); }
 		if (rpg2003 && !modern2000 && parameter(5) != 0) { keys << Stringizer::tr("Number keys"); }
 		if (rpg2003 && !modern2000 && parameter(6) != 0) { keys << Stringizer::tr("Operator keys"); }
+		// Maniac Patch: the mouse in bit 1 (the wheel and the middle button in the newer layout)
+		if (rpg2003 && (parameter(3) & 2)) { keys << Stringizer::tr("Left Click"); }
+		if (rpg2003 && (parameter(4) & 2)) { keys << Stringizer::tr("Right Click"); }
+		if (modern2003 && (parameter(9) & 2)) { keys << Stringizer::tr("Middle Click"); }
+		if (modern2003 && (parameter(10) & 2)) { keys << Stringizer::tr("Wheel Down"); }
+		if (modern2003 && (parameter(13) & 2)) { keys << Stringizer::tr("Wheel Up"); }
 		QString result = Stringizer::tr("Key Input Proc") + ": " + variable(parameter(0))
 			+ ", " + (parameter(1) ? Stringizer::tr("Wait for key") : Stringizer::tr("Read current key"))
 			+ ", " + Stringizer::tr("Keys: %1").arg(keys.join(", "));
@@ -1188,8 +1409,9 @@ namespace
 
 	QString stringizeChangeMapTileset(const lcf::rpg::EventCommand& com)
 	{
-		if (com.parameters.size() > 1 && (com.parameters[1] & 1)) {
-			return Stringizer::tr("Change Map Tileset") + ": " + variable(com.parameters[0]);
+		// a variable (also in other engines: bit 0), a pointer (Maniac Patch)
+		if (const int mode = modeOf(parameter(com, 1), 0)) {
+			return Stringizer::tr("Change Map Tileset") + ": " + modeValue(mode, com.parameters[0]);
 		}
 		const int id = com.parameters[0];
 		const auto& chipsets = core().project()->database().chipsets;
@@ -1200,19 +1422,19 @@ namespace
 
 	QString stringizeChangePBG(const lcf::rpg::EventCommand& com)
 	{
-		const int flags = com.parameters.size() > 6 ? com.parameters[6] : 0;
-		QString result = Stringizer::tr("Change PBG") + ": "
-			+ ((flags & 1) && com.parameters.size() > 7 ? variable(com.parameters[7]) : ToQString(com.string));
+		// Maniac Patch: the modes of the name (nibble 0, its string in p7) and of the speeds (nibbles 4 and 6) in p6
+		const int modes = parameter(com, 6);
+		QString result = Stringizer::tr("Change PBG") + ": " + textOr(modeOf(modes, 0), parameter(com, 7), ToQString(com.string));
 		if (com.parameters[0]) {
 			result += ", " + Stringizer::tr("Horz Scroll");
 			if (com.parameters[2]) {
-				result += ", " + Stringizer::tr("Horizontal Autoscroll") + " " + valueOrVariable(flags & (1 << 4), com.parameters[3]);
+				result += ", " + Stringizer::tr("Horizontal Autoscroll") + " " + modeValue(modeOf(modes, 4), com.parameters[3]);
 			}
 		}
 		if (com.parameters[1]) {
 			result += ", " + Stringizer::tr("Vert Scroll");
 			if (com.parameters[4]) {
-				result += ", " + Stringizer::tr("Vertical Autoscroll") + " " + valueOrVariable(flags & (1 << 6), com.parameters[5]);
+				result += ", " + Stringizer::tr("Vertical Autoscroll") + " " + modeValue(modeOf(modes, 6), com.parameters[5]);
 			}
 		}
 		return result;
@@ -1268,6 +1490,21 @@ namespace
 
 	QString stringizeChangeSaveAccess(const lcf::rpg::EventCommand& com)
 	{
+		if (com.parameters[0] == -1) {
+			// Maniac Patch: Control System Functions, those forbidden in the bits of p1
+			static const std::pair<int, const char*> functions[] = {
+				{0, QT_TRANSLATE_NOOP("Stringizer", "Save Menu")}, {2, QT_TRANSLATE_NOOP("Stringizer", "Party Menu")},
+				{3, QT_TRANSLATE_NOOP("Stringizer", "Screen Mode")}, {4, QT_TRANSLATE_NOOP("Stringizer", "Media Options")},
+				{5, QT_TRANSLATE_NOOP("Stringizer", "Debug Menu")}, {7, QT_TRANSLATE_NOOP("Stringizer", "Reset")}};
+			QStringList forbidden;
+			for (const auto& [bit, name] : functions) {
+				if (parameter(com, 1) & (1 << bit)) {
+					forbidden << Stringizer::tr(name);
+				}
+			}
+			return Stringizer::tr("Control System Functions") + ": "
+				+ (forbidden.isEmpty() ? Stringizer::tr("Allow All") : Stringizer::tr("Forbid") + " " + forbidden.join(", "));
+		}
 		return Stringizer::tr("Change Save Access") + ": "
 			+ (com.parameters[0] ? Stringizer::tr("Allow") : Stringizer::tr("Forbid"));
 	}
@@ -1460,9 +1697,149 @@ namespace
 		case 2:
 			event = "V[" + QString::number(com.parameters[1]) + "]"
 				+ "[V[" + QString::number(com.parameters[2]) + "]]";
+			break;
+		case 3:
+		case 4:
+			// Maniac Patch: a common event in a variable, or a pointer
+			event = Stringizer::tr("Common Event") + " " + modeValue(com.parameters[0] - 2, com.parameters[1]);
+			break;
+		case 5:
+		case 6:
+		case 7:
+			// Maniac Patch: a common event by its name: the string of the
+			// command, a string variable, or one from a variable
+			event = Stringizer::tr("Common Event") + " "
+				+ textOr(com.parameters[0] - 5, parameter(com, 1), "\"" + ToQString(com.string) + "\"");
+			break;
+		default:
+			event = Stringizer::tr("Unknown");
+			break;
+		}
+		// Maniac Patch: an offset added to the ID, its mode in p3
+		const int offset = parameter(com, 4);
+		const int offsetMode = parameter(com, 3);
+		if (offset != 0 || offsetMode != 0) {
+			const QString added = valueOr(offsetMode, offset, QString::number(offset));
+			event += (offsetMode == 0 && offset < 0 ? " - " + QString::number(-offset) : " + " + added);
 		}
 
 		return Stringizer::tr("Call Event") + ": " + event;
+	}
+
+	// Maniac Patch: the loops (p0) and their values: the modes in the
+	// nibbles of p1, the comparison above them, the index in p4
+	QString stringizeLoop(const lcf::rpg::EventCommand& com)
+	{
+		const int modes = parameter(com, 1);
+		// a number, V[x], V[V[x]], S[x] or S[V[x]] (a switch reads 1 when on)
+		const QString first = modeValue(modeOf(modes, 0), parameter(com, 2));
+		const QString second = modeValue(modeOf(modes, 1), parameter(com, 3));
+		QString loop;
+		switch (parameter(com, 0))
+		{
+		case 0:
+			return Stringizer::tr("Loop");
+		case 1:
+			loop = Stringizer::tr("%1 Times").arg(first);
+			break;
+		case 2:
+			loop = Stringizer::tr("Count Up") + " " + first + ".." + second;
+			break;
+		case 3:
+			loop = Stringizer::tr("Count Down") + " " + first + ".." + second;
+			break;
+		case 4:
+			loop = Stringizer::tr("While") + " " + first + " " + comparison(modeOf(modes, 2)) + " " + second;
+			break;
+		case 5:
+			loop = Stringizer::tr("Do While") + " " + first + " " + comparison(modeOf(modes, 2)) + " " + second;
+			break;
+		case 6: {
+			// the values from p5, their modes 4 by word in the words from p2
+			QStringList values;
+			const int count = parameter(com, 3);
+			int words = 0;
+			for (int i = 0; i < count && i < 64; ++i) {
+				if (i % 4 == 0) {
+					words = parameter(com, static_cast<size_t>(parameter(com, 2) + i));
+				}
+				values << modeValue(modeOf(words, i % 4), parameter(com, static_cast<size_t>(5 + i)));
+			}
+			loop = Stringizer::tr("For Each") + " [" + values.join(", ") + "]";
+			break;
+		}
+		case 7:
+			loop = Stringizer::tr("For Each") + " " + Stringizer::tr("%1 Variables from %2").arg(second, variable(parameter(com, 2)));
+			break;
+		case 8:
+			loop = Stringizer::tr("For Each") + " " + Stringizer::tr("Map Event");
+			break;
+		default:
+			loop = Stringizer::tr("Unknown");
+			break;
+		}
+		if (parameter(com, 4) > 0) {
+			loop += ", " + Stringizer::tr("Index in %1").arg(variable(parameter(com, 4)));
+		}
+		return Stringizer::tr("Loop") + ": " + loop;
+	}
+
+	// Maniac Patch: Continue, and the loops around it left (p1)
+	QString stringizeBreakLoop(const lcf::rpg::EventCommand& com)
+	{
+		QString text = parameter(com, 0) == 1 ? Stringizer::tr("Continue Loop") : Stringizer::tr("Break Loop");
+		if (parameter(com, 1) > 0) {
+			text += ": " + Stringizer::tr("Level %1").arg(parameter(com, 1) + 1);
+		}
+		return text;
+	}
+
+	// Maniac Patch: the self values of the event reset (bits of p0)
+	QString stringizeEndEventProcessing(const lcf::rpg::EventCommand& com)
+	{
+		const int reset = parameter(com, 0);
+		QStringList values;
+		if (reset & 1) values << Stringizer::tr("Self Variables");
+		if (reset & 2) values << Stringizer::tr("Self Strings");
+		if (reset & 4) values << Stringizer::tr("Self Switches");
+		return Stringizer::tr("End Event Processing")
+			+ (values.isEmpty() ? QString() : ": " + Stringizer::tr("Reset") + " " + values.join(", "));
+	}
+
+	QString stringizeEraseEvent(const lcf::rpg::EventCommand& com)
+	{
+		// Maniac Patch: the event in p2 (0: this one), its mode in nibble 1 of
+		// p0; brought back (p1)
+		if (com.parameters.size() < 3) {
+			return Stringizer::tr("Erase Event");
+		}
+		const int mode = modeOf(com.parameters[0], 1);
+		const int id = com.parameters[2];
+		const QString event = mode ? Stringizer::tr("Event") + " " + modeValue(mode, id)
+			: id == 0 ? Stringizer::tr("This Event") : characterName(id);
+		return (com.parameters[1] ? Stringizer::tr("Bring Back Event") : Stringizer::tr("Erase Event")) + ": " + event;
+	}
+
+	QString stringizeOpenSaveMenu(const lcf::rpg::EventCommand& com)
+	{
+		// Maniac Patch: Call System Functions (p0, its option in p1)
+		static const char* functions[] = {QT_TRANSLATE_NOOP("Stringizer", "Save Menu"), QT_TRANSLATE_NOOP("Stringizer", "Load Menu"),
+			QT_TRANSLATE_NOOP("Stringizer", "Party Menu"), QT_TRANSLATE_NOOP("Stringizer", "Screen Mode"),
+			QT_TRANSLATE_NOOP("Stringizer", "Media Options"), QT_TRANSLATE_NOOP("Stringizer", "Debug Menu"),
+			QT_TRANSLATE_NOOP("Stringizer", "License"), QT_TRANSLATE_NOOP("Stringizer", "Reset")};
+		const int function = parameter(com, 0);
+		if (function <= 0) {
+			return Stringizer::tr("Open Save Menu");
+		}
+		QString result = Stringizer::tr("Call System Functions") + ": "
+			+ (function < 8 ? Stringizer::tr(functions[function]) : QString::number(function));
+		if (function == 3) {
+			const int mode = parameter(com, 1);
+			result += ", " + (mode == 1 ? Stringizer::tr("Window") : mode == 2 ? Stringizer::tr("Full Screen") : Stringizer::tr("Toggle"));
+		} else if (function == 5 && parameter(com, 1)) {
+			result += ", " + Stringizer::tr("Paused");
+		}
+		return result;
 	}
 
 	QString stringizeComment(const lcf::rpg::EventCommand& com)
@@ -1470,28 +1847,36 @@ namespace
 		return Stringizer::tr("Comment") + ": " + ToQString(com.string);
 	}
 
+	// a monster of the troop (from 0), with the Maniac Patch from a variable or a pointer
+	QString monster(int mode, int index)
+	{
+		return Stringizer::tr("Monster %1").arg(valueOr(mode, index, QString::number(index + 1)));
+	}
+
 	QString stringizeChangeMonsterHP(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Change Monster HP") + ": " + Stringizer::tr("Monster %1").arg(com.parameters[0] + 1)
+		return Stringizer::tr("Change Monster HP") + ": " + monster(parameter(com, 5), com.parameters[0])
 			+ ", " + monsterAmount(com)
 			+ (com.parameters.size() > 4 && com.parameters[4] ? " " + Stringizer::tr("(Can Kill)") : QString());
 	}
 
 	QString stringizeChangeMonsterMP(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Change Monster MP") + ": " + Stringizer::tr("Monster %1").arg(com.parameters[0] + 1)
+		return Stringizer::tr("Change Monster MP") + ": " + monster(parameter(com, 5), com.parameters[0])
 			+ ", " + monsterAmount(com);
 	}
 
 	QString stringizeChangeMonsterCondition(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Change Monster Condition") + ": " + Stringizer::tr("Monster %1").arg(com.parameters[0] + 1)
-			+ ", " + (com.parameters[1] ? Stringizer::tr("Remove") : Stringizer::tr("Add")) + " " + Stringizer::stateName(com.parameters[2]);
+		const int modes = parameter(com, 3);
+		return Stringizer::tr("Change Monster Condition") + ": " + monster(modeOf(modes, 0), com.parameters[0])
+			+ ", " + (com.parameters[1] ? Stringizer::tr("Remove") : Stringizer::tr("Add")) + " "
+			+ valueOr(modeOf(modes, 1), com.parameters[2], Stringizer::stateName(com.parameters[2]));
 	}
 
 	QString stringizeShowHiddenMonster(const lcf::rpg::EventCommand& com)
 	{
-		return Stringizer::tr("Show Hidden Monster") + ": " + Stringizer::tr("Monster %1").arg(com.parameters[0] + 1);
+		return Stringizer::tr("Show Hidden Monster") + ": " + monster(parameter(com, 1), com.parameters[0]);
 	}
 
 	QString stringizeChangeBattleBG(const lcf::rpg::EventCommand& com)
@@ -1502,12 +1887,16 @@ namespace
 	QString stringizeShowBattleAnimation_B(const lcf::rpg::EventCommand& com)
 	{
 		// p1: -1 all, else a monster (from 0), or a hero ID when p3 (the
-		// side, RPG Maker 2003: read from 4 parameters on, as it does) is set
+		// side, RPG Maker 2003: read from 4 parameters on, as it does) is set.
+		// Maniac Patch: the modes of the animation and the target in p5
 		const bool party = com.parameters.size() > 3 && com.parameters[3] != 0;
 		const int target = com.parameters[1];
-		const QString name = target < 0 ? (party ? Stringizer::tr("Entire Party") : Stringizer::tr("All Enemies"))
+		const int modes = parameter(com, 5);
+		const QString name = modeOf(modes, 1) ? (party ? Stringizer::tr("Hero") : Stringizer::tr("Monster")) + " " + valueOr(modeOf(modes, 1), target, {})
+			: target < 0 ? (party ? Stringizer::tr("Entire Party") : Stringizer::tr("All Enemies"))
 			: party ? Stringizer::heroName(target) : Stringizer::tr("Monster %1").arg(target + 1);
-		return Stringizer::tr("Show Battle Animation") + ": " + Stringizer::animationName(com.parameters[0]) + ", " + name
+		return Stringizer::tr("Show Battle Animation") + ": "
+			+ valueOr(modeOf(modes, 0), com.parameters[0], Stringizer::animationName(com.parameters[0])) + ", " + name
 			+ (com.parameters[2] ? " " + Stringizer::tr("(Wait)") : QString());
 	}
 
@@ -1582,13 +1971,24 @@ namespace
 		return mode == 0 ? variable(value) : mode == 1 ? QString("V[%1]").arg(variable(value)) : "?";
 	}
 
+	QString stringVariable(int id)
+	{
+		return QString("T[%1:%2]").arg(id, 4, 10, QChar('0')).arg(Stringizer::stringVarName(id));
+	}
+
+	/** A string variable given by a mode: 0 T[x], 1 T[V[x]] */
+	QString maniacStringVariable(int mode, int value)
+	{
+		return mode == 0 ? stringVariable(value) : mode == 1 ? QString("T[%1]").arg(variable(value)) : "?";
+	}
+
 	/** A string given by a mode: 0 the text, 1 T[x], 2 T[V[x]] */
 	QString maniacString(int mode, int value, const QString& text)
 	{
 		switch (mode)
 		{
-		case 0: return "\"" + text.section('\n', 0, 0) + "\"";
-		case 1: return QString("T[%1]").arg(value, 4, 10, QChar('0'));
+		case 0: return "\"" + text.section('\n', 0, 0).section('\r', 0, 0) + "\"";
+		case 1: return stringVariable(value);
 		case 2: return QString("T[%1]").arg(variable(value));
 		default: return "?";
 		}
@@ -1596,7 +1996,7 @@ namespace
 
 	QString choiceName(const QStringList& names, int value)
 	{
-		return value >= 0 && value < names.size() ? names[value] : Stringizer::tr("Unknown");
+		return value >= 0 && value < names.size() && !names[value].isEmpty() ? names[value] : Stringizer::tr("Unknown");
 	}
 
 	QString battleTarget(int target, int mode, int id)
@@ -1619,6 +2019,27 @@ namespace
 			+ ") " + maniacValue(nibble(modes, first + 2), p(index + 2)) + "x" + maniacValue(nibble(modes, first + 3), p(index + 3));
 	}
 
+	/** Script: the targets of the values returned (parameter 4: their count, then a kind and a number each) */
+	QString scriptTargets(const lcf::rpg::EventCommand& com)
+	{
+		const int size = static_cast<int>(com.parameters.size());
+		const int count = size > 4 ? com.parameters[4] : 0;
+		QStringList targets;
+		for (int i = 0; i < count && 6 + 2 * i < size; ++i) {
+			const int id = com.parameters[6 + 2 * i];
+			switch (com.parameters[5 + 2 * i]) {
+			case 0: targets << QString("S[%1]").arg(id, 4, 10, QChar('0')); break;
+			case 1: targets << QString("S[%1]").arg(variable(id)); break;
+			case 2: targets << variable(id); break;
+			case 3: targets << QString("V[%1]").arg(variable(id)); break;
+			case 4: targets << stringVariable(id); break;
+			case 5: targets << QString("T[%1]").arg(variable(id)); break;
+			default: targets << "?"; break;
+			}
+		}
+		return targets.join(", ");
+	}
+
 	QString stringizeManiac(const lcf::rpg::EventCommand& com)
 	{
 		using C = lcf::rpg::EventCommand::Code;
@@ -1627,9 +2048,12 @@ namespace
 		switch (static_cast<C>(com.code))
 		{
 		case C::Maniac_GetSaveInfo: {
-			QString result = Stringizer::tr("Get Save Info") + ": " + Stringizer::tr("Slot") + " " + maniacValue(p(0), p(1)) + ", "
+			QString result = Stringizer::tr("Get Save Info") + ": " + Stringizer::tr("Slot") + " " + maniacValue(nibble(p(0), 0), p(1)) + ", "
 				+ Stringizer::tr("Date") + " " + variable(p(2)) + ", " + Stringizer::tr("Time") + " " + variable(p(3)) + ", "
 				+ Stringizer::tr("Level") + " " + variable(p(4)) + ", " + Stringizer::tr("HP") + " " + variable(p(5));
+			if (p(0) & 16) {
+				result += ", " + Stringizer::tr("Name") + " " + stringVariable(p(6));
+			}
 			QStringList faces;
 			for (int i = 8; i < 12; ++i) {
 				if (p(i) != 0 || p(7) != 0) {
@@ -1645,14 +2069,16 @@ namespace
 			return Stringizer::tr("Save Game") + ": " + Stringizer::tr("Slot") + " " + maniacValue(p(0), p(1))
 				+ (p(2) ? ", " + Stringizer::tr("Result") + " " + variable(p(3)) : QString());
 		case C::Maniac_Load:
-			return Stringizer::tr("Load Game") + ": " + Stringizer::tr("Slot") + " " + maniacValue(p(0), p(1));
+			return Stringizer::tr("Load Game") + ": " + Stringizer::tr("Slot") + " " + maniacValue(p(0), p(1))
+				+ (p(2) ? ", " + Stringizer::tr("No check") : QString()) + (p(3) ? ", " + Stringizer::tr("No blackout") : QString());
 		case C::Maniac_EndLoadProcess:
 			return Stringizer::tr("End Load Process");
 		case C::Maniac_GetMousePosition:
-			return Stringizer::tr("Get Mouse Position") + ": " + variable(p(0)) + ", " + variable(p(1));
+			return Stringizer::tr("Get Mouse Position") + ": " + variable(p(0)) + ", " + variable(p(1))
+				+ (p(3) ? ", " + Stringizer::tr("Ignoring the window ratio") : QString());
 		case C::Maniac_SetMousePosition:
 			return Stringizer::tr("Set Mouse Position") + ": (" + maniacValue(nibble(p(0), 0), p(1)) + ","
-				+ maniacValue(nibble(p(0), 0), p(2)) + ")";
+				+ maniacValue(nibble(p(0), 0), p(2)) + ")" + (p(3) ? ", " + Stringizer::tr("Ignoring the window ratio") : QString());
 		case C::Maniac_ShowStringPicture: {
 			// "\x01text\x01system\x01font": the separators are the modes of the parts plus one
 			const int mode = text.isEmpty() ? 0 : text[0].unicode() - 1;
@@ -1701,19 +2127,27 @@ namespace
 		}
 		case C::Maniac_ControlVarArray: {
 			const QStringList operations = {Stringizer::tr("Copy"), Stringizer::tr("Swap"), Stringizer::tr("Sort ascending"), Stringizer::tr("Sort descending"),
-				Stringizer::tr("Shuffle"), Stringizer::tr("Enumerate"), "+", "-", "*", "/", "%", "|", "&", "^", "<<", ">>"};
+				Stringizer::tr("Shuffle"), Stringizer::tr("Enumerate"), "+", "-", "*", "/", "%", "|", "&", "^", "<<", ">>",
+				Stringizer::tr("Dereference"), Stringizer::tr("Sort ascending"), Stringizer::tr("Sort descending"), Stringizer::tr("Shuffle"),
+				Stringizer::tr("Fill"), Stringizer::tr("Reverse"), Stringizer::tr("Copy from")};
 			QString result = Stringizer::tr("Control Variable Array") + ": " + choiceName(operations, p(0)) + ", "
 				+ maniacVariable(nibble(p(1), 0), p(2)) + " x" + maniacValue(nibble(p(1), 1), p(3));
 			if (p(0) == 5) {
 				result += ", " + Stringizer::tr("from") + " " + maniacValue(nibble(p(1), 2), p(4));
-			} else if (p(0) < 2 || p(0) > 5) {
+			} else if (p(0) == 20) {
+				result += ", " + maniacValue(nibble(p(1), 2), p(4));
+			} else if (p(0) >= 17 && p(0) <= 19) {
+				// B in step with A
+				result += ", " + Stringizer::tr("with") + " " + maniacVariable(nibble(p(1), 2), p(4));
+			} else if (p(0) < 2 || (p(0) > 5 && p(0) != 21)) {
 				result += ", " + maniacVariable(nibble(p(1), 2), p(4));
 			}
 			return result;
 		}
 		case C::Maniac_KeyInputProcEx: {
-			const QStringList operations = {Stringizer::tr("All keys (keyboard)"), Stringizer::tr("All keys (keyboard and joypad)"),
-				Stringizer::tr("One key"), Stringizer::tr("Joypad")};
+			const QStringList operations = {Stringizer::tr("Keyboard keys"), Stringizer::tr("Keyboard keys (without the joypad assignment)"),
+				Stringizer::tr("Key"), Stringizer::tr("Joypad buttons"), Stringizer::tr("Get the joypad assignment"),
+				Stringizer::tr("Set the joypad assignment")};
 			QString result = Stringizer::tr("Key Input Processing Ex") + ": " + choiceName(operations, p(0));
 			if (p(0) == 2) {
 				result += " " + maniacValue(p(2), p(3));
@@ -1722,46 +2156,106 @@ namespace
 		}
 		case C::Maniac_RewriteMap:
 			return Stringizer::tr("Rewrite Map") + ": " + (p(2) ? Stringizer::tr("Upper layer") : Stringizer::tr("Lower layer")) + ", "
-				+ Stringizer::tr("Tile") + " " + maniacValue(nibble(p(0), 0), p(3)) + (p(1) ? " " + Stringizer::tr("(from variables)") : QString())
-				+ ", " + area(p(0), 1, com, 4);
+				+ (p(1) ? Stringizer::tr("Tiles from") + " " + maniacVariable(nibble(p(0), 0), p(3))
+					: Stringizer::tr("Tile") + " " + maniacValue(nibble(p(0), 0), p(3)))
+				+ ", " + area(p(0), 1, com, 4) + (p(8) ? ", " + Stringizer::tr("No autotile update") : QString());
 		case C::Maniac_ControlGlobalSave: {
 			const QStringList operations = {Stringizer::tr("Open"), Stringizer::tr("Close"), Stringizer::tr("Save"), Stringizer::tr("Save and close"),
 				Stringizer::tr("Copy to the game"), Stringizer::tr("Copy from the game")};
+			const QStringList types = {Stringizer::tr("Switches"), Stringizer::tr("Variables"), Stringizer::tr("Strings")};
 			QString result = Stringizer::tr("Control Global Save") + ": " + choiceName(operations, p(0));
 			if (p(0) == 4 || p(0) == 5) {
-				result += ", " + (p(2) ? Stringizer::tr("Variables") : Stringizer::tr("Switches")) + " " + maniacValue(nibble(p(1), 0), p(3))
+				result += ", " + choiceName(types, p(2)) + " " + maniacValue(nibble(p(1), 0), p(3))
 					+ ", " + Stringizer::tr("Global") + " " + maniacValue(nibble(p(1), 1), p(4)) + ", x" + maniacValue(nibble(p(1), 2), p(5));
 			}
 			return result;
 		}
 		case C::Maniac_ChangePictureId: {
-			const QStringList operations = {Stringizer::tr("Move"), Stringizer::tr("Swap"), Stringizer::tr("Slide")};
-			return Stringizer::tr("Change Picture ID") + ": " + choiceName(operations, p(0)) + ", "
-				+ maniacValue(nibble(p(1), 0), p(2)) + " x" + maniacValue(nibble(p(1), 1), p(3)) + ", "
-				+ maniacValue(nibble(p(1), 2), p(4));
+			const QString pictures = maniacValue(nibble(p(1), 0), p(2)) + " x" + maniacValue(nibble(p(1), 1), p(3));
+			const QString target = maniacValue(nibble(p(1), 2), p(4));
+			QString result = Stringizer::tr("Change Picture ID") + ": ";
+			switch (p(0))
+			{
+			case 0: result += Stringizer::tr("Move") + " " + pictures + " " + Stringizer::tr("to") + " " + target; break;
+			case 1: result += Stringizer::tr("Swap") + " " + pictures + " " + Stringizer::tr("with") + " " + target; break;
+			case 2: result += Stringizer::tr("Slide") + " " + pictures + " " + Stringizer::tr("by") + " " + target; break;
+			default: result += Stringizer::tr("Unknown"); break;
+			}
+			return result + (p(5) ? ", " + Stringizer::tr("Ignore out of range") : QString());
 		}
 		case C::Maniac_SetGameOption: {
 			const QStringList options = {Stringizer::tr("Run when inactive"), Stringizer::tr("Game speed"), Stringizer::tr("Picture limit"),
 				Stringizer::tr("Frame skip"), Stringizer::tr("Mouse in messages"), Stringizer::tr("Battle origin"), Stringizer::tr("Battle animation limit"), Stringizer::tr("Face size")};
 			QString result = Stringizer::tr("Set Game Option") + ": " + choiceName(options, p(1)) + " ";
-			if (p(1) == 3 || p(1) == 5) {
-				return result + QString::number(p(2));
+			switch (p(1))
+			{
+			case 0:
+				return result + (p(0) ? maniacValue(p(0), p(2)) : p(2) ? Stringizer::tr("Keep running") : Stringizer::tr("Pause"));
+			case 1: {
+				result += maniacValue(nibble(p(0), 0), p(2)) + " " + Stringizer::tr("FPS");
+				if ((p(3) & 3) == 1) {
+					result += ", " + Stringizer::tr("Test play off");
+				} else if ((p(3) & 3) == 2) {
+					result += ", " + Stringizer::tr("Test play on");
+				}
+				return result + (p(3) & 16 ? ", " + Stringizer::tr("Right Shift skips the messages") : QString());
 			}
-			result += maniacValue(p(0), p(2));
-			if (p(1) == 7) {
-				result += "x" + maniacValue(p(0), p(3));
+			case 3: {
+				const QStringList skips = {Stringizer::tr("None"), "1/5", "1/3", "1/2"};
+				return result + choiceName(skips, p(2));
 			}
-			return result;
+			case 4:
+				return result + (p(0) ? maniacValue(p(0), p(2)) : p(2) ? Stringizer::tr("Not allowed") : Stringizer::tr("Allowed"));
+			case 5: {
+				const QStringList origins = {Stringizer::tr("Center"), Stringizer::tr("Top left"), Stringizer::tr("Bottom left"), Stringizer::tr("Top right"),
+					Stringizer::tr("Bottom right"), Stringizer::tr("Top"), Stringizer::tr("Bottom"), Stringizer::tr("Left"), Stringizer::tr("Right")};
+				return result + choiceName(origins, p(2));
+			}
+			case 7:
+				return result + maniacValue(nibble(p(0), 0), p(2)) + "x" + maniacValue(nibble(p(0), 1), p(3));
+			default:
+				return result + maniacValue(nibble(p(0), 0), p(2));
+			}
 		}
-		case C::Maniac_CallCommand:
-			return Stringizer::tr("Call Command") + ": " + maniacValue(nibble(p(0), 0), p(1))
+		case C::Maniac_CallCommand: {
+			QString result = Stringizer::tr("Call Command") + ": " + maniacValue(nibble(p(0), 0), p(1))
 				+ (nibble(p(0), 3) != 0 || !text.isEmpty() ? ", " + maniacString(nibble(p(0), 3), p(4), text) : QString());
+			switch (nibble(p(0), 1))
+			{
+			case 0:
+			case 1:
+				return result + ", " + maniacVariable(nibble(p(0), 1), p(2)) + " x" + maniacValue(nibble(p(0), 2), p(3));
+			case 3: {
+				// the values from parameter 5, the modes of four of them in each parameter from the one in parameter 2
+				QStringList values;
+				for (int i = 0; i < p(3) && 5 + i < static_cast<int>(com.parameters.size()); ++i) {
+					values << maniacValue(nibble(p(p(2) + i / 4), i % 4), p(5 + i));
+				}
+				return result + ", [" + values.join(", ") + "]";
+			}
+			case 4: {
+				// expressions from parameter 5, one after the other
+				const size_t first = std::min<size_t>(5, com.parameters.size());
+				std::vector<std::string> texts;
+				if (!ManiacExpressionList::decode(std::span<const int32_t>(com.parameters.data() + first, com.parameters.size() - first), texts)) {
+					return result + ", " + Stringizer::tr("(Expression)");
+				}
+				QStringList values;
+				for (const auto& one : texts) {
+					values << QString::fromStdString(one);
+				}
+				return result + ", [" + values.join(", ") + "]";
+			}
+			default:
+				return result;
+			}
+		}
 		case C::Maniac_ControlStrings: {
 			QString target;
 			const int mode = p(0) & 15;
 			switch (mode)
 			{
-			case 0: target = QString("T[%1]").arg(p(1), 4, 10, QChar('0')); break;
+			case 0: target = stringVariable(p(1)); break;
 			case 1: target = QString("T[%1-%2]").arg(p(1), 4, 10, QChar('0')).arg(p(2), 4, 10, QChar('0')); break;
 			case 2: target = QString("T[%1]").arg(variable(p(1))); break;
 			case 3: target = QString("T[%1-%2]").arg(variable(p(1)), variable(p(2))); break;
@@ -1796,32 +2290,220 @@ namespace
 			QString result = Stringizer::tr("Get Game Info") + ": " + choiceName(infos, p(1));
 			switch (p(1))
 			{
-			case 1:
-			case 3: return result + ", " + area(p(0), 0, com, 3) + ", " + variable(p(7));
+			case 1: return result + " " + (p(2) ? Stringizer::tr("Upper layer") : Stringizer::tr("Lower layer")) + ", "
+				+ area(p(0), 0, com, 3) + ", " + variable(p(7));
+			case 3: return result + ", " + area(p(0), 0, com, 3) + ", " + variable(p(7))
+				+ (p(2) & 1 ? ", " + Stringizer::tr("Ignore alpha") : QString());
+			case 4: return result + ", " + Stringizer::tr("Levels up") + " " + maniacValue(nibble(p(0), 2), p(4)) + ", " + variable(p(2));
 			case 6:
-			case 7: return result + " " + maniacValue(nibble(p(0), 0), p(5)) + ", " + QString("T[%1]").arg(p(2), 4, 10, QChar('0'))
-				+ ", " + variable(p(3));
-			case 10: return result + ", " + QString("T[%1]").arg(p(2), 4, 10, QChar('0')) + ", " + variable(p(3));
+				if (p(4) == 1) {
+					return result + " " + Stringizer::tr("Message") + ", " + stringVariable(p(2)) + ", " + variable(p(3));
+				}
+				[[fallthrough]];
+			case 7: return result + " " + (p(4) == 1 ? Stringizer::tr("Event") : Stringizer::tr("Hero")) + " " + maniacValue(nibble(p(0), 0), p(5))
+				+ (p(6) ? " " + Stringizer::tr("(Current)") : QString()) + ", " + stringVariable(p(2)) + ", " + variable(p(3));
+			case 10: return result + ", " + stringVariable(p(2)) + ", " + variable(p(3));
 			default: return result + ", " + variable(p(2));
 			}
 		}
 		case C::Maniac_EditPicture:
 			return Stringizer::tr("Edit Picture") + ": " + maniacValue(nibble(p(0), 0), p(1)) + ", " + area(p(0), 1, com, 2)
-				+ ", " + maniacVariable(nibble(p(0), 5), p(6));
+				+ ", " + maniacVariable(nibble(p(0), 5), p(6)) + (p(7) & 1 ? ", " + Stringizer::tr("Opaque") : QString())
+				+ (p(7) & 2 ? ", " + Stringizer::tr("Skip transparent pixels") : QString());
 		case C::Maniac_WritePicture:
 			return Stringizer::tr("Write Picture") + ": " + (p(1) == 1 ? Stringizer::tr("Picture") + " " + maniacValue(nibble(p(0), 0), p(2)) : Stringizer::tr("Screen"))
-				+ ", " + maniacString(nibble(p(0), 1), p(3), text);
-		case C::Maniac_AddMoveRoute:
-			return Stringizer::tr("Add Move Route");
-		case C::Maniac_EditTile:
-			return Stringizer::tr("Edit Tile") + ": " + maniacValue(nibble(p(0), 0), p(1)) + ", " + area(p(0), 1, com, 2)
-				+ ", " + Stringizer::tr("Tile") + " " + maniacValue(nibble(p(0), 5), p(6));
-		case C::Maniac_ControlTextProcessing:
-			return Stringizer::tr("Control Text Processing") + ": " + (p(0) == 3 ? "\"" + text + "\"" : QString::number(p(2)));
+				+ ", " + maniacString(nibble(p(0), 1), p(3), text)
+				+ (p(1) == 1 && (p(4) & 1) ? ", " + Stringizer::tr("With the effects") : QString())
+				+ (p(1) == 1 && (p(4) & 2) ? ", " + Stringizer::tr("Opaque") : QString());
+		case C::Maniac_AddMoveRoute: {
+			const int modes = p(0);
+			auto value = [&](int slot, int index) { return maniacValue(nibble(modes, slot), p(index)); };
+			const QString file = maniacString(nibble(modes, 4), p(5), text);
+			QString result = Stringizer::tr("Add Move Route") + ": ";
+			if (nibble(modes, 0) != 0) {
+				// the action in a variable, its values as they are
+				return result + Stringizer::tr("Action") + " " + value(0, 1) + ", " + value(1, 2) + ", " + value(2, 3) + ", " + value(3, 4)
+					+ ", " + file;
+			}
+			switch (p(1))
+			{
+			case 0:
+				result += nibble(modes, 1) != 0 ? Stringizer::tr("Move") + " " + value(1, 2)
+					: p(2) >= 0 && p(2) <= 11 ? Stringizer::moveCommand(p(2)) : Stringizer::tr("Unknown");
+				return result + " x" + value(2, 3);
+			case 1:
+				return result + (nibble(modes, 1) != 0 ? Stringizer::tr("Face") + " " + value(1, 2)
+					: p(2) >= 0 && p(2) <= 10 ? Stringizer::moveCommand(12 + p(2)) : Stringizer::tr("Unknown"));
+			case 2:
+				return result + Stringizer::tr("Wait");
+			case 3:
+				return result + Stringizer::tr("Jump") + " (" + value(1, 2) + "," + value(2, 3) + ")";
+			case 4: {
+				const QStringList states = {Stringizer::tr("Jump"), Stringizer::tr("Fixed direction"), Stringizer::tr("Phasing"),
+					Stringizer::tr("Stepping animation")};
+				return result + choiceName(states, p(2)) + " " + (p(3) ? Stringizer::tr("On") : Stringizer::tr("Off"));
+			}
+			case 5: {
+				const QStringList settings = {Stringizer::tr("Movement speed"), Stringizer::tr("Movement frequency"), Stringizer::tr("Transparency")};
+				return result + choiceName(settings, p(2)) + " = " + value(2, 3);
+			}
+			case 6:
+				// S[x] or S[V[x]]
+				return result + Stringizer::tr("Switch") + " " + maniacValue(nibble(modes, 1) + 3, p(2)) + " = " + value(2, 3);
+			case 7:
+				return result + Stringizer::tr("Change Graphic") + " " + file + ", " + value(1, 2);
+			case 8:
+				return result + Stringizer::tr("Play Sound Effect") + " " + file + ", " + value(1, 2) + ", " + value(2, 3) + ", " + value(3, 4);
+			default:
+				return result + Stringizer::tr("Unknown");
+			}
+		}
+		case C::Maniac_EditTile: {
+			QString result = Stringizer::tr("Edit Tile") + ": " + maniacValue(nibble(p(0), 0), p(1)) + ", " + area(p(0), 1, com, 2) + ", "
+				+ (p(8) ? Stringizer::tr("Tiles from") + " " + maniacVariable(nibble(p(0), 5), p(6))
+					: Stringizer::tr("Tile") + " " + maniacValue(nibble(p(0), 5), p(6)))
+				+ ", " + (p(9) ? Stringizer::tr("Upper layer") : Stringizer::tr("Lower layer"));
+			if (nibble(p(0), 6) != 0 || p(10) != 0) {
+				result += ", " + Stringizer::tr("Chipset") + " " + maniacValue(nibble(p(0), 6), p(10));
+			}
+			if (nibble(p(0), 7) != 0 || p(11) != -1) {
+				result += ", " + Stringizer::tr("Frame") + " " + maniacValue(nibble(p(0), 7), p(11));
+			}
+			return result + (p(7) & 1 ? ", " + Stringizer::tr("No autotile") : QString())
+				+ (p(7) & 2 ? ", " + Stringizer::tr("Clear") : QString());
+		}
+		case C::Maniac_ControlTextProcessing: {
+			QString event;
+			switch (p(0))
+			{
+			case 0:
+				event = p(2) == 0 ? Stringizer::tr("None") : QString("%1:%2").arg(p(2), 4, 10, QChar('0')).arg(Stringizer::commonEventName(p(2)));
+				break;
+			case 1:
+			case 2: event = maniacValue(p(0), p(2)); break;
+			case 3: event = "\"" + text + "\""; break;
+			case 4: event = stringVariable(p(2)); break;
+			case 5: event = QString("T[%1]").arg(variable(p(2))); break;
+			default: event = "?"; break;
+			}
+			QStringList hooks;
+			if (p(1) & 1) hooks << Stringizer::tr("User event");
+			if (p(1) & 2) hooks << Stringizer::tr("Window created");
+			if (p(1) & 4) hooks << Stringizer::tr("Window destroyed");
+			if (p(1) & 8) hooks << Stringizer::tr("Each character");
+			QString result = Stringizer::tr("Control Text Processing") + ": " + event + " (" + (hooks.isEmpty() ? Stringizer::tr("Never") : hooks.join(", "))
+				+ ")";
+			// the first variable and string of the arguments, 0: none
+			auto arguments = [&](const QString& name, int numbers, int texts) {
+				if (numbers != 0 || texts != 0) {
+					result += ", " + name + " " + (numbers ? variable(numbers) : "-") + " " + (texts ? stringVariable(texts) : "-");
+				}
+			};
+			arguments(Stringizer::tr("System"), p(3), p(4));
+			arguments(Stringizer::tr("User"), p(5), p(6));
+			return result;
+		}
+		case C::Maniac_Script: {
+			// the targets of the values returned, as Maniac's TPC writes them: @js [s[1], v[2]] .run "code"
+			const QString targets = scriptTargets(com);
+			return Stringizer::tr("Script") + (targets.isEmpty() ? QString() : " [" + targets + "]") + ": "
+				+ (p(0) == 0 ? text : maniacStringVariable(p(0) - 1, p(1)));
+		}
+		case C::Maniac_Script_2:
+			return "	" + text;
 		case C::Maniac_Zoom:
 			return Stringizer::tr("Zoom") + ": (" + maniacValue(nibble(p(0), 0), p(1)) + "," + maniacValue(nibble(p(0), 1), p(2)) + "), "
-				+ maniacValue(nibble(p(0), 2), p(3)) + "%, " + maniacValue(nibble(p(0), 3), p(4))
-				+ (p(6) ? " " + Stringizer::tr("(Wait)") : QString());
+				+ maniacValue(nibble(p(0), 2), p(3)) + "%, " + maniacValue(nibble(p(0), 3), p(4)) + " " + Stringizer::tr("frames") + ", "
+				+ Stringizer::tr("Layer") + " " + maniacValue(nibble(p(0), 4), p(5)) + (p(6) ? " " + Stringizer::tr("(Wait)") : QString());
+		case C::Maniac_Console: {
+			QString result = Stringizer::tr("Console") + ": ";
+			QStringList options;
+			if (p(1) == 2 || p(1) == 3) {
+				if (p(2) & 1) options << Stringizer::tr("Control codes");
+				if (p(2) & 2) options << Stringizer::tr("Hexadecimal");
+			}
+			switch (p(1))
+			{
+			case 0: return result + Stringizer::tr("Open");
+			case 1: return result + Stringizer::tr("Close");
+			case 2:
+				if (p(2) & 4) options << Stringizer::tr("No line break");
+				result += Stringizer::tr("Write") + " " + maniacString(nibble(p(0), 2), p(3), text);
+				break;
+			case 3:
+				result += Stringizer::tr("Read") + " " + maniacStringVariable(nibble(p(0), 2), p(3)) + ", " + Stringizer::tr("Maximum length")
+					+ " " + maniacValue(nibble(p(0), 3), p(4));
+				break;
+			case 4:
+				result += Stringizer::tr("Text color") + " ";
+				result += p(2) & 8 ? maniacValue(nibble(p(0), 2), p(3)) : Stringizer::tr("Kept");
+				result += ", " + Stringizer::tr("Background color") + " ";
+				result += p(2) & 16 ? maniacValue(nibble(p(0), 3), p(4)) : Stringizer::tr("Kept");
+				break;
+			default: return result + Stringizer::tr("Unknown");
+			}
+			return result + (options.isEmpty() ? QString() : " (" + options.join(", ") + ")");
+		}
+		case C::Maniac_ControlSelfVariable: {
+			const int modes = p(0);
+			// the owner in the nibble slot, its event and map in the parameters event, event + 1
+			auto owner = [&](int slot, int event) -> QString {
+				switch (nibble(modes, slot))
+				{
+				case 0: return Stringizer::tr("Game");
+				case 1:
+					return Stringizer::tr("Common event") + " " + (nibble(modes, slot + 1) == 0
+						? QString("%1:%2").arg(p(event), 4, 10, QChar('0')).arg(Stringizer::commonEventName(p(event)))
+						: maniacValue(nibble(modes, slot + 1), p(event)));
+				case 2:
+					return Stringizer::tr("Map event") + " " + maniacValue(nibble(modes, slot + 1), p(event)) + " ("
+						+ Stringizer::tr("Map") + " " + maniacValue(nibble(modes, slot + 2), p(event + 1)) + ")";
+				case 3: return Stringizer::tr("Current event");
+				case 4: return Stringizer::tr("Calling event");
+				default: return Stringizer::tr("Unknown");
+				}
+			};
+			const int data = (p(7) >> 4) & 3;
+			const QStringList datas = {Stringizer::tr("Variables"), Stringizer::tr("Strings"), Stringizer::tr("Switches"), Stringizer::tr("All")};
+			const QString letter = QStringList{"V", "T", "S", "?"}[data];
+			QString result = Stringizer::tr("Control Self Variable") + ": " + owner(0, 1) + ", ";
+			const QString count = maniacValue(p(7) & 15, p(8));
+			if (p(9) == 2) {
+				return result + Stringizer::tr("Reset all") + " " + choiceName(datas, data) + ", " + Stringizer::tr("Events") + " " + count;
+			}
+			// the first one: 1 a number, 2 in a variable
+			const QString first = nibble(modes, 3) == 2 ? variable(p(3)) : QString::number(p(3));
+			result += letter + "[" + first + "] x" + count;
+			if (p(9) == 1) {
+				return result + ", " + Stringizer::tr("Reset");
+			}
+			if (p(9) != 0) {
+				return result + ", " + Stringizer::tr("Unknown");
+			}
+			switch (nibble(modes, 7))
+			{
+			case 0:
+				return result + " = " + (data == 1 ? "\"" + text.section('\n', 0, 0) + "\"" : QString::number(p(6)));
+			case 1:
+			case 2: {
+				const QString from = nibble(modes, 7) == 1 ? QString::number(p(6)) : variable(p(6));
+				return result + " = " + (nibble(modes, 4) == 0 ? QString() : owner(4, 4) + " ") + letter + "[" + from + "]"
+					+ (p(7) & 0x100 ? " " + Stringizer::tr("(array)") : QString());
+			}
+			default:
+				return result + " = ?";
+			}
+		}
+		case C::Maniac_ControlMediaOption: {
+			const QStringList settings = {Stringizer::tr("Screen mode"), Stringizer::tr("Window zoom"), Stringizer::tr("Window interpolation"),
+				Stringizer::tr("Window within the display"), Stringizer::tr("Full screen interpolation"), Stringizer::tr("Full screen uneven pixels"),
+				Stringizer::tr("Full screen stretch"), Stringizer::tr("Show the frame rate"), Stringizer::tr("Save as the default"),
+				Stringizer::tr("Audio volume")};
+			const QString setting = choiceName(settings, p(2));
+			return Stringizer::tr("Control Media Option") + ": " + (p(1) == 1
+				? Stringizer::tr("Set") + " " + setting + " = " + maniacValue(nibble(p(0), 2), p(3))
+				: Stringizer::tr("Get") + " " + setting + ", " + maniacVariable(nibble(p(0), 2), p(3)));
+		}
 		default:
 			return Stringizer::tr("Unknown");
 		}
@@ -1835,6 +2517,14 @@ namespace Stringizer
 		if (id < 1 || id > static_cast<int>(core().project()->database().variables.size()))
 			return QString("<%1?>").arg(id);
 		return ToQString(core().project()->database().variables[static_cast<size_t>(id)-1].name);
+	}
+
+	QString stringVarName(int id)
+	{
+		const auto& strings = core().project()->database().maniac_string_variables;
+		if (id < 1 || id > static_cast<int>(strings.size()))
+			return QString("<%1?>").arg(id);
+		return ToQString(strings[static_cast<size_t>(id) - 1].name);
 	}
 
 	QString switchName(int id)
@@ -2164,17 +2854,17 @@ namespace Stringizer
 		case C::ChangeTeleportAccess:	 return stringizeChangeTeleportAccess(com);
 		case C::EscapeTarget:			 return stringizeEscapeTarget(com);
 		case C::ChangeEscapeAccess:		 return stringizeChangeEscapeAccess(com);
-		case C::OpenSaveMenu:			 return tr("Open Save Menu");
+		case C::OpenSaveMenu:			 return stringizeOpenSaveMenu(com);
 		case C::ChangeSaveAccess:		 return stringizeChangeSaveAccess(com);
 		case C::OpenMainMenu:			 return tr("Open Main Menu");
 		case C::ChangeMainMenuAccess:	 return stringizeChangeMainMenuAccess(com);
 		case C::ConditionalBranch:		 return stringizeConditionalBranch(com);
 		case C::Label:					 return stringizeLabel(com);
 		case C::JumpToLabel:			 return stringizeJumpToLabel(com);
-		case C::Loop:					 return tr("Loop");
-		case C::BreakLoop:				 return tr("Break Loop");
-		case C::EndEventProcessing:		 return tr("End Event Processing");
-		case C::EraseEvent:				 return tr("Erase Event");
+		case C::Loop:					 return stringizeLoop(com);
+		case C::BreakLoop:				 return stringizeBreakLoop(com);
+		case C::EndEventProcessing:		 return stringizeEndEventProcessing(com);
+		case C::EraseEvent:				 return stringizeEraseEvent(com);
 		case C::CallEvent:				 return stringizeCallEvent(com);
 		case C::Comment:				 return stringizeComment(com);
 		case C::GameOver:				 return tr("Game Over");
@@ -2238,7 +2928,12 @@ namespace Stringizer
 		case C::Maniac_AddMoveRoute:
 		case C::Maniac_EditTile:
 		case C::Maniac_ControlTextProcessing:
-		case C::Maniac_Zoom:			 return stringizeManiac(com);
+		case C::Maniac_Script:
+		case C::Maniac_Script_2:
+		case C::Maniac_Zoom:
+		case C::Maniac_Console:
+		case C::Maniac_ControlSelfVariable:
+		case C::Maniac_ControlMediaOption:	 return stringizeManiac(com);
 		default:						 return tr("Unknown Command %1").arg(com.code);
 		}
 	}

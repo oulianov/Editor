@@ -252,9 +252,11 @@ FocusScope {
     readonly property bool stripes: Ez.Editor.commandStripes
     // a nested line starts under the text of its parent, after its "<>"
     readonly property real indentWidth: Math.max(8, metrics.advanceWidth("<>"))
-    // the next lines of a message (a comment) start under the text of the first one
-    readonly property real messageOffset: metrics.advanceWidth(editor.firstLineLabel(20110) + ": ") - metrics.advanceWidth(": ")
-    readonly property real commentOffset: metrics.advanceWidth(editor.firstLineLabel(22410) + ": ") - metrics.advanceWidth(": ")
+    // the next lines of a message (a comment, a script) start under the text
+    // of the first one, after its label
+    function nextLineOffset(label) {
+        return label === "" ? 0 : metrics.advanceWidth(label + ": ") - metrics.advanceWidth(": ")
+    }
     // the widest line shown: lines are as wide (wider ones scroll sideways, as RPG Maker)
     property real widest: 0
     onWidestChanged: Qt.callLater(view.updateContentWidth)
@@ -336,6 +338,7 @@ FocusScope {
             required property int indent
             required property int code
             required property int colorKind
+            required property string lineLabel
             readonly property bool selected: index >= root.highlightFirst && index < root.highlightEnd
 
             width: view.contentWidth
@@ -353,7 +356,7 @@ FocusScope {
             Text {
                 id: label
                 x: Ez.Metrics.listTextPadding + Math.max(0, line.indent) * root.indentWidth
-                   + (line.code === 20110 ? root.messageOffset : line.code === 22410 ? root.commentOffset : 0)
+                   + root.nextLineOffset(line.lineLabel)
                 anchors.verticalCenter: parent.verticalCenter
                 text: line.display
                 textFormat: Text.PlainText

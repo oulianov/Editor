@@ -38,6 +38,8 @@ Controls.SplitView {
     /** The root of the database edited (a JsonView) */
     property var database: null
     property bool rpg2k3: true
+    /** The game uses the Maniac Patch (the pages show its fields) */
+    property bool maniac: false
     /** The pointer of the list in the database ("attributes") */
     property string key
     /** Database data rooted at the current list (a JsonListView): the list at key */
@@ -485,6 +487,12 @@ Controls.SplitView {
             target: pageLoader.item
             property: "rpg2k3"
             value: root.rpg2k3
+            when: !!root.targetPage && !!pageLoader.item
+        }
+        Binding {
+            target: pageLoader.item
+            property: "maniac"
+            value: root.maniac
             when: !!root.targetPage && !!pageLoader.item
         }
     }

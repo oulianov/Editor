@@ -13,7 +13,9 @@ import org.easyrpg.editor as Ez
  * handlers and its messages, then the goods for sale (the parameters after
  * the fourth, each item once) beside all the items, "< Add" and "Remove >"
  * between them (or a double-click on an item). CommandEditorRegistry adds or
- * removes the transaction branches on OK.
+ * removes the transaction branches on OK. Maniac Patch: the goods can be
+ * the item IDs in variables (from p3, as many as p4; their modes in
+ * nibbles 2 and 3 of p1) in place of the list.
  */
 ColumnLayout {
     id: root
@@ -21,8 +23,10 @@ ColumnLayout {
     required property Ez.CommandEditSession session
     readonly property string title: qsTr("Open Shop Window")
     readonly property int revision: session.revision
+    /** Maniac Patch: 0 the list of the goods, 1 their IDs in variables, 2 from a variable pointer */
+    readonly property int goodsMode: revision < 0 ? 0 : (Number((session.value("/parameters") ?? [])[1] ?? 0) >> 8) & 0xF
     /** The IDs of the items for sale */
-    readonly property var goods: revision < 0 ? null : (session.value("/parameters") ?? []).slice(4)
+    readonly property var goods: revision < 0 || goodsMode !== 0 ? [] : (session.value("/parameters") ?? []).slice(4)
     readonly property var items: session.database ? session.database.list("items") : null
 
     /** The goods become these */
@@ -32,6 +36,27 @@ ColumnLayout {
             parameters.push(0)
         }
         session.set("/parameters", parameters.concat(ids))
+    }
+
+    /** The goods in a list or in variables: the list emptied, the IDs from V[1], one item */
+    function setGoodsMode(mode) {
+        const parameters = (session.value("/parameters") ?? []).slice(0, 5).map(Number)
+        while (parameters.length < 5) {
+            parameters.push(0)
+        }
+        if (mode === 0) {
+            // the count's mode too
+            parameters[1] &= ~0xFF00
+            parameters[3] = 0
+            session.set("/parameters", parameters.slice(0, 4))
+            return
+        }
+        if (goodsMode === 0) {
+            parameters[3] = 1
+            parameters[4] = 1
+        }
+        parameters[1] = (parameters[1] & ~0xF00) | (mode << 8)
+        session.set("/parameters", parameters)
     }
 
     /** The item chosen among all of them becomes one of the goods (once, as RPG Maker) */
@@ -103,7 +128,27 @@ ColumnLayout {
         Layout.fillHeight: true
         Layout.fillWidth: true
 
+        Ez.ComboBox {
+            objectName: "shopGoodsMode"
+            visible: root.session.maniac || root.goodsMode !== 0
+            enabled: root.session.maniac
+            model: [{ value: 0, text: qsTranslate("ManiacCommandWidget", "Item list") },
+                    { value: 1, text: qsTranslate("ManiacCommandWidget", "Item IDs in variables") },
+                    { value: 2, text: qsTranslate("ManiacCommandWidget", "Item IDs in variables from a variable pointer") }]
+            textRole: "text"
+            valueRole: "value"
+            currentIndex: Math.max(0, indexOfValue(root.goodsMode))
+            onActivated: if (currentValue !== root.goodsMode) root.setGoodsMode(currentValue)
+        }
+        SchemaRows {
+            visible: root.goodsMode !== 0
+            session: root.session
+            ids: ["goodsVariable", "goodsCount"]
+            names: ({ goodsVariable: "shopGoodsVariable", goodsCount: "shopGoodsCount" })
+        }
+
         RowLayout {
+            visible: root.goodsMode === 0
             spacing: Ez.Metrics.columnSpacing
             Layout.fillWidth: true
             Layout.fillHeight: true

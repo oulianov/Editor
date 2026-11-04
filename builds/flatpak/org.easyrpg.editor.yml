@@ -81,24 +81,14 @@ modules:
         branch: v2.4.0
     cleanup:
       - /share
-  # own libraries
-  - name: liblcf
-    buildsystem: cmake-ninja
-    builddir: true
-    config-opts:
-      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
-      - -DLIBLCF_ENABLE_TOOLS=OFF
-      - -DLIBLCF_ENABLE_TESTS=OFF
-      - -DLIBLCF_UPDATE_MIMEDB=OFF
-    sources:
-      - type: git
-        url: https://github.com/EasyRPG/liblcf.git
-    cleanup:
-      - /share
+  # the Editor, with liblcf of the submodule lib/liblcf (Maniac Patch
+  # support), built and linked statically: the checkout must include it
+  # (git submodule update --init)
   - name: editor
     buildsystem: cmake-ninja
     config-opts:
       - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - -DEDITOR_BUILD_LIBLCF=ON
     sources:
       - type: dir
         path: "../../"

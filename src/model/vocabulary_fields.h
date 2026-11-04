@@ -27,10 +27,30 @@
  * RPG Maker 2003 lets type. VocabularyPage.qml shows it. The texts are the
  * source texts of the context "VocabularyWidget" (tr() translates them);
  * the terms are the names of the fields of lcf::rpg::Terms.
+ *
+ * Besides RPG Maker's: the parts the Maniac Patch adds around some
+ * messages (Row::maniac), and the terms of EasyRPG Player (Group::extension),
+ * some of which the Maniac Patch reads too (liblcf's ids 203 to 216).
  */
 namespace VocabularyFields {
 
 enum class Engine { Both, Rpg2k, Rpg2k3 };
+
+/** Who reads the terms of a group besides RPG Maker */
+enum class Extension {
+	/** RPG Maker's own */
+	None,
+	/** EasyRPG Player only */
+	EasyRpg,
+	/** EasyRPG Player and the Maniac Patch */
+	EasyRpgManiac,
+};
+
+/** A part of a message: a term (its field), else what the game puts there (hint); neither: a new line */
+struct Part {
+	const char* term = nullptr;
+	const char* hint = nullptr;
+};
 
 /** A term; hint shows what the game puts before it, or between it and second */
 struct Row {
@@ -39,6 +59,15 @@ struct Row {
 	const char* term;
 	const char* hint = nullptr;
 	const char* second = nullptr;
+	/** With the Maniac Patch: the parts of the message in their order, its own terms among them (empty: as without it) */
+	std::vector<Part> maniac = {};
+	/**
+	 * A term of EasyRPG Player whose default is liblcf's "default_term"
+	 * (shown empty): what the game shows instead (its own text, else
+	 * fallbackHint: a text of the table)
+	 */
+	const char* fallback = nullptr;
+	bool fallbackHint = false;
 };
 
 struct Group {
@@ -48,6 +77,7 @@ struct Group {
 	/** Label and field pairs on each line */
 	int pairs;
 	std::vector<Row> rows;
+	Extension extension = Extension::None;
 };
 
 struct Page {
@@ -61,7 +91,7 @@ const std::vector<Page>& pages();
 /** The game's engine has the term (RPG Maker 2003 or 2000) */
 bool shown(const Row& row, bool rpg2k3);
 
-/** The MaxLength of a term in RPG Maker 2003, 0 for the terms of RPG Maker 2000 only */
+/** The MaxLength of a term in RPG Maker 2003, 0 for the terms of RPG Maker 2000 only, the Maniac Patch's and EasyRPG Player's */
 int limit(std::string_view term);
 
 /** A text of the table in the language of the Editor (empty for none) */

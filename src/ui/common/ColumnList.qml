@@ -210,11 +210,14 @@ Rectangle {
         section.criteria: ViewSection.FullString
         section.delegate: Text {
             required property string section
+            // without sections, ListView still makes them (from the first role):
+            // empty (it shows its section items itself)
+            height: root.sectionRole !== "" ? implicitHeight : 0
             width: ListView.view.width
             leftPadding: root.cellPadding
             topPadding: 1
             bottomPadding: 1
-            text: section
+            text: root.sectionRole !== "" ? section : ""
             font.family: Ez.Metrics.font.family
             font.pointSize: Ez.Metrics.font.pointSize
             font.bold: true

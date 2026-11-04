@@ -23,21 +23,29 @@
 
 /**
  * The terms of the Vocabulary page for QML (VocabularyFields): the pages
- * and groups of RPG Maker with the terms of the game's engine only.
+ * and groups of RPG Maker with the terms of the game's engine only, the
+ * messages with the parts the Maniac Patch adds when the game uses it.
  *
- *   Ez.VocabularyTable { id: table; rpg2k3: true }
+ *   Ez.VocabularyTable { id: table; rpg2k3: true; maniac: false }
  *   Repeater { model: table.pages ... qsTranslate("VocabularyWidget", modelData.title) }
  *
- * pages: [{title, groups: [{title, column, pairs, rows: [{label, term,
- * limit, hint, second, secondLimit}]}]}]; the texts are the source texts
- * of the context "VocabularyWidget", translated by the page (qsTranslate),
- * so a new language shows at once.
+ * pages: [{title, groups: [{title, column, pairs, easyrpg, rows: [{label,
+ * lines: [[{term, limit, own, fallback, fallbackHint} or {hint}]]}]}]}]: a
+ * row's fields and what the game puts between them, in the order of the
+ * message, on one line or more (own: not a part the Maniac Patch adds). easyrpg: the group's terms are EasyRPG Player's (not
+ * the Maniac Patch's too, in its games). A term with a fallback is left to
+ * EasyRPG Player's text ("default_term") while empty. The texts are the
+ * source texts of the context "VocabularyWidget", translated by the page
+ * (qsTranslate; fallback only with fallbackHint), so a new language shows
+ * at once.
  */
 class VocabularyTable : public QObject {
 	Q_OBJECT
 	QML_ELEMENT
 	/** The game is made with RPG Maker 2003 (else 2000) */
 	Q_PROPERTY(bool rpg2k3 READ rpg2k3 WRITE setRpg2k3 NOTIFY pagesChanged)
+	/** The game uses the Maniac Patch */
+	Q_PROPERTY(bool maniac READ maniac WRITE setManiac NOTIFY pagesChanged)
 	Q_PROPERTY(QVariantList pages READ pages NOTIFY pagesChanged)
 
 public:
@@ -47,6 +55,10 @@ public:
 		return m_rpg2k3;
 	}
 	void setRpg2k3(bool on);
+	bool maniac() const {
+		return m_maniac;
+	}
+	void setManiac(bool on);
 	QVariantList pages() const;
 
 signals:
@@ -54,4 +66,5 @@ signals:
 
 private:
 	bool m_rpg2k3 = true;
+	bool m_maniac = false;
 };

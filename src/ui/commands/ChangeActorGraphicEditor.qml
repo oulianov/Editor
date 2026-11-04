@@ -20,10 +20,14 @@ ColumnLayout {
     readonly property string title: qsTranslate("EventCommandPalette", "Change Hero Graphic")
     readonly property int hero: session.revision < 0 ? 0 : session.read("hero")
     property bool opened: false
+    /** Maniac Patch: the hero from a variable (its mode in p3) */
+    readonly property bool heroFromVariable: session.revision < 0 ? false : session.read("heroMode") !== 0
+    /** Maniac Patch: the file from a string or the index from a variable (modes in p3) */
+    readonly property bool modal: session.revision < 0 ? false : session.read("fileNameMode") !== 0 || session.read("fileIndexMode") !== 0
 
     /** Shows the character of the hero chosen */
     function applyDefault() {
-        if (hero > 0) {
+        if (hero > 0 && !heroFromVariable && !modal) {
             root.session.set("/string", root.session.database.str("actors/%1/character_name".arg(hero - 1)))
             root.session.set("/parameters/1", root.session.database.num("actors/%1/character_index".arg(hero - 1)))
         }
@@ -55,6 +59,8 @@ ColumnLayout {
         title: qsTr("Character Graphic")
         Ez.SpriteField {
             objectName: "viewChar"
+            // not the graphic of a string or of a variable
+            enabled: !root.modal
             preview: "CharSet"
             jsonData: root.session
             key: "/string"
@@ -65,6 +71,16 @@ ColumnLayout {
             session: root.session
             fieldId: "translucent"
             name: "checkTrans_arg2"
+        }
+    }
+    Ez.Section {
+        // Maniac Patch: the file from a string, the index from a variable
+        title: qsTranslate("ManiacCommandWidget", "Maniac Patch")
+        visible: root.session.maniac || root.modal
+        SchemaRows {
+            session: root.session
+            ids: ["fileName", "fileIndex"]
+            names: ({ fileName: "charManiacFile", fileIndex: "charManiacIndex" })
         }
     }
     Item {

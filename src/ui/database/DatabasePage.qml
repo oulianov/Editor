@@ -20,7 +20,7 @@ import org.easyrpg.editor as Ez
  *
  * list: one list of the database instead of the pages, as the windows of
  * the "..." buttons of the switches and variables ("switches",
- * "variables").
+ * "variables", the Maniac Patch's "maniac_string_variables").
  */
 Item {
     id: root
@@ -66,9 +66,11 @@ Item {
         { name: qsTranslate("DatabaseDialog", "System 2"), key: "", targetPage: system2Page, single: true, topic: "database-system2" },
         { name: qsTranslate("DatabaseDialog", "Common events"), key: "commonevents", targetPage: commonEventPage, topic: "database-common-events" },
     ]
-    /** The pages of the lists shown alone */
-    readonly property var singlePages: ({ switches: switchPage, variables: variablePage, attributes: attributePage })
-    readonly property var singleTopics: ({ switches: "database-switches", variables: "database-variables" })
+    /** The pages of the lists shown alone (the names of the string variables: the Maniac Patch's) */
+    readonly property var singlePages: ({ switches: switchPage, variables: variablePage, attributes: attributePage,
+                                          maniac_string_variables: stringVariablePage })
+    readonly property var singleTopics: ({ switches: "database-switches", variables: "database-variables",
+                                           maniac_string_variables: "database-variables" })
 
     /**
      * The page, the entry and its line shown when the window opens (the
@@ -209,6 +211,10 @@ Item {
         VariablePage {}
     }
     Component {
+        id: stringVariablePage
+        StringVariablePage {}
+    }
+    Component {
         id: battleScreenPage
         BattleScreenPage {}
     }
@@ -301,6 +307,7 @@ Item {
                         DatabaseEntryListPage {
                             database: root.jsonData
                             rpg2k3: session.rpg2k3
+                            maniac: session.maniac
                             key: loader.modelData.key
                             targetPage: loader.modelData.targetPage
                         }
@@ -317,6 +324,12 @@ Item {
                         value: session.rpg2k3
                         when: !!loader.modelData.single && !!loader.item
                     }
+                    Binding {
+                        target: loader.item
+                        property: "maniac"
+                        value: session.maniac
+                        when: !!loader.modelData.single && !!loader.item
+                    }
                 }
             }
         }
@@ -330,6 +343,7 @@ Item {
         sourceComponent: DatabaseEntryListPage {
             database: root.jsonData
             rpg2k3: session.rpg2k3
+            maniac: session.maniac
             key: root.list
             targetPage: root.singlePages[root.list] ?? null
         }

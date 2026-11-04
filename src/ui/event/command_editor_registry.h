@@ -94,4 +94,13 @@ namespace CommandEditorRegistry {
 	 * @return The problems: an editor not made, the warnings of QML
 	 */
 	QStringList checkEditors(ProjectData& project);
+	/**
+	 * Opens the editor of commands[index] on it as it is, without showing
+	 * it, and applies it as OK does (the automation's round trip check)
+	 *
+	 * @return What OK changed in the commands, one line per command, else
+	 * why the editor was not made or OK refused; nothing when unchanged
+	 */
+	QStringList checkRoundTrip(ProjectData& project, const std::vector<lcf::rpg::EventCommand>& commands, int index,
+		const Context& context = {});
 }

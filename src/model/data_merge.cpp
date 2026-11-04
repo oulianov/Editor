@@ -148,6 +148,9 @@ DataMerge::Result DataMerge::database(const lcf::rpg::Database& base, const lcf:
 	list(base.maniac_string_variables, mine.maniac_string_variables, theirs.maniac_string_variables, out.maniac_string_variables,
 		QT_TRANSLATE_NOOP("DataMerge", "String Variable %1"), result);
 	value(base.terms, mine.terms, theirs.terms, out.terms, tr("Vocabulary"), result);
+	// the database's own: its version and the chunks liblcf does not know (a patch's)
+	value(base.version, mine.version, theirs.version, out.version, tr("Database"), result);
+	value(base.unknown_chunks, mine.unknown_chunks, theirs.unknown_chunks, out.unknown_chunks, tr("Database"), result);
 	value(base.battlecommands, mine.battlecommands, theirs.battlecommands, out.battlecommands, tr("Battle Commands"), result);
 	// every save counts in the system: compared without its count, it keeps
 	// the highest

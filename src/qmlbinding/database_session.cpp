@@ -20,6 +20,7 @@
 #include "controller/dialog_service.h"
 #include "controller/project_controller.h"
 #include "json_view.h"
+#include "model/game_patches.h"
 #include "model/project.h"
 #include "project_data_gadget.h"
 
@@ -59,6 +60,7 @@ void DatabaseSession::setProjectData(ProjectDataGadget* gadget) {
 
 void DatabaseSession::open(ProjectData* live) {
 	m_live = live;
+	m_maniac = live && GamePatches::usesManiac(live->project());
 	discard();
 	emit projectDataChanged();
 }

@@ -58,6 +58,8 @@ class DatabaseSession : public QObject {
 	Q_PROPERTY(QString message READ message NOTIFY messageChanged)
 	/** The game is made with RPG Maker 2003 (else 2000) */
 	Q_PROPERTY(bool rpg2k3 READ isRpg2k3 NOTIFY projectDataChanged)
+	/** The game uses the Maniac Patch (GamePatches::usesManiac): the pages show its fields */
+	Q_PROPERTY(bool maniac READ isManiac NOTIFY projectDataChanged)
 	/**
 	 * A window edits the copy: the project does not read the database
 	 * again from disk meanwhile (EditLock::Database); what another program
@@ -122,6 +124,9 @@ public:
 	Q_INVOKABLE void setViewState(const QVariantMap& state);
 
 	bool isRpg2k3() const;
+	bool isManiac() const {
+		return m_maniac;
+	}
 	bool editing() const {
 		return m_lock.isHeld();
 	}
@@ -171,6 +176,8 @@ private:
 	QPointer<QWindow> m_window;
 	EditLocks::Lock m_lock;
 	bool m_modified = false;
+	/** Read when the project is set: the patches are in a file */
+	bool m_maniac = false;
 	/** The copy changed by the session itself (discard, apply's merge) */
 	bool m_quiet = false;
 	QString m_message;

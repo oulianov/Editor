@@ -1,0 +1,4 @@
+[submodule "lib/liblcf"]
+	path = lib/liblcf
+	url = https://github.com/oulianov/liblcf.git
+	branch = maniac

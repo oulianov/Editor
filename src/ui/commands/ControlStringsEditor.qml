@@ -25,8 +25,12 @@ ColumnLayout {
     readonly property int operation: revision < 0 ? 0 : session.read("operation")
     readonly property int function_: revision < 0 ? 0 : session.read("function")
     readonly property var args: argumentsOf(operation, function_)
+    /** The operation and value whose arguments are shown: another one reads the string another way */
+    readonly property string argsKind: operation + "/" + function_
     /** The literal texts of the arguments (the ones in the string, others empty) */
     property var texts: []
+    /** The texts were read from the string: they can be written */
+    property bool textsRead: false
 
     // the modes of the values: a number, a variable holding it, a string, a text...
     readonly property var numberModes: [{ value: 0, text: qsTranslate("ManiacCommandWidget", "Constant"), kind: "Number" },
@@ -41,14 +45,14 @@ ColumnLayout {
     /** The arguments (parameters 4..7) of an operation, as EasyRPG Player reads them */
     function argumentsOf(operation, fn) {
         const str = label => ({ kind: "Str", label: label, modes: stringModes })
-        const num = label => ({ kind: "Num", label: label, modes: numberModes, min: -99999999, max: 99999999 })
+        const num = label => ({ kind: "Num", label: label, modes: numberModes, min: -2147483648, max: 2147483647 })
         const varArg = label => ({ kind: "Var", label: label, modes: targetModes })
         const choices = (label, items) => ({ kind: "Choice", label: label, items: items })
         if (operation === 0 || operation === 1) {
             switch (fn) {
             case 0: return [str(qsTr("Text")), num(qsTr("Minimum length"))]
             case 1: return [num(qsTr("Number")), num(qsTr("Minimum length"))]
-            case 2: return [{ kind: "Switch", label: qsTr("Switch"), min: 1, max: 99999,
+            case 2: return [{ kind: "Switch", label: qsTr("Switch"), min: 1, max: 2147483647,
                               modes: [{ value: 0, text: qsTr("Switch"), kind: "Number" },
                                       { value: 1, text: qsTr("Switch pointer"), kind: "Variable" }] },
                             num(qsTr("Minimum length"))]
@@ -122,6 +126,9 @@ ColumnLayout {
 
     /** The string of the command from the literal texts shown */
     function writeTexts() {
+        if (!textsRead) {
+            return
+        }
         let string = ""
         let ordinal = 0
         const multiple = multipleTexts(operation, function_)
@@ -163,9 +170,10 @@ ColumnLayout {
             }
         }
         texts = list
+        textsRead = true
     }
-    // the new arguments read the string another way
-    onArgsChanged: writeTexts()
+    // the arguments of another operation read the string another way
+    onArgsKindChanged: writeTexts()
 
     spacing: Ez.Metrics.sectionSpacing
     Layout.fillWidth: true
@@ -253,18 +261,20 @@ ColumnLayout {
                         objectName: row.name
                         visible: row.kind === "Number"
                         from: Math.min(row.modelData.min ?? 0, value)
-                        to: Math.max(row.modelData.max ?? 99999, value)
+                        to: Math.max(row.modelData.max ?? 2147483647, value)
                         jsonData: root.session
                         key: visible ? row.valueKey : ""
                     }
-                    Ez.SpinBox {
+                    Ez.RefComboBox {
                         objectName: row.modelData.kind === "StrPlain" ? row.name : row.name + "String"
                         visible: row.kind === "StringId"
-                        prefix: row.modelData.kind === "StrPlain" ? "" : qsTranslate("ManiacCommandWidget", "String ")
-                        from: 0
-                        to: 99999
+                        database: root.session.database
+                        listKey: "maniac_string_variables"
+                        pickable: true
                         jsonData: root.session
                         key: visible ? row.valueKey : ""
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 200
                     }
                     Ez.RefComboBox {
                         objectName: row.modelData.kind === "VarPlain" ? row.name : row.name + "Variable"
@@ -285,7 +295,7 @@ ColumnLayout {
                         Layout.fillWidth: true
                     }
                     Item {
-                        visible: row.kind === "Number" || row.kind === "StringId"
+                        visible: row.kind === "Number"
                         Layout.fillWidth: true
                     }
                 }

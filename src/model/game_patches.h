@@ -20,6 +20,7 @@
 #include "common/rpg_rt_exe.h"
 
 #include <QMap>
+#include <QObject>
 #include <QString>
 #include <QStringList>
 #include <optional>
@@ -68,6 +69,29 @@ namespace GamePatches {
 	/** What a program is, read once per version of the file */
 	RpgRtExe::Info exeInfo(const QString& exe);
 
-	/** Whether the game uses the Maniac Patch: its commands are offered */
+	/** Whether the game is edited as a game of the Maniac Patch: its commands
+	 *  are offered. Its own patch (hasManiac), or the Maniac mode of the
+	 *  Editor (EditorSettings::maniacMode) for any game. */
 	bool usesManiac(const Project& project);
+	/** The game's own Maniac Patch: its [Patch], else detected */
+	bool hasManiac(const Project& project);
 }
+
+/**
+ * Tells when GamePatches::usesManiac() can answer otherwise: the Maniac mode
+ * of the Editor switched, or the patches of a game written. What shows the
+ * Maniac Patch's commands and fields (the command editors, the database)
+ * reads it again.
+ */
+class GamePatchesWatch : public QObject {
+	Q_OBJECT
+public:
+	static GamePatchesWatch& instance();
+
+signals:
+	void maniacChanged();
+
+private:
+	GamePatchesWatch();
+	bool m_mode = false;
+};

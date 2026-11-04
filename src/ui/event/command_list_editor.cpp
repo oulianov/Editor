@@ -352,13 +352,13 @@ int CommandListEditor::addRaw(int line, QQuickItem* from)
 	if (!CommandEditing::editRaw(Pickers::windowOf(from), *data, command, false) || !commands()) {
 		return -1;
 	}
-	// after the line, past the next lines of its message or comment
+	// after the line, past the next lines of its message, comment or script
 	int index = lineCount();
 	if (validLine(line)) {
 		index = line + 1;
 		while (index < lineCount()) {
 			const auto next = static_cast<Cmd>((*commands())[static_cast<size_t>(index)].code);
-			if (next != Cmd::ShowMessage_2 && next != Cmd::Comment_2) {
+			if (next != Cmd::ShowMessage_2 && next != Cmd::Comment_2 && next != Cmd::Maniac_Script_2) {
 				break;
 			}
 			++index;
@@ -474,6 +474,8 @@ QString CommandListEditor::firstLineLabel(int code) const
 			return Stringizer::tr("Message");
 		case Cmd::Comment_2:
 			return Stringizer::tr("Comment");
+		case Cmd::Maniac_Script_2:
+			return Stringizer::tr("Script");
 		default:
 			return QString();
 	}

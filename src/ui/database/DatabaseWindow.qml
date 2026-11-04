@@ -15,8 +15,8 @@ import org.easyrpg.editor as Ez
  * asked (DatabaseSession.apply, in windows over this one). Cancel writes
  * nothing. While it is open, the project does not read its database again.
  *
- * list: one list alone ("switches", "variables"), as the windows of the
- * "..." buttons.
+ * list: one list alone ("switches", "variables", "maniac_string_variables"),
+ * as the windows of the "..." buttons.
  */
 Ez.DialogWindow {
     id: root
@@ -57,7 +57,8 @@ Ez.DialogWindow {
     ownEditLock: true
     // where and as large as it was closed
     stateKey: list === "" ? "DatabaseWindow" : "DatabaseWindow/" + list
-    title: list === "switches" ? qsTr("Switches") : list === "variables" ? qsTr("Variables") : qsTr("Database")
+    title: list === "switches" ? qsTr("Switches") : list === "variables" ? qsTr("Variables")
+         : list === "maniac_string_variables" ? qsTr("String Variables") : qsTr("Database")
     flags: Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowMinMaxButtonsHint
     standardButtons: Controls.DialogButtonBox.Ok | Controls.DialogButtonBox.Cancel
                      | Controls.DialogButtonBox.Apply | Controls.DialogButtonBox.Help

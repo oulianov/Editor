@@ -40,6 +40,8 @@ class EditorBridge : public QObject {
 	Q_PROPERTY(QString playerPath READ playerPath WRITE setPlayerPath NOTIFY settingsChanged)
 	Q_PROPERTY(QString scriptEditor READ scriptEditor WRITE setScriptEditor NOTIFY settingsChanged)
 	Q_PROPERTY(bool reloadExternalChanges READ reloadExternalChanges WRITE setReloadExternalChanges NOTIFY settingsChanged)
+	/** Every game edited as a game of the Maniac Patch (GamePatches::usesManiac) */
+	Q_PROPERTY(bool maniacMode READ maniacMode WRITE setManiacMode NOTIFY settingsChanged)
 	Q_PROPERTY(bool searchCache READ searchCache WRITE setSearchCache NOTIFY settingsChanged)
 	/** A newer Editor looked for at start-up and every hour (Ez.Updater) */
 	Q_PROPERTY(bool checkForUpdates READ checkForUpdates WRITE setCheckForUpdates NOTIFY settingsChanged)
@@ -70,6 +72,8 @@ public:
 	void setScriptEditor(const QString& editor);
 	bool reloadExternalChanges() const;
 	void setReloadExternalChanges(bool on);
+	bool maniacMode() const;
+	void setManiacMode(bool on);
 	bool searchCache() const;
 	void setSearchCache(bool on);
 	bool checkForUpdates() const;

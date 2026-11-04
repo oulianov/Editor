@@ -24,6 +24,7 @@
 #include "core.h"
 #include "model/project.h"
 #include "qmlbinding/project_windows.h"
+#include "ui/other/maniac_check_window.h"
 #include "ui/maptree/map_tree_dialogs.h"
 #include "qmlbinding/qml_dialog_service.h"
 #include "qmlbinding/qml_host.h"
@@ -164,6 +165,16 @@ std::optional<ProjectConvert::Options> QmlShellDialogs::convertProject(const Pro
 void QmlShellDialogs::convertResult(const QString& error, const QString& backup)
 {
 	ProjectWindows::convertResult(m_window(), error, backup);
+}
+
+bool QmlShellDialogs::maniacCheck(const ManiacCompat::Report& report, const QString& backup)
+{
+	return ManiacCheckWindow::ask(m_window(), report, backup);
+}
+
+void QmlShellDialogs::maniacResult(const ManiacResult& result)
+{
+	ManiacCheckWindow::result(m_window(), result.error, result.converted, result.remaining, result.backup, result.backup2000);
 }
 
 bool QmlShellDialogs::mapProperties(lcf::rpg::MapInfo& info, lcf::rpg::Map& map)

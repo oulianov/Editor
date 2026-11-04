@@ -79,6 +79,23 @@ RowLayout {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 200
                 }
+                // Maniac Patch: the group in the variable a variable points to
+                CommandRadio {
+                    id: troopPointer
+                    session: root.session
+                    fieldId: "troopKind"
+                    value: 2
+                    hidesManiac: true
+                    objectName: "encounterTroopKind2"
+                }
+                CommandField {
+                    session: root.session
+                    fieldId: "troopPointer"
+                    name: "encounterTroopPointer"
+                    visible: troopPointer.visible
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 200
+                }
             }
         }
 
@@ -139,6 +156,12 @@ RowLayout {
                 session: root.session
                 fieldId: "firstStrike"
                 name: "encounterFirstStrike"
+            }
+            CommandField {
+                session: root.session
+                fieldId: "noFlash"
+                name: "encounterNoFlash"
+                visible: revision >= 0 && session.isShown(fieldId)
             }
         }
         Item {

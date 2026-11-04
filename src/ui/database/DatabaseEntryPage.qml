@@ -41,6 +41,8 @@ Flickable {
     property var database: null
     /** The game is made with RPG Maker 2003 (else 2000) */
     property bool rpg2k3: true
+    /** The game uses the Maniac Patch: the page shows its fields */
+    property bool maniac: false
     /** The page takes the whole width */
     property bool fillWidth: false
     /** The page takes the whole width and height (its column as large as the page) */

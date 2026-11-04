@@ -16,6 +16,11 @@ import org.easyrpg.editor as Ez
  *
  * bound: the rules of the field show it; else it shows its default value
  * and writes nothing (a mode not chosen: greyed, as RPG Maker).
+ *
+ * A value with a mode of the Maniac Patch (a hero, or the one in a
+ * variable; a name, or a string variable) has the box of its mode before
+ * it (objectName: the mode's id), in the games of the patch or while the
+ * mode is not RPG Maker's; the field of the mode chosen replaces it.
  */
 Loader {
     id: root
@@ -25,11 +30,26 @@ Loader {
     property bool bound: true
     /** The objectName of its control (the hand-written editors give their own, which scripts use) */
     property string name: field.id
+    /** The field of its mode (Maniac Patch), null for none */
+    readonly property var modeField: field.mode ? session.schema.field(field.mode) : null
+    readonly property int modeValue: modeField && bound && session.revision >= 0 ? session.read(modeField.id) : 0
+    readonly property bool modeShown: modeField !== null && (session.maniac || modeValue !== 0)
+    /** The field shown: this one, or the field of another mode in its place */
+    readonly property var shown: {
+        if (!modeField || !bound || session.revision < 0) {
+            return field
+        }
+        const others = session.schema.fields.filter(one => one.replaces === field.id)
+        return others.find(one => session.holdsExcept(one.id, "")) ?? field
+    }
     /** Its pointer in the session: its value, or its default when not bound */
-    readonly property string key: bound ? field.path : "/defaults/" + field.id
+    readonly property string key: bound ? shown.path : "/defaults/" + field.id
+    /** The range of a number, the Maniac Patch's in its games */
+    readonly property int minimum: (session.maniac ? shown.maniacMinimum : shown.minimum) ?? 0
+    readonly property int maximum: (session.maniac ? shown.maniacMaximum : shown.maximum) ?? 0
     /** Its control takes the width of its row (the lists, the texts) */
-    readonly property bool wide: (field.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Expression", "Location"].includes(field.kind))
-                                 && !(field.preview && field.kind === "Tile") || (field.kind === "Sample" && field.link === "tint")
+    readonly property bool wide: (shown.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Expression", "Location"].includes(shown.kind))
+                                 && !(shown.preview && shown.kind === "Tile") || (shown.kind === "Sample" && shown.link === "tint")
 
     /** A text of the schema in the language of the interface */
     function tr(text) {
@@ -42,11 +62,12 @@ Loader {
 
     Layout.fillWidth: wide
 
-    sourceComponent: {
-        switch (field.kind) {
+    sourceComponent: modeShown ? withMode : control
+    /** The control of the field shown */
+    readonly property Component control: {
+        switch (shown.kind) {
         case "Number":
-        case "StringId":
-            return field.slider ? slider : number
+            return shown.slider ? slider : number
         case "Check":
             return check
         case "Choice":
@@ -59,9 +80,9 @@ Loader {
         case "Note":
             return note
         case "Sample":
-            return field.link === "tint" ? tintSample : field.link === "flash" ? flashSample : fadeButtons
+            return shown.link === "tint" ? tintSample : shown.link === "flash" ? flashSample : fadeButtons
         case "File":
-            return field.preview ? picture : file
+            return shown.preview ? picture : file
         case "Map":
             return map
         case "MapX":
@@ -72,11 +93,31 @@ Loader {
         case "Character":
             return character
         case "Tile":
-            return field.preview ? tilePreview : tile
+            return shown.preview ? tilePreview : tile
         case "Expression":
             return expression
         default:
-            return field.list === "" ? number : field.preview && field.kind === "Animation" ? animation : entry
+            // the IDs of the database, the string variables (StringId)
+            return shown.list === "" ? number : shown.preview && shown.kind === "Animation" ? animation : entry
+        }
+    }
+
+    Component {
+        id: withMode
+        // the mode, then the control of its value
+        RowLayout {
+            spacing: Ez.Metrics.columnSpacing
+            Ez.ComboBox {
+                objectName: root.field.mode
+                jsonData: root.session
+                key: root.bound ? root.modeField.path : "/defaults/" + root.modeField.id
+                enabled: root.session.revision < 0 ? false : root.session.isEnabled(root.modeField.id)
+                model: root.modeField.items.map(item => ({ value: item.value, text: root.tr(item.text) }))
+            }
+            Loader {
+                sourceComponent: root.control
+                Layout.fillWidth: root.wide
+            }
         }
     }
 
@@ -101,10 +142,10 @@ Loader {
             objectName: root.name
             jsonData: root.session
             key: root.key
-            from: Math.min(root.field.minimum, Number(current.value ?? 0))
-            to: Math.max(root.field.maximum, Number(current.value ?? 0))
-            stepSize: root.field.step
-            suffix: root.tr(root.field.suffix)
+            from: Math.min(root.minimum, Number(current.value ?? 0))
+            to: Math.max(root.maximum, Number(current.value ?? 0))
+            stepSize: root.shown.step
+            suffix: root.tr(root.shown.suffix)
         }
     }
 
@@ -116,10 +157,10 @@ Loader {
                 objectName: root.name + "Slider"
                 jsonData: root.session
                 key: root.key
-                from: root.field.minimum
-                to: root.field.maximum
+                from: root.minimum
+                to: root.maximum
                 // a tick mark at each step, as the Widgets editor's (Shake Screen)
-                tickInterval: root.field.ticks ? Math.max(1, root.field.step) : 0
+                tickInterval: root.shown.ticks ? Math.max(1, root.shown.step) : 0
                 Layout.fillWidth: true
                 Layout.minimumWidth: 100
             }
@@ -127,10 +168,10 @@ Loader {
                 objectName: root.name
                 jsonData: root.session
                 key: root.key
-                from: root.field.minimum
-                to: root.field.maximum
-                stepSize: root.field.step
-                suffix: root.tr(root.field.suffix)
+                from: root.minimum
+                to: root.maximum
+                stepSize: root.shown.step
+                suffix: root.tr(root.shown.suffix)
             }
         }
     }
@@ -139,12 +180,12 @@ Loader {
         id: check
         Ez.CheckBox {
             objectName: root.name
-            text: root.tr(root.field.label)
+            text: root.tr(root.shown.label)
             // inverted: checked for 0
-            checked: current.valid && (Number(current.value) !== 0) !== root.field.inverted
+            checked: current.valid && (Number(current.value) !== 0) !== root.shown.inverted
             onToggled: {
                 if (current.valid) {
-                    current.value = checked !== root.field.inverted ? 1 : 0
+                    current.value = checked !== root.shown.inverted ? 1 : 0
                 }
             }
         }
@@ -159,7 +200,7 @@ Loader {
             model: {
                 // the items of another engine or kept only while the command has them
                 const shown = Number(current.value)
-                const items = root.field.kind === "CharacterSet" ? root.session.characterSets : root.field.items
+                const items = root.shown.kind === "CharacterSet" ? root.session.characterSets : root.shown.items
                 return items.filter(item => item.value === shown
                                     || (!item.kept && (!item.rpg2003 || root.session.rpg2k3) && (!item.maniac || root.session.maniac)))
                             .map(item => ({ value: item.value, text: root.tr(item.text) }))
@@ -199,14 +240,14 @@ Loader {
             objectName: root.name
             jsonData: root.session
             key: root.key
-            limit: root.field.limit
+            limit: root.shown.limit
         }
     }
 
     Component {
         id: note
         Ez.Note {
-            text: root.tr(root.field.label)
+            text: root.tr(root.shown.label)
         }
     }
 
@@ -216,7 +257,7 @@ Loader {
             id: fileRow
             spacing: Ez.Metrics.columnSpacing
 
-            readonly property string folder: root.field.folder
+            readonly property string folder: root.shown.folder
             readonly property bool audio: folder === "Music" || folder === "Sound"
 
             /** Opens the picker on the file; a music or a sound brings its settings */
@@ -224,12 +265,12 @@ Loader {
                 const request = { folder: folder, name: current.value ?? "",
                                   preview: folder === "Music" ? "Music" : folder === "Sound" ? "Sound"
                                          : folder === "Movie" ? "None" : "Image" }
-                const settings = ["volume", "tempo", "balance", "fadeIn"]
+                // not those in variables (Maniac Patch)
+                const settings = ["volume", "tempo", "balance", "fadeIn"].filter(id => root.session.path(id) !== ""
+                    && (root.session.path(id + "Mode") === "" || root.session.read(id + "Mode") === 0))
                 if (audio) {
                     for (const id of settings) {
-                        if (root.session.path(id) !== "") {
-                            request[id] = root.session.read(id)
-                        }
+                        request[id] = root.session.read(id)
                     }
                 }
                 const choice = Ez.Pickers.pickFile(request, fileRow)
@@ -240,7 +281,7 @@ Loader {
                 if (audio) {
                     // the settings moved in the picker
                     for (const id of settings) {
-                        if (root.session.path(id) !== "" && request[id] !== undefined && choice[id] !== request[id]) {
+                        if (request[id] !== undefined && choice[id] !== request[id]) {
                             root.session.write(id, choice[id])
                         }
                     }
@@ -263,7 +304,7 @@ Loader {
                         // no music, no sound: like the first entry of RPG Maker's list
                         objectName: root.name + "Off"
                         fused: true
-                        visible: root.field.off
+                        visible: root.shown.off
                         text: qsTranslate("MediaAudioWidget", "(OFF)")
                         onClicked: current.value = "(OFF)"
                     }
@@ -278,17 +319,17 @@ Loader {
             id: refBox
             objectName: root.name
             database: root.session.database
-            listKey: root.field.list
+            listKey: root.shown.list
             // Change Equipment: only what a hero equips
-            ids: root.field.equipment ? root.session.equipmentIds() : undefined
-            noneText: root.field.none ? root.tr(root.field.none.text) : ""
-            noneValue: root.field.none ? root.field.none.value : 0
+            ids: root.shown.equipment ? root.session.equipmentIds() : undefined
+            noneText: root.shown.none ? root.tr(root.shown.none.text) : ""
+            noneValue: root.shown.none ? root.shown.none.value : 0
             jsonData: root.session
             key: root.key
             pickable: root.bound
             // the session's picker: its database is read again after it
             pickHandler: function() {
-                const id = root.session.pickEntry(root.field.list, Number(current.value), !!root.field.none, refBox)
+                const id = root.session.pickEntry(root.shown.list, Number(current.value), !!root.shown.none, refBox)
                 if (id !== null && id !== undefined) {
                     current.value = id
                 }
@@ -313,7 +354,9 @@ Loader {
             objectName: root.name
             jsonData: root.session
             key: root.key
-            model: root.withUnknown(root.field.items.map(item => ({ value: item.value, text: root.tr(item.text) }))
+            // the items kept only while the command has them
+            model: root.withUnknown(root.shown.items.filter(item => !item.kept || item.value === Number(current.value))
+                                    .map(item => ({ value: item.value, text: root.tr(item.text) }))
                                     .concat(root.session.events),
                                     qsTranslate("LocationCommandWidget", "Unknown Event (%1)"))
         }
@@ -326,14 +369,14 @@ Loader {
         Ez.PathField {
             id: locationBox
 
-            readonly property bool fixed: root.field.link === ""
+            readonly property bool fixed: root.shown.link === ""
             // the fields of the location (hidden: this box shows them)
-            readonly property var xField: root.session.schema.fields.find(one => one.kind === "MapX" && one.link === root.field.link)
-            readonly property var yField: root.session.schema.fields.find(one => one.kind === "MapY" && one.link === root.field.link)
+            readonly property var xField: root.session.schema.fields.find(one => one.kind === "MapX" && one.link === root.shown.link)
+            readonly property var yField: root.session.schema.fields.find(one => one.kind === "MapY" && one.link === root.shown.link)
             readonly property string xId: xField ? xField.id : "x"
             readonly property string yId: yField ? yField.id : "y"
             readonly property int mapId: root.session.revision < 0 ? 0
-                : fixed ? root.session.eventMap : root.session.read(root.field.link)
+                : fixed ? root.session.eventMap : root.session.read(root.shown.link)
             readonly property bool pickable: root.bound && root.session.canPickLocation && (!fixed || root.session.eventMap > 0)
 
             /** The name of the map of the location, "" for none */
@@ -354,7 +397,7 @@ Loader {
                     return
                 }
                 if (!fixed) {
-                    root.session.write(root.field.link, chosen.map)
+                    root.session.write(root.shown.link, chosen.map)
                 }
                 root.session.write(xId, chosen.x)
                 root.session.write(yId, chosen.y)
@@ -388,14 +431,14 @@ Loader {
         ColumnLayout {
             id: expressionColumn
             spacing: Ez.Metrics.rowSpacing
-            readonly property var read: root.session.revision < 0 ? null : root.session.expression(root.field.id)
+            readonly property var read: root.session.revision < 0 ? null : root.session.expression(root.shown.id)
             /** The offset of the error of the text typed, -1 for none */
             property int error: -1
 
             /** A new expression: S[1] (an empty one is no expression) */
             function start() {
                 if (root.bound && read.readable && read.text === "") {
-                    root.session.setExpression(root.field.id, "S[1]")
+                    root.session.setExpression(root.shown.id, "S[1]")
                 }
             }
             Component.onCompleted: start()
@@ -426,7 +469,7 @@ Loader {
                     when: !expressionText.activeFocus
                     restoreMode: Binding.RestoreNone
                 }
-                onTextEdited: expressionColumn.error = root.session.setExpression(root.field.id, text)
+                onTextEdited: expressionColumn.error = root.session.setExpression(root.shown.id, text)
             }
             Ez.Note {
                 visible: !expressionColumn.read.readable || expressionColumn.error >= 0
@@ -447,8 +490,8 @@ Loader {
                 objectName: root.name
                 jsonData: root.session
                 key: root.key
-                from: Math.min(root.field.minimum, Number(current.value ?? 0))
-                to: Math.max(root.field.maximum, Number(current.value ?? 0))
+                from: Math.min(root.shown.minimum, Number(current.value ?? 0))
+                to: Math.max(root.shown.maximum, Number(current.value ?? 0))
                 Layout.fillWidth: true
             }
             Ez.FieldButton {
@@ -458,7 +501,7 @@ Loader {
                 // the chipset of the map of the event
                 enabled: root.bound && root.session.eventMap > 0
                 onClicked: {
-                    const layer = root.field.link !== "" ? root.session.read(root.field.link) : 0
+                    const layer = root.shown.link !== "" ? root.session.read(root.shown.link) : 0
                     const chosen = root.session.pickTile(layer, Number(current.value), tileRow)
                     if (chosen !== null && chosen !== undefined) {
                         current.value = chosen
@@ -670,7 +713,7 @@ Loader {
             spacing: Ez.Metrics.rowSpacing
             readonly property string name: current.value ?? ""
             function pick() {
-                const choice = Ez.Pickers.pickFile({ folder: root.field.folder, name: name, preview: "Image" }, pictureColumn)
+                const choice = Ez.Pickers.pickFile({ folder: root.shown.folder, name: name, preview: "Image" }, pictureColumn)
                 if (choice) {
                     current.value = choice.name
                 }
@@ -686,7 +729,7 @@ Loader {
                     anchors.fill: parent
                     anchors.margins: 1
                     visible: pictureColumn.name !== ""
-                    source: visible ? "image://project/" + root.field.folder + "/" + pictureColumn.name : ""
+                    source: visible ? "image://project/" + root.shown.folder + "/" + pictureColumn.name : ""
                     fillMode: Image.PreserveAspectFit
                     horizontalAlignment: Image.AlignLeft
                     verticalAlignment: Image.AlignTop
@@ -725,7 +768,7 @@ Loader {
         RowLayout {
             id: tileView
             spacing: Ez.Metrics.columnSpacing
-            readonly property int tileLayer: root.session.revision < 0 || root.field.link === "" ? 0 : root.session.read(root.field.link)
+            readonly property int tileLayer: root.session.revision < 0 || root.shown.link === "" ? 0 : root.session.read(root.shown.link)
             readonly property var graphic: root.session.revision < 0 ? ({}) : root.session.tileGraphic(tileLayer, Number(current.value ?? 0))
             readonly property bool drawn: graphic.chipset !== undefined
             function pick() {
@@ -758,8 +801,8 @@ Loader {
                 visible: !tileView.drawn
                 jsonData: root.session
                 key: root.key
-                from: Math.min(root.field.minimum, Number(current.value ?? 0))
-                to: Math.max(root.field.maximum, Number(current.value ?? 0))
+                from: Math.min(root.shown.minimum, Number(current.value ?? 0))
+                to: Math.max(root.shown.maximum, Number(current.value ?? 0))
             }
             Ez.FieldButton {
                 objectName: root.name + "Picker"

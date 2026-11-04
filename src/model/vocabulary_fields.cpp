@@ -54,10 +54,31 @@ std::vector<Row> inn(const char* greeting_1, const char* greeting_2, const char*
 	};
 }
 
+/** The parts of a message with the Maniac Patch */
+Part term(const char* name) {
+	return {name, nullptr};
+}
+Part hint(const char* text) {
+	return {nullptr, text};
+}
+Part newline() {
+	return {};
+}
+
+/** A term of EasyRPG Player shown as fallback until it is typed (fallbackHint: a text of the table) */
+Row defaulted(Engine engine, const char* label, const char* name, const char* fallback, bool fallbackHint = false) {
+	Row row{engine, label, name};
+	row.fallback = fallback;
+	row.fallbackHint = fallbackHint;
+	return row;
+}
+
 std::vector<Page> makePages() {
 	constexpr auto Both = Engine::Both;
 	constexpr auto Rpg2k = Engine::Rpg2k;
 	constexpr auto Rpg2k3 = Engine::Rpg2k3;
+	constexpr auto EasyRpg = Extension::EasyRpg;
+	constexpr auto EasyRpgManiac = Extension::EasyRpgManiac;
 	return {
 		{QT_TRANSLATE_NOOP("VocabularyWidget", "Battle"), {
 			{QT_TRANSLATE_NOOP("VocabularyWidget", "Battle Messages"), 0, 1, {
@@ -69,14 +90,39 @@ std::vector<Page> makePages() {
 				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Escape Failure Message"), "escape_failure"},
 				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Victory Message"), "victory"},
 				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Defeat Message"), "defeat"},
-				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Experience Gain Message"), "exp_received", QT_TRANSLATE_NOOP("VocabularyWidget", "( X )")},
+				// the Maniac Patch puts a text of its own before some messages
+				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Experience Gain Message"), "exp_received", QT_TRANSLATE_NOOP("VocabularyWidget", "( X )"), nullptr,
+					{term("maniac_exp_received_a"), hint(QT_TRANSLATE_NOOP("VocabularyWidget", "( X )")), term("exp_received")}},
 				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Money Acquisition Message"), "gold_recieved_a", QT_TRANSLATE_NOOP("VocabularyWidget", "( X ) (Currency Unit)"), "gold_recieved_b"},
-				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Item Discovery Message"), "item_recieved", QT_TRANSLATE_NOOP("VocabularyWidget", "( Item Name )")},
+				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Item Discovery Message"), "item_recieved", QT_TRANSLATE_NOOP("VocabularyWidget", "( Item Name )"), nullptr,
+					{term("maniac_item_received_a"), hint(QT_TRANSLATE_NOOP("VocabularyWidget", "( Item Name )")), term("item_recieved")}},
 			}},
+			// with the Maniac Patch (RPG Maker 2003's English order, as EasyRPG
+			// Player writes it): its texts before, after the level and at the end
 			{QT_TRANSLATE_NOOP("VocabularyWidget", "Level-up Messages"), 1, 1, {
-				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Level Up"), "level_up", QT_TRANSLATE_NOOP("VocabularyWidget", "(Character) (Level) (X)")},
-				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Skill Learned"), "skill_learned", QT_TRANSLATE_NOOP("VocabularyWidget", "(Skill Name)")},
+				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Level Up"), "level_up", QT_TRANSLATE_NOOP("VocabularyWidget", "(Character) (Level) (X)"), nullptr,
+					{term("maniac_level_up_a"), hint(QT_TRANSLATE_NOOP("VocabularyWidget", "(Character)")), term("level_up"),
+						hint(QT_TRANSLATE_NOOP("VocabularyWidget", "(Level)")), newline(), term("maniac_level_up_b"),
+						hint(QT_TRANSLATE_NOOP("VocabularyWidget", "( X )")), term("maniac_level_up_c")}},
+				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Skill Learned"), "skill_learned", QT_TRANSLATE_NOOP("VocabularyWidget", "(Skill Name)"), nullptr,
+					{term("maniac_skill_learned_a"), hint(QT_TRANSLATE_NOOP("VocabularyWidget", "(Skill Name)")), term("skill_learned")}},
 			}},
+			// what RPG Maker 2003's battles show of the monsters' actions (left
+			// empty: EasyRPG Player's texts)
+			{QT_TRANSLATE_NOOP("VocabularyWidget", "Monster Actions"), 1, 1, {
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Double Attack"), "easyrpg_battle2k3_double_attack", "Double Attack"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Defends"), "easyrpg_battle2k3_defend", "Defend"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Observes"), "easyrpg_battle2k3_observe", "Observe"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Charges Up"), "easyrpg_battle2k3_charge", "Charge Up"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Self-Destructs"), "easyrpg_battle2k3_selfdestruct", "Self-Destruct"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Monster Escapes"), "easyrpg_battle2k3_escape", "Escape"),
+			}, EasyRpgManiac},
+			{QT_TRANSLATE_NOOP("VocabularyWidget", "Other Battle Messages"), 1, 1, {
+				// empty: the Initiative Message
+				{Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Back Attack Message"), "easyrpg_battle2k3_special_combat_back"},
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Uses a Skill"), "easyrpg_battle2k3_skill", QT_TRANSLATE_NOOP("VocabularyWidget", "(Skill Name)"), true),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Uses an Item"), "easyrpg_battle2k3_item", QT_TRANSLATE_NOOP("VocabularyWidget", "( Item Name )"), true),
+			}, EasyRpg},
 		}},
 		// RPG Maker 2000 battles only
 		{QT_TRANSLATE_NOOP("VocabularyWidget", "Battle Actions"), {
@@ -161,6 +207,11 @@ std::vector<Page> makePages() {
 				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Yes"), "yes"},
 				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "No"), "no"},
 			}},
+			// the choices once the party is ordered (Order)
+			{QT_TRANSLATE_NOOP("VocabularyWidget", "Order Screen"), 1, 1, {
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Confirm"), "easyrpg_order_scene_confirm", "Confirm"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Redo"), "easyrpg_order_scene_redo", "Redo"),
+			}, EasyRpgManiac},
 		}},
 		{QT_TRANSLATE_NOOP("VocabularyWidget", "Statistics"), {
 			{QT_TRANSLATE_NOOP("VocabularyWidget", "Statistics and Equipment"), 0, 2, {
@@ -183,6 +234,22 @@ std::vector<Page> makePages() {
 				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Helmet"), "helmet"},
 				{Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Accessory"), "accessory"},
 			}},
+			// the labels of RPG Maker 2003's Status screen
+			{QT_TRANSLATE_NOOP("VocabularyWidget", "Status Screen"), 0, 2, {
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Name"), "easyrpg_status_scene_name", "Name"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Profession"), "easyrpg_status_scene_class", "Class"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Title"), "easyrpg_status_scene_title", "Title"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Condition"), "easyrpg_status_scene_condition", "State"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Front Row"), "easyrpg_status_scene_front", "Front"),
+				defaulted(Rpg2k3, QT_TRANSLATE_NOOP("VocabularyWidget", "Back Row"), "easyrpg_status_scene_back", "Back"),
+			}, EasyRpgManiac},
+			// before the number of an item, the cost of a skill; between the
+			// values of a statistic when choosing equipment
+			{QT_TRANSLATE_NOOP("VocabularyWidget", "Separators"), 0, 2, {
+				defaulted(Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Item Count"), "easyrpg_item_number_separator", ":"),
+				defaulted(Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Skill Cost"), "easyrpg_skill_cost_separator", "-"),
+				defaulted(Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Equipment Arrow"), "easyrpg_equipment_arrow", ">"),
+			}, EasyRpg},
 		}},
 	};
 }

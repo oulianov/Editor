@@ -9,8 +9,10 @@ import org.easyrpg.editor as Ez
 
 /**
  * A common event: its name, what starts it (called from Call Event, or
- * automatically while its switch is on) and its commands, edited in the
- * window's copy of the database. The command list fills the page.
+ * automatically while its switch is on; with the Maniac Patch also at the
+ * start of a battle, or in parallel during battles) and its commands,
+ * edited in the window's copy of the database. The command list fills the
+ * page.
  */
 DatabaseEntryPage {
     id: root
@@ -86,12 +88,19 @@ DatabaseEntryPage {
                     objectName: "comboTrigger"
                     jsonData: root.entry
                     key: "trigger"
-                    // RPG Maker's names: a called event runs only from Call Event
+                    // RPG Maker's names: a called event runs only from Call Event.
+                    // The Maniac Patch's two (also shown when the event has one)
+                    // start it once before the battle events of turn 0, or run it
+                    // in parallel during battles
+                    readonly property bool battleTriggers: root.maniac || (!!root.entry && root.entry.num("trigger") >= 6)
                     model: [
                         { text: qsTr("Call"), value: 5 },
                         { text: qsTr("Auto Start"), value: 3 },
                         { text: qsTr("Parallel Process"), value: 4 },
-                    ]
+                    ].concat(battleTriggers ? [
+                        { text: qsTr("Battle Start"), value: 6 },
+                        { text: qsTr("Parallel Process in Battle"), value: 7 },
+                    ] : [])
                     Layout.fillWidth: true
                 }
             }

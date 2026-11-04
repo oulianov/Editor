@@ -158,12 +158,12 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 		{Code::ElseBranch_B, {}},
 		{Code::EndBranch_B, {}},
 		// Maniac Patch: the parameters EasyRPG Player reads, modes 0 (constants)
-		{Code::Maniac_GetSaveInfo, {0, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0}},
+		{Code::Maniac_GetSaveInfo, {0, 1, 1, 2, 3, 4, 1, 0, 0, 0, 0, 0}},
 		{Code::Maniac_Save, {0, 1, 0, 1}},
-		{Code::Maniac_Load, {0, 1, 0}},
+		{Code::Maniac_Load, {0, 1, 0, 0}},
 		{Code::Maniac_EndLoadProcess, {}},
-		{Code::Maniac_GetMousePosition, {1, 2}},
-		{Code::Maniac_SetMousePosition, {0, 160, 120}},
+		{Code::Maniac_GetMousePosition, {1, 2, 0, 0}},
+		{Code::Maniac_SetMousePosition, {0, 160, 120, 0}},
 		{Code::Maniac_ShowStringPicture, {0, 1, 160, 120, 100, 0, 100, 100, 100, 100, 0, 0, 0, 256, 0, 7, 7, 0, 0, 0, 12, 0, 0, 100}},
 		{Code::Maniac_GetPictureInfo, {0, 0, 0, 1, 1, 2, 3, 4, 1}},
 		{Code::Maniac_ControlBattle, {0, 0, 1, 1}},
@@ -181,9 +181,23 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 		{Code::Maniac_GetGameInfo, {0, 0, 1, 0, 0, 0, 0, 1}},
 		{Code::Maniac_EditPicture, {0, 1, 0, 0, 0, 0, 1, 0}},
 		{Code::Maniac_WritePicture, {0, 0, 1, 0, 0}},
-		{Code::Maniac_EditTile, {0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0}},
+		// Move up, one step
+		{Code::Maniac_AddMoveRoute, {0, 0, 0, 1}},
+		// the chipset of the map, its current animation frame
+		{Code::Maniac_EditTile, {0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, -1}},
 		{Code::Maniac_ControlTextProcessing, {0, 0, 0, 0, 0, 0, 0}},
+		// the code in the string and its next lines, no value returned
+		{Code::Maniac_Script, {0, 0, 0, 0, 0}},
+		{Code::Maniac_Script_2, {}},
 		{Code::Maniac_Zoom, {0, 160, 120, 100, 0, 0, 0}},
+		// Open
+		{Code::Maniac_Console, {0, 0, 0, 0, 0}},
+		// Set the switch 1 of the current event ON (the first one a number:
+		// mode 1; the Maniac Patch writes 15 in the modes unused, 0 here so
+		// that another owner shows its event as a constant)
+		{Code::Maniac_ControlSelfVariable, {0x00001003, 1, 1, 1, 1, 1, 1, 32, 1}},
+		// Get the screen mode in V[1]
+		{Code::Maniac_ControlMediaOption, {0, 0, 0, 1}},
 	};
 	return defaults;
 }
@@ -240,6 +254,7 @@ bool EventCommandDefaults::isStructural(Code code) {
 		case Code::END:
 		case Code::ShowMessage_2:
 		case Code::Comment_2:
+		case Code::Maniac_Script_2:
 		case Code::ShowChoiceOption:
 		case Code::ShowChoiceEnd:
 		case Code::ElseBranch:
@@ -296,6 +311,11 @@ std::pair<int, int> EventCommandDefaults::range(const std::vector<EventCommand>&
 			return {index, last};
 		case Code::Comment:
 			while (last < size && static_cast<Code>(commands[last].code) == Code::Comment_2) {
+				++last;
+			}
+			return {index, last};
+		case Code::Maniac_Script:
+			while (last < size && static_cast<Code>(commands[last].code) == Code::Maniac_Script_2) {
 				++last;
 			}
 			return {index, last};

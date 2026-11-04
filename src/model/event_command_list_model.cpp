@@ -42,10 +42,10 @@ Cmd codeOf(const lcf::rpg::EventCommand& cmd)
 	return static_cast<Cmd>(cmd.code);
 }
 
-/** The next lines of a message or a comment */
+/** The next lines of a message, a comment or a script (Maniac Patch) */
 bool isNextLine(Cmd code)
 {
-	return code == Cmd::ShowMessage_2 || code == Cmd::Comment_2;
+	return code == Cmd::ShowMessage_2 || code == Cmd::Comment_2 || code == Cmd::Maniac_Script_2;
 }
 
 // A change of the command list: the list before and after it
@@ -90,13 +90,25 @@ QString lastCommandKey(const QString& project_dir, Cmd code)
 /** Commands of text start empty: a message is not written twice */
 bool remembersSettings(Cmd code)
 {
-	return code != Cmd::ShowMessage && code != Cmd::Comment && code != Cmd::ShowChoice;
+	return code != Cmd::ShowMessage && code != Cmd::Comment && code != Cmd::ShowChoice && code != Cmd::Maniac_Script;
 }
 
-/** What starts the text of the first line of a command (a message, a comment) */
+/** What starts the text of the first line of a command (a message, a
+ *  comment, a script and the values it returns), before its ": " */
 QString firstLineLabel(const lcf::rpg::EventCommand& cmd)
 {
-	return codeOf(cmd) == Cmd::ShowMessage ? Stringizer::tr("Message") : Stringizer::tr("Comment");
+	switch (codeOf(cmd)) {
+		case Cmd::ShowMessage:
+			return Stringizer::tr("Message");
+		case Cmd::Maniac_Script: {
+			// the line without the first line of the code (the names of its targets may have ": ")
+			const QString line = Stringizer::stringize(cmd);
+			const QString code = QStringLiteral(": ") + ToQString(cmd.string);
+			return line.endsWith(code) ? line.chopped(code.size()) : line.left(line.indexOf(QStringLiteral(": ")));
+		}
+		default:
+			return Stringizer::tr("Comment");
+	}
 }
 
 /** A line as Copy as text writes it, without its indent: "<>" before a
@@ -194,6 +206,9 @@ QVariant EventCommandListModel::data(const QModelIndex& index, int role) const
 			return !isSelectable(row);
 		case PageEndRole:
 			return page_end;
+		case LineLabelRole:
+			return page_end || !isNextLine(codeOf(*cmd)) ? QString()
+				: firstLineLabel((*m_commands)[static_cast<size_t>(commandStart(row))]);
 		default:
 			return {};
 	}
@@ -221,6 +236,7 @@ QHash<int, QByteArray> EventCommandListModel::roleNames() const
 	names.insert(CommandStartRole, "commandStart");
 	names.insert(StructuralRole, "structural");
 	names.insert(PageEndRole, "pageEnd");
+	names.insert(LineLabelRole, "lineLabel");
 	return names;
 }
 
@@ -438,6 +454,8 @@ void EventCommandListModel::commandsEdited()
 			}
 		}
 		if (first >= 0) {
+			// the next lines of a command changed show its new label (a script's values)
+			last = std::max(last, commandRange(last).second - 1);
 			emit dataChanged(index(first), index(last));
 		}
 	}

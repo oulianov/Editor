@@ -4,9 +4,8 @@ The Editor is a CMake project in C++23 with Qt 6 (>= 6.10.1; developed and
 built by CI with 6.11.2). Its interface is QML (as upstream's), without Qt
 Widgets. It needs:
 
-- [liblcf](https://github.com/EasyRPG/liblcf), cloned and built with the
-  Editor when `EDITOR_BUILD_LIBLCF` is on (the simplest), and its own needs:
-  ICU, expat and inih;
+- liblcf, from the submodule `lib/liblcf`, built with the Editor, and its own
+  needs: ICU, expat and inih (below);
 - Qt 6: Base, Declarative (Qt Quick), Multimedia, Shader Tools, SVG, Tools
   (Linguist, optional);
 - for the QML interface: KDE's [Kirigami](https://invent.kde.org/frameworks/kirigami)
@@ -17,6 +16,34 @@ Widgets. It needs:
 
 Kirigami, Breeze and KDDockWidgets use Qt's private headers: they are built
 for one Qt, and built again for another.
+
+
+## liblcf: the submodule `lib/liblcf`
+
+liblcf is a git submodule: [oulianov/liblcf](https://github.com/oulianov/liblcf),
+branch `maniac`, a fork of [EasyRPG's liblcf](https://github.com/EasyRPG/liblcf)
+with the Maniac Patch support (its event commands, and the chunks of the
+files liblcf does not know kept and written back on save, where upstream's
+liblcf deletes them). Whenever it is checked out, the build compiles it with
+the Editor and links it statically (CI and the packages too). Check it out
+with the repository:
+
+```bash
+git clone --recursive git@github.com:oulianov/Editor.git
+# or, in a clone without it, and after a pull that changes it:
+git submodule update --init
+```
+
+When `lib/liblcf` is empty, CMake checks it out (`git submodule update
+--init`), or stops with that command. A change to liblcf is made in
+`lib/liblcf` (branch `maniac`), committed and pushed there, then the
+Editor's commit records the new liblcf commit (`git add lib/liblcf`). Its
+sources in `src/generated` come from the CSV files of `generator/csv`:
+
+```bash
+cd lib/liblcf/generator
+uv run --no-project --with pandas --with numpy --with jinja2 python generate.py
+```
 
 
 ## In short
@@ -48,8 +75,9 @@ On macOS (Apple silicon or Intel) with Xcode's command line tools
    `builds/vcpkg_overlay`) for this Qt, once, into
    `../editor-deps/kde/qtVERSION-homebrew` (`-ARCHS-macosTARGET` with
    `QT_DIR`); a stamp file there names the Qt they were built for;
-3. configures the Editor in `build` with liblcf built alongside, and builds
-   `build/EasyRPG Editor.app`; with `--tests`, also the start-up test, on a
+3. configures the Editor in `build` with liblcf (`lib/liblcf`) built
+   alongside, and builds `build/EasyRPG Editor.app`; with `--tests`, also the
+   start-up test, on a
    copy of TestGame-2003 downloaded into `build/testgame2003`.
 
 Running it again only rebuilds what changed, and so do the usual commands:
@@ -143,8 +171,10 @@ KDE's runtime instead.
 only, which has none: fixed light colours, and a warning about `Theme.qml`.
 
 `builds/cmake/CMakePresets.json.template` lists the presets (`windows-*`,
-`macos-*`, `vcpkg-*`, `liblcf-*`). The fork is mostly built and tested on macOS:
-reports about other platforms are welcome.
+`macos-*`, `vcpkg-*`, `liblcf-*`). Each builds liblcf from `lib/liblcf`: the
+`liblcf-*` ones are the same as the others (vcpkg does not provide liblcf).
+The fork is mostly built and tested on macOS: reports about other platforms
+are welcome.
 
 CI uses vcpkg at the commit `VCPKG_COMMIT` of the workflow, with the
 release-only triplets (`-DVCPKG_TARGET_TRIPLET=x64-linux-release`, the same
@@ -153,6 +183,11 @@ version) and ccache's files between runs. To move to a newer vcpkg, change
 `VCPKG_COMMIT`; to another Qt, `QT_VERSION` (and the KDE runtime of the
 Flatpak, `builds/flatpak/org.easyrpg.editor.yml` and its container image, to
 a KDE runtime with that Qt).
+
+Every job checks out the submodule with the repository (`submodules: true`);
+the Flatpak builds liblcf with the Editor too (no liblcf module of its own).
+The liblcf commit the Editor records must be pushed to
+[oulianov/liblcf](https://github.com/oulianov/liblcf) before a run.
 
 The packages: the Flatpak, two AppImages (x86_64 and aarch64, each built on
 a runner of its kind), two macOS disk images (one build for both kinds of
@@ -178,8 +213,7 @@ version.
 
 | Option | Default | Effect |
 |---|---|---|
-| `EDITOR_BUILD_LIBLCF` | `OFF` | clone liblcf into `lib/liblcf` and build it with the Editor |
-| `EDITOR_BUILD_LIBLCF_GIT` | GitHub (HTTPS) | the repository cloned; an SSH URL where HTTPS is blocked |
+| `EDITOR_BUILD_LIBLCF` | `ON` | when the submodule `lib/liblcf` is not checked out: check it out; `OFF` takes the liblcf of the system instead (without the Maniac Patch support: it deletes on save what it does not know). A checked-out `lib/liblcf` is always used |
 | `EDITOR_PRECOMPILE_HEADERS` | `ON` | parse Qt Quick and liblcf's database header once for every file (a clean build takes a quarter less time); left off when ccache is used |
 | `EDITOR_TEST_PROJECT` | (none) | the game the start-up test opens: a copy of TestGame-2003 |
 
@@ -202,6 +236,9 @@ cmake --build build && ctest --test-dir build
 
 - **ICU headers not found when building liblcf**: Homebrew's ICU is keg-only:
   pass `-DICU_INCLUDE_DIR="$(brew --prefix icu4c@78)/include"`.
-- **Cloning liblcf fails**: pass
-  `-DEDITOR_BUILD_LIBLCF_GIT=git@github.com:EasyRPG/liblcf.git`, or clone it
-  into `lib/liblcf` yourself.
+- **The submodule lib/liblcf is not checked out**: run
+  `git submodule update --init`. Where HTTPS is blocked, fetch it through
+  SSH: `git config submodule.lib/liblcf.url git@github.com:oulianov/liblcf.git`,
+  then `git submodule update --init`.
+- **liblcf does not compile after a pull**: the Editor may need a newer
+  liblcf: `git submodule update`.

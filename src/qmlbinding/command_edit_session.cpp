@@ -311,6 +311,8 @@ QString CommandSchemaView::listOf(Kind kind) {
 		case Kind::CommonEvent: return QStringLiteral("commonevents");
 		case Kind::Class: return QStringLiteral("classes");
 		case Kind::BattleCommand: return QStringLiteral("battlecommands/commands");
+		// the Maniac Patch's string variables (T[x]), named in the database
+		case Kind::StringId: return QStringLiteral("maniac_string_variables");
 		default: return QString();
 	}
 }
@@ -342,6 +344,8 @@ QVariantMap CommandSchemaView::fieldMap(const Field& field) const {
 		{QStringLiteral("path"), field.hasValue() ? pathOf(field) : QString()},
 		{QStringLiteral("minimum"), field.minimum},
 		{QStringLiteral("maximum"), field.maximum},
+		{QStringLiteral("maniacMinimum"), field.maniacMinimum},
+		{QStringLiteral("maniacMaximum"), field.maniacMaximum},
 		{QStringLiteral("step"), field.step},
 		{QStringLiteral("defaultValue"), field.defaultValue},
 		{QStringLiteral("suffix"), label(field.suffix)},
@@ -352,17 +356,21 @@ QVariantMap CommandSchemaView::fieldMap(const Field& field) const {
 		{QStringLiteral("cross"), bool(field.flags & Flag::Cross)},
 		{QStringLiteral("preview"), bool(field.flags & Flag::Preview)},
 		{QStringLiteral("columns"), field.columns},
+		{QStringLiteral("maniacColumns"), field.maniacColumnCount},
 		{QStringLiteral("inline"), bool(field.flags & Flag::Inline)},
 		{QStringLiteral("inverted"), bool(field.flags & Flag::Inverted)},
 		{QStringLiteral("hidden"), bool(field.flags & Flag::Hidden)},
 		{QStringLiteral("extension"), bool(field.flags & Flag::Extension)},
 		{QStringLiteral("rpg2003"), bool(field.flags & Flag::Rpg2003)},
 		{QStringLiteral("maniac"), bool(field.flags & Flag::Maniac)},
+		{QStringLiteral("maniacOnly"), bool(field.flags & Flag::ManiacOnly)},
 		{QStringLiteral("equipment"), bool(field.flags & Flag::Equipment)},
 		{QStringLiteral("off"), bool(field.flags & Flag::Off)},
 		{QStringLiteral("folder"), QString::fromLatin1(field.folder ? field.folder : "")},
 		{QStringLiteral("link"), QString::fromLatin1(field.link ? field.link : "")},
 		{QStringLiteral("limit"), field.limit},
+		{QStringLiteral("mode"), QString::fromLatin1(field.mode ? field.mode : "")},
+		{QStringLiteral("replaces"), QString::fromLatin1(field.replaces ? field.replaces : "")},
 		{QStringLiteral("list"), list},
 		{QStringLiteral("none"), none.isEmpty() ? QVariant() : QVariant(none)},
 	};
@@ -459,6 +467,13 @@ CommandEditSession::CommandEditSession(const lcf::rpg::EventCommand& command, QO
 		++m_revision;
 		emit revisionChanged();
 	});
+	// the Maniac mode switched: the fields of the Maniac Patch are shown or not
+	connect(&GamePatchesWatch::instance(), &GamePatchesWatch::maniacChanged, this, [this] {
+		m_maniac = -1;
+		++m_revision;
+		emit maniacChanged();
+		emit revisionChanged();
+	});
 	if (command.code == static_cast<int>(Code::ControlVars)) {
 		// the expressions of the Maniac Patch: those of the command, else
 		// what a new one starts from (V[1] for the target, 0 for the value)
@@ -551,7 +566,10 @@ bool CommandEditSession::isRpg2k3() const {
 }
 
 bool CommandEditSession::maniac() const {
-	return m_project && GamePatches::usesManiac(m_project->project());
+	if (m_maniac < 0) {
+		m_maniac = m_project && GamePatches::usesManiac(m_project->project());
+	}
+	return m_maniac;
 }
 
 JsonView* CommandEditSession::database() {
@@ -560,6 +578,7 @@ JsonView* CommandEditSession::database() {
 
 void CommandEditSession::setProject(ProjectData* project) {
 	m_project = project;
+	m_maniac = -1;
 	m_database.setData(project ? &project->database() : nullptr);
 	if (m_moveRoute && project) {
 		// the texts of the moves in the encoding of the game
@@ -567,6 +586,7 @@ void CommandEditSession::setProject(ProjectData* project) {
 		m_moveRoute->setCommand(m_command, project->project().encoding().toStdString());
 	}
 	emit projectChanged();
+	emit maniacChanged();
 }
 
 void CommandEditSession::setContext(bool battle, bool isNew, int mapId, const QVariantList& events) {
@@ -663,6 +683,27 @@ bool CommandEditSession::isShown(const QString& fieldId) const {
 		return false;
 	}
 	const Schema& schema = *schemaOf();
+	if ((found->flags & Flag::NotManiac) && maniac()) {
+		// a field of the Maniac Patch edits it
+		return false;
+	}
+	if ((found->flags & Flag::ManiacOnly) && !maniac()) {
+		// an option of the Maniac Patch in another game: only while the command uses it
+		if (!found->hasValue() || !CommandSchema::isVisible(schema, *found, m_command)) {
+			return false;
+		}
+		const auto maniacItem = [](const auto& one) { return bool(one.flags & Flag::Maniac); };
+		if (found->kind == Kind::Choice && std::any_of(found->items.begin(), found->items.end(), maniacItem)) {
+			// RPG Maker's values are another field's
+			const int value = CommandSchema::read(*found, m_command);
+			const auto item = std::find_if(found->items.begin(), found->items.end(), [value](const auto& one) { return one.value == value; });
+			return item == found->items.end() || (item->flags & Flag::Maniac);
+		}
+		if (found->usesString()) {
+			return !CommandSchema::readString(m_command).isEmpty();
+		}
+		return !found->isNumber() || CommandSchema::read(*found, m_command) != CommandSchema::defaultOf(*found, m_command);
+	}
 	if (CommandSchema::isVisible(schema, *found, m_command)) {
 		return true;
 	}
@@ -678,9 +719,13 @@ bool CommandEditSession::isShown(const QString& fieldId) const {
 	const std::string_view label = found->label.text ? found->label.text : "";
 	for (const auto& other : schema.fields) {
 		if (&other != found && other.hasValue() && sameBits(*found, other)
-				&& label == std::string_view(other.label.text ? other.label.text : "")
-				&& CommandSchema::isVisible(schema, other, m_command)) {
-			return false;
+				&& label == std::string_view(other.label.text ? other.label.text : "")) {
+			// the one shown, else the first one greyed (not one per mode)
+			const bool greyed = &other < found && !(other.flags & Flag::Hidden)
+				&& (maniac() ? !(other.flags & Flag::NotManiac) : !(other.flags & Flag::ManiacOnly));
+			if (greyed || CommandSchema::isVisible(schema, other, m_command)) {
+				return false;
+			}
 		}
 	}
 	return true;
@@ -872,6 +917,7 @@ QString CommandEditSession::entryName(const QString& list, int id) const {
 	if (list == QLatin1String("classes")) return entryText(db.classes, id);
 	if (list == QLatin1String("enemies")) return entryText(db.enemies, id);
 	if (list == QLatin1String("battlecommands/commands")) return entryText(db.battlecommands.commands, id);
+	if (list == QLatin1String("maniac_string_variables")) return entryText(db.maniac_string_variables, id);
 	return {};
 }
 
@@ -1215,6 +1261,27 @@ void CommandEditSession::adjust(const lcf::rpg::EventCommand& before, int index)
 		// a mode written to its default shows other fields: again until none
 		// appears (the values of another type of condition read as its modes)
 		std::vector<bool> written(schema->fields.size(), false);
+		// a value given again by its own mode (a hero, not the variable that
+		// replaced it): its default too
+		auto replaced = [&](const Field& value, const std::vector<bool>& by) {
+			for (size_t i = 0; i < schema->fields.size(); ++i) {
+				const char* owner = schema->fields[i].replaces;
+				if (by[i] && owner && std::string_view(owner) == value.id) {
+					return true;
+				}
+			}
+			return false;
+		};
+		{
+			const std::vector<bool> isShown = shown();
+			for (size_t i = 0; i < schema->fields.size(); ++i) {
+				const Field& one = schema->fields[i];
+				if (one.mode && isShown[i] && one.index != index && replaced(one, wasShown) && !replaced(one, isShown)) {
+					CommandSchema::write(*schema, one, m_command, CommandSchema::defaultOf(one, m_command));
+					written[i] = true;
+				}
+			}
+		}
 		for (int pass = 0; pass < 4; ++pass) {
 			const std::vector<bool> isShown = shown();
 			bool wrote = false;
@@ -1244,7 +1311,8 @@ void CommandEditSession::adjust(const lcf::rpg::EventCommand& before, int index)
 			// kept when the command is opened, and is never another hero's name
 			const int previousId = parameter(before, 0, 1);
 			const int heroId = parameter(m_command, 0, 1);
-			if (!m_project || previousId == heroId) {
+			// Maniac Patch: not for a hero in a variable, or a name in a string (modes in p1)
+			if (!m_project || previousId == heroId || (parameter(m_command, 1) & 0xFF) != 0 || (parameter(before, 1) & 0xF) != 0) {
 				break;
 			}
 			const auto* hero = lcf::ReaderUtil::GetElement(db.actors, heroId);

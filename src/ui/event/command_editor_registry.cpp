@@ -21,6 +21,7 @@
 #include "model/event_branches.h"
 #include "model/event_command_defaults.h"
 #include "model/event_command_list.h"
+#include "model/maniac_expression_list.h"
 #include "model/project_data.h"
 #include "qmlbinding/command_edit_session.h"
 #include "qmlbinding/qml_dialog_service.h"
@@ -30,9 +31,13 @@
 
 #include <QCoreApplication>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
+#include <QQuickItem>
 #include <QQuickWindow>
 #include <QScopeGuard>
 #include <QPointer>
+#include <algorithm>
+#include <span>
 #include <utility>
 
 namespace {
@@ -62,17 +67,22 @@ const std::vector<std::pair<Code, const char*>>& editors() {
 		{Code::KeyInputProc, "KeyInputProcEditor"},
 		{Code::Maniac_ControlStrings, "ControlStringsEditor"},
 		{Code::Maniac_ShowStringPicture, "ShowStringPictureEditor"},
+		{Code::Maniac_Script, "ScriptEditor"},
+		{Code::Maniac_Console, "ConsoleEditor"},
+		{Code::Maniac_CallCommand, "CallCommandEditor"},
 	};
 	return list;
 }
 
-/** The next lines of a message or comment */
+/** The next lines of a message, comment or script */
 Code nextLineOf(Code code) {
 	switch (code) {
 		case Code::ShowMessage:
 			return Code::ShowMessage_2;
 		case Code::Comment:
 			return Code::Comment_2;
+		case Code::Maniac_Script:
+			return Code::Maniac_Script_2;
 		default:
 			return Code::END;
 	}
@@ -111,6 +121,12 @@ void setParameterOf(Command& command, int index, int value) {
 		command.parameters = lcf::DBArray<int32_t>(parameters.begin(), parameters.end());
 	}
 	command.parameters[index] = value;
+}
+
+/** Call Command: where its parameters come from (nibble 1 of parameter 0) */
+constexpr int callCommandExpressions = 4;
+int callCommandMode(const Command& command) {
+	return static_cast<int>((static_cast<uint32_t>(parameterOf(command, 0)) >> 4) & 15);
 }
 
 /** The else line of a Conditional Branch: the line of the block at its indent (END: none) */
@@ -167,8 +183,73 @@ void readBranches(CommandEditSession& session, const std::vector<Command>& list,
 		case Code::ConditionalBranch_B:
 			session.setExtra(QStringLiteral("else"), alone ? parameterOf(command, 5) != 0 : elseLine(list, index) >= 0);
 			break;
+		case Code::Maniac_CallCommand: {
+			// the expressions of its parameters (from parameter 5), one per line
+			QStringList texts;
+			bool readable = true;
+			if (callCommandMode(command) == callCommandExpressions) {
+				const size_t first = std::min<size_t>(5, command.parameters.size());
+				std::vector<std::string> decoded;
+				readable = ManiacExpressionList::decode(
+					std::span<const int32_t>(command.parameters.data() + first, command.parameters.size() - first), decoded);
+				for (const auto& one : decoded) {
+					texts << QString::fromStdString(one);
+				}
+			}
+			session.setExtra(QStringLiteral("expressions"), readable ? texts.join(u'\n') : QString());
+			session.setExtra(QStringLiteral("originalExpressions"), readable ? texts.join(u'\n') : QString());
+			session.setExtra(QStringLiteral("expressionsReadable"), readable);
+			break;
+		}
 		default:
 			break;
+	}
+}
+
+/**
+ * OK of Call Command: the expressions typed (one per line) as its
+ * parameters from 5, unless they are the ones it had. False: one has an
+ * error, shown
+ */
+bool applyExpressions(QWindow* over, Command& command, CommandEditSession& session, int modeBefore) {
+	if (callCommandMode(command) != callCommandExpressions) {
+		return true;
+	}
+	const QString typed = session.extra(QStringLiteral("expressions")).toString();
+	if (modeBefore == callCommandExpressions && typed == session.extra(QStringLiteral("originalExpressions")).toString()) {
+		return true;
+	}
+	std::vector<std::string> texts;
+	for (const QString& line : typed.split(u'\n')) {
+		if (!line.trimmed().isEmpty()) {
+			texts.push_back(line.toStdString());
+		}
+	}
+	std::vector<int32_t> words;
+	size_t expression = 0;
+	size_t error = 0;
+	if (!ManiacExpressionList::encode(texts, words, expression, error)) {
+		dialogsOver(over).warning(QCoreApplication::translate("ManiacCommandWidget", "Call Command"),
+			QCoreApplication::translate("ManiacCommandWidget", "Expression %1 has an error at character %2:\n%3")
+				.arg(expression + 1).arg(error + 1).arg(QString::fromStdString(texts[expression])));
+		return false;
+	}
+	std::vector<int32_t> parameters(command.parameters.begin(), command.parameters.end());
+	parameters.resize(5, 0);
+	parameters.insert(parameters.end(), words.begin(), words.end());
+	command.parameters = lcf::DBArray<int32_t>(parameters.begin(), parameters.end());
+	return true;
+}
+
+/**
+ * Control Self Variable setting strings to a text: its length in parameter
+ * 6, as the Maniac Patch writes it (when the text changed)
+ */
+void setSelfTextLength(Command& command, const Command& before) {
+	const bool text = parameterOf(command, 9) == 0 && ((parameterOf(command, 7) >> 4) & 3) == 1
+		&& ((static_cast<uint32_t>(parameterOf(command, 0)) >> 28) & 15) == 0;
+	if (text && command.string != before.string) {
+		setParameterOf(command, 6, static_cast<int>(ToQString(command.string).toUcs4().size()));
 	}
 }
 
@@ -274,6 +355,20 @@ bool applyCondition(QWindow* over, std::vector<Command>& list, int index, Comman
 bool applyEdit(QWindow* over, std::vector<Command>& list, int index, CommandEditSession& session, bool alone) {
 	const Command& edited = session.command();
 	const auto code = static_cast<Code>(edited.code);
+	if (code == Code::Maniac_CallCommand) {
+		Command called = edited;
+		if (!applyExpressions(over, called, session, callCommandMode(list[index]))) {
+			return false;
+		}
+		list[index] = called;
+		return true;
+	}
+	if (code == Code::Maniac_ControlSelfVariable) {
+		Command set = edited;
+		setSelfTextLength(set, list[index]);
+		list[index] = set;
+		return true;
+	}
 	if (const Code next = nextLineOf(code); next != Code::END) {
 		list[index] = edited;
 		EventCommandList lines(list, index);
@@ -307,6 +402,8 @@ bool applyEdit(QWindow* over, std::vector<Command>& list, int index, CommandEdit
 		}
 		default:
 			list[index] = edited;
+			// the End Loop of a loop of the Maniac Patch
+			CommandSchema::syncBlock(list, index);
 			return true;
 	}
 }
@@ -493,5 +590,106 @@ QStringList CommandEditorRegistry::checkEditors(ProjectData& project) {
 		// the window and what its editor left go before the session
 		QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 	}
+	return problems;
+}
+
+namespace {
+/** A command for a log: its code, indent, parameters and string */
+QString describe(const Command& command) {
+	QStringList numbers;
+	for (const int32_t one : command.parameters) {
+		numbers << QString::number(one);
+	}
+	return QStringLiteral("%1 (indent %2) [%3] \"%4\"").arg(command.code).arg(command.indent)
+		.arg(numbers.join(QStringLiteral(", ")), ToQString(command.string));
+}
+
+bool same(const Command& a, const Command& b) {
+	return a.code == b.code && a.indent == b.indent && a.string == b.string && a.parameters == b.parameters;
+}
+}
+
+QStringList CommandEditorRegistry::checkRoundTrip(ProjectData& project, const std::vector<Command>& commands, int index,
+	const Context& context)
+{
+	const Command& command = commands[static_cast<size_t>(index)];
+	const auto code = static_cast<Code>(command.code);
+	const QString type = editorOf(code);
+	// Teleport: a picker of a location, nothing to read back
+	if (type.isEmpty() || code == Code::Teleport) {
+		return {};
+	}
+	QStringList problems;
+	QQmlEngine* engine = QmlEngine::instance();
+	const auto warnings = QObject::connect(engine, &QQmlEngine::warnings, engine, [&](const QList<QQmlError>& errors) {
+		for (const auto& error : errors) {
+			problems << error.toString();
+		}
+	});
+	const auto disconnect = qScopeGuard([warnings] { QObject::disconnect(warnings); });
+
+	// the session of run(), on the window OK would close
+	auto* session = new CommandEditSession(command);
+	session->setProject(&project);
+	session->setContext(context.battle, false, context.mapId, eventsOf(context.events));
+	if (context.troopMembers >= 0) {
+		session->setExtra(QStringLiteral("troopMembers"), context.troopMembers);
+	}
+	if (const Code next = nextLineOf(code); next != Code::END) {
+		QStringList lines = {ToQString(command.string)};
+		for (size_t i = static_cast<size_t>(index) + 1; i < commands.size() && commands[i].code == static_cast<int>(next); ++i) {
+			lines << ToQString(commands[i].string);
+		}
+		session->setLines(lines);
+	}
+	readBranches(*session, commands, index, false);
+	std::vector<Command> result;
+	session->setAcceptor([&](CommandEditSession& edited) {
+		result = commands;
+		return applyEdit(nullptr, result, index, edited, false);
+	});
+	// the editor as CommandEditorWindow makes it, in an item of its own (a
+	// window per command takes far longer)
+	static QHash<QString, QQmlComponent*> components;
+	static QQuickItem* body = new QQuickItem;
+	QQmlComponent*& component = components[type];
+	if (!component) {
+		component = new QQmlComponent(engine, QStringLiteral("org.easyrpg.editor"), type, engine);
+	}
+	QPointer<QObject> editor = component->isReady() ? component->beginCreate(engine->rootContext()) : nullptr;
+	if (editor) {
+		component->setInitialProperties(editor, {{QStringLiteral("session"), QVariant::fromValue(session)}});
+		if (auto* item = qobject_cast<QQuickItem*>(editor)) {
+			item->setParentItem(body);
+		}
+		component->completeCreate();
+	}
+	if (!editor) {
+		problems << QStringLiteral("the editor %1 is not made").arg(type);
+	} else {
+		// OK of CommandEditorWindow: the editor's own check, then the session's
+		QVariant ready = true;
+		if (editor->metaObject()->indexOfMethod("accept()") >= 0) {
+			QMetaObject::invokeMethod(editor, "accept", Q_RETURN_ARG(QVariant, ready));
+		}
+		if (!ready.toBool() || !session->accept()) {
+			problems << QStringLiteral("OK refused");
+		} else {
+			const size_t size = std::max(result.size(), commands.size());
+			for (size_t i = 0; i < size; ++i) {
+				const bool before = i < commands.size();
+				const bool after = i < result.size();
+				if (before && after && same(commands[i], result[i])) {
+					continue;
+				}
+				problems << QStringLiteral("line %1: %2 -> %3").arg(i)
+					.arg(before ? describe(commands[i]) : QStringLiteral("none"), after ? describe(result[i]) : QStringLiteral("none"));
+			}
+		}
+	}
+	// the editor and what it left go before the session
+	delete editor;
+	session->deleteLater();
+	QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 	return problems;
 }

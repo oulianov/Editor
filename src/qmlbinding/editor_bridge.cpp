@@ -54,6 +54,8 @@ QString EditorBridge::scriptEditor() const { return EditorSettings::instance().s
 void EditorBridge::setScriptEditor(const QString& editor) { EditorSettings::instance().setScriptEditor(editor); }
 bool EditorBridge::reloadExternalChanges() const { return EditorSettings::instance().reloadExternalChanges(); }
 void EditorBridge::setReloadExternalChanges(bool on) { EditorSettings::instance().setReloadExternalChanges(on); }
+bool EditorBridge::maniacMode() const { return EditorSettings::instance().maniacMode(); }
+void EditorBridge::setManiacMode(bool on) { EditorSettings::instance().setManiacMode(on); }
 bool EditorBridge::searchCache() const { return EditorSettings::instance().searchCache(); }
 void EditorBridge::setSearchCache(bool on) { EditorSettings::instance().setSearchCache(on); }
 bool EditorBridge::checkForUpdates() const { return EditorSettings::instance().checkForUpdates(); }

@@ -125,6 +125,8 @@ const Info actions[] = {
 		.icon = "settings"},
 	{.name = "actionProjectConvert2003", .text = QT_TRANSLATE_NOOP("MainWindow", "Convert to RPG Maker 2003..."),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Convert this RPG Maker 2000 project to the format of RPG Maker 2003")},
+	{.name = "actionProjectManiacCheck", .text = QT_TRANSLATE_NOOP("MainWindow", "Check Maniac Compatibility..."),
+		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "List what the Maniac Patch does not run in this game, and convert what has an equivalent")},
 	{.name = "actionSettings", .text = QT_TRANSLATE_NOOP("MainWindow", "Settings..."),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Language, paths, reloading of changed files and appearance of the Editor"),
 		.role = MenuRole::Preferences},
@@ -214,7 +216,8 @@ struct MenuInfo {
 // "": a separator; "menu:": a submenu
 const MenuInfo menu_infos[] = {
 	{"menuGame", QT_TRANSLATE_NOOP("MainWindow", "Game &Project"), {"actionProjectNew", "actionProjectOpen",
-		"actionProjectClose", "", "actionProjectSettings", "actionGameDiskCreate", "actionProjectConvert2003", "",
+		"actionProjectClose", "", "actionProjectSettings", "actionGameDiskCreate", "actionProjectConvert2003",
+		"actionProjectManiacCheck", "",
 		"actionProjectImport", "", "actionQuit"}},
 	{"menuMaps", QT_TRANSLATE_NOOP("MainWindow", "Maps"), {"actionUndo", "actionRedo", "", "actionMapOpenStart",
 		"actionMapGoTo", "", "actionMapSave", "actionMapSaveAll", "actionMapRevert", "", "actionLayerLower",

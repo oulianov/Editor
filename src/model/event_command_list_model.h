@@ -64,6 +64,9 @@ public:
 		StructuralRole,
 		/** The empty line ending the page */
 		PageEndRole,
+		/** A next line of a message, comment or script: the label of its
+		 *  first line ("Message"), its text starts under the first one's */
+		LineLabelRole,
 	};
 
 	explicit EventCommandListModel(QObject* parent = nullptr);

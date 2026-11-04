@@ -13,7 +13,7 @@ import org.easyrpg.editor as Ez
  * A monster: its name, graphic, statistics, spoils, its behavior (the
  * actions it chooses in battle, edited in EnemyActionDialog.qml: the empty
  * last line adds one) and its resistances (a click gives a line the next
- * rank, A to E).
+ * rank, A to E). With the Maniac Patch, the battle animation of its attacks.
  */
 DatabaseEntryPage {
     id: root
@@ -371,6 +371,21 @@ DatabaseEntryPage {
                         jsonData: root.entry
                         key: "miss"
                     }
+                }
+            }
+
+            // the Maniac Patch: the battle animation of its normal attacks
+            Ez.Section {
+                objectName: "groupUnarmedAnimation"
+                title: qsTr("Attack Animation")
+                visible: root.maniac
+                Ez.RefComboBox {
+                    objectName: "comboUnarmedAnimation"
+                    database: root.database
+                    listKey: "animations"
+                    jsonData: root.entry
+                    key: "maniac_unarmed_animation"
+                    Layout.fillWidth: true
                 }
             }
 

@@ -16,7 +16,8 @@ import org.easyrpg.editor as Ez
  * or lowers, the conditions and attributes it gives; for a teleport, escape
  * or switch skill its sound (and switch); the messages of RPG Maker 2000's
  * battles. The texts follow the target: a skill on allies increases and
- * removes, on enemies it decreases and inflicts.
+ * removes, on enemies it decreases and inflicts. With the Maniac Patch, a
+ * normal skill's hit rate can count the target's evasion.
  */
 DatabaseEntryPage {
     id: root
@@ -67,6 +68,11 @@ DatabaseEntryPage {
         id: spTypeField
         source: root.entry
         path: "sp_type"
+    }
+    Ez.JsonField {
+        id: failureField
+        source: root.entry
+        path: "failure_message"
     }
 
     /** A rate of 0 to 10 and its value */
@@ -278,6 +284,24 @@ DatabaseEntryPage {
                         from: 0
                         to: 100
                         suffix: "%"
+                    }
+                    // the Maniac Patch: the hit rate counts the target's evasion, as
+                    // a physical attack (RPG Maker 2000's failure message 3, "dodge")
+                    Ez.CheckBox {
+                        objectName: "checkHitRateCalc"
+                        text: qsTr("Calculate Hit Rate")
+                        visible: root.maniac
+                        // a skill on allies always hits
+                        enabled: !root.allies
+                        Binding on checked {
+                            value: failureField.valid && Number(failureField.value) === 3
+                            restoreMode: Binding.RestoreNone
+                        }
+                        onToggled: failureField.value = checked ? 3 : 0
+                        Layout.columnSpan: 2
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.delay: 700
+                        Controls.ToolTip.text: qsTr("The target's evasion and conditions lower the success rate, as for an attack")
                     }
                 }
             }

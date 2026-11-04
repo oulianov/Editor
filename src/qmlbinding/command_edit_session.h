@@ -143,7 +143,7 @@ class CommandEditSession : public Json {
 	Q_PROPERTY(JsonView* database READ database NOTIFY projectChanged)
 	Q_PROPERTY(bool rpg2k3 READ isRpg2k3 NOTIFY projectChanged)
 	/** The game uses the Maniac Patch */
-	Q_PROPERTY(bool maniac READ maniac NOTIFY projectChanged)
+	Q_PROPERTY(bool maniac READ maniac NOTIFY maniacChanged)
 	/** A command of a troop's battle page */
 	Q_PROPERTY(bool battle READ battle NOTIFY contextChanged)
 	/** The command was just added (cancel removes it) */
@@ -345,6 +345,8 @@ public:
 signals:
 	void revisionChanged();
 	void projectChanged();
+	/** The project, or the Maniac mode of the Editor (GamePatchesWatch) */
+	void maniacChanged();
 	void contextChanged();
 
 private:
@@ -370,6 +372,8 @@ private:
 	QStringList m_lines;
 	CommandSchemaView* m_schemaView = nullptr;
 	ProjectData* m_project = nullptr;
+	/** maniac() read once (-1: not yet): the game's files are searched for it */
+	mutable int m_maniac = -1;
 	JsonT<lcf::rpg::Database> m_database;
 	bool m_battle = false;
 	bool m_isNew = true;

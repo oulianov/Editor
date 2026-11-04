@@ -27,6 +27,8 @@ ColumnLayout {
     readonly property string title: qsTr("Move Event")
     readonly property var moves: session.moveRoute
     readonly property bool moveEvent: true
+    /** Maniac Patch: the target in a variable (1) or a variable pointer (2), bits 8-11 of p2 */
+    readonly property int targetMode: session.revision < 0 ? 0 : Number(session.value("/parameters/2@8:4") ?? 0)
     /** Who can be moved: [{text, value}]; a target the map does not have is kept */
     readonly property var targets: {
         const list = [{ value: 10001, text: qsTr("Hero") }, { value: 10002, text: qsTr("Boat") },
@@ -171,12 +173,47 @@ ColumnLayout {
         Ez.FormLabel {
             text: qsTr("Target")
         }
-        Ez.RefComboBox {
-            objectName: "moveTarget"
-            choices: root.targets
+        RowLayout {
+            spacing: Ez.Metrics.columnSpacing
             Layout.fillWidth: true
-            Component.onCompleted: currentIndex = Math.max(0, indexOfValue(root.moves.target))
-            onActivated: root.moves.target = currentValue
+            // the mode of the Maniac Patch, in its games or while the command has one
+            Ez.ComboBox {
+                objectName: "moveTargetMode"
+                visible: root.session.maniac || root.targetMode !== 0
+                enabled: root.session.maniac
+                model: [{ value: 0, text: qsTranslate("ManiacCommandWidget", "Constant") },
+                        { value: 1, text: qsTranslate("ManiacCommandWidget", "Variable") },
+                        { value: 2, text: qsTranslate("ManiacCommandWidget", "Variable pointer") }]
+                currentIndex: Math.max(0, indexOfValue(root.targetMode))
+                onActivated: {
+                    if (currentValue === root.targetMode) {
+                        return
+                    }
+                    // another kind of target: the first event, the first variable
+                    if ((currentValue !== 0) !== (root.targetMode !== 0)) {
+                        root.moves.target = currentValue === 0 ? 10005 : 1
+                    }
+                    root.session.set("/parameters/2@8:4", currentValue)
+                }
+            }
+            Ez.RefComboBox {
+                objectName: "moveTarget"
+                visible: root.targetMode === 0
+                choices: root.targets
+                Layout.fillWidth: true
+                Component.onCompleted: currentIndex = Math.max(0, indexOfValue(root.moves.target))
+                onVisibleChanged: if (visible) currentIndex = Math.max(0, indexOfValue(root.moves.target))
+                onActivated: root.moves.target = currentValue
+            }
+            Ez.RefComboBox {
+                objectName: "moveTargetVariable"
+                visible: root.targetMode !== 0
+                database: root.session.database
+                listKey: "variables"
+                Layout.fillWidth: true
+                currentIndex: Math.max(0, root.moves.target - 1)
+                onActivated: (index) => root.moves.target = index + 1
+            }
         }
         Ez.FormLabel {
             text: qsTr("Frequency")

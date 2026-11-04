@@ -8,9 +8,15 @@ A modern, multiplatform editor for RPG Maker 2000 and 2003 games.
 git clone git@github.com:oulianov/Editor.git
 cd Editor
 git switch editor-ux
+git submodule update --init
 make
 make run
 ```
+
+liblcf, which reads and writes the games, is the submodule `lib/liblcf` (a
+liblcf with the Maniac Patch support), built with the Editor: check it out
+with `git submodule update --init` (or clone with `--recursive`), and again
+after a pull that changes it. CMake checks it out when it is missing.
 
 `make` detects your system and builds the Editor with everything it needs:
 

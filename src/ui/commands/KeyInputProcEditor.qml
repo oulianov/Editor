@@ -71,6 +71,29 @@ ColumnLayout {
     }
     readonly property bool timed: revision < 0 ? false : rpg2003 && !modern2000 && parameter(8) !== 0
 
+    // Maniac Patch: the mouse in bit 1 of the decision, cancel, Shift, down
+    // and up keys of RPG Maker 2003's newer layout
+    readonly property var mouseLabels: [qsTranslate("ManiacCommandWidget", "Left Button (1005)"),
+                                        qsTranslate("ManiacCommandWidget", "Right Button (1006)"),
+                                        qsTranslate("ManiacCommandWidget", "Middle Button (1007)"),
+                                        qsTranslate("ManiacCommandWidget", "Wheel Down (1001)"),
+                                        qsTranslate("ManiacCommandWidget", "Wheel Up (1004)")]
+    readonly property var mouseNames: ["keyMouseLeft", "keyMouseRight", "keyMouseMiddle", "keyWheelDown", "keyWheelUp"]
+    readonly property var mouseIndexes: [3, 4, 9, 10, 13]
+    function mouseChecked(button) {
+        const index = mouseIndexes[button]
+        // the middle button and the wheel only in the newer layout
+        return (button < 2 || modern2003) && (parameter(index) & 2) !== 0
+    }
+    readonly property bool anyMouse: revision < 0 ? false : [0, 1, 2, 3, 4].some(button => mouseChecked(button))
+    function setMouse(button, checked) {
+        if (button >= 2) {
+            modernize()
+        }
+        const index = mouseIndexes[button]
+        setParameter(index, (parameter(index) & ~2) | (checked ? 2 : 0))
+    }
+
     /** The older layouts share the places of the parameters: the newer one, when an option needs it */
     function modernize() {
         if (modern2003 || (!rpg2003 && modern2000)) {
@@ -183,6 +206,28 @@ ColumnLayout {
                     enabled: index < 7 || root.rpg2003
                     checked: root.revision < 0 ? false : root.keyChecked(index)
                     onToggled: root.setKey(index, checked)
+                }
+            }
+        }
+    }
+
+    Ez.Section {
+        title: qsTranslate("ManiacCommandWidget", "Mouse")
+        // in the games of the Maniac Patch, or while the command has a button
+        visible: root.rpg2003 && (root.session.maniac || root.anyMouse)
+        GridLayout {
+            columns: 2
+            rowSpacing: Ez.Metrics.rowSpacing
+            columnSpacing: 2 * Ez.Metrics.columnSpacing
+            Repeater {
+                model: root.mouseNames.length
+                Ez.CheckBox {
+                    required property int index
+                    objectName: root.mouseNames[index]
+                    text: root.mouseLabels[index]
+                    enabled: root.session.maniac
+                    checked: root.revision < 0 ? false : root.mouseChecked(index)
+                    onToggled: root.setMouse(index, checked)
                 }
             }
         }

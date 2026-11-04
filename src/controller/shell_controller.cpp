@@ -17,9 +17,13 @@
 
 #include "shell_controller.h"
 #include <QCoreApplication>
+#include <QCryptographicHash>
+#include <QDir>
 #include <QEvent>
 #include <QSettings>
+#include <QTimer>
 #include <algorithm>
+#include <utility>
 #include "core.h"
 #include "action_catalog.h"
 #include "dialog_service.h"
@@ -31,6 +35,7 @@
 #include "common/logging.h"
 #include "common/translations.h"
 #include "model/game_runner.h"
+#include "model/maniac_compat.h"
 #include "model/map_document.h"
 #include "model/map_tools.h"
 #include "model/project.h"
@@ -43,6 +48,13 @@ namespace {
 DialogService& dialogs()
 {
 	return DialogService::instance();
+}
+
+/** Where the Maniac mode's check of a project keeps the findings it showed */
+QString maniacCheckKey(const QString& folder)
+{
+	return QStringLiteral("maniac_checks/%1")
+		.arg(QString::fromLatin1(QCryptographicHash::hash(folder.toUtf8(), QCryptographicHash::Sha1).toHex()));
 }
 
 }
@@ -158,6 +170,7 @@ QString ShellController::nodeName(int id) const
 
 bool ShellController::openProject(const QString& folder)
 {
+	const bool check_maniac = !std::exchange(m_skipManiacCheck, false);
 	// read first: a folder that cannot be read leaves the project open
 	auto project = m_project->read(folder);
 	if (!project)
@@ -175,6 +188,10 @@ bool ShellController::openProject(const QString& folder)
 		<< "maps:" << (core().project()->treeMap().maps.size() - 1)
 		<< "reload changed files:" << EditorSettings::instance().reloadExternalChanges();
 	updateActions();
+	// in Maniac mode: what the game uses that the Maniac Patch does not
+	// run, once the window shows the project
+	if (check_maniac && EditorSettings::instance().maniacMode())
+		QTimer::singleShot(0, this, [this] { checkManiac(ManiacCheck::Opened); });
 	return true;
 }
 
@@ -312,6 +329,69 @@ void ShellController::convertProject()
 	const QString error = m_project->convertTo2003(path, *options, &backup);
 	openProject(path);
 	m_dialogs->convertResult(error, backup);
+}
+
+void ShellController::checkManiac(ManiacCheck why)
+{
+	auto project = core().project();
+	if (!m_dialogs || !project)
+		return;
+	const QString path = project->projectDir().absolutePath();
+	// the open maps as they are edited
+	const auto report = ManiacCompat::check(*project, [this](int id) -> const lcf::rpg::Map* {
+		const MapDocument* doc = m_project->document(id);
+		return doc && doc->hasMap() ? &doc->map() : nullptr;
+	});
+	project.reset();
+	qCInfo(lcProject).noquote() << "Maniac check:" << report.convertible() << "to convert," << report.remaining() << "staying";
+	for (const auto& finding : report.findings)
+		qCInfo(lcProject).noquote() << "  " << ManiacCompat::groupName(finding.group) << "|" << finding.what << "|"
+			<< finding.places.size() << "|" << (finding.becomes.isEmpty() ? QStringLiteral("-") : finding.becomes)
+			<< "|" << finding.places.value(0);
+	if (report.empty()) {
+		if (why == ManiacCheck::Asked)
+			dialogs().information(QCoreApplication::translate("ManiacCheckDialog", "Maniac Patch Compatibility"),
+				QCoreApplication::translate("ManiacCheckDialog", "The game uses nothing that the Maniac Patch does not run."));
+		return;
+	}
+	QSettings settings;
+	if (why == ManiacCheck::Opened && settings.value(maniacCheckKey(path)).toString() == report.fingerprint())
+		return;
+	settings.setValue(maniacCheckKey(path), report.fingerprint());
+	if (m_dialogs->maniacCheck(report, QDir(path).filePath(ManiacCompat::backupFolderName())))
+		convertManiac(report.rpg2000);
+}
+
+void ShellController::convertManiac(bool rpg2000)
+{
+	auto project = core().project();
+	if (!project)
+		return;
+	// as Convert to RPG Maker 2003: every file can change, the project is
+	// closed (asking to save the maps), converted from its files, and opened again
+	const QString path = project->projectDir().absolutePath();
+	project.reset();
+	if (!closeProject())
+		return;
+	ShellDialogs::ManiacResult result;
+	if (rpg2000)
+		result.error = m_project->convertTo2003(path, {}, &result.backup2000);
+	if (result.error.isEmpty()) {
+		auto read = Project::load(path);
+		if (!read || !read->loadDatabaseAndMapTree())
+			result.error = QCoreApplication::translate("ManiacCheckDialog", "The project cannot be read.");
+		else
+			result.error = ManiacCompat::convert(*read, &result.converted, &result.backup);
+	}
+	m_skipManiacCheck = true;
+	openProject(path);
+	if (auto opened = core().project()) {
+		// what stays: listed on demand, not each time the project opens
+		const auto after = ManiacCompat::check(*opened);
+		result.remaining = after.remaining();
+		QSettings().setValue(maniacCheckKey(path), after.fingerprint());
+	}
+	m_dialogs->maniacResult(result);
 }
 
 /*
@@ -690,6 +770,7 @@ void ShellController::updateActions()
 	enable("actionUndo", doc && doc->canUndo());
 	enable("actionRedo", doc && doc->canRedo());
 	enable("actionProjectConvert2003", has_project && ProjectConvert::canConvert(*core().project()));
+	enable("actionProjectManiacCheck", has_project);
 	enable("actionMapOpenStart", startMap() > 0);
 	enable("actionMapGoTo", has_project);
 	enable("actionProjectNew", !has_project);

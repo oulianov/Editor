@@ -174,6 +174,14 @@ namespace CommandSchema {
 		/** Animation: played above its list; File: the picture above its
 		 *  name; Tile: the tile beside its Set button (RPG Maker's previews) */
 		Preview = 1 << 13,
+		/** Maniac Patch (with Maniac): its option in a command of RPG Maker,
+		 *  hidden in the other games unless the command uses it: a value
+		 *  other than its default (a choice: one of its Maniac items, a text:
+		 *  not empty) */
+		ManiacOnly = 1 << 14,
+		/** RPG Maker's control of a value that a field of the Maniac Patch
+		 *  edits in its games (on the same bits, with more choices): hidden there */
+		NotManiac = 1 << 15,
 	};
 	Q_DECLARE_FLAGS(Flags, Flag)
 	Q_FLAG_NS(Flags)
@@ -228,6 +236,20 @@ namespace CommandSchema {
 		/** Choice, radio buttons: in this many columns, filled top to bottom
 		 *  (0: all on one line) */
 		int columns = 0;
+		/** The same in the games of the Maniac Patch, its items shown (0: columns) */
+		int maniacColumnCount = 0;
+		/** The range in the games of the Maniac Patch, whose values are int32s:
+		 *  set by the table, else RPG Maker's range of the variables
+		 *  (-9999999 to 9999999) widens to int32's, the other ranges stay */
+		int maniacMinimum = 0;
+		int maniacMaximum = 0;
+		/** Maniac Patch: the field of the mode of the value (a number, a
+		 *  variable, a pointer; a text, a string...), shown before it in its
+		 *  games. The fields of the other modes replace it */
+		const char* mode = nullptr;
+		/** The field this one replaces while its rules show it (the value of
+		 *  another mode: a variable in place of a hero); hidden itself */
+		const char* replaces = nullptr;
 
 		/** The bits of the parameter it uses */
 		uint32_t mask() const;
@@ -255,8 +277,15 @@ namespace CommandSchema {
 	};
 
 	/** The command opens an editor (the others have no settings): its
-	 *  schema, else the editor of the raw parameters */
+	 *  schema, else the editor of the raw parameters. Some have settings
+	 *  only with the Maniac Patch (Loop, Erase Event...): in the games of
+	 *  the project open that use it */
 	bool hasEditor(Code code);
+	/** The same in a game with the Maniac Patch or without it */
+	bool hasEditor(Code code, bool maniac);
+	/** The range of a number field in a game with the Maniac Patch or without it */
+	int minimumOf(const Field& field, bool maniac);
+	int maximumOf(const Field& field, bool maniac);
 	/** The schema of the command, nullptr for none (the raw editor) */
 	const Schema* find(Code code);
 	/** All the schemas, by code */
@@ -274,6 +303,11 @@ namespace CommandSchema {
 	/** The string of the command, for the fields using it */
 	QString readString(const lcf::rpg::EventCommand& command);
 	void writeString(lcf::rpg::EventCommand& command, const QString& text);
+
+	/** After an edit of commands[index]: the lines of its block that repeat its
+	 *  settings get them (End Loop has the parameters of its Loop: the
+	 *  Maniac Patch's loops, which EasyRPG Player reads there too) */
+	void syncBlock(std::vector<lcf::rpg::EventCommand>& commands, int index);
 
 	/** All the conditions hold for the values of the command */
 	bool holds(const Schema& schema, const std::vector<Condition>& conditions, const lcf::rpg::EventCommand& command);

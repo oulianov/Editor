@@ -103,6 +103,33 @@ template <> struct meta<lcf::rpg::TroopPageCondition::Flags> {
 	);
 };
 
+// the Maniac Patch: when the title and save scenes call their common event
+template <> struct meta<lcf::rpg::System::ManiacTitleSceneHook_Flags> {
+	using T = lcf::rpg::System::ManiacTitleSceneHook_Flags;
+	static constexpr auto value = object(
+		"initialize", &T::initialize,
+		"create_picture", &T::create_picture,
+		"begin_scene", &T::begin_scene,
+		"end_scene", &T::end_scene,
+		"every_frame", &T::every_frame,
+		"selection_changed", &T::selection_changed,
+		"new_game", &T::new_game
+	);
+};
+
+template <> struct meta<lcf::rpg::System::ManiacSaveSceneHook_Flags> {
+	using T = lcf::rpg::System::ManiacSaveSceneHook_Flags;
+	static constexpr auto value = object(
+		"initialize", &T::initialize,
+		"create_picture", &T::create_picture,
+		"begin_scene", &T::begin_scene,
+		"end_scene", &T::end_scene,
+		"every_frame", &T::every_frame,
+		"selection_changed", &T::selection_changed,
+		"new_game", &T::new_game
+	);
+};
+
 template <> struct meta<lcf::rpg::Terrain::Flags> {
 	using T = lcf::rpg::Terrain::Flags;
 	static constexpr auto value = object(

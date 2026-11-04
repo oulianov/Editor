@@ -32,7 +32,7 @@ ColumnLayout {
     property var names: ({})
 
     /** The items of the Maniac Patch: hidden in other games unless the command has them (as RPG Maker's windows) */
-    property bool hideManiacItems: false
+    property bool hideManiacItems: true
     /** The fields not shown, by id (a hand-written editor shows them its way) */
     property var hides: []
 
@@ -46,6 +46,10 @@ ColumnLayout {
     /** An item hidden: of the Maniac Patch in another game, not the command's */
     function itemHidden(field, item) {
         return hideManiacItems && !!item && item.maniac && !session.maniac && session.read(field.id) !== item.value
+    }
+    /** An item of a row of radio buttons shown: of the engine, or the command's */
+    function itemShown(field, item) {
+        return (!item.kept || session.read(field.id) === item.value) && !itemHidden(field, item)
     }
 
     /** A text of the schema in the language of the interface */
@@ -86,7 +90,8 @@ ColumnLayout {
             const field = row.field
             const options = row.options ?? []
             const labelled = !!(field.label && field.label.text) && field.kind !== "Check" && field.kind !== "Note"
-            if (field.radio && options.some(option => option.inline.length > 0)) {
+            // (the options of the Maniac Patch only in its games)
+            if (field.radio && options.some(option => option.inline.length > 0 && (!option.item.maniac || !hideManiacItems || session.maniac))) {
                 // a radio button per line, the values of its mode after it
                 for (const option of options) {
                     cells.push({ type: "radio", field: field, item: option.item, fields: option.inline, option: true, span: 1 })
@@ -178,6 +183,8 @@ ColumnLayout {
                         readonly property bool fieldEnabled: revision < 0 ? false : fieldVisible && root.session.isEnabled(field.id)
 
                         visible: fieldShown && (revision < 0 || !root.itemHidden(field, modelData.item))
+                        // the controls of the fields hidden (the other modes, operands...) made once shown
+                        active: visible
                         enabled: fieldEnabled
                         Layout.columnSpan: modelData.span
                         Layout.fillWidth: modelData.type === "controls" || modelData.type === "radios"
@@ -214,7 +221,13 @@ ColumnLayout {
                                 // on one line; in columns, top to bottom; four directions as a cross (RPG Maker's)
                                 GridLayout {
                                     id: radioGrid
-                                    readonly property int lines: cell.field.columns > 0 ? Math.ceil(cell.field.items.length / cell.field.columns) : 1
+                                    // the values of the items shown: their places follow
+                                    readonly property var shownValues: cell.revision < 0 ? []
+                                        : cell.field.items.filter(item => root.itemShown(cell.field, item)).map(item => item.value)
+                                    // in the games of the Maniac Patch, its columns (its items shown)
+                                    readonly property int columnCount: root.session.maniac && cell.field.maniacColumns > 0
+                                                                       ? cell.field.maniacColumns : cell.field.columns
+                                    readonly property int lines: columnCount > 0 ? Math.ceil(shownValues.length / columnCount) : 1
                                     rowSpacing: cell.field.cross ? 0 : Ez.Metrics.rowSpacing
                                     columnSpacing: cell.field.cross ? 0 : 2 * Ez.Metrics.columnSpacing
                                 Repeater {
@@ -222,13 +235,13 @@ ColumnLayout {
                                     Ez.RadioButton {
                                         required property var modelData
                                         required property int index
+                                        readonly property int place: Math.max(0, radioGrid.shownValues.indexOf(modelData.value))
                                         // the cross: Up, Left, Right, Down
-                                        Layout.row: cell.field.cross ? [0, 1, 1, 2][index] ?? 0 : index % radioGrid.lines
-                                        Layout.column: cell.field.cross ? [1, 0, 2, 1][index] ?? 0 : Math.floor(index / radioGrid.lines)
+                                        Layout.row: cell.field.cross ? [0, 1, 1, 2][index] ?? 0 : place % radioGrid.lines
+                                        Layout.column: cell.field.cross ? [1, 0, 2, 1][index] ?? 0 : Math.floor(place / radioGrid.lines)
                                         objectName: root.radioName(cell.field, modelData)
                                         text: root.itemText(cell.field, modelData)
-                                        visible: cell.revision < 0 ? false : (!modelData.kept || root.session.read(cell.field.id) === modelData.value)
-                                                                         && !root.itemHidden(cell.field, modelData)
+                                        visible: cell.revision < 0 ? false : root.itemShown(cell.field, modelData)
                                         enabled: (!modelData.rpg2003 || root.session.rpg2k3) && (!modelData.maniac || root.session.maniac)
                                         jsonData: root.session
                                         key: cell.fieldVisible ? cell.field.path : "/defaults/" + cell.field.id

@@ -96,6 +96,20 @@ public:
 	/** Convert to RPG Maker 2003: the project is closed, converted from its
 	 *  files and opened again */
 	void convertProject();
+	/** Why the Maniac mode's check of the project open runs */
+	enum class ManiacCheck {
+		/** Game Project > Check Maniac Compatibility: says so when nothing is found */
+		Asked,
+		/** The Maniac mode was switched on */
+		ModeOn,
+		/** A project opened in Maniac mode: what was shown for it already is not shown again */
+		Opened,
+	};
+	/** What the project uses that the Maniac Patch does not run
+	 *  (ManiacCompat), shown when something is found; Yes converts it: the
+	 *  project is closed, converted from its files (to RPG Maker 2003 first)
+	 *  and opened again */
+	void checkManiac(ManiacCheck why);
 
 	/*
 	 * The map tree's actions, on the node selected
@@ -221,6 +235,8 @@ private:
 	void updateToolChecks();
 	/** The node's name, as the tree shows it */
 	QString nodeName(int id) const;
+	/** The Maniac conversion of the project open (checkManiac) */
+	void convertManiac(bool rpg2000);
 
 	ProjectController* m_project;
 	MapTabsController* m_tabs;
@@ -232,4 +248,6 @@ private:
 	/** The language seen last: a change switches it */
 	QString m_language;
 	bool m_languageKnown = false;
+	/** The project opened next is not checked (it was just converted) */
+	bool m_skipManiacCheck = false;
 };

@@ -23,10 +23,14 @@
 #include "controller/action_catalog.h"
 #include "controller/edit_locks.h"
 #include "controller/project_controller.h"
+#include "controller/database_apply.h"
+#include "controller/dialog_service.h"
 #include "model/dungeon_generator.h"
+#include "model/event_command_defaults.h"
 #include "model/game_runner.h"
 #include "model/map_tools.h"
 #include "model/project.h"
+#include "qmlbinding/database_session.h"
 #include "qmlbinding/json_t.h"
 #include "qmlbinding/project_data_gadget.h"
 #include "qmlbinding/qml_dialog_service.h"
@@ -46,11 +50,15 @@
 #include <private/qqmldata_p.h>
 #include <QDir>
 #include <QDirIterator>
+#include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMutex>
 #include <QSet>
 #include <QMetaEnum>
@@ -67,6 +75,7 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <sstream>
 
 namespace {
 
@@ -218,6 +227,215 @@ QPalette darkPalette() {
 	palette.setColor(QPalette::Disabled, QPalette::Base, window);
 	palette.setColor(QPalette::Disabled, QPalette::Highlight, QColor(145, 145, 145));
 	return palette;
+}
+
+/** What two databases have different: an entry of a list ("actors 3"), a struct ("terms") */
+QStringList databaseDifferences(const lcf::rpg::Database& a, const lcf::rpg::Database& b) {
+	QStringList found;
+	// the chunks liblcf does not know said apart from the fields
+	auto name = [](const QString& what, const auto& x, const auto& y) {
+		if constexpr (requires { x.unknown_chunks; }) {
+			if (!(x.unknown_chunks == y.unknown_chunks)) {
+				return what + QStringLiteral(" (its unknown chunks)");
+			}
+		}
+		return what;
+	};
+	auto list = [&](const char* kind, const auto& x, const auto& y) {
+		if (x.size() != y.size()) {
+			found << QStringLiteral("%1: %2 entries instead of %3").arg(kind).arg(y.size()).arg(x.size());
+		}
+		for (size_t i = 0; i < std::min(x.size(), y.size()); ++i) {
+			if (!(x[i] == y[i])) {
+				found << name(QStringLiteral("%1 %2").arg(kind).arg(i + 1), x[i], y[i]);
+			}
+		}
+	};
+	auto one = [&](const char* what, const auto& x, const auto& y) {
+		if (!(x == y)) {
+			found << name(QString::fromLatin1(what), x, y);
+		}
+	};
+	list("actors", a.actors, b.actors);
+	list("classes", a.classes, b.classes);
+	list("skills", a.skills, b.skills);
+	list("items", a.items, b.items);
+	list("enemies", a.enemies, b.enemies);
+	list("troops", a.troops, b.troops);
+	list("terrains", a.terrains, b.terrains);
+	list("attributes", a.attributes, b.attributes);
+	list("states", a.states, b.states);
+	list("animations", a.animations, b.animations);
+	list("chipsets", a.chipsets, b.chipsets);
+	list("switches", a.switches, b.switches);
+	list("variables", a.variables, b.variables);
+	list("commonevents", a.commonevents, b.commonevents);
+	list("battleranimations", a.battleranimations, b.battleranimations);
+	list("maniac_string_variables", a.maniac_string_variables, b.maniac_string_variables);
+	one("terms", a.terms, b.terms);
+	one("system", a.system, b.system);
+	one("battlecommands", a.battlecommands, b.battlecommands);
+	one("version", a.version, b.version);
+	one("the database's unknown chunks", a.unknown_chunks, b.unknown_chunks);
+	return found;
+}
+
+/** The questions of DatabaseApply: none is expected, the first one is told */
+class RecordingDialogs : public DialogService {
+public:
+	StaleChoice askStale(const QString& what, bool, const QStringList& conflicts) override {
+		asked = what + QStringLiteral(": ") + conflicts.join(QStringLiteral(", "));
+		return StaleChoice::Cancel;
+	}
+	QString asked;
+};
+
+/**
+ * check-database-roundtrip: the project's database through what the
+ * database window does with it, compared with the original after each step
+ * (operator==, the chunks liblcf does not know too):
+ *  1. every value the pages can show, read through the window's JSON
+ *     binding (DatabaseSession) and written back as a page writes it;
+ *  2. OK: DatabaseApply into a copy of the project, saved as the project
+ *     saves it (in memory), read again;
+ *  3. rpgsync mode: OK while another program changed the file, the window's
+ *     edits merged with the file's (DataMerge), saved and read again.
+ * The project and its files stay untouched. Returns the problems found.
+ */
+QStringList checkDatabaseRoundTrip(Project& project) {
+	QStringList problems;
+	QElapsedTimer timer;
+	timer.start();
+	const lcf::rpg::Database original = project.projectData().database();
+	const std::string encoding = project.encoding().toStdString();
+	const bool xml = project.projectType() != FileFinder::ProjectType::Legacy;
+	// the file, in memory: written and read as the project writes and reads it
+	std::string written;
+	auto save = [&](const lcf::rpg::Database& database) {
+		std::ostringstream out;
+		const bool ok = xml ? lcf::LDB_Reader::SaveXml(out, database) : lcf::LDB_Reader::Save(out, database, encoding);
+		written = out.str();
+		return ok;
+	};
+	auto load = [&]() {
+		std::istringstream in(written);
+		return xml ? lcf::LDB_Reader::LoadXml(in) : lcf::LDB_Reader::Load(in, encoding);
+	};
+	auto compare = [&](const QString& step, const lcf::rpg::Database& expected, const lcf::rpg::Database& got) {
+		for (const QString& difference : databaseDifferences(expected, got)) {
+			problems << step + QStringLiteral(": ") + difference;
+		}
+	};
+
+	// a project of the check's own, the window's session over it
+	ProjectData live = project.projectData();
+	RecordingDialogs dialogs;
+	bool stale = false;
+	lcf::rpg::Database disk = original;
+	DatabaseApply::File file;
+	file.isStale = [&] { return stale; };
+	file.read = [&] { return std::make_unique<lcf::rpg::Database>(disk); };
+	file.save = [&] { return save(live.database()); };
+	file.reload = [] {};
+	DatabaseSession session;
+	session.setDialogs(&dialogs);
+	session.setFile([&] { return file; });
+	session.open(&live);
+	Json& json = session.json();
+
+	// 1. every value of the JSON of the binding, read and written back
+	int fields = 0;
+	int changes = 0;
+	const auto connection = QObject::connect(&json, &Json::valueChanged, &session, [&](const QString& pointer) {
+		if (++changes <= 20) {
+			problems << QStringLiteral("JSON binding: writing back %1 changed it").arg(pointer);
+		}
+	});
+	const QJsonDocument document = QJsonDocument::fromJson(json.toJson(QString()).toUtf8());
+	std::function<void(const QJsonValue&, const QString&)> walk = [&](const QJsonValue& value, const QString& path) {
+		if (value.isObject()) {
+			const QJsonObject object = value.toObject();
+			for (auto it = object.begin(); it != object.end(); ++it) {
+				walk(it.value(), path + u'/' + it.key());
+			}
+			return;
+		}
+		const QJsonArray array = value.toArray();
+		if (value.isArray() && !array.isEmpty() && (array.first().isObject() || array.first().isArray())) {
+			for (qsizetype i = 0; i < array.size(); ++i) {
+				walk(array.at(i), path + u'/' + QString::number(i));
+			}
+			return;
+		}
+		// a value or a list of values, as a field of a page writes it
+		const JsonNode node = json.node(path);
+		if (node.exists() && !node.isBit() && node.type->write) {
+			json.set(path, json.value(path));
+			++fields;
+		}
+	};
+	walk(document.object(), QString());
+	QObject::disconnect(connection);
+	compare(QStringLiteral("JSON binding"), original, session.copy().database());
+	const qint64 binding_ms = timer.restart();
+
+	// 2. OK: into the project, saved, read again
+	if (session.apply() != DatabaseSession::Applied) {
+		problems << QStringLiteral("OK: not applied (%1)").arg(session.message() + dialogs.asked);
+	}
+	compare(QStringLiteral("OK"), original, live.database());
+	if (auto saved = load()) {
+		compare(QStringLiteral("OK, saved and read again"), original, *saved);
+	} else {
+		problems << QStringLiteral("OK: the database written cannot be read again");
+	}
+	const qint64 apply_ms = timer.restart();
+
+	// 3. rpgsync mode: the window changes a name and a Maniac field, another
+	// program a term, an item, the system and the database's own chunks
+	lcf::rpg::Database expected = original;
+	if (!original.actors.empty()) {
+		json.set(QStringLiteral("/actors/0/name"), QStringLiteral("Merged"));
+		expected.actors[0].name = lcf::DBString("Merged");
+	}
+	if (!original.enemies.empty()) {
+		json.set(QStringLiteral("/enemies/0/maniac_unarmed_animation"), original.enemies[0].maniac_unarmed_animation + 1);
+		expected.enemies[0].maniac_unarmed_animation += 1;
+	}
+	disk.terms.victory = lcf::DBString("Merged victory");
+	disk.system.maniac_message_font_size += 1;
+	disk.unknown_chunks.push_back({0x7F, {1, 2, 3}});
+	if (!disk.items.empty()) {
+		disk.items[0].unknown_chunks.push_back({0x7F, {4, 5}});
+		expected.items[0] = disk.items[0];
+	}
+	expected.terms = disk.terms;
+	expected.system = disk.system;
+	expected.unknown_chunks = disk.unknown_chunks;
+	stale = true;
+	if (session.apply() != DatabaseSession::Applied) {
+		problems << QStringLiteral("merge: not applied (%1)").arg(session.message() + dialogs.asked);
+	}
+	// the merge keeps the highest save count
+	expected.system.save_count = live.database().system.save_count;
+	compare(QStringLiteral("merge"), expected, live.database());
+	if (auto saved = load()) {
+		compare(QStringLiteral("merge, saved and read again"), expected, *saved);
+	} else {
+		problems << QStringLiteral("merge: the database written cannot be read again");
+	}
+	const qint64 merge_ms = timer.elapsed();
+
+	qCInfo(lcAutomation).noquote() << QStringLiteral("database round trip: %1 values through the JSON binding in %2 ms (%3 changed), "
+		"OK and save in %4 ms, merge in %5 ms; %6 entries, %7 problem(s)")
+		.arg(fields).arg(binding_ms).arg(changes).arg(apply_ms).arg(merge_ms)
+		.arg(original.actors.size() + original.classes.size() + original.skills.size() + original.items.size()
+			+ original.enemies.size() + original.troops.size() + original.terrains.size() + original.attributes.size()
+			+ original.states.size() + original.animations.size() + original.chipsets.size() + original.switches.size()
+			+ original.variables.size() + original.commonevents.size() + original.battleranimations.size()
+			+ original.maniac_string_variables.size())
+		.arg(problems.size());
+	return problems;
 }
 }
 
@@ -791,6 +1009,121 @@ bool Automation::run(const QStringList& args) {
 			fail(problem);
 		}
 		return problems.isEmpty();
+	}
+	if (cmd == "check-database-roundtrip" && args.size() == 1) {
+		// the database through the window's binding, OK and the merge of rpgsync mode, unchanged
+		if (!core().project()) {
+			fail("no project");
+			return false;
+		}
+		const QStringList problems = checkDatabaseRoundTrip(*core().project());
+		for (const QString& problem : problems) {
+			fail(problem);
+		}
+		return problems.isEmpty();
+	}
+	if (cmd == "check-command-roundtrip" && args.size() <= 2) {
+		// every command of the project through its editor and OK, unchanged:
+		// the maps (read from their files), the common events, the battle
+		// pages. PART/PARTS: a share of them, for Editors run side by side
+		int part = 1;
+		int parts = 1;
+		if (args.size() == 2) {
+			const QStringList share = args[1].split(u'/');
+			if (share.size() != 2 || !toInt(share[0], part) || !toInt(share[1], parts) || parts < 1 || part < 1 || part > parts) {
+				fail("PART/PARTS expected: " + args[1]);
+				return false;
+			}
+		}
+		if (!core().project()) {
+			fail("no project");
+			return false;
+		}
+		Project& project = *core().project();
+		ProjectData& data = project.projectData();
+		QElapsedTimer timer;
+		timer.start();
+		int checked = 0;
+		int failures = 0;
+		// a command the same as one checked, in the same block and place, gives the same
+		QSet<QString> done;
+		auto check = [&](const QString& where, const std::vector<lcf::rpg::EventCommand>& commands,
+			const CommandEditorRegistry::Context& context) {
+			const int size = static_cast<int>(commands.size());
+			for (int i = 0; i < size; ++i) {
+				const auto& command = commands[static_cast<size_t>(i)];
+				const auto code = static_cast<lcf::rpg::EventCommand::Code>(command.code);
+				// the editors open on the first line of a command (not Else, End, a next line...)
+				if (EventCommandDefaults::isStructural(code) || CommandEditorRegistry::editorOf(code).isEmpty()) {
+					continue;
+				}
+				++checked;
+				// the command, its next lines and the lines of its block at its indent (branches, end)
+				QString key = QStringLiteral("%1|%2|%3|%4|").arg(context.mapId).arg(context.battle).arg(context.troopMembers).arg(command.code);
+				for (int j = i; j < size; ++j) {
+					const auto& line = commands[static_cast<size_t>(j)];
+					if (j > i && (line.indent < command.indent
+						|| (line.indent == command.indent && !EventCommandDefaults::isStructural(static_cast<lcf::rpg::EventCommand::Code>(line.code)))))
+					{
+						break;
+					}
+					if (line.indent == command.indent) {
+						key += QString::number(line.code) + u':' + ToQString(line.string) + u':';
+						for (const int32_t one : line.parameters) {
+							key += QString::number(one) + u',';
+						}
+						key += u'\n';
+					}
+				}
+				if (done.contains(key)) {
+					continue;
+				}
+				done.insert(key);
+				if ((done.size() - 1) % parts != part - 1) {
+					continue;
+				}
+				for (const QString& problem : CommandEditorRegistry::checkRoundTrip(data, commands, i, context)) {
+					fail(QStringLiteral("%1 L%2 (%3): %4").arg(where).arg(i + 1).arg(commands[i].code).arg(problem));
+					++failures;
+				}
+			}
+		};
+		for (const auto& info : project.treeMap().maps) {
+			if (info.ID <= 0 || info.type != lcf::rpg::TreeMap::MapType_map) {
+				continue;
+			}
+			auto map = project.loadMap(info.ID);
+			if (!map) {
+				continue;
+			}
+			QMap<int, lcf::rpg::Event*> events;
+			for (auto& event : map->events) {
+				events.insert(event.ID, &event);
+			}
+			for (const auto& event : map->events) {
+				for (size_t page = 0; page < event.pages.size(); ++page) {
+					CommandEditorRegistry::Context context;
+					context.mapId = info.ID;
+					context.events = &events;
+					check(QStringLiteral("Map%1 EV%2 P%3").arg(info.ID, 4, 10, QChar('0')).arg(event.ID, 4, 10, QChar('0')).arg(page + 1),
+						event.pages[page].event_commands, context);
+				}
+			}
+		}
+		for (const auto& common : data.database().commonevents) {
+			check(QStringLiteral("CE%1").arg(common.ID, 4, 10, QChar('0')), common.event_commands, {});
+		}
+		for (const auto& troop : data.database().troops) {
+			for (size_t page = 0; page < troop.pages.size(); ++page) {
+				CommandEditorRegistry::Context context;
+				context.battle = true;
+				context.troopMembers = static_cast<int>(troop.members.size());
+				check(QStringLiteral("Troop%1 P%2").arg(troop.ID, 4, 10, QChar('0')).arg(page + 1), troop.pages[page].event_commands, context);
+			}
+		}
+		qCInfo(lcAutomation).noquote() << QStringLiteral("command round trip: %1 commands (%2 different) in %3 ms, %4 changed or refused")
+			.arg(checked).arg(done.size()).arg(timer.elapsed()).arg(failures);
+		return failures == 0;
 	}
 	if (cmd == "qml-smoke" && args.size() == 2) {
 		return qmlSmoke(args[1]);

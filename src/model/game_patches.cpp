@@ -16,6 +16,7 @@
  */
 
 #include "game_patches.h"
+#include "common/editor_settings.h"
 #include "common/ini_file.h"
 #include "model/project.h"
 
@@ -171,11 +172,35 @@ bool GamePatches::write(const Project& project, const std::optional<QMap<QString
 		if (changes.empty() && entries.isEmpty()) {
 			changes.push_back({list().front().key, QByteArray("0")});
 		}
-		return IniFile::write(iniPath(project), "Patch", changes, false, false);
+		const bool saved = IniFile::write(iniPath(project), "Patch", changes, false, false);
+		emit GamePatchesWatch::instance().maniacChanged();
+		return saved;
 	}
-	return IniFile::write(iniPath(project), "Patch", changes, true, false);
+	const bool saved = IniFile::write(iniPath(project), "Patch", changes, true, false);
+	emit GamePatchesWatch::instance().maniacChanged();
+	return saved;
 }
 
 bool GamePatches::usesManiac(const Project& project) {
+	return EditorSettings::instance().maniacMode() || hasManiac(project);
+}
+
+bool GamePatches::hasManiac(const Project& project) {
 	return read(project).values.value(QStringLiteral("Maniac")) > 0;
+}
+
+GamePatchesWatch::GamePatchesWatch() : m_mode(EditorSettings::instance().maniacMode()) {
+	// the settings tell of every option: only a switch of the mode counts
+	connect(&EditorSettings::instance(), &EditorSettings::changed, this, [this] {
+		const bool mode = EditorSettings::instance().maniacMode();
+		if (mode != m_mode) {
+			m_mode = mode;
+			emit maniacChanged();
+		}
+	});
+}
+
+GamePatchesWatch& GamePatchesWatch::instance() {
+	static GamePatchesWatch watch;
+	return watch;
 }

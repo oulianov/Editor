@@ -27,6 +27,7 @@ namespace {
 	constexpr const char* COMMAND_STRIPES_KEY = "event_command_stripes";
 	constexpr const char* SEARCH_CACHE_KEY = "search_cache";
 	constexpr const char* CHECK_UPDATES_KEY = "check_for_updates";
+	constexpr const char* MANIAC_MODE_KEY = "maniac_mode";
 }
 
 EditorSettings& EditorSettings::instance() {
@@ -66,6 +67,9 @@ void EditorSettings::setScriptEditor(const QString& editor) { setValue(kScriptEd
 
 bool EditorSettings::reloadExternalChanges() const { return value(RELOAD_EXTERNAL_KEY, false).toBool(); }
 void EditorSettings::setReloadExternalChanges(bool on) { setValue(RELOAD_EXTERNAL_KEY, on); }
+
+bool EditorSettings::maniacMode() const { return value(MANIAC_MODE_KEY, false).toBool(); }
+void EditorSettings::setManiacMode(bool on) { setValue(MANIAC_MODE_KEY, on); }
 
 bool EditorSettings::animateTiles() const { return value(ANIMATE_TILES_KEY, true).toBool(); }
 void EditorSettings::setAnimateTiles(bool on) { setValue(ANIMATE_TILES_KEY, on); }

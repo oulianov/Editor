@@ -37,9 +37,6 @@ Makefile*
 # appimage
 AppDir/
 
-# liblcf
-lib/liblcf
-
 # CMake
 /bin/EasyRPG_Editor
 *.a

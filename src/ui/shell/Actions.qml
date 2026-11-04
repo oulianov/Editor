@@ -145,6 +145,7 @@ Item {
     CatalogAction { name: "actionMapSaveAll" }
     CatalogAction { name: "actionProjectSettings" }
     CatalogAction { name: "actionProjectConvert2003" }
+    CatalogAction { name: "actionProjectManiacCheck" }
     CatalogAction { name: "actionSettings" }
     CatalogAction { name: "actionDrawSelect" }
     CatalogAction { name: "actionZoom" }
