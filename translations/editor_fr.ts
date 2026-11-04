@@ -14001,6 +14001,21 @@ Les sauvegarder avant l&apos;export ?</translation>
         <source>The files of the new project cannot be written in %1.</source>
         <translation>Impossible d&apos;écrire les fichiers du nouveau projet dans %1.</translation>
     </message>
+    <message>
+        <location filename="../src/model/project.cpp" line="-150"/>
+        <source>Its data could not be encoded.</source>
+        <translation>Ses données n&apos;ont pas pu être encodées.</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Its data could not be encoded: %1</source>
+        <translation>Ses données n&apos;ont pas pu être encodées : %1</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>No file can be created in %1: %2</source>
+        <translation>Impossible de créer un fichier dans %1 : %2</translation>
+    </message>
 </context>
 <context>
     <name>ProjectController</name>

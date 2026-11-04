@@ -29,10 +29,8 @@
 #include <QFileInfo>
 #include <QHash>
 #include <lcf/saveopt.h>
-#include <filesystem>
 #include <iterator>
 #include <sstream>
-#include <system_error>
 
 namespace {
 
@@ -44,14 +42,6 @@ struct Rewrite {
 	QString backup;
 	bool replaced = false;
 };
-
-/** Replaces `to` by `from` in one step (on Windows too, unlike QFile::rename) */
-bool replaceFile(const QString& from, const QString& to) {
-	std::error_code ec;
-	std::filesystem::rename(std::filesystem::path(from.toStdU16String()),
-		std::filesystem::path(to.toStdU16String()), ec);
-	return !ec;
-}
 
 bool writeFile(const QString& path, const QByteArray& data) {
 	QFile file(path);
@@ -411,7 +401,7 @@ QString ProjectConvert::to2003(Project& project, const Options& options, QString
 			}
 			const QString temp = rewrite.target + QStringLiteral(".restore2000");
 			QFile::remove(temp);
-			restored = QFile::copy(rewrite.backup, temp) && replaceFile(temp, rewrite.target) && restored;
+			restored = QFile::copy(rewrite.backup, temp) && FileFinder::ReplaceFile(temp, rewrite.target) && restored;
 		}
 		if (exe_moved) {
 			restored = QFile::rename(exe_backup, exe_file) && restored;
@@ -432,7 +422,7 @@ QString ProjectConvert::to2003(Project& project, const Options& options, QString
 					+ (restored ? QString() : QStringLiteral("\n") + tr("Some files could not be restored: the files of RPG Maker 2000 are in %1.").arg(QDir::toNativeSeparators(backup_dir)));
 			}
 		}
-		if (!replaceFile(rewrite.temp, rewrite.target)) {
+		if (!FileFinder::ReplaceFile(rewrite.temp, rewrite.target)) {
 			const QString name = QFileInfo(rewrite.target).fileName();
 			const bool restored = rollback();
 			if (restored) {

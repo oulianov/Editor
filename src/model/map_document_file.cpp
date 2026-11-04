@@ -164,7 +164,7 @@ bool MapDocument::save(bool properties_changed)
 		} else {
 			if (!project.saveTreeMap()) {
 				// the map stays modified: saving can be tried again
-				fail(tr("The map tree could not be written."));
+				fail(project.withWriteError(tr("The map tree could not be written.")));
 				return false;
 			}
 			// the tree shown takes what the other program changed in it
@@ -190,7 +190,7 @@ bool MapDocument::save(bool properties_changed)
 	// saveMap increases the save count
 	if (!project.saveMap(*m_map, id())) {
 		// the edits stay, modified and undoable: saving can be tried again
-		fail(tr("%1 could not be written.").arg(name()));
+		fail(project.withWriteError(tr("%1 could not be written.").arg(name())));
 		return false;
 	}
 	m_savedMap = *m_map;

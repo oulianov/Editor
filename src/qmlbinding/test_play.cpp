@@ -101,7 +101,8 @@ bool QmlTestPlay::saveBattleParty(TestBattlePartyModel* party)
 	party->save();
 	// saveDatabase counts the save
 	if (!project->saveDatabase()) {
-		dialogs.error(QCoreApplication::translate("RunGameDialog", "Test Battle"), QCoreApplication::translate("RunGameDialog", "The database could not be written."));
+		dialogs.error(QCoreApplication::translate("RunGameDialog", "Test Battle"),
+			project->withWriteError(QCoreApplication::translate("RunGameDialog", "The database could not be written.")));
 		return false;
 	}
 	return true;

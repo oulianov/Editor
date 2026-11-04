@@ -1085,13 +1085,13 @@ QString ManiacCompat::convert(Project& project, int* converted, QString* backup_
 		.arg(QDir::toNativeSeparators(backup.absolutePath())) : QString();
 	for (auto& changed : maps) {
 		if (!project.saveMap(*changed.map, changed.id)) {
-			return tr("%1 cannot be written.").arg(QFileInfo(project.mapFile(changed.id)).fileName()) + kept;
+			return project.withWriteError(tr("%1 cannot be written.").arg(QFileInfo(project.mapFile(changed.id)).fileName())) + kept;
 		}
 	}
 	if (database_changed) {
 		project.database() = std::move(db);
 		if (!project.saveDatabase()) {
-			return tr("The database cannot be written.") + kept;
+			return project.withWriteError(tr("The database cannot be written.")) + kept;
 		}
 	}
 	// the patches as the Player reads them now, chosen from then on: the

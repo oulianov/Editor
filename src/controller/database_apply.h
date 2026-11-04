@@ -51,6 +51,9 @@ public:
 		/** Writes the database of the project, counting the save
 		 *  (save_count); the version written is the Editor's */
 		std::function<bool()> save;
+		/** The message of a failed save with why it failed, when known
+		 *  (none: the message alone) */
+		std::function<QString(const QString& message)> saveFailed;
 		/** Reads it again into the project, once the windows editing it allow */
 		std::function<void()> reload;
 	};

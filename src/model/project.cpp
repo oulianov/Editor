@@ -29,17 +29,16 @@
 #include <lcf/lmu/reader.h>
 #include <lcf/lmt/reader.h>
 #include <lcf/encoder.h>
+#include <lcf/reader_lcf.h>
 #include <QDir>
 #include <QFile>
 #include <QSettings>
 #include <QTemporaryFile>
 #include <algorithm>
-#include <filesystem>
 #include <functional>
 #include <sstream>
 #include "common/dbstring.h"
 #include <memory>
-#include <fstream>
 
 namespace {
 /** The bytes of a file, read at once and checked to be one version (another
@@ -64,33 +63,56 @@ std::optional<std::istringstream> readFile(const QString& path, ProjectWatcher::
 	return std::nullopt;
 }
 
-/** Writes what write makes into path at once: a file written next to it is
- *  renamed over it, so another program never reads half a file. Only a
- *  written version is the Editor's (acknowledged to the watcher). */
-bool writeFile(const QString& path, const std::function<bool(std::ostream&)>& write) {
+/** An INI file (liblcf would open its name in the code page of Windows,
+ *  which may not have all the letters of its path) */
+lcf::INIReader readIni(const QString& path) {
+	auto in = readFile(path);
+	std::istringstream none;
+	return lcf::INIReader(in ? *in : none);
+}
+
+/** Writes what write makes into path at once: a file written next to it
+ *  replaces it, so another program never reads half a file. Only a written
+ *  version is the Editor's (acknowledged to the watcher). error gets why it
+ *  was not written. */
+bool writeFile(const QString& path, const std::function<bool(std::ostream&)>& write, QString& error) {
+	error.clear();
 	std::ostringstream out;
 	if (!write(out)) {
+		const QString reason = QString::fromStdString(lcf::LcfReader::GetError()).trimmed();
+		error = reason.isEmpty() ? Project::tr("Its data could not be encoded.")
+			: Project::tr("Its data could not be encoded: %1").arg(reason);
 		return false;
 	}
 	const std::string bytes = out.str();
 	const QFileInfo info(path);
-	QTemporaryFile file(info.dir().filePath(QStringLiteral(".%1.XXXXXX").arg(info.fileName())));
-	if (!file.open() || file.write(bytes.data(), static_cast<qint64>(bytes.size())) != static_cast<qint64>(bytes.size())
-			|| !file.flush()) {
-		return false;
+	QString temp;
+	{
+		// QTemporaryFile keeps its file open until it is destroyed (close()
+		// only rewinds it), and Windows does not rename an open file: it is
+		// destroyed, keeping its file, before that file replaces the old one
+		QTemporaryFile file(info.dir().filePath(QStringLiteral(".%1.XXXXXX").arg(info.fileName())));
+		if (!file.open()) {
+			error = Project::tr("No file can be created in %1: %2")
+				.arg(QDir::toNativeSeparators(info.absolutePath()), file.errorString());
+			return false;
+		}
+		if (file.write(bytes.data(), static_cast<qint64>(bytes.size())) != static_cast<qint64>(bytes.size())
+				|| !file.flush()) {
+			error = file.errorString();
+			return false;
+		}
+		file.setPermissions(info.exists() ? info.permissions()
+			: QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther);
+		file.setAutoRemove(false);
+		temp = file.fileName();
 	}
-	file.setPermissions(info.exists() ? info.permissions()
-		: QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther);
-	file.close();
 	// the version written: a rename keeps it, whoever writes the file next
-	const auto stamp = ProjectWatcher::stampOf(file.fileName());
-	std::error_code error;
-	std::filesystem::rename(std::filesystem::path(file.fileName().toStdU16String()),
-		std::filesystem::path(info.absoluteFilePath().toStdU16String()), error);
-	if (error) {
+	const auto stamp = ProjectWatcher::stampOf(temp);
+	if (!FileFinder::ReplaceFile(temp, info.absoluteFilePath(), &error)) {
+		QFile::remove(temp);
 		return false;
 	}
-	file.setAutoRemove(false);
 	core().watcher().acknowledge(info.absoluteFilePath(), stamp);
 	return true;
 }
@@ -135,7 +157,7 @@ std::shared_ptr<Project> Project::load(const QDir& dir) {
 	}
 
 	if (!cfg.isNull()) {
-		lcf::INIReader ini(cfg.toStdString());
+		lcf::INIReader ini = readIni(cfg);
 		std::string title = std::string(ini.GetString("RPG_RT", GAMETITLE, tr("Untitled").toStdString()));
 
 		if (project_type == FileFinder::ProjectType::Legacy) {
@@ -182,12 +204,24 @@ QString Project::create(const QDir& dir, const QString& title, Format format) {
 		treemap->maps[0].name = ToDBString(title);
 	}
 
-	auto path = [&](const char* name) { return dir.filePath(QString::fromLatin1(name)).toStdString(); };
+	// written by Qt: liblcf opens a file name in the code page of Windows,
+	// which may not have all the letters of the folder's path
+	auto save = [&](const char* name, const std::function<bool(std::ostream&)>& write) {
+		std::ostringstream out;
+		if (!write(out)) {
+			return false;
+		}
+		const std::string bytes = out.str();
+		QFile file(dir.filePath(QString::fromLatin1(name)));
+		return file.open(QIODevice::WriteOnly | QIODevice::Truncate)
+			&& file.write(bytes.data(), static_cast<qint64>(bytes.size())) == static_cast<qint64>(bytes.size())
+			&& file.flush();
+	};
 	bool saved;
 	if (format == Format::EasyRpg) {
-		saved = lcf::LDB_Reader::SaveXml(path(EASY_DB), *db)
-			&& lcf::LMT_Reader::SaveXml(path(EASY_MT), *treemap, lcf::EngineVersion::e2k3)
-			&& lcf::LMU_Reader::SaveXml(path("Map0001.emu"), *map, lcf::EngineVersion::e2k3);
+		saved = save(EASY_DB, [&](std::ostream& out) { return lcf::LDB_Reader::SaveXml(out, *db); })
+			&& save(EASY_MT, [&](std::ostream& out) { return lcf::LMT_Reader::SaveXml(out, *treemap, lcf::EngineVersion::e2k3); })
+			&& save("Map0001.emu", [&](std::ostream& out) { return lcf::LMU_Reader::SaveXml(out, *map, lcf::EngineVersion::e2k3); });
 		QSettings ini(dir.filePath(EASY_CFG), QSettings::IniFormat);
 		ini.setValue(QStringLiteral("RPG_RT/" GAMETITLE), title);
 	} else {
@@ -196,9 +230,9 @@ QString Project::create(const QDir& dir, const QString& title, Format format) {
 		db->system.ldb_id = rpg2k3 ? 2003 : 0;
 		// the code page of the system, like RPG Maker
 		const std::string encoding = lcf::ReaderUtil::GetLocaleEncoding();
-		saved = lcf::LDB_Reader::Save(path(RM_DB), *db, encoding)
-			&& lcf::LMT_Reader::Save(path(RM_MT), *treemap, engine, encoding)
-			&& lcf::LMU_Reader::Save(path("Map0001.lmu"), *map, engine, encoding);
+		saved = save(RM_DB, [&](std::ostream& out) { return lcf::LDB_Reader::Save(out, *db, encoding); })
+			&& save(RM_MT, [&](std::ostream& out) { return lcf::LMT_Reader::Save(out, *treemap, engine, encoding); })
+			&& save("Map0001.lmu", [&](std::ostream& out) { return lcf::LMU_Reader::Save(out, *map, engine, encoding); });
 
 		// RPG_RT.ini in the code page of the game
 		std::string ini = "[RPG_RT]\r\nGameTitle=" + title.toStdString() + "\r\nMapEditMode=1\r\nMapEditZoom=1\r\nFullPackageFlag=0\r\n"
@@ -208,9 +242,7 @@ QString Project::create(const QDir& dir, const QString& title, Format format) {
 			// from UTF-8 to the code page of the game
 			encoder.Decode(ini);
 		}
-		std::ofstream out(path(RM_INI), std::ios::binary);
-		out << ini;
-		saved = saved && out.good();
+		saved = saved && save(RM_INI, [&](std::ostream& out) { return bool(out << ini); });
 	}
 	return saved ? QString() : tr("The files of the new project cannot be written in %1.").arg(dir.absolutePath());
 }
@@ -318,7 +350,7 @@ bool Project::saveMap(lcf::rpg::Map& map, int index, bool incSavecount) {
 		return projectType() == FileFinder::ProjectType::EasyRpg
 			? lcf::LMU_Reader::SaveXml(out, map, lcf_engine)
 			: lcf::LMU_Reader::Save(out, map, lcf_engine, encoding().toStdString());
-	});
+	}, m_writeError);
 	// not written: not counted, a second try counts once
 	if (!saved && incSavecount) {
 		--map.save_count;
@@ -368,15 +400,15 @@ QString Project::detectEncoding() {
 	std::string enc;
 	std::string title;
 	if (!cfg.isNull()) {
-		lcf::INIReader ini(cfg.toStdString());
+		lcf::INIReader ini = readIni(cfg);
 		title = ini.GetString("RPG_RT", GAMETITLE, tr("Untitled").toStdString());
 		enc = ini.GetString("EasyRPG", "Encoding", "");
 	}
 
 	if (enc.empty()) {
-		std::ifstream i(findFile(RM_DB).toStdString(), std::ios::binary);
+		auto i = readFile(findFile(RM_DB));
 		if (i) {
-			auto db = lcf::LDB_Reader::Load(i);
+			auto db = lcf::LDB_Reader::Load(*i);
 			if (db) {
 				std::string dbenc = lcf::ReaderUtil::DetectEncoding(*db);
 				lcf::Encoder encoder(dbenc);
@@ -510,12 +542,16 @@ bool Project::saveDatabase(bool inc_savecount) {
 		return projectType() == FileFinder::ProjectType::Legacy
 			? lcf::LDB_Reader::Save(out, m_data.database(), encoding().toStdString())
 			: lcf::LDB_Reader::SaveXml(out, m_data.database());
-	});
+	}, m_writeError);
 	// not written: not counted, a second try counts once
 	if (!saved && inc_savecount) {
 		--m_data.database().system.save_count;
 	}
 	return saved;
+}
+
+QString Project::withWriteError(const QString& message) const {
+	return m_writeError.isEmpty() ? message : message + QStringLiteral("\n\n") + m_writeError;
 }
 
 bool Project::saveTreeMap() {
@@ -553,7 +589,7 @@ bool Project::writeTreeMap(const lcf::rpg::TreeMap& tree) {
 		return projectType() == FileFinder::ProjectType::Legacy
 			? lcf::LMT_Reader::Save(out, tree, lcf_engine, encoding().toStdString())
 			: lcf::LMT_Reader::SaveXml(out, tree, lcf_engine);
-	});
+	}, m_writeError);
 }
 
 std::unique_ptr<lcf::rpg::Database> Project::readDatabase() const {

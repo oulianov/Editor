@@ -119,6 +119,7 @@ DatabaseApply::File ProjectController::databaseFile()
 	file.isStale = [] { return core().watcher().isStale(core().project()->databaseFile()); };
 	file.read = [] { return core().project()->readDatabase(); };
 	file.save = [] { return core().project()->saveDatabase(); };
+	file.saveFailed = [](const QString& message) { return core().project()->withWriteError(message); };
 	file.reload = [] { core().watcher().requestReload(ProjectWatcher::Database); };
 	return file;
 }
@@ -247,7 +248,7 @@ ProjectController::ImportResult ProjectController::importProject(const QDir& src
 	progress.maximum(0);
 	if (!prj->saveDatabase(false) || !prj->saveTreeMap()) {
 		dialogs().error(tr("Error importing project"),
-			tr("The database or the map tree could not be written to %1.").arg(QDir::toNativeSeparators(target_dir.path())));
+			prj->withWriteError(tr("The database or the map tree could not be written to %1.").arg(QDir::toNativeSeparators(target_dir.path()))));
 		return ImportResult::Failed;
 	}
 
@@ -521,7 +522,7 @@ bool ProjectController::writeTreeMap()
 		return false;
 	}
 	if (!project.saveTreeMap()) {
-		dialogs().error(tr("Map Tree"), tr("The map tree could not be written."));
+		dialogs().error(tr("Map Tree"), project.withWriteError(tr("The map tree could not be written.")));
 		return false;
 	}
 	if (merged)
@@ -538,7 +539,7 @@ void ProjectController::writeTreeMapAfterSave()
 		return;
 	}
 	if (!project.saveTreeMap())
-		dialogs().error(tr("Map Tree"), tr("The map tree could not be written."));
+		dialogs().error(tr("Map Tree"), project.withWriteError(tr("The map tree could not be written.")));
 	if (stale)
 		reloadTreeMap();
 }
@@ -600,7 +601,7 @@ bool ProjectController::saveTreeEntry(int id, lcf::rpg::MapInfo info)
 	// positions moved on a map are written when that map is saved
 	if (!core().project()->saveTreeMapEntry(info))
 	{
-		dialogs().error(tr("Map Tree"), tr("The map tree could not be written."));
+		dialogs().error(tr("Map Tree"), core().project()->withWriteError(tr("The map tree could not be written.")));
 		return false;
 	}
 	return true;
@@ -657,7 +658,7 @@ int ProjectController::addMap(lcf::rpg::MapInfo info, lcf::rpg::Map& map, const 
 
 	if (!core().project()->saveMap(map, info.ID))
 	{
-		dialogs().error(title, tr("The file %1 cannot be written.").arg(mapFileName(info.ID)));
+		dialogs().error(title, core().project()->withWriteError(tr("The file %1 cannot be written.").arg(mapFileName(info.ID))));
 		return 0;
 	}
 	insertMapInfo(info);
@@ -736,7 +737,7 @@ int ProjectController::pasteMap(int parent)
 	lcf::rpg::Map map = *m_copiedMap;
 	if (!core().project()->saveMap(map, info.ID))
 	{
-		dialogs().error(tr("Paste Map"), tr("The file %1 cannot be written.").arg(mapFileName(info.ID)));
+		dialogs().error(tr("Paste Map"), core().project()->withWriteError(tr("The file %1 cannot be written.").arg(mapFileName(info.ID))));
 		return 0;
 	}
 	insertMapInfo(info);
@@ -806,7 +807,7 @@ bool ProjectController::saveMapProperties(int id, const MapEdit& edit)
 		return false;
 	if (!core().project()->saveMap(*edit.map, id))
 	{
-		dialogs().error(tr("Map Properties"), tr("The file %1 cannot be written.").arg(mapFileName(id)));
+		dialogs().error(tr("Map Properties"), core().project()->withWriteError(tr("The file %1 cannot be written.").arg(mapFileName(id))));
 		return false;
 	}
 	return saveTreeEntry(id, edit.info);
@@ -859,7 +860,7 @@ bool ProjectController::shiftMap(int id, int dx, int dy)
 	MapTools::shiftMap(*map, dx, dy);
 	if (!core().project()->saveMap(*map, id))
 	{
-		dialogs().error(tr("Shift Map"), tr("The file %1 cannot be written.").arg(mapFileName(id)));
+		dialogs().error(tr("Shift Map"), core().project()->withWriteError(tr("The file %1 cannot be written.").arg(mapFileName(id))));
 		return false;
 	}
 

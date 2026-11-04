@@ -124,6 +124,9 @@ public:
 	 *  The map tree itself is the caller's to change. false when the file
 	 *  has no such entry or could not be written. */
 	bool saveTreeMapEntry(const lcf::rpg::MapInfo& info);
+	/** message ("The database could not be written.") followed by why the
+	 *  last map, database or map tree not written failed, when known */
+	QString withWriteError(const QString& message) const;
 
 private:
 	FileFinder::ProjectType m_projectType;
@@ -138,4 +141,6 @@ private:
 	ProjectData m_data;
 	/** The map tree as last read or written */
 	lcf::rpg::TreeMap m_savedTreeMap;
+	/** Why the last map, database or map tree not written failed */
+	QString m_writeError;
 };

@@ -563,7 +563,7 @@ QString ProjectSettings::write(Project& project) const
 		}
 		project.database().system.font_id = m_textFont;
 		if (!project.saveDatabase()) {
-			return QCoreApplication::translate("ProjectSettingsDialog", "The database could not be saved.");
+			return project.withWriteError(QCoreApplication::translate("ProjectSettingsDialog", "The database could not be saved."));
 		}
 	}
 	// the code page first: the title is written in it

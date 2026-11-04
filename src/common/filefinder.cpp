@@ -18,6 +18,9 @@
 #include "common/dbstring.h"
 #include "defines.h"
 #include "filefinder.h"
+#include <QThread>
+#include <filesystem>
+#include <system_error>
 
 QString FileFinder::Find(const QDir& dir, const QString& filename, FileFinder::FileType type, QDir::Filter filter) {
 	auto fn = [&](QStringList exts) -> QString {
@@ -60,6 +63,32 @@ bool FileFinder::IsEasyRpgProject(const QDir& directory) {
 
 QString FileFinder::CombinePath(const QString& path1, const QString& path2) {
 	return path1 + QDir::separator() + path2;
+}
+
+bool FileFinder::ReplaceFile(const QString& from, const QString& to, QString* error) {
+	const std::filesystem::path source(from.toStdU16String());
+	const std::filesystem::path target(to.toStdU16String());
+	std::error_code ec;
+	for (int attempt = 0;; ++attempt) {
+		std::filesystem::rename(source, target, ec);
+		if (!ec) {
+			return true;
+		}
+#ifdef Q_OS_WIN
+		// ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION: often another program
+		// reading one of the files for a moment
+		if ((ec.value() == 5 || ec.value() == 32) && attempt < 20) {
+			QThread::msleep(50);
+			continue;
+		}
+#endif
+		break;
+	}
+	if (error) {
+		// in the system's language and code page
+		*error = QString::fromLocal8Bit(ec.message()).trimmed();
+	}
+	return false;
 }
 
 QStringList FileFinder::GetFiltersForType(FileType type) {

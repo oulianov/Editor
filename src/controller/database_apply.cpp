@@ -43,7 +43,8 @@ DatabaseApply::Result DatabaseApply::apply(ProjectData& live, ProjectData& copy,
 	DatabaseListNotifier::assign(live, copy, sender);
 	// save counts the save
 	if (!file.save()) {
-		return {Status::SaveFailed, tr("The database could not be written.")};
+		const QString message = tr("The database could not be written.");
+		return {Status::SaveFailed, file.saveFailed ? file.saveFailed(message) : message};
 	}
 	// the copy edited takes the count saved: the next Apply neither
 	// writes it back nor sees it as a change of the system to merge

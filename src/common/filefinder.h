@@ -48,6 +48,13 @@ namespace FileFinder {
 
 	QString CombinePath(const QString& path1, const QString& path2);
 
+	/** Replaces the file to by the file from in one step (on Windows too,
+	 *  unlike QFile::rename). from must be closed: Windows does not rename an
+	 *  open file. A file another program holds open for a moment (an
+	 *  antivirus, a backup tool) is tried again for up to a second. error
+	 *  gets why it failed, in the system's words. */
+	bool ReplaceFile(const QString& from, const QString& to, QString* error = nullptr);
+
 	QStringList GetFiltersForType(FileType type);
 };
 
