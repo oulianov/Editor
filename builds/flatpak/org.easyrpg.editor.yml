@@ -83,9 +83,11 @@ modules:
       - /share
   # the Editor, with liblcf of the submodule lib/liblcf (Maniac Patch
   # support), built and linked statically: the checkout must include it
-  # (git submodule update --init)
+  # (git submodule update --init). Built out of source: liblcf refuses
+  # in-source builds
   - name: editor
     buildsystem: cmake-ninja
+    builddir: true
     config-opts:
       - -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - -DEDITOR_BUILD_LIBLCF=ON
