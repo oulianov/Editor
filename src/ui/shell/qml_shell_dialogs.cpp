@@ -209,15 +209,7 @@ void QmlShellDialogs::help(const QString& topic)
 
 void QmlShellDialogs::about()
 {
-	// the texts of the About box, in the context MainWindow
-	QmlHost::exec(QStringLiteral("MessageWindow"), m_window(), {
-		{QStringLiteral("title"), QCoreApplication::translate("MainWindow", "About EasyRPG Editor")},
-		{QStringLiteral("text"), QCoreApplication::translate("MainWindow", "<h3>EasyRPG Editor %1</h3>"
-			"<p>A game editor for EasyRPG and RPG Maker 2000/2003 projects.</p>"
-			"<p>Built with Qt %2.</p>"
-			"<p>Free software, licensed under the GNU General Public License "
-			"(version 3 or later).</p>"
-			"<p><a href=\"https://easyrpg.org/\">EasyRPG website</a></p>")
-			.arg(QCoreApplication::applicationVersion(), QString::fromLatin1(qVersion()))},
+	QmlHost::exec(QStringLiteral("AboutWindow"), m_window(), {
+		{QStringLiteral("qtVersion"), QString::fromLatin1(qVersion())},
 	});
 }

@@ -211,7 +211,8 @@ private:
 };
 
 #ifdef Q_OS_MACOS
-/** Moves Check for Updates down the application menu, right above Quit,
- *  About staying first (platform_menu_mac.mm); once, when the menu is there */
+/** Moves Check for Updates down the application menu, under Settings and
+ *  Test Play Options, About staying first (platform_menu_mac.mm); once,
+ *  when the menu is there */
 void arrangeApplicationMenu();
 #endif

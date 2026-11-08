@@ -74,36 +74,39 @@ bool findItems(ApplicationMenu& found)
 	return true;
 }
 
-// About first, Check for Updates right above Quit, the application's items
-// under Settings
+// About first, then (after a separator) Settings, the application's items
+// (Test Play Options) and Check for Updates
 void arrange(const ApplicationMenu& items)
 {
 	NSMenu* menu = items.menu;
-	// Qt puts an application item (Test Play Options) after the last item
-	// it made, Check for Updates once it is moved: back under Settings
-	NSMutableArray<NSMenuItem*>* moved = [NSMutableArray array];
-	for (NSInteger i = menu.numberOfItems - 1; i > [menu indexOfItem:items.services]; --i) {
-		NSMenuItem* item = [menu itemAtIndex:i];
-		if (!item.separatorItem && item != items.updates && item != items.quit
-				&& ![items.hiding containsObject:item]) {
-			[moved insertObject:item atIndex:0];
-			[menu removeItemAtIndex:i];
-		}
+	// the application's items (Test Play Options), which Qt puts after the
+	// last item it made, wherever Check for Updates has been moved
+	NSMutableArray<NSMenuItem*>* own = [NSMutableArray array];
+	for (NSMenuItem* item in menu.itemArray) {
+		if (!item.separatorItem && item != items.about && item != items.updates && item != items.preferences
+				&& item != items.services && item != items.quit && ![items.hiding containsObject:item])
+			[own addObject:item];
 	}
-	NSInteger at = [menu indexOfItem:items.preferences] + 1;
-	while (at < menu.numberOfItems && ![menu itemAtIndex:at].separatorItem)
-		++at;
-	for (NSMenuItem* item in moved)
-		[menu insertItem:item atIndex:at++];
+	// already in place (checked whenever a menu opens): left as it is
+	const NSInteger settings = [menu indexOfItem:items.preferences];
+	const NSInteger count = static_cast<NSInteger>(own.count);
+	bool placed = [menu indexOfItem:items.about] == 0 && [menu indexOfItem:items.updates] == settings + 1 + count;
+	for (NSInteger i = 0; placed && i < count; ++i)
+		placed = [menu indexOfItem:own[static_cast<NSUInteger>(i)]] == settings + 1 + i;
+	if (placed)
+		return;
 
+	for (NSMenuItem* item in own)
+		[menu removeItem:item];
 	if ([menu indexOfItem:items.about] != 0) {
 		[menu removeItem:items.about];
 		[menu insertItem:items.about atIndex:0];
 	}
-	if ([menu indexOfItem:items.updates] != [menu indexOfItem:items.quit] - 1) {
-		[menu removeItem:items.updates];
-		[menu insertItem:items.updates atIndex:[menu indexOfItem:items.quit]];
-	}
+	[menu removeItem:items.updates];
+	NSInteger at = [menu indexOfItem:items.preferences] + 1;
+	for (NSMenuItem* item in own)
+		[menu insertItem:item atIndex:at++];
+	[menu insertItem:items.updates atIndex:at];
 }
 
 }

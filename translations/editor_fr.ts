@@ -2,6 +2,33 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="fr_FR">
 <context>
+    <name>AboutDialog</name>
+    <message>
+        <source>Version %1</source>
+        <translation>Version %1</translation>
+    </message>
+    <message>
+        <source>oulianov&apos;s fork of the EasyRPG Editor.</source>
+        <translation>Le fork d&apos;oulianov de l&apos;éditeur EasyRPG.</translation>
+    </message>
+    <message>
+        <source>Source code, releases and bug reports: %1</source>
+        <translation>Code source, versions et signalement de bugs : %1</translation>
+    </message>
+    <message>
+        <source>Based on the EasyRPG Editor of the EasyRPG project (%1): games for EasyRPG Player and RPG Maker 2000/2003.</source>
+        <translation>Basé sur l&apos;éditeur EasyRPG du projet EasyRPG (%1) : des jeux pour EasyRPG Player et RPG Maker 2000/2003.</translation>
+    </message>
+    <message>
+        <source>Built with Qt %1. Free software, under the GNU General Public License (version 3 or later).</source>
+        <translation>Compilé avec Qt %1. Logiciel libre, sous licence publique générale GNU (version 3 ou ultérieure).</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fermer</translation>
+    </message>
+</context>
+<context>
     <name>ActorWidget</name>
     <message>
         <location filename="../src/ui/database/ActorPage.qml" line="+133"/>
@@ -9751,11 +9778,6 @@ Voulez-vous les sauvegarder avant de fermer la carte ?</translation>
         <location line="+7"/>
         <source>Another program deleted this map. Saving it asks whether to add it back to the map tree or to discard your changes.</source>
         <translation>Un autre programme a supprimé cette carte. La sauvegarder demande s&apos;il faut la remettre dans l&apos;arbre des cartes ou abandonner vos modifications.</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/shell/qml_shell_dialogs.cpp" line="+1"/>
-        <source>&lt;h3&gt;EasyRPG Editor %1&lt;/h3&gt;&lt;p&gt;A game editor for EasyRPG and RPG Maker 2000/2003 projects.&lt;/p&gt;&lt;p&gt;Built with Qt %2.&lt;/p&gt;&lt;p&gt;Free software, licensed under the GNU General Public License (version 3 or later).&lt;/p&gt;&lt;p&gt;&lt;a href=&quot;https://easyrpg.org/&quot;&gt;EasyRPG website&lt;/a&gt;&lt;/p&gt;</source>
-        <translation>&lt;h3&gt;EasyRPG Editor %1&lt;/h3&gt;&lt;p&gt;Un éditeur de jeux pour les projets EasyRPG et RPG Maker 2000/2003.&lt;/p&gt;&lt;p&gt;Compilé avec Qt %2.&lt;/p&gt;&lt;p&gt;Logiciel libre, sous licence GNU General Public License (version 3 ou ultérieure).&lt;/p&gt;&lt;p&gt;&lt;a href=&quot;https://easyrpg.org/&quot;&gt;Site web d&apos;EasyRPG&lt;/a&gt;&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="../src/ui/shell/qml_shell.cpp" line="-327"/>
