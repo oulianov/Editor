@@ -76,12 +76,11 @@ void ChipsetEditorPainter::paint(QPainter& painter, const ChipsetEditor& editor,
 				}
 				break;
 			case Mode::Passability:
-				if (flags & ChipsetEditor::Above) {
-					mark(QStringLiteral("☆"), QColor(255, 220, 90));
-				} else if ((flags & ChipsetEditor::AllDirections) == 0) {
-					mark(QStringLiteral("×"), QColor(255, 110, 110));
-				} else {
-					mark(QStringLiteral("○"), QColor(120, 200, 255));
+				switch (ChipsetEditor::passability(static_cast<uint8_t>(flags))) {
+					case 3: mark(QStringLiteral("□"), QColor(255, 160, 80)); break;
+					case 2: mark(QStringLiteral("☆"), QColor(255, 220, 90)); break;
+					case 1: mark(QStringLiteral("×"), QColor(255, 110, 110)); break;
+					default: mark(QStringLiteral("○"), QColor(120, 200, 255)); break;
 				}
 				break;
 			case Mode::Directions: {
@@ -95,8 +94,9 @@ void ChipsetEditorPainter::paint(QPainter& painter, const ChipsetEditor& editor,
 				break;
 			}
 			case Mode::Counter:
+				// RPG Maker's diamond
 				if (flags & ChipsetEditor::Counter) {
-					mark(QStringLiteral("□"), QColor(255, 220, 90));
+					mark(QStringLiteral("◇"), QColor(255, 220, 90));
 				}
 				break;
 		}

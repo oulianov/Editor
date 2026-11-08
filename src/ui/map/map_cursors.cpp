@@ -16,10 +16,13 @@
  */
 
 #include "map_cursors.h"
+#include <QGuiApplication>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPainterPathStroker>
 #include <QPixmap>
+#include <algorithm>
+#include <cmath>
 
 namespace {
 	// Black shapes outlined in white: readable on every tile
@@ -27,8 +30,13 @@ namespace {
 		// overlapping parts stay filled
 		shape.setFillRule(Qt::WindingFill);
 		constexpr int size = 32;
-		constexpr qreal ratio = 2; // sharp on high density screens
-		QPixmap pixmap(size * ratio, size * ratio);
+		// drawn for the pixels of the screens: sharp on high density ones, and
+		// as large as meant where the system shows a cursor's picture as it is
+		// (X11 on Linux: one of twice the pixels was twice as large, its point
+		// away from the hotspot)
+		const qreal ratio = std::max<qreal>(1.0, qGuiApp ? qGuiApp->devicePixelRatio() : 1.0);
+		const int pixels = static_cast<int>(std::ceil(size * ratio));
+		QPixmap pixmap(pixels, pixels);
 		pixmap.setDevicePixelRatio(ratio);
 		pixmap.fill(Qt::transparent);
 		QPainter painter(&pixmap);

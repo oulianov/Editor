@@ -20,14 +20,20 @@
 #include <QPoint>
 #include <QPointF>
 #include <cstdint>
+#include <vector>
 #include <lcf/rpg/chipset.h>
 
 /**
- * The editing of the tiles of a chipset, as RPG Maker's Chipset page: in a
- * layer (lower or upper), a click gives a tile the terrain chosen, cycles
- * its passability (passable, blocked, above the hero), opens or closes the
- * side of the tile under the pointer (Directions) or makes it a counter;
- * dragging gives the other tiles what the click gave.
+ * The editing of the tiles of a chipset, as RPG Maker 2003's Chipset page
+ * (RPG2003.EXE, TFormEDChipSet): on the lower layer a click gives a tile the
+ * terrain chosen (the right button takes the tile's terrain instead, done by
+ * the view), on both layers it cycles its passability (passable, blocked,
+ * above the hero, and on the lower layer's autotiles a wall: the square,
+ * Wall | Above, which the hero walks one step into from below, drawn over
+ * him; backwards with the right button), opens or closes the side of the
+ * tile under the pointer (Directions), and on the upper layer makes it a
+ * counter. The first tile of the upper layer is not edited. Dragging gives
+ * the other tiles what the click gave (RPG Maker paints only the terrain).
  *
  * The tiles are shown 6 per row. Points are in tiles (1.0 is the width of
  * a tile), whatever the size the tiles are drawn at.
@@ -37,12 +43,24 @@ class ChipsetEditor
 public:
 	enum class Mode { Terrain, Passability, Directions, Counter };
 
-	/** The flags of passable_data_lower and passable_data_upper */
+	/** The flags of passable_data_lower and passable_data_upper (RPG Maker
+	 *  writes ○ 0x0F, × 0x00, ☆ 0x1F, □ 0x30) */
 	enum Flag : uint8_t {
 		Down = 0x01, Left = 0x02, Right = 0x04, Up = 0x08,
 		Above = 0x10, Wall = 0x20, Counter = 0x40,
 		AllDirections = Down | Left | Right | Up
 	};
+
+	/** The mark of RPG Maker for flags: 0 ○, 1 ×, 2 ☆, 3 □ (Wall first, then Above) */
+	static int passability(uint8_t flags);
+	/** The flags after a click in the Passability mode, as RPG Maker 2003
+	 *  changes them (the other flags kept): ○ × ☆ (□ on the autotiles of
+	 *  the lower layer, its tiles 6 to 17), backwards with the right button */
+	static uint8_t cyclePassability(uint8_t flags, bool right_button, bool lower, int tile);
+	/** A tile a click edits in the current layer and mode: not the first of
+	 *  the upper layer, the terrain only on the lower layer, the counters only
+	 *  on the upper one */
+	bool editable(int index) const;
 
 	static constexpr int Columns = 6;
 	/** RPG Maker 2003's: the lower layer has the water and the autotiles too */

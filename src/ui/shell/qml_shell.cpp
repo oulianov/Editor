@@ -19,10 +19,12 @@
 #include <algorithm>
 #include <optional>
 #include <utility>
+#include <QDesktopServices>
 #include <QDir>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QUrl>
 #include <kddockwidgets/LayoutSaver.h>
 #include <lcf/rpg/treemap.h>
 #include "core.h"
@@ -323,6 +325,8 @@ void QmlShell::trigger(const QString& name, bool checked)
 		m_shell->closeProject();
 	else if (is("actionProjectSettings"))
 		projectSettings();
+	else if (is("actionProjectOpenFolder"))
+		openGameFolder();
 	else if (is("actionGameDiskCreate"))
 		exportGame();
 	else if (is("actionProjectConvert2003"))
@@ -809,6 +813,12 @@ void QmlShell::projectSettings(const QString& soundfont)
 		emit m_shell->windowTitleChanged();
 	if (settings.convertRequested())
 		m_shell->convertProject();
+}
+
+void QmlShell::openGameFolder()
+{
+	if (auto project = core().project())
+		QDesktopServices::openUrl(QUrl::fromLocalFile(project->projectDir().absolutePath()));
 }
 
 void QmlShell::exportGame()

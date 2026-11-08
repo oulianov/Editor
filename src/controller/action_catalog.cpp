@@ -123,6 +123,8 @@ const Info actions[] = {
 	{.name = "actionProjectSettings", .text = QT_TRANSLATE_NOOP("MainWindow", "Project Settings..."),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "The folder, title, engine, text encoding and patches of the game"),
 		.icon = "settings"},
+	{.name = "actionProjectOpenFolder", .text = QT_TRANSLATE_NOOP("MainWindow", "Open Game Folder"),
+		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Show the folder of the game in the file manager"), .icon = "folder"},
 	{.name = "actionProjectConvert2003", .text = QT_TRANSLATE_NOOP("MainWindow", "Convert to RPG Maker 2003..."),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Convert this RPG Maker 2000 project to the format of RPG Maker 2003")},
 	{.name = "actionProjectManiacCheck", .text = QT_TRANSLATE_NOOP("MainWindow", "Check Maniac Compatibility..."),
@@ -216,7 +218,7 @@ struct MenuInfo {
 // "": a separator; "menu:": a submenu
 const MenuInfo menu_infos[] = {
 	{"menuGame", QT_TRANSLATE_NOOP("MainWindow", "Game &Project"), {"actionProjectNew", "actionProjectOpen",
-		"actionProjectClose", "", "actionProjectSettings", "actionGameDiskCreate", "actionProjectConvert2003",
+		"actionProjectClose", "", "actionProjectSettings", "actionProjectOpenFolder", "actionGameDiskCreate", "actionProjectConvert2003",
 		"actionProjectManiacCheck", "",
 		"actionProjectImport", "", "actionQuit"}},
 	{"menuMaps", QT_TRANSLATE_NOOP("MainWindow", "Maps"), {"actionUndo", "actionRedo", "", "actionMapOpenStart",

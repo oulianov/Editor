@@ -756,7 +756,7 @@ void ShellController::updateActions()
 
 	for (const char* name : {"actionDrawCircle", "actionDrawSelect", "actionGameDiskCreate", "actionDatabase",
 			"actionDrawPen", "actionDrawFill", "actionDrawRectangle", "actionResourceManager", "actionSearch",
-			"actionJukebox", "actionProjectSettings", "actionMapSaveAll", "actionZoom", "actionProjectClose",
+			"actionJukebox", "actionProjectSettings", "actionProjectOpenFolder", "actionMapSaveAll", "actionZoom", "actionProjectClose",
 			"actionLayerEvents", "actionFullScreenToggle", "actionLayerLower", "actionLayerUpper", "actionPlayTest",
 			"actionPlayTestOptions", "actionScriptEditor", "actionTitleBackgroundToggle"})
 		enable(name, has_project);

@@ -212,6 +212,8 @@ private:
 	// the actions
 	/** soundfont: a file chosen as the game soundfont (the Jukebox), copied on OK */
 	void projectSettings(const QString& soundfont = QString());
+	/** The game's folder in the file manager of the system (Finder, Explorer...) */
+	void openGameFolder();
 	void exportGame();
 	void openDatabase();
 	void openSearch();

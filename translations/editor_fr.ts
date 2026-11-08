@@ -2393,6 +2393,18 @@
         <source>Click a tile to make it a counter: events can be talked to across it (□). Drag to paint the same.</source>
         <translation>Cliquez sur un carreau pour en faire un comptoir : on parle aux évènements par-dessus (□). Glissez pour peindre de même.</translation>
     </message>
+    <message>
+        <source>Click or drag over tiles to give them the terrain above. Right click takes the terrain of a tile.</source>
+        <translation>Cliquez ou glissez sur les carreaux pour leur donner le terrain ci-dessus. Le clic droit prend le terrain d&apos;un carreau.</translation>
+    </message>
+    <message>
+        <source>Click a tile: passable (○), blocked (×), above the hero (☆), on the autotiles a wall (□). Right click goes back. Drag to paint the same.</source>
+        <translation>Cliquez sur un carreau : praticable (○), bloqué (×), au-dessus du héros (☆), sur les autotiles un mur (□). Le clic droit revient en arrière. Glissez pour peindre de même.</translation>
+    </message>
+    <message>
+        <source>Click a tile to make it a counter: events can be talked to across it (◇). Drag to paint the same.</source>
+        <translation>Cliquez sur un carreau pour en faire un comptoir : on parle aux évènements par-dessus (◇). Glissez pour peindre de même.</translation>
+    </message>
 </context>
 <context>
     <name>ClassEditors</name>
@@ -10230,6 +10242,14 @@ Les sauvegarder avant l&apos;export ?</translation>
         <location line="+1"/>
         <source>Updating...</source>
         <translation>Mise à jour...</translation>
+    </message>
+    <message>
+        <source>Open Game Folder</source>
+        <translation>Ouvrir le dossier du jeu</translation>
+    </message>
+    <message>
+        <source>Show the folder of the game in the file manager</source>
+        <translation>Affiche le dossier du jeu dans le gestionnaire de fichiers</translation>
     </message>
 </context>
 <context>

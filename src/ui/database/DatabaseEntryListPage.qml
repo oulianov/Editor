@@ -285,6 +285,8 @@ Controls.SplitView {
                     delegate: Item {
                         id: line
 
+                        // the row of the entry in the whole list (the "index" role of
+                        // the database's lists), not its line in the list the search shows
                         required property int index
                         required property string text
                         readonly property bool current: ListView.isCurrentItem
@@ -316,13 +318,13 @@ Controls.SplitView {
                             anchors.fill: parent
                             onPressed: {
                                 view.forceActiveFocus()
-                                view.currentIndex = line.index
+                                view.currentIndex = found.rowOf(line.index)
                             }
                             // the menu on the right press, on the entry pressed
                             Ez.ContextMenuHandler {
                                 onRequested: (x, y) => {
                                     view.forceActiveFocus()
-                                    view.currentIndex = line.index
+                                    view.currentIndex = found.rowOf(line.index)
                                     root.showMenu(lineMouse, x, y)
                                 }
                             }

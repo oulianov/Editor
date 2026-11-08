@@ -144,6 +144,7 @@ Item {
     CatalogAction { name: "actionRedo" }
     CatalogAction { name: "actionMapSaveAll" }
     CatalogAction { name: "actionProjectSettings" }
+    CatalogAction { name: "actionProjectOpenFolder" }
     CatalogAction { name: "actionProjectConvert2003" }
     CatalogAction { name: "actionProjectManiacCheck" }
     CatalogAction { name: "actionSettings" }

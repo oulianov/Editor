@@ -85,6 +85,9 @@ DatabaseEntryPage {
                         entry: root.entry
                         lowerLayer: layer.currentIndex === 0
                         mode: 1
+                        // RPG Maker's modes: the terrain on the lower layer, the counters on the upper one
+                        onLowerLayerChanged: if (mode === (lowerLayer ? 3 : 0)) mode = 1
+                        onTerrainPicked: id => terrain.currentIndex = Math.max(0, terrain.indexOfValue(id))
                         terrainId: terrain.currentIndex >= 0 ? Number(terrain.currentValue) : 1
                         background: Kirigami.Theme.backgroundColor
                         width: implicitWidth
@@ -133,6 +136,7 @@ DatabaseEntryPage {
                 Ez.RadioButton {
                     objectName: "radioTerrain"
                     text: qsTr("Terrain")
+                    enabled: canvas.lowerLayer
                     checked: canvas.mode === 0
                     Controls.ButtonGroup.group: modes
                     onToggled: if (checked) canvas.mode = 0
@@ -143,7 +147,7 @@ DatabaseEntryPage {
                     database: root.database
                     listKey: "terrains"
                     pickable: true
-                    enabled: canvas.mode === 0
+                    enabled: canvas.mode === 0 && canvas.lowerLayer
                     currentIndex: 0
                     Layout.leftMargin: 20
                     Layout.fillWidth: true
@@ -175,6 +179,7 @@ DatabaseEntryPage {
                 Ez.RadioButton {
                     objectName: "radioCounter"
                     text: qsTr("Counter")
+                    enabled: !canvas.lowerLayer
                     checked: canvas.mode === 3
                     Controls.ButtonGroup.group: modes
                     onToggled: if (checked) canvas.mode = 3
@@ -183,10 +188,12 @@ DatabaseEntryPage {
                 Ez.Note {
                     objectName: "labelHint"
                     color: Ez.Metrics.mutedTextColor
-                    text: [qsTr("Click or drag over tiles to give them the terrain above."),
-                           qsTr("Click a tile: passable (○), blocked (×), above the hero (☆). Right click goes back. Drag to paint the same."),
+                    text: [qsTr("Click or drag over tiles to give them the terrain above. Right click takes the terrain of a tile."),
+                           canvas.lowerLayer
+                               ? qsTr("Click a tile: passable (○), blocked (×), above the hero (☆), on the autotiles a wall (□). Right click goes back. Drag to paint the same.")
+                               : qsTr("Click a tile: passable (○), blocked (×), above the hero (☆). Right click goes back. Drag to paint the same."),
                            qsTr("An arrow: the hero can walk out of the tile that way; a dot: not. Click a side of a tile to change it. Drag to do the same on other tiles."),
-                           qsTr("Click a tile to make it a counter: events can be talked to across it (□). Drag to paint the same.")][canvas.mode] ?? ""
+                           qsTr("Click a tile to make it a counter: events can be talked to across it (◇). Drag to paint the same.")][canvas.mode] ?? ""
                     Layout.fillWidth: true
                 }
             }

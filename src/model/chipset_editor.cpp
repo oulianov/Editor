@@ -123,11 +123,67 @@ int ChipsetEditor::sideAt(const QPointF& pos, int index) {
 	return offset.y() < 0 ? Up : Down;
 }
 
+int ChipsetEditor::passability(uint8_t flags) {
+	if (flags & Wall) {
+		return 3;
+	}
+	if (flags & Above) {
+		return 2;
+	}
+	return (flags & AllDirections) == 0 ? 1 : 0;
+}
+
+uint8_t ChipsetEditor::cyclePassability(uint8_t v, bool right_button, bool lower, int tile) {
+	// RPG2003.EXE (0x538C5C): the autotiles of the lower layer have the square
+	const bool autotile = lower && tile >= 6 && tile < 18;
+	switch (passability(v)) {
+		case 3: // □: left ○, right ☆
+			return right_button ? (v | 0x1F) & ~Wall : (v | AllDirections) & ~(Wall | Above);
+		case 2: // ☆: left □ (an autotile) or the directions as they are, right ×
+			if (right_button) {
+				return v & ~(AllDirections | Above);
+			}
+			return autotile ? (v | Wall | Above) & ~AllDirections : v & ~Above;
+		case 1: // ×: left ☆, right ○
+			return right_button ? v | AllDirections : v | AllDirections | Above;
+		default: // ○: left ×, right □ (an autotile) or ☆ with the directions as they are
+			if (!right_button) {
+				return v & ~AllDirections;
+			}
+			return autotile ? (v | Wall | Above) & ~AllDirections : v | Above;
+	}
+}
+
+bool ChipsetEditor::editable(int index) const {
+	if (index < 0) {
+		return false;
+	}
+	switch (m_mode) {
+		case Mode::Terrain: return m_lower;
+		case Mode::Counter: return !m_lower && index > 0;
+		default: return m_lower || index > 0;
+	}
+}
+
+namespace {
+	/** The flags of a mark as RPG Maker writes it, the other flags kept */
+	uint8_t withPassability(uint8_t flags, int mark) {
+		using F = ChipsetEditor::Flag;
+		flags &= ~(F::AllDirections | F::Above | F::Wall);
+		switch (mark) {
+			case 0: return flags | F::AllDirections;
+			case 2: return flags | F::AllDirections | F::Above;
+			case 3: return flags | F::Wall | F::Above;
+			default: return flags;
+		}
+	}
+}
+
 bool ChipsetEditor::press(const QPointF& pos, bool right_button) {
 	m_stroke.tile = -1;
 	const int index = tileAt(pos);
 	auto* passable = !m_chipset ? nullptr : m_lower ? &m_chipset->passable_data_lower : &m_chipset->passable_data_upper;
-	if (index < 0 || !passable || index >= static_cast<int>(passable->size())) {
+	if (!editable(index) || !passable || index >= static_cast<int>(passable->size())) {
 		return false;
 	}
 	uint8_t& flags = (*passable)[static_cast<size_t>(index)];
@@ -138,15 +194,9 @@ bool ChipsetEditor::press(const QPointF& pos, bool right_button) {
 				m_chipset->terrain_data[static_cast<size_t>(index)] = m_terrainId;
 			}
 			break;
-		case Mode::Passability: {
-			// passable -> blocked -> above the hero -> passable (backwards with the right button)
-			const int state = (flags & Above) ? 2 : ((flags & AllDirections) == 0 ? 1 : 0);
-			const int next = (state + (right_button ? 2 : 1)) % 3;
-			flags &= ~(AllDirections | Above);
-			if (next == 0) flags |= AllDirections;
-			if (next == 2) flags |= AllDirections | Above;
+		case Mode::Passability:
+			flags = cyclePassability(flags, right_button, m_lower, index);
 			break;
-		}
 		case Mode::Directions:
 			m_stroke.side = sideAt(pos, index);
 			flags ^= m_stroke.side;
@@ -164,7 +214,7 @@ bool ChipsetEditor::press(const QPointF& pos, bool right_button) {
 bool ChipsetEditor::drag(const QPointF& pos) {
 	const int index = tileAt(pos);
 	auto* passable = !m_chipset ? nullptr : m_lower ? &m_chipset->passable_data_lower : &m_chipset->passable_data_upper;
-	if (m_stroke.tile < 0 || index < 0 || index == m_stroke.tile || !passable
+	if (m_stroke.tile < 0 || !editable(index) || index == m_stroke.tile || !passable
 			|| index >= static_cast<int>(passable->size())) {
 		return false;
 	}
@@ -177,8 +227,12 @@ bool ChipsetEditor::drag(const QPointF& pos) {
 			}
 			break;
 		case Mode::Passability: {
-			const uint8_t mask = AllDirections | Above;
-			flags = (flags & ~mask) | (m_stroke.flags & mask);
+			// the mark of the tile clicked, on the tiles that can have it (the
+			// square: the autotiles of the lower layer)
+			const int mark = passability(m_stroke.flags);
+			if (mark != 3 || (m_lower && index >= 6 && index < 18)) {
+				flags = withPassability(flags, mark);
+			}
 			break;
 		}
 		case Mode::Directions:
@@ -216,10 +270,10 @@ bool ChipsetEditor::clearHover() {
 
 bool ChipsetEditor::updateHover() {
 	Hover hover;
-	// the tiles a click changes: no terrain on the upper layer
-	if (m_pointed && m_chipset && (m_lower || m_mode != Mode::Terrain)) {
+	// the tiles a click changes (not the first of the upper layer)
+	if (m_pointed && m_chipset && editable(tileAt(m_pointer))) {
 		hover.tile = tileAt(m_pointer);
-		if (hover.tile >= 0 && m_mode == Mode::Directions) {
+		if (m_mode == Mode::Directions) {
 			hover.side = sideAt(m_pointer, hover.tile);
 		}
 	}

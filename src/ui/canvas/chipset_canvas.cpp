@@ -226,9 +226,20 @@ QPointF ChipsetCanvas::tilePoint(const QPointF& pos) const
 void ChipsetCanvas::mousePressEvent(QMouseEvent* event)
 {
 	forceActiveFocus(Qt::MouseFocusReason);
+	const bool right_button = event->button() == Qt::RightButton;
+	// the right button in the Terrain mode takes the terrain of the tile, as
+	// RPG Maker does (the terrain list shows it), and changes nothing
+	if (right_button && m_editor.mode() == ChipsetEditor::Mode::Terrain) {
+		const int tile = m_editor.tileAt(tilePoint(event->position()));
+		if (m_editor.editable(tile)) {
+			emit terrainPicked(m_editor.terrain(tile));
+		}
+		event->accept();
+		return;
+	}
 	// a drag paints: the scrolled view around does not take it to scroll
 	setKeepMouseGrab(true);
-	if (m_editor.press(tilePoint(event->position()), event->button() == Qt::RightButton)) {
+	if (m_editor.press(tilePoint(event->position()), right_button)) {
 		changed();
 	}
 	event->accept();

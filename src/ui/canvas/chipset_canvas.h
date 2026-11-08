@@ -79,6 +79,8 @@ signals:
 	void lowerLayerChanged();
 	void modeChanged();
 	void terrainIdChanged();
+	/** A right click in the Terrain mode took the terrain of a tile (RPG Maker's) */
+	void terrainPicked(int terrainId);
 	void backgroundChanged();
 	/** A click or a drag changed tiles */
 	void edited();
