@@ -31,7 +31,7 @@ ChipsetCanvas::ChipsetCanvas(QQuickItem* parent) : QQuickPaintedItem(parent)
 	setAntialiasing(false);
 	setSmooth(false);
 	setAcceptedMouseButtons(Qt::LeftButton | Qt::RightButton);
-	// the tile under the pointer is lit (in the Directions mode, its side)
+	// the mark of the tile under the pointer is paler (in the Directions mode, its side yellow)
 	setAcceptHoverEvents(true);
 }
 
@@ -111,20 +111,6 @@ void ChipsetCanvas::setBackground(const QColor& color)
 	}
 }
 
-QColor ChipsetCanvas::highlight() const
-{
-	return m_highlight;
-}
-
-void ChipsetCanvas::setHighlight(const QColor& color)
-{
-	if (color != m_highlight) {
-		m_highlight = color;
-		emit highlightChanged();
-		render();
-	}
-}
-
 void ChipsetCanvas::findChipset()
 {
 	const DatabaseEntry found = DatabaseEntry::of(m_entry);
@@ -164,7 +150,7 @@ void ChipsetCanvas::render()
 	m_rendered = QImage(size, QImage::Format_ARGB32_Premultiplied);
 	m_rendered.fill(m_background);
 	QPainter painter(&m_rendered);
-	ChipsetEditorPainter::paint(painter, m_editor, m_graphic, m_highlight);
+	ChipsetEditorPainter::paint(painter, m_editor, m_graphic);
 	painter.end();
 	setImplicitSize(size.width(), size.height());
 	update();

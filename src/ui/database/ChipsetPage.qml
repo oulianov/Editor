@@ -87,7 +87,6 @@ DatabaseEntryPage {
                         mode: 1
                         terrainId: terrain.currentIndex >= 0 ? Number(terrain.currentValue) : 1
                         background: Kirigami.Theme.backgroundColor
-                        highlight: Kirigami.Theme.highlightColor
                         width: implicitWidth
                         height: implicitHeight
                     }
