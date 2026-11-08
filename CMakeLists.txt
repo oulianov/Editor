@@ -79,6 +79,8 @@ set(EDITOR_SOURCES
 	src/common/audio_player_midi.cpp
 	src/common/midi_synth.cpp
 	src/common/midi_synth.h
+	src/common/soundfont.cpp
+	src/common/soundfont.h
 	src/common/midi/midiprogram.h
 	src/common/midi/midisequencer.cpp
 	src/common/midi/midisequencer.h
@@ -244,6 +246,8 @@ set(EDITOR_SOURCES
 	src/model/project_search.h
 	src/model/project_settings.cpp
 	src/model/project_settings.h
+	src/model/project_soundfont.cpp
+	src/model/project_soundfont.h
 	src/model/search_results_model.cpp
 	src/model/search_results_model.h
 	src/model/search_suggestions.cpp
@@ -714,6 +718,21 @@ if(WIN32)
 	# MIDI on the MIDI device of Windows (its GS Wavetable Synth), as EasyRPG Player
 	target_sources(editor_core PRIVATE src/common/midiout_device_win32.cpp src/common/midiout_device_win32.h)
 	target_link_libraries(editor_core PUBLIC winmm)
+	# the soundfonts: FluidSynth built in (vcpkg's, static; vcpkg.json), as
+	# Windows has no FluidSynth of its own. Required with vcpkg (the packages);
+	# without it the Editor plays MIDI with the GS Wavetable Synth only
+	if(VCPKG_TOOLCHAIN)
+		find_package(FluidSynth CONFIG REQUIRED)
+	else()
+		find_package(FluidSynth CONFIG QUIET)
+	endif()
+	if(FluidSynth_FOUND)
+		target_link_libraries(editor_core PUBLIC FluidSynth::libfluidsynth)
+		target_compile_definitions(editor_core PRIVATE EDITOR_FLUIDSYNTH_LINKED)
+		message(STATUS "Soundfonts: FluidSynth ${FluidSynth_VERSION}, built in")
+	else()
+		message(WARNING "FluidSynth was not found: this Editor cannot play soundfonts (use the vcpkg presets)")
+	endif()
 endif()
 if(NOT MSVC)
 	# EasyRPG Player's FM synthesizer (MIDI where Qt Multimedia has none), kept as it is

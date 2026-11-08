@@ -16,7 +16,8 @@
  */
 
 // EasyRPG Editor: EasyRPG Player's src/platform/windows/midiout_device_win32.cpp,
-// with the MIDI mapper first and a timer of 1 ms while the device is open
+// with the MIDI mapper first, a timer of 1 ms while the device is open, and
+// the SysEx header given back by a reset when the device keeps it too long
 
 #ifdef _WIN32
 #include "midiout_device_win32.h"
@@ -96,7 +97,13 @@ void Win32MidiOutDevice::sysex(const uint8_t* data, std::size_t size) {
 	}
 	midiOutLongMsg(handle(midi_out), &hdr, sizeof(hdr));
 	// the header is on the stack, the data the caller's: kept until the device is done with them
-	for (int tries = 0; tries < 100 && midiOutUnprepareHeader(handle(midi_out), &hdr, sizeof(hdr)) == MIDIERR_STILLPLAYING; ++tries) {
+	for (int tries = 0; midiOutUnprepareHeader(handle(midi_out), &hdr, sizeof(hdr)) == MIDIERR_STILLPLAYING; ++tries) {
+		if (tries == 100) {
+			// still not done after 100 ms: the reset gives the buffers back (marked done), then they can go
+			midiOutReset(handle(midi_out));
+			midiOutUnprepareHeader(handle(midi_out), &hdr, sizeof(hdr));
+			break;
+		}
 		Sleep(1);
 	}
 }

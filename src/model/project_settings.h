@@ -22,10 +22,13 @@
 #include <QImage>
 #include <QMap>
 #include <QObject>
+#include <QSize>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
 #include <optional>
+
+#include "model/project_soundfont.h"
 
 class DialogService;
 class Project;
@@ -33,8 +36,9 @@ class Project;
 /**
  * The settings of a game, as Game Project > Project Settings edits them:
  * its folder and title (RPG Maker's Rename Project), the code page of its
- * texts, its engine and the font of its database, and what only EasyRPG
- * Player reads (the patches of EasyRPG.ini, the fonts of its Font folder).
+ * texts, its engine and the font of its database, and what EasyRPG Player
+ * reads (the patches of EasyRPG.ini, the size of the screen, the fonts of
+ * its Font folder, the game soundfont).
  *
  * The values are edited here, then write() puts them in the files of the
  * game. Closing the project first when its folder or code page changes,
@@ -76,6 +80,20 @@ class ProjectSettings : public QObject
 	Q_PROPERTY(bool detectAllowed READ detectAllowed NOTIFY iniChanged)
 	/** The keys of [Patch] the Editor does not show (AntiLagSwitch...) */
 	Q_PROPERTY(QStringList otherPatches READ otherPatches NOTIFY iniChanged)
+	/** easyrpg.soundfont: chosen and removed by the dialog, copied on its OK (before write()) */
+	Q_PROPERTY(ProjectSoundfont* soundfont READ soundfont CONSTANT)
+	/**
+	 * The size of the game's screen: WinW and WinH of RPG_RT.ini, read by
+	 * EasyRPG Player 0.8 and later and by the Maniac Patch. Empty (0 x 0)
+	 * when RPG_RT.ini has none: the player's choice, 320 x 240 or wider
+	 * (the Resolution setting of the Player).
+	 */
+	Q_PROPERTY(QSize screenSize READ screenSize WRITE setScreenSize NOTIFY screenChanged)
+	/**
+	 * FakeResolution of EasyRPG.ini ([Game]), the Player's Fake Metrics: a
+	 * map smaller than the screen in its middle, with black borders
+	 */
+	Q_PROPERTY(bool centerSmallMaps READ centerSmallMaps WRITE setCenterSmallMaps NOTIFY screenChanged)
 
 public:
 	/** How the patches are decided */
@@ -164,12 +182,19 @@ public:
 	/** The game is in an Asian code page: the Player draws it with other fonts */
 	bool cjkGame() const;
 
+	ProjectSoundfont* soundfont() const { return m_soundfont; }
+
 	/** EasyRPG.ini was edited (in the script editor): what it says now */
 	Q_INVOKABLE void readIni();
 	/** Opens EasyRPG.ini in the script editor (created if missing), for
 	 *  what is not shown; failures are told through dialogs */
 	bool openIni(DialogService& dialogs);
 	Q_INVOKABLE bool openIni();
+
+	QSize screenSize() const;
+	void setScreenSize(QSize size);
+	bool centerSmallMaps() const;
+	void setCenterSmallMaps(bool on);
 
 	/** Why the settings cannot be written (the folder name), else empty */
 	Q_INVOKABLE QString validate() const;
@@ -194,6 +219,7 @@ signals:
 	/** The patches shown changed: their values or the mode */
 	void patchesChanged();
 	void playerFontsChanged();
+	void screenChanged();
 	/** EasyRPG.ini and the players were read again */
 	void iniChanged();
 
@@ -231,6 +257,15 @@ private:
 	QMap<QString, int> m_written;
 	QStringList m_others;
 
+	/** The size of the screen as RPG_RT.ini says, and as chosen (unset: unchanged) */
+	QSize m_screenWritten;
+	std::optional<QSize> m_screenChoice;
+	/** FakeResolution as EasyRPG.ini says, and as chosen (unset: unchanged) */
+	bool m_centerWritten = false;
+	std::optional<bool> m_centerChoice;
+
 	/** Font files chosen for EasyRPG Player: empty for its own font; unset when unchanged */
 	std::optional<QString> m_fontChoice[2];
+
+	ProjectSoundfont* m_soundfont;
 };

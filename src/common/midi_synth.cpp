@@ -18,11 +18,16 @@
 #include "midi_synth.h"
 #include "common/logging.h"
 #include "midi/midisynth.h"
+#ifdef EDITOR_FLUIDSYNTH_LINKED
+#include <fluidsynth.h>
+#endif
 
+#include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
 #include <QLibrary>
 #include <QStringList>
+#include <cstdio>
 #include <mutex>
 #include <type_traits>
 #include <utility>
@@ -61,13 +66,13 @@ private:
 	std::vector<int_least32_t> m_mix;
 };
 
-#ifndef Q_OS_WIN
 /**
- * FluidSynth, loaded at run time when the system has it (libfluidsynth of
- * FluidSynth 2 or 3, Linux): the Editor needs it neither to build nor to
- * start, and plays with FmMidi without it, or without a soundfont.
- * Its synthesizers load the soundfont, which takes time: the last one used
- * is kept for the next file.
+ * FluidSynth: built in on Windows (vcpkg's, static), elsewhere the system's
+ * libfluidsynth (FluidSynth 2 or 3, Linux), loaded at run time: the Editor
+ * needs it neither to build nor to start there, and plays with FmMidi
+ * without it. The same functions either way.
+ * Its synthesizers load their soundfont, which takes time: the last ones
+ * used are kept for the next files.
  */
 class FluidLibrary {
 public:
@@ -75,6 +80,7 @@ public:
 	void* (*new_settings)() = nullptr;
 	void (*delete_settings)(void*) = nullptr;
 	int (*settings_setnum)(void*, const char*, double) = nullptr;
+	int (*settings_setint)(void*, const char*, int) = nullptr;
 	void* (*new_synth)(void*) = nullptr;
 	void (*delete_synth)(void*) = nullptr;
 	int (*sfload)(void*, const char*, int) = nullptr;
@@ -90,6 +96,7 @@ public:
 	int (*system_reset)(void*) = nullptr;
 	int (*write_float)(void*, int, void*, int, int, void*, int, int) = nullptr;
 	// not required
+	int (*set_interp_method)(void*, int, int) = nullptr;
 	int (*settings_dupstr)(void*, const char*, char**) = nullptr;
 	void (*fluid_free)(void*) = nullptr;
 	char* (*version_str)() = nullptr;
@@ -107,62 +114,130 @@ public:
 		void* settings = nullptr;
 		void* synth = nullptr;
 		int rate = 0;
+		// the file loaded, as it was: another one at its place is loaded again
+		QString soundfont;
+		QDateTime modified;
+		qint64 size = 0;
 	};
 
-	/** A synthesizer at this rate with the soundfont loaded, or none (then, the first time, logs why) */
-	Synth take(int rate) {
-		std::lock_guard lock(m_mutex);
-		if (m_idle.synth && m_idle.rate == rate) {
-			return std::exchange(m_idle, Synth());
-		}
-		if (m_noSoundfont) {
-			return Synth();
+	/** A synthesizer at this rate with the soundfont loaded, or none (error: why) */
+	Synth take(int rate, const QString& soundfont, std::string& error) {
+		const QFileInfo file(soundfont);
+		{
+			std::lock_guard lock(m_mutex);
+			for (auto it = m_idle.begin(); it != m_idle.end(); ++it) {
+				if (it->rate == rate && it->soundfont == soundfont && it->modified == file.lastModified() && it->size == file.size()) {
+					Synth kept = *it;
+					m_idle.erase(it);
+					return kept;
+				}
+			}
 		}
 		Synth made;
 		made.rate = rate;
+		made.soundfont = soundfont;
+		made.modified = file.lastModified();
+		made.size = file.size();
 		made.settings = new_settings();
 		if (!made.settings) {
+			error = "new_fluid_settings failed";
 			return Synth();
 		}
+		// as EasyRPG Player sets it (decoder_fluidsynth.cpp): as loud, as
+		// many voices, without reverb nor chorus, linear interpolation
 		settings_setnum(made.settings, "synth.sample-rate", rate);
-		// as loud as in the Player; its reverb and chorus stay
 		settings_setnum(made.settings, "synth.gain", 0.6);
+		settings_setint(made.settings, "synth.polyphony", 256);
+		settings_setint(made.settings, "synth.reverb.active", 0);
+		settings_setint(made.settings, "synth.chorus.active", 0);
+		settings_setint(made.settings, "synth.lock-memory", 0);
 		made.synth = new_synth(made.settings);
 		if (!made.synth) {
 			delete_settings(made.settings);
+			error = "new_fluid_synth failed";
 			return Synth();
 		}
-		const QStringList candidates = m_soundfont.isEmpty() ? soundfonts(made.settings) : QStringList{m_soundfont};
-		for (const QString& path : candidates) {
-			if (QFileInfo(path).isFile() && sfload(made.synth, QFile::encodeName(path).constData(), 1) != -1) {
-				if (m_soundfont.isEmpty()) {
-					m_soundfont = path;
-					qCInfo(lcAudio).noquote() << "MIDI: FluidSynth" << m_version << "with the soundfont" << path;
-				}
-				return made;
-			}
+#ifdef EDITOR_FLUIDSYNTH_LINKED
+		// the file read by Qt: the names of Windows in any script
+		fluid_sfloader_t* loader = new_fluid_defsfloader(static_cast<fluid_settings_t*>(made.settings));
+		fluid_sfloader_set_callbacks(loader, &fileOpen, &fileRead, &fileSeek, &fileTell, &fileClose);
+		fluid_synth_add_sfloader(static_cast<fluid_synth_t*>(made.synth), loader);
+		const QByteArray name = soundfont.toUtf8();
+#else
+		const QByteArray name = QFile::encodeName(soundfont);
+#endif
+		if (set_interp_method) {
+			set_interp_method(made.synth, -1, 1); // FLUID_INTERP_LINEAR
 		}
-		qCInfo(lcAudio).noquote() << "MIDI: FluidSynth" << m_version << "found, but no soundfont among"
-			<< candidates.join(QLatin1String(", ")) << "(EASYRPG_EDITOR_SOUNDFONT names one)";
-		m_noSoundfont = true;
-		release(made);
-		return Synth();
+		if (sfload(made.synth, name.constData(), 1) == -1) {
+			release(made);
+			error = "FluidSynth could not load it";
+			return Synth();
+		}
+		return made;
 	}
 
-	/** A synthesizer done with: kept for the next file, unless one is */
+	/** A synthesizer done with: kept for the next file (the last two) */
 	void giveBack(Synth used) {
 		all_sounds_off(used.synth, -1);
 		system_reset(used.synth);
 		std::lock_guard lock(m_mutex);
-		if (m_idle.synth) {
-			release(std::exchange(m_idle, used));
-		} else {
-			m_idle = used;
+		m_idle.push_back(used);
+		while (m_idle.size() > 2) {
+			release(m_idle.front());
+			m_idle.erase(m_idle.begin());
 		}
+	}
+
+	/** synth.default-soundfont: what the distribution built FluidSynth with (Fedora: /usr/share/soundfonts/default.sf2) */
+	std::string defaultSoundfont() {
+		std::string path;
+		void* settings = settings_dupstr ? new_settings() : nullptr;
+		char* value = nullptr;
+		if (settings && settings_dupstr(settings, "synth.default-soundfont", &value) == 0 && value) {
+			path = value;
+			if (fluid_free) {
+				fluid_free(value);
+			}
+		}
+		if (settings) {
+			delete_settings(settings);
+		}
+		return path;
 	}
 
 private:
 	FluidLibrary() {
+#ifdef EDITOR_FLUIDSYNTH_LINKED
+		// built in: the same functions, linked
+		auto link = [](auto& function, auto* linked) {
+			function = reinterpret_cast<std::remove_reference_t<decltype(function)>>(linked);
+		};
+		link(new_settings, &new_fluid_settings);
+		link(delete_settings, &delete_fluid_settings);
+		link(settings_setnum, &fluid_settings_setnum);
+		link(settings_setint, &fluid_settings_setint);
+		link(new_synth, &new_fluid_synth);
+		link(delete_synth, &delete_fluid_synth);
+		link(sfload, &fluid_synth_sfload);
+		link(noteon, &fluid_synth_noteon);
+		link(noteoff, &fluid_synth_noteoff);
+		link(cc, &fluid_synth_cc);
+		link(program_change, &fluid_synth_program_change);
+		link(channel_pressure, &fluid_synth_channel_pressure);
+		link(key_pressure, &fluid_synth_key_pressure);
+		link(pitch_bend, &fluid_synth_pitch_bend);
+		link(sysex, &fluid_synth_sysex);
+		link(all_sounds_off, &fluid_synth_all_sounds_off);
+		link(system_reset, &fluid_synth_system_reset);
+		link(write_float, &fluid_synth_write_float);
+		link(set_interp_method, &fluid_synth_set_interp_method);
+		link(settings_dupstr, &fluid_settings_dupstr);
+		link(fluid_free, &::fluid_free);
+		link(version_str, &fluid_version_str);
+		link(set_log_function, &fluid_set_log_function);
+		m_library.setFileName(QStringLiteral("FluidSynth"));
+#else
 		// FluidSynth 2.2 and later (libfluidsynth.so.3), then 2.0 and 2.1; all
 		// symbols resolved at once: a library missing some is not used at all
 		QString tried;
@@ -175,7 +250,7 @@ private:
 			tried += QLatin1String(tried.isEmpty() ? "" : "; ") + m_library.errorString();
 		}
 		if (!m_library.isLoaded()) {
-			qCInfo(lcAudio).noquote() << "MIDI: FluidSynth not found:" << tried;
+			qCInfo(lcAudio).noquote() << "MIDI: FluidSynth not found, soundfonts cannot be played:" << tried;
 			return;
 		}
 		bool all = true;
@@ -189,6 +264,7 @@ private:
 		resolve(new_settings, "new_fluid_settings");
 		resolve(delete_settings, "delete_fluid_settings");
 		resolve(settings_setnum, "fluid_settings_setnum");
+		resolve(settings_setint, "fluid_settings_setint");
 		resolve(new_synth, "new_fluid_synth");
 		resolve(delete_synth, "delete_fluid_synth");
 		resolve(sfload, "fluid_synth_sfload");
@@ -203,6 +279,7 @@ private:
 		resolve(all_sounds_off, "fluid_synth_all_sounds_off");
 		resolve(system_reset, "fluid_synth_system_reset");
 		resolve(write_float, "fluid_synth_write_float");
+		resolve(set_interp_method, "fluid_synth_set_interp_method", false);
 		resolve(settings_dupstr, "fluid_settings_dupstr", false);
 		resolve(fluid_free, "fluid_free", false);
 		resolve(version_str, "fluid_version_str", false);
@@ -210,6 +287,7 @@ private:
 		if (!all) {
 			return;
 		}
+#endif
 		m_version = version_str ? QString::fromLatin1(version_str()) : m_library.fileName();
 		if (set_log_function) {
 			// its warnings and information (a missing instrument...) on the terminal: only its errors stay
@@ -217,35 +295,32 @@ private:
 				set_log_function(level, nullptr, nullptr);
 			}
 		}
+		qCInfo(lcAudio).noquote() << "MIDI: FluidSynth" << m_version << "plays the soundfonts";
 		m_loaded = true;
 	}
 
-	/** Where the soundfonts of General MIDI are: the one chosen, the distribution's default, the usual files */
-	QStringList soundfonts(void* settings) const {
-		QStringList paths;
-		if (const QString chosen = qEnvironmentVariable("EASYRPG_EDITOR_SOUNDFONT"); !chosen.isEmpty()) {
-			paths << chosen;
-		}
-		// what the distribution built FluidSynth with (Fedora: /usr/share/soundfonts/default.sf2)
-		char* value = nullptr;
-		if (settings_dupstr && settings_dupstr(settings, "synth.default-soundfont", &value) == 0 && value) {
-			paths << QFile::decodeName(value);
-			if (fluid_free) {
-				fluid_free(value);
-			}
-		}
-		// Fedora and Arch, then Debian and Ubuntu (fluid-soundfont-gm, timgm6mb-soundfont, musescore-general-soundfont)
-		paths << QStringLiteral("/usr/share/soundfonts/default.sf2")
-			<< QStringLiteral("/usr/share/soundfonts/FluidR3_GM.sf2")
-			<< QStringLiteral("/usr/share/soundfonts/freepats-general-midi.sf2")
-			<< QStringLiteral("/usr/share/sounds/sf2/default-GM.sf2")
-			<< QStringLiteral("/usr/share/sounds/sf2/FluidR3_GM.sf2")
-			<< QStringLiteral("/usr/share/sounds/sf2/TimGM6mb.sf2")
-			<< QStringLiteral("/usr/share/sounds/sf3/default-GM.sf3")
-			<< QStringLiteral("/usr/local/share/soundfonts/default.sf2");
-		paths.removeDuplicates();
-		return paths;
+#ifdef EDITOR_FLUIDSYNTH_LINKED
+	// the soundfont's file, for FluidSynth's loader (FLUID_OK 0, FLUID_FAILED -1)
+	static void* fileOpen(const char* name) {
+		auto file = std::make_unique<QFile>(QString::fromUtf8(name));
+		return file->open(QIODevice::ReadOnly) ? file.release() : nullptr;
 	}
+	static int fileRead(void* buffer, fluid_long_long_t count, void* file) {
+		return static_cast<QFile*>(file)->read(static_cast<char*>(buffer), count) == count ? 0 : -1;
+	}
+	static int fileSeek(void* file, fluid_long_long_t offset, int origin) {
+		auto* f = static_cast<QFile*>(file);
+		const qint64 base = origin == SEEK_CUR ? f->pos() : origin == SEEK_END ? f->size() : 0;
+		return f->seek(base + offset) ? 0 : -1;
+	}
+	static fluid_long_long_t fileTell(void* file) {
+		return static_cast<QFile*>(file)->pos();
+	}
+	static int fileClose(void* file) {
+		delete static_cast<QFile*>(file);
+		return 0;
+	}
+#endif
 
 	void release(const Synth& synth) {
 		delete_synth(synth.synth);
@@ -256,9 +331,7 @@ private:
 	bool m_loaded = false;
 	QString m_version;
 	std::mutex m_mutex;
-	QString m_soundfont;
-	bool m_noSoundfont = false;
-	Synth m_idle;
+	std::vector<Synth> m_idle;
 };
 
 class FluidSynth final : public MidiSynth {
@@ -318,24 +391,30 @@ private:
 	FluidLibrary& m_library;
 	FluidLibrary::Synth m_synth;
 };
-#endif
 
 } // namespace
 
-std::unique_ptr<MidiSynth> MidiSynth::create(int sampleRate, bool allowFluidSynth) {
-#ifndef Q_OS_WIN
-	if (allowFluidSynth) {
-		FluidLibrary& library = FluidLibrary::instance();
-		if (library.loaded()) {
-			if (FluidLibrary::Synth synth = library.take(sampleRate); synth.synth) {
-				return std::make_unique<FluidSynth>(library, synth);
-			}
-		}
-	}
-#else
-	Q_UNUSED(allowFluidSynth)
-#endif
+std::unique_ptr<MidiSynth> MidiSynth::createFmMidi(int sampleRate) {
 	static std::once_flag logged;
 	std::call_once(logged, [] { qCInfo(lcAudio) << "MIDI: FmMidi synthesizer"; });
 	return std::make_unique<FmMidiSynth>(sampleRate);
+}
+
+bool MidiSynth::canPlaySoundfonts() {
+	return FluidLibrary::instance().loaded();
+}
+
+std::unique_ptr<MidiSynth> MidiSynth::createFluidSynth(int sampleRate, const std::string& soundfont, std::string& error) {
+	FluidLibrary& library = FluidLibrary::instance();
+	if (!library.loaded()) {
+		error = "FluidSynth is not there";
+		return nullptr;
+	}
+	FluidLibrary::Synth synth = library.take(sampleRate, QString::fromStdString(soundfont), error);
+	return synth.synth ? std::make_unique<FluidSynth>(library, synth) : nullptr;
+}
+
+std::string MidiSynth::fluidSynthDefaultSoundfont() {
+	FluidLibrary& library = FluidLibrary::instance();
+	return library.loaded() ? library.defaultSoundfont() : std::string();
 }

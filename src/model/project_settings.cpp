@@ -19,12 +19,15 @@
 #include "core.h"
 #include "common/exfont.h"
 #include "common/game_font.h"
+#include "common/ini_file.h"
 #include "common/rpg_rt_exe.h"
 #include "common/script_link.h"
 #include "controller/dialog_service.h"
+#include "defines.h"
 #include "model/game_patches.h"
 #include "model/project.h"
 #include "model/project_convert.h"
+#include "model/project_soundfont.h"
 
 #include <QCoreApplication>
 #include <QFile>
@@ -105,12 +108,48 @@ bool validFont(int font) {
 	return font == 0 || font == 1;
 }
 
+/**
+ * WinW and WinH of RPG_RT.ini as EasyRPG Player reads them (Player::Init):
+ * either one makes the size the game's, the other one 320 or 240; empty
+ * when there is neither
+ */
+QSize screenSizeOf(const Project& project) {
+	bool sized = false;
+	int width = 320;
+	int height = 240;
+	for (const auto& [key, value] : IniFile::read(project.findFileOrDefault(QStringLiteral(RM_INI)), "RPG_RT")) {
+		const bool is_width = key.trimmed().compare("WinW", Qt::CaseInsensitive) == 0;
+		if (!is_width && key.trimmed().compare("WinH", Qt::CaseInsensitive) != 0) {
+			continue;
+		}
+		sized = true;
+		bool ok = false;
+		const int pixels = value.trimmed().toInt(&ok, 0);
+		if (ok) {
+			(is_width ? width : height) = pixels;
+		}
+	}
+	return sized ? QSize(width, height) : QSize(0, 0);
+}
+
+/** FakeResolution of EasyRPG.ini, as the Player reads a yes or no */
+bool centerSmallMapsOf(const Project& project) {
+	for (const auto& [key, value] : IniFile::read(project.findFileOrDefault(QStringLiteral("EasyRPG.ini")), "Game")) {
+		if (key.trimmed().compare("FakeResolution", Qt::CaseInsensitive) == 0) {
+			const QByteArray text = value.trimmed().toLower();
+			return text == "1" || text == "true" || text == "yes" || text == "on";
+		}
+	}
+	return false;
+}
+
 } // namespace
 
 ProjectSettings::ProjectSettings(Project& project, bool open, QObject* parent) :
 	QObject(parent), m_project(project), m_open(open), m_folder(project.projectDir()), m_folderName(m_folder.dirName()),
 	m_initialTitle(project.gameTitle()), m_title(m_initialTitle),
-	m_encodingEditable(project.projectType() != FileFinder::ProjectType::EasyRpg)
+	m_encodingEditable(project.projectType() != FileFinder::ProjectType::EasyRpg),
+	m_soundfont(new ProjectSoundfont(m_folder.absolutePath(), this))
 {
 	// [EasyRPG] Encoding of RPG_RT.ini: a code page of the list, else as written
 	if (m_encodingEditable) {
@@ -135,6 +174,7 @@ ProjectSettings::ProjectSettings(Project& project, bool open, QObject* parent) :
 	m_chosen = m_written;
 	m_others = state.others;
 	m_patchMode = !state.chosen ? Detect : state.others.isEmpty() ? Choose : Refer;
+	m_screenWritten = screenSizeOf(project);
 	readIni();
 }
 
@@ -494,7 +534,9 @@ void ProjectSettings::readIni()
 	m_detected = GamePatches::detect(m_project);
 	m_written = state.chosen ? state.values : m_detected;
 	m_others = state.others;
+	m_centerWritten = centerSmallMapsOf(m_project);
 	emit iniChanged();
+	emit screenChanged();
 	if (!m_others.isEmpty()) {
 		// any key of [Patch] stops the detection of the Player
 		if (m_patchMode == Detect) {
@@ -502,6 +544,36 @@ void ProjectSettings::readIni()
 		}
 	}
 	emit patchesChanged();
+}
+
+QSize ProjectSettings::screenSize() const
+{
+	return m_screenChoice.value_or(m_screenWritten);
+}
+
+void ProjectSettings::setScreenSize(QSize size)
+{
+	// none, or a size the Player can show
+	if (size.width() <= 0 || size.height() <= 0) {
+		size = QSize(0, 0);
+	}
+	if (size != screenSize()) {
+		m_screenChoice = size;
+		emit screenChanged();
+	}
+}
+
+bool ProjectSettings::centerSmallMaps() const
+{
+	return m_centerChoice.value_or(m_centerWritten);
+}
+
+void ProjectSettings::setCenterSmallMaps(bool on)
+{
+	if (on != centerSmallMaps()) {
+		m_centerChoice = on;
+		emit screenChanged();
+	}
 }
 
 bool ProjectSettings::openIni(DialogService& dialogs)
@@ -576,6 +648,21 @@ QString ProjectSettings::write(Project& project) const
 		: m_patchMode == Detect && state.chosen;
 	if (patches_changed && !GamePatches::write(project, m_patchMode == Choose ? std::optional(m_chosen) : std::nullopt)) {
 		return QCoreApplication::translate("ProjectSettingsDialog", "The patches could not be written in EasyRPG.ini.");
+	}
+	// the size of the screen: both keys, or none (the player's choice)
+	if (m_screenChoice && *m_screenChoice != screenSizeOf(project)) {
+		const QSize size = *m_screenChoice;
+		const std::optional<QByteArray> width = size.isEmpty() ? std::nullopt : std::optional(QByteArray::number(size.width()));
+		const std::optional<QByteArray> height = size.isEmpty() ? std::nullopt : std::optional(QByteArray::number(size.height()));
+		if (!IniFile::write(project.findFileOrDefault(QStringLiteral(RM_INI)), "RPG_RT", {{"WinW", width}, {"WinH", height}})) {
+			return QCoreApplication::translate("ProjectSettingsDialog", "The size of the screen could not be written in RPG_RT.ini.");
+		}
+	}
+	if (m_centerChoice && *m_centerChoice != centerSmallMapsOf(project)) {
+		const std::optional<QByteArray> value = *m_centerChoice ? std::optional(QByteArray("1")) : std::nullopt;
+		if (!IniFile::write(project.findFileOrDefault(QStringLiteral("EasyRPG.ini")), "Game", {{"FakeResolution", value}}, false, false)) {
+			return QCoreApplication::translate("ProjectSettingsDialog", "FakeResolution could not be written in EasyRPG.ini.");
+		}
 	}
 	// the fonts of the Player: the old file to the trash, the new one copied
 	for (int font = 0; font < 2; ++font) {

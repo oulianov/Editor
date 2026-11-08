@@ -18,13 +18,21 @@
 // AVAudioEngine playback for macOS (compiled with -fobjc-arc).
 // Sampled files: AVAudioFile (Core Audio's decoders) -> player node -> varispeed
 // (tempo changes the pitch too, like RPG Maker) -> a mixer for the balance.
-// MIDI: AVAudioSequencer -> Apple's DLS synth, which uses the system's GS sound
-// bank (gs_instruments.dls); the sequencer's rate changes the tempo only.
+// MIDI: AVAudioSequencer -> Apple's DLS synth, with the first soundfont of the
+// plan it loads (SF2, as a sound bank), else the system's GS sound bank
+// (gs_instruments.dls); the sequencer's rate changes the tempo only. Its
+// length is the Player's (midiFileDuration): AVMusicTrack's is not.
 // The engine stays from file to file, open() replacing the nodes of the file:
 // the output goes on, quicker than a new engine for each file.
 
 #include "audio_backend.h"
+#include "soundfont.h"
 
+#include <QCoreApplication>
+#include <QCryptographicHash>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <algorithm>
 #include <cstdint>
 #include <limits>
@@ -46,6 +54,8 @@ QString describe(NSError* error) {
 
 /** Where a MIDI file starts: seconds before its first note */
 constexpr Float64 kMidiLeadIn = 0.05;
+/** How long the last notes of a MIDI file sound after its end (their release), before it is over */
+constexpr qint64 kMidiTailMs = 750;
 
 /**
  * Where a MIDI file starts, and what comes before (in beats).
@@ -148,6 +158,31 @@ MidiStart findMidiStart(NSURL* url) {
 	return start;
 }
 
+/**
+ * The soundfont as Apple's synthesizer reads it: a file named .sf2 (it takes
+ * any other name for a DLS bank, and aborts on it: easyrpg.soundfont), a
+ * link in the temporary folder when it is not; empty when it cannot be made
+ */
+QString sf2Named(const QString& soundfont) {
+	const QFileInfo file(soundfont);
+	if (file.suffix().compare(QLatin1String("sf2"), Qt::CaseInsensitive) == 0) {
+		return soundfont;
+	}
+	QDir links(QDir::temp().filePath(QStringLiteral("easyrpg-editor-soundfonts")));
+	if (!links.mkpath(QStringLiteral("."))) {
+		return {};
+	}
+	const QByteArray key = QCryptographicHash::hash(file.absoluteFilePath().toUtf8(), QCryptographicHash::Sha1).toHex();
+	const QString link = links.filePath(QString::fromLatin1(key) + QStringLiteral(".sf2"));
+	if (QFileInfo(link).symLinkTarget() != file.absoluteFilePath()) {
+		QFile::remove(link);
+		if (!QFile::link(file.absoluteFilePath(), link)) {
+			return {};
+		}
+	}
+	return link;
+}
+
 class AppleAudioBackend final : public AudioBackend {
 public:
 	~AppleAudioBackend() override {
@@ -164,6 +199,8 @@ public:
 
 	bool canReopen() const override { return true; }
 
+	void setMidiPlan(const MidiPlan& plan) override { m_plan = plan; }
+
 	bool open(const QString& path, bool midi, QString& error) override {
 		unload();
 		m_midi = midi;
@@ -179,14 +216,12 @@ public:
 			}
 
 			if (midi) {
-				// a new synth for each file: no note, program or controller of the last one stays
-				AudioComponentDescription desc = {};
-				desc.componentType = kAudioUnitType_MusicDevice;
-				desc.componentSubType = kAudioUnitSubType_DLSSynth;
-				desc.componentManufacturer = kAudioUnitManufacturer_Apple;
-				m_synth = [[AVAudioUnitMIDIInstrument alloc] initWithAudioComponentDescription:desc];
-				[m_engine attachNode:m_synth];
-				[m_engine connect:m_synth to:m_mixer format:nil];
+				// a new synth for each file: no note, program or controller of the last one
+				// stays (a soundfont loads its samples as they are played: quick)
+				if (!attachSynth(error)) {
+					unload();
+					return false;
+				}
 
 				// one sequencer loading each file: releasing a sequencer after another one
 				// is made on the same engine stops the new one
@@ -206,7 +241,11 @@ public:
 				MidiStart start = findMidiStart(url);
 				m_startBeat = start.beat;
 				m_setup = std::move(start.setup);
-				m_durationMs = static_cast<qint64>(length * 1000);
+				// as the Player's tempo map says (the tracks' length can be twice as long)
+				m_durationMs = midiFileDuration(path);
+				if (m_durationMs <= 0) {
+					m_durationMs = static_cast<qint64>(length * 1000);
+				}
 				m_loopStartMs = static_cast<qint64>([m_sequencer secondsForBeats:start.loopBeat] * 1000);
 				m_startMs = static_cast<qint64>([m_sequencer secondsForBeats:m_startBeat] * 1000);
 			} else {
@@ -326,9 +365,9 @@ public:
 		m_fromStart = false;
 	}
 
-	void setGain(float gain) override {
+	void setVolume(float volume, float fade) override {
 		if (m_engine) {
-			m_engine.mainMixerNode.outputVolume = gain;
+			m_engine.mainMixerNode.outputVolume = linearGain(volume) * fade;
 		}
 	}
 
@@ -348,6 +387,37 @@ public:
 	}
 
 	qint64 position() const override {
+		return std::clamp<qint64>(playedMs(), 0, m_durationMs);
+	}
+
+	qint64 duration() const override {
+		return m_durationMs;
+	}
+
+	qint64 loopStart() const override {
+		return m_loopStartMs;
+	}
+
+	bool finished() const override {
+		// the node and the sequencer go on playing silence after the end; the
+		// last notes of a MIDI file fade out first
+		return m_playing && m_durationMs > 0 && playedMs() >= m_durationMs + (m_midi ? kMidiTailMs : 0);
+	}
+
+	Synth synth() const override {
+		if (!m_synth) {
+			return Synth::None;
+		}
+		return m_soundfont.isEmpty() ? Synth::System : Synth::Soundfont;
+	}
+
+	QString soundfont() const override { return m_soundfont; }
+
+	QList<QPair<QString, QString>> takeFailures() override { return std::exchange(m_failures, {}); }
+
+private:
+	/** Where it plays, past the end too */
+	qint64 playedMs() const {
 		if (!m_playing) {
 			return m_heldMs;
 		}
@@ -364,23 +434,66 @@ public:
 			}
 			ms = static_cast<qint64>(frame * 1000 / m_sampleRate);
 		}
-		return std::clamp<qint64>(ms, 0, m_durationMs);
+		return std::max<qint64>(ms, 0);
 	}
 
-	qint64 duration() const override {
-		return m_durationMs;
+	/** Apple's DLS synthesizer for a MIDI file in the engine, with the first soundfont of the plan it loads */
+	bool attachSynth(QString& error) {
+		AudioComponentDescription desc = {};
+		desc.componentType = kAudioUnitType_MusicDevice;
+		desc.componentSubType = kAudioUnitSubType_DLSSynth;
+		desc.componentManufacturer = kAudioUnitManufacturer_Apple;
+		m_soundfont.clear();
+		for (const QString& soundfont : m_plan.soundfonts) {
+			// compressed samples: not Apple's
+			if (Soundfonts::instance().info(soundfont).compressed) {
+				m_failures.append({soundfont, QCoreApplication::translate("AudioPlayer", "Apple's synthesizer cannot play compressed SF3 soundfonts")});
+				continue;
+			}
+			const QString named = sf2Named(soundfont);
+			if (named.isEmpty()) {
+				m_failures.append({soundfont, QCoreApplication::translate("AudioPlayer", "Apple's synthesizer could not read it")});
+				continue;
+			}
+			AVAudioUnitMIDIInstrument* synth = [[AVAudioUnitMIDIInstrument alloc] initWithAudioComponentDescription:desc];
+			CFURLRef bank = (__bridge CFURLRef)[NSURL fileURLWithPath:named.toNSString()];
+			const OSStatus status = AudioUnitSetProperty(synth.audioUnit, kMusicDeviceProperty_SoundBankURL,
+				kAudioUnitScope_Global, 0, &bank, sizeof(bank));
+			if (status != noErr) {
+				m_failures.append({soundfont, QCoreApplication::translate("AudioPlayer", "Apple's synthesizer refused it (error %1)").arg(status)});
+				continue;
+			}
+			// a bank it cannot read throws as it is connected
+			if (connectSynth(synth)) {
+				m_soundfont = soundfont;
+				return true;
+			}
+			m_failures.append({soundfont, QCoreApplication::translate("AudioPlayer", "Apple's synthesizer could not read it")});
+		}
+		if (!m_plan.systemSynth) {
+			error = m_plan.soundfonts.isEmpty() ? QStringLiteral("no soundfont")
+				: QStringLiteral("the soundfont could not be loaded");
+			return false;
+		}
+		if (!connectSynth([[AVAudioUnitMIDIInstrument alloc] initWithAudioComponentDescription:desc])) {
+			error = QStringLiteral("Apple's synthesizer could not be started");
+			return false;
+		}
+		return true;
 	}
 
-	qint64 loopStart() const override {
-		return m_loopStartMs;
+	bool connectSynth(AVAudioUnitMIDIInstrument* synth) {
+		[m_engine attachNode:synth];
+		@try {
+			[m_engine connect:synth to:m_mixer format:nil];
+		} @catch (NSException*) {
+			[m_engine detachNode:synth];
+			return false;
+		}
+		m_synth = synth;
+		return true;
 	}
 
-	bool finished() const override {
-		// the node and the sequencer go on playing silence after the end
-		return m_playing && m_durationMs > 0 && position() >= m_durationMs;
-	}
-
-private:
 	bool loaded() const {
 		return m_synth || m_file;
 	}
@@ -436,6 +549,7 @@ private:
 			[m_engine detachNode:m_varispeed];
 		}
 		m_synth = nil;
+		m_soundfont.clear();
 		m_node = nil;
 		m_varispeed = nil;
 		m_file = nil;
@@ -463,7 +577,10 @@ private:
 	double m_sampleRate = 44100;
 	bool m_scheduled = false;
 
-	// MIDI
+	// MIDI, and the soundfont its synth plays (empty: the system's bank)
+	MidiPlan m_plan;
+	QString m_soundfont;
+	QList<QPair<QString, QString>> m_failures;
 	AVAudioUnitMIDIInstrument* m_synth = nil;
 	AVAudioSequencer* m_sequencer = nil;
 	AVMusicTimeStamp m_startBeat = 0;

@@ -18,6 +18,7 @@
 #include "audio_player.h"
 #include "audio_backend.h"
 #include "common/logging.h"
+#include "soundfont.h"
 
 #include <QAudio>
 #include <QAudioOutput>
@@ -35,8 +36,8 @@ namespace {
  * "qt" plays on macOS as on Linux (Qt Multimedia, and MIDI with FluidSynth
  * when found, else FmMidi); "fmmidi" does the same with FmMidi for MIDI on
  * every system (on Windows, instead of its MIDI device).
- * EASYRPG_EDITOR_SOUNDFONT names the soundfont FluidSynth tries first
- * (midi_synth.cpp).
+ * EASYRPG_EDITOR_SOUNDFONT is the Editor default soundfont while Settings
+ * has none (soundfont.h).
  */
 QString backendOverride() {
 	return qEnvironmentVariable("EASYRPG_EDITOR_AUDIO_BACKEND").toLower();
@@ -65,7 +66,7 @@ public:
 	void stop() override { m_player.stop(); }
 	void seek(qint64 ms) override { m_player.setPosition(ms); }
 
-	void setGain(float gain) override { m_output.setVolume(gain); }
+	void setVolume(float volume, float fade) override { m_output.setVolume(linearGain(volume) * fade); }
 	void setPan(float) override {}
 	void setRate(float rate) override { m_player.setPlaybackRate(rate); }
 	bool canPan() const override { return false; }
@@ -94,6 +95,10 @@ private:
 	QMediaPlayer m_player;
 };
 
+}
+
+float AudioBackend::linearGain(float volume) {
+	return QtAudio::convertVolume(volume, QtAudio::LogarithmicVolumeScale, QtAudio::LinearVolumeScale);
 }
 
 AudioPlayer::AudioPlayer(QObject* parent) : QObject(parent) {
@@ -132,12 +137,23 @@ bool AudioPlayer::play(const QString& path) {
 	const bool midi = isMidi(path);
 	const QString fileName = QFileInfo(path).fileName();
 	const QString forced = backendOverride();
+	// MIDI: the soundfonts to try, as the Player would for the project open
+	MidiPlan plan;
+	if (midi) {
+		plan = Soundfonts::instance().plan(static_cast<Soundfonts::Source>(m_soundfontChoice), m_soundfontFile);
+		if (forced == QLatin1String("fmmidi")) {
+			plan = MidiPlan{{}, false};
+		}
+	}
 	QString error;
 #ifdef Q_OS_MACOS
-	if (forced.isEmpty()) {
+	// Apple's synthesizer plays the soundfonts and its own bank, not FmMidi
+	if (forced.isEmpty() && (!midi || plan.systemSynth || !plan.soundfonts.isEmpty())) {
 		m_backend = previous ? std::move(previous) : createAppleAudioBackend();
+		m_backend->setMidiPlan(plan);
 		if (!m_backend->open(path, midi, error)) {
 			qCWarning(lcAudio).noquote() << "AVAudioEngine cannot play" << fileName << ":" << error;
+			updateSynth();
 			m_backend.reset();
 		}
 	}
@@ -145,7 +161,7 @@ bool AudioPlayer::play(const QString& path) {
 	previous.reset();
 	// Qt Multimedia has no synthesizer: the Editor's
 	if (!m_backend) {
-		m_backend = midi ? createMidiAudioBackend(forced == QLatin1String("fmmidi")) : std::make_unique<QtMediaBackend>();
+		m_backend = midi ? createMidiAudioBackend(plan) : std::make_unique<QtMediaBackend>();
 		if (!m_backend->open(path, midi, error)) {
 			fail(tr("%1 cannot be played: %2").arg(fileName, error));
 			return false;
@@ -170,6 +186,7 @@ bool AudioPlayer::play(const QString& path) {
 		qCDebug(lcAudio).noquote() << "Audio:" << m_backend->name() << "plays" << fileName;
 	}
 	setState(State::Playing);
+	updateSynth();
 	tick();
 	return true;
 }
@@ -259,6 +276,78 @@ bool AudioPlayer::canPan() const {
 	return !m_backend || m_backend->canPan();
 }
 
+void AudioPlayer::setSoundfontChoice(int choice) {
+	if (choice == m_soundfontChoice) {
+		return;
+	}
+	m_soundfontChoice = choice;
+	emit soundfontChoiceChanged();
+	replayMidi();
+}
+
+void AudioPlayer::setSoundfontFile(const QString& file) {
+	if (file == m_soundfontFile) {
+		return;
+	}
+	m_soundfontFile = file;
+	emit soundfontChoiceChanged();
+	if (m_soundfontChoice == Soundfonts::File) {
+		replayMidi();
+	}
+}
+
+void AudioPlayer::replayMidi() {
+	if (!m_backend || !isMidi(m_path) || m_state == State::Stopped) {
+		return;
+	}
+	const qint64 position = m_backend->position();
+	const bool paused = m_state == State::Paused;
+	if (!play(m_path)) {
+		return;
+	}
+	// where it was, without its fade-in again
+	m_started.invalidate();
+	applyGain();
+	setPosition(position);
+	if (paused) {
+		pause();
+	}
+}
+
+void AudioPlayer::updateSynth() {
+	Soundfonts& soundfonts = Soundfonts::instance();
+	int source = Soundfonts::Automatic;
+	QString soundfont;
+	if (m_backend) {
+		for (const auto& [path, why] : m_backend->takeFailures()) {
+			soundfonts.markFailed(path, why);
+		}
+		switch (m_backend->synth()) {
+			case AudioBackend::Synth::Soundfont:
+				soundfont = m_backend->soundfont();
+				source = m_soundfontChoice == Soundfonts::File ? Soundfonts::File
+					: soundfont == soundfonts.path(Soundfonts::Game) ? Soundfonts::Game
+					: soundfont == soundfonts.path(Soundfonts::EditorDefault) ? Soundfonts::EditorDefault
+					: soundfont == soundfonts.path(Soundfonts::System) ? Soundfonts::System : Soundfonts::File;
+				break;
+			case AudioBackend::Synth::System:
+				source = Soundfonts::Platform;
+				break;
+			case AudioBackend::Synth::FmMidi:
+				source = Soundfonts::BuiltIn;
+				break;
+			case AudioBackend::Synth::None:
+				break;
+		}
+	}
+	if (source != m_synthSource || soundfont != m_synthSoundfont) {
+		m_synthSource = source;
+		m_synthSoundfont = soundfont;
+		qCDebug(lcAudio).noquote() << "MIDI:" << Soundfonts::sourceName(static_cast<Soundfonts::Source>(source)) << soundfont;
+		emit synthChanged();
+	}
+}
+
 void AudioPlayer::setState(State state) {
 	if (state == State::Playing) {
 		m_timer.start();
@@ -287,12 +376,12 @@ void AudioPlayer::applyGain() {
 	if (!m_backend) {
 		return;
 	}
-	// the slider is perceptual, the outputs are linear
-	float gain = QtAudio::convertVolume(m_volume / 100.0f, QtAudio::LogarithmicVolumeScale, QtAudio::LinearVolumeScale);
+	// the volume and the fade separately: MIDI scales its channels with them as the Player
+	float fade = 1;
 	if (m_fadeIn > 0 && m_started.isValid() && m_started.elapsed() < m_fadeIn) {
-		gain *= static_cast<float>(m_started.elapsed()) / m_fadeIn;
+		fade = static_cast<float>(m_started.elapsed()) / m_fadeIn;
 	}
-	m_backend->setGain(gain);
+	m_backend->setVolume(m_volume / 100.0f, fade);
 }
 
 void AudioPlayer::tick() {
@@ -303,9 +392,10 @@ void AudioPlayer::tick() {
 		fail(tr("%1 cannot be played: %2").arg(QFileInfo(m_path).fileName(), error));
 		return;
 	}
-	if (m_fadeIn > 0 && m_started.elapsed() <= m_fadeIn + m_timer.interval()) {
+	if (m_fadeIn > 0 && m_started.isValid() && m_started.elapsed() <= m_fadeIn + m_timer.interval()) {
 		applyGain();
 	}
+	updateSynth();
 	if (const qint64 length = m_backend->duration(); length != m_lastDuration) {
 		m_lastDuration = length;
 		emit durationChanged(length);

@@ -7,6 +7,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import QtQuick.Dialogs as Dialogs
+import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
 /**
@@ -23,7 +24,10 @@ Ez.DialogWindow {
     // the table of the RTP folders: a path beside its marks
     preferredWidth: 470
     // not closed while the Player or the RTP is downloaded for it
-    acceptable: !download.busy && !rtpDownload.busy
+    acceptable: !download.busy && !rtpDownload.busy && soundfontRefusal === ""
+
+    /** Why the MIDI soundfont typed or chosen is refused, empty when it is none or an SF2 */
+    readonly property string soundfontRefusal: Ez.Soundfonts.refusal(soundfontPath.text.trim())
 
     /**
      * The RTP folders as edited, written on OK: {path, exists, engine,
@@ -166,6 +170,7 @@ Ez.DialogWindow {
         rtpTable.currentIndex = rtpRows.length > 0 ? 0 : -1
         playerPath.text = Ez.Editor.playerPath
         scriptEditor.text = Ez.Editor.scriptEditor
+        soundfontPath.text = Ez.Soundfonts.editorDefaultSetting()
         animateTiles.checked = Ez.Editor.animateTiles
         commandColors.checked = Ez.Editor.commandColors
         commandStripes.checked = Ez.Editor.commandStripes
@@ -185,6 +190,7 @@ Ez.DialogWindow {
         const cache = searchCache.checked
         const player = playerPath.text.trim()
         const editor = scriptEditor.text.trim()
+        const soundfont = soundfontPath.text.trim()
         const animate = animateTiles.checked
         const colors = commandColors.checked
         const stripes = commandStripes.checked
@@ -203,6 +209,9 @@ Ez.DialogWindow {
         }
         Ez.Editor.playerPath = player
         Ez.Editor.scriptEditor = editor
+        if (soundfont !== Ez.Soundfonts.editorDefaultSetting()) {
+            Ez.Soundfonts.setEditorDefault(soundfont)
+        }
         Ez.Editor.animateTiles = animate
         Ez.Editor.commandColors = colors
         Ez.Editor.commandStripes = stripes
@@ -474,6 +483,38 @@ Ez.DialogWindow {
                     }
                 }
             }
+            // the soundfont of MIDI music when the game has none, as a
+            // player's own; test play gives it to the Player
+            Ez.FormLabel {
+                text: qsTr("MIDI soundfont")
+            }
+            Ez.PathField {
+                id: soundfontPath
+                fieldName: "lineSoundfont"
+                placeholderText: qsTr("None")
+                toolTip: qsTr("An SF2 file: the Editor plays MIDI music with it when the game has no soundfont, "
+                    + "and test play gives it to the Player. None: a soundfont of the system, else its synthesizer.")
+                menu: Controls.Menu {
+                    Controls.MenuItem {
+                        objectName: "chooseSoundfont"
+                        text: qsTr("Choose...")
+                        onTriggered: soundfontDialog.open()
+                    }
+                    Controls.MenuItem {
+                        objectName: "noSoundfont"
+                        text: qsTr("None")
+                        enabled: soundfontPath.text !== ""
+                        onTriggered: soundfontPath.text = ""
+                    }
+                }
+            }
+        }
+        // refused: OK waits for another file, or none
+        Ez.Note {
+            objectName: "labelSoundfontRefused"
+            visible: root.soundfontRefusal !== ""
+            text: root.soundfontRefusal
+            color: Kirigami.Theme.negativeTextColor
         }
         Ez.DownloadBar {
             download: download
@@ -588,5 +629,14 @@ Ez.DialogWindow {
     Ez.MessageDialog {
         id: notProgram
         title: qsTranslate("RunGameDialog", "Test Play")
+    }
+    Dialogs.FileDialog {
+        id: soundfontDialog
+        title: qsTr("MIDI Soundfont")
+        nameFilters: [qsTranslate("ProjectSettingsDialog", "Soundfonts (*.sf2 *.sf3 *.soundfont)"),
+            qsTranslate("ProjectSettingsDialog", "All files (*)")]
+        currentFolder: Ez.Editor.url(soundfontPath.text.trim() !== ""
+            ? soundfontPath.text.trim().substring(0, soundfontPath.text.trim().lastIndexOf("/")) : "")
+        onAccepted: soundfontPath.text = Ez.Editor.localPath(selectedFile)
     }
 }

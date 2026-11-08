@@ -26,6 +26,8 @@
 #define TESTPLAY_SHOW_TITLE_KEY "testplay_show_title"
 /** The zoom of the Player's window (0: the Player's own size), see GameRunner::displayOptions */
 #define TESTPLAY_WINDOW_ZOOM_KEY "testplay_window_zoom"
+/** Test play leaves MIDI music to the Player's own soundfont setting (no --soundfont) */
+#define TESTPLAY_PLAYER_SOUNDFONT_KEY "testplay_player_soundfont"
 
 /**
  * Starts the EasyRPG Player on the open project: test play, from a map
@@ -61,6 +63,14 @@ public:
 	 * settings and the Test Play Options give the same options.
 	 */
 	static QStringList displayOptions(bool fullscreen, int window_zoom);
+
+	/**
+	 * The soundfont test play gives the Player (--soundfont, before the
+	 * player's own setting): the game soundfont, else the Editor default,
+	 * when it is an SF2; empty when there is none, or when the test play
+	 * settings leave it to the Player's own setting.
+	 */
+	static QString testPlaySoundfont();
 
 	/** The options of a test play from a map position (Start Game Here) */
 	static QStringList hereOptions(int map_id, int x, int y);

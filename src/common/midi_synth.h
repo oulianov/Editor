@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 /**
  * Where the MIDI backend (audio_player_midi.cpp) sends the messages of a MIDI
@@ -42,18 +43,25 @@ public:
 };
 
 /**
- * A software synthesizer: FluidSynth with a General MIDI soundfont when the
- * system has both (Linux), else FmMidi, EasyRPG Player's FM synthesizer
- * (src/common/midi), which needs nothing
+ * A software synthesizer: FluidSynth with a soundfont (SF2), or FmMidi,
+ * EasyRPG Player's FM synthesizer (src/common/midi), which needs nothing
  */
 class MidiSynth : public MidiOutput {
 public:
 	/** Writes frames of stereo (interleaved, -1 to 1) into the buffer */
 	virtual void render(float* buffer, int frames) = 0;
 
+	/** FmMidi at this sample rate */
+	static std::unique_ptr<MidiSynth> createFmMidi(int sampleRate);
+	/** FluidSynth is there: built in (Windows), else the system's libfluidsynth (the first time, the log says) */
+	static bool canPlaySoundfonts();
 	/**
-	 * A synthesizer at this sample rate: FluidSynth when allowed and found
-	 * with a soundfont (the first time, the log says which and why), else FmMidi
+	 * FluidSynth at this sample rate with the soundfont (UTF-8 path), as
+	 * the Player sets it (no reverb nor chorus); null when it cannot load
+	 * it (error says why). Loading takes time: away from the interface's
+	 * thread. The last synthesizers used are kept for the next files.
 	 */
-	static std::unique_ptr<MidiSynth> create(int sampleRate, bool allowFluidSynth);
+	static std::unique_ptr<MidiSynth> createFluidSynth(int sampleRate, const std::string& soundfont, std::string& error);
+	/** The soundfont the system's FluidSynth was built with (synth.default-soundfont, UTF-8), empty when none */
+	static std::string fluidSynthDefaultSoundfont();
 };

@@ -68,6 +68,7 @@ TestPlayOptions::TestPlayOptions(const ProjectData& project, QObject* parent) :
 	const QSettings settings;
 	m_fullscreen = settings.value(TESTPLAY_FULLSCREEN_KEY, false).toBool();
 	m_windowZoom = std::clamp(settings.value(TESTPLAY_WINDOW_ZOOM_KEY, 0).toInt(), 0, GameRunner::MaxWindowZoom);
+	m_playerSoundfont = settings.value(TESTPLAY_PLAYER_SOUNDFONT_KEY, false).toBool();
 
 	// the zooms of the Player's window (its Window Zoom setting), as the sizes they make
 	const QSize screen = screenSize(project);
@@ -189,4 +190,9 @@ QStringList TestPlayOptions::arguments() const
 void TestPlayOptions::saveWindowZoom() const
 {
 	QSettings().setValue(TESTPLAY_WINDOW_ZOOM_KEY, m_windowZoom);
+}
+
+void TestPlayOptions::savePlayerSoundfont() const
+{
+	QSettings().setValue(TESTPLAY_PLAYER_SOUNDFONT_KEY, m_playerSoundfont);
 }

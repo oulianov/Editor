@@ -183,6 +183,10 @@ signals:
 	/** The view of a map scrolls a cell to its middle */
 	void centerRequested(int map, int x, int y);
 
+private slots:
+	/** The Jukebox's Use as Game Soundfont: Project Settings with the file chosen */
+	void useAsGameSoundfont(const QString& file) { projectSettings(file); }
+
 private:
 	void connectController();
 	void connectTabs();
@@ -206,7 +210,8 @@ private:
 	void placeTeleport(int map, const QPoint& cell);
 
 	// the actions
-	void projectSettings();
+	/** soundfont: a file chosen as the game soundfont (the Jukebox), copied on OK */
+	void projectSettings(const QString& soundfont = QString());
 	void exportGame();
 	void openDatabase();
 	void openSearch();

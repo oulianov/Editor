@@ -28,11 +28,13 @@ class AudioBackend;
  * Plays one music or sound file of a game with RPG Maker's settings (volume,
  * tempo, balance, fade-in), for the previews of the pickers and the Jukebox.
  *
- * On macOS, AVAudioEngine plays WAV, MP3, OGG, Opus... and MIDI with the
- * system's sound bank; elsewhere (or for what it cannot read) QMediaPlayer
- * plays what the Qt Multimedia backend can decode, and MIDI plays with a
- * software synthesizer through QAudioSink (createMidiAudioBackend). The log
- * (category editor.audio) tells which plays, and why a file cannot.
+ * On macOS, AVAudioEngine plays WAV, MP3, OGG, Opus... and MIDI with Apple's
+ * synthesizer; elsewhere (or for what it cannot read) QMediaPlayer plays
+ * what the Qt Multimedia backend can decode, and MIDI plays with a software
+ * synthesizer through QAudioSink (createMidiAudioBackend). MIDI uses the
+ * soundfont EasyRPG Player would use for the project open (Soundfonts),
+ * unless soundfontChoice says otherwise. The log (category editor.audio)
+ * tells which plays, and why a file cannot.
  *
  * In QML (Ez.AudioPlayer) its properties and play(path), play(), pause()
  * and stop() are the same.
@@ -50,6 +52,14 @@ class AudioPlayer : public QObject {
 	Q_PROPERTY(int balance READ balance WRITE setBalance NOTIFY settingsChanged)
 	Q_PROPERTY(int fadeIn READ fadeIn WRITE setFadeIn NOTIFY settingsChanged)
 	Q_PROPERTY(bool looping READ isLooping WRITE setLooping NOTIFY settingsChanged)
+	/** What plays MIDI (a Soundfonts::Source): Automatic, or one compared in the Jukebox */
+	Q_PROPERTY(int soundfontChoice READ soundfontChoice WRITE setSoundfontChoice NOTIFY soundfontChoiceChanged)
+	/** The soundfont of the choice File */
+	Q_PROPERTY(QString soundfontFile READ soundfontFile WRITE setSoundfontFile NOTIFY soundfontChoiceChanged)
+	/** What plays the MIDI file loaded (a Soundfonts::Source); Automatic while not known (not MIDI, a soundfont loading) */
+	Q_PROPERTY(int synthSource READ synthSource NOTIFY synthChanged)
+	/** The soundfont that plays it, empty for a synthesizer's own instruments */
+	Q_PROPERTY(QString synthSoundfont READ synthSoundfont NOTIFY synthChanged)
 
 public:
 	enum class State {
@@ -97,6 +107,14 @@ public:
 	/** Whether the balance is applied to the file loaded (not by QMediaPlayer) */
 	bool canPan() const;
 
+	int soundfontChoice() const { return m_soundfontChoice; }
+	/** A MIDI file playing restarts where it is with the new choice */
+	void setSoundfontChoice(int choice);
+	QString soundfontFile() const { return m_soundfontFile; }
+	void setSoundfontFile(const QString& file);
+	int synthSource() const { return m_synthSource; }
+	QString synthSoundfont() const { return m_synthSoundfont; }
+
 	static bool isMidi(const QString& path);
 
 signals:
@@ -108,12 +126,18 @@ signals:
 	void fileChanged();
 	/** The volume, the tempo, the balance, the fade-in or the loop */
 	void settingsChanged();
+	void soundfontChoiceChanged();
+	void synthChanged();
 
 private:
 	void setState(State state);
 	void fail(const QString& message);
 	void applyGain();
 	void tick();
+	/** The choice changed: a MIDI file playing restarts where it is */
+	void replayMidi();
+	/** What plays, as the backend tells; the soundfonts it could not load are skipped from now on */
+	void updateSynth();
 
 	std::unique_ptr<AudioBackend> m_backend;
 	QString m_path;
@@ -129,4 +153,9 @@ private:
 	int m_balance = 50;
 	int m_fadeIn = 0;
 	bool m_looping = false;
+
+	int m_soundfontChoice = 0;
+	QString m_soundfontFile;
+	int m_synthSource = 0;
+	QString m_synthSoundfont;
 };

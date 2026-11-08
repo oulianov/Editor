@@ -27,12 +27,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "midisequencer.h"
 
-// EasyRPG Editor: from EasyRPG Player, whose Output is the log of the Editor
+// EasyRPG Editor: from EasyRPG Player, whose Output is the log of the Editor:
+// each warning once a file (a damaged file repeats them thousands of times)
 #include "common/logging.h"
+#include <set>
 namespace Output {
-    static void Warning(const char* text){ qCWarning(lcAudio, "%s", text); }
-    static void Warning(const char*, const char* text){ qCWarning(lcAudio, "Midi sequencer: %s", text); }
-    static void Debug(const char* text){ qCDebug(lcAudio, "%s", text); }
+    static std::set<const char*> said;
+    static bool first(const char* text){ return said.insert(text).second; }
+    static void Reset(){ said.clear(); }
+    static void Warning(const char* text){ if(first(text)) qCWarning(lcAudio, "%s", text); }
+    static void Warning(const char*, const char* text){ if(first(text)) qCWarning(lcAudio, "Midi sequencer: %s", text); }
+    static void Debug(const char* text){ if(first(text)) qCDebug(lcAudio, "%s", text); }
 }
 
 #include <cassert>
@@ -95,6 +100,7 @@ namespace midisequencer{
     {
         bool result = false;
         clear();
+        Output::Reset(); // EasyRPG Editor
         int b0 = fgetc(fp);
         int b1 = fgetc(fp);
         int b2 = fgetc(fp);

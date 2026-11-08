@@ -40,6 +40,7 @@
 #include "model/map_tree_model.h"
 #include "model/project.h"
 #include "model/project_settings.h"
+#include "model/project_soundfont.h"
 #include "model/test_play_options.h"
 #include "database_windows.h"
 #include "qml_engine.h"
@@ -393,9 +394,11 @@ void QmlShell::trigger(const QString& name, bool checked)
 		openDatabase();
 	else if (is("actionResourceManager"))
 		ResourceWindows::resourceManager(m_window);
-	else if (is("actionJukebox"))
+	else if (is("actionJukebox")) {
 		// one window, kept between openings
-		ResourceWindows::jukebox(m_window);
+		if (QQuickWindow* jukebox = ResourceWindows::jukebox(m_window))
+			connect(jukebox, SIGNAL(useAsGameSoundfont(QString)), this, SLOT(useAsGameSoundfont(QString)), Qt::UniqueConnection);
+	}
 	else if (is("actionSearch"))
 		openSearch();
 	else if (is("actionSettings")) {
@@ -766,13 +769,15 @@ void QmlShell::setStatusMessage(const QString& text, int timeout)
  * The actions
  */
 
-void QmlShell::projectSettings()
+void QmlShell::projectSettings(const QString& soundfont)
 {
 	auto project = core().project();
 	if (!project)
 		return;
 	const QDir folder = project->projectDir();
 	ProjectSettings settings(*project, true);
+	if (!soundfont.isEmpty())
+		settings.soundfont()->choose(soundfont);
 	if (QmlHost::exec(QStringLiteral("ProjectSettingsWindow"), m_window,
 			{{QStringLiteral("settings"), QVariant::fromValue(&settings)}}) != QmlHost::Accepted)
 		return;

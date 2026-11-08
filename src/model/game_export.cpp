@@ -16,6 +16,7 @@
  */
 
 #include "game_export.h"
+#include "common/soundfont.h"
 #include "defines.h"
 #include "export_files.h"
 #include "export_references.h"
@@ -531,6 +532,40 @@ bool GameExporter::prepare()
 	}
 	if (m_source.rtp.isEmpty() && !missing.isEmpty()) {
 		log(tr("No RTP folder in the settings: the RTP files cannot be added."), Warning);
+	}
+
+	// the MIDI music: with the game soundfont (exported with the game files), else the players' own
+	if (const QString soundfont = Soundfonts::gameSoundfont(dir.absolutePath()); !soundfont.isEmpty()) {
+		const SoundfontInfo info = SoundfontInfo::read(soundfont);
+		const QString name = QFileInfo(soundfont).fileName();
+		if (!info.valid()) {
+			log(tr("%1: %2. Choose another soundfont or remove it in Project Settings.").arg(name, info.error), Error);
+			return false;
+		}
+		log(tr("Game soundfont: %1, %2. Players hear the MIDI music with it, unless they chose a soundfont of their own.")
+			.arg(name, SoundfontInfo::sizeText(info.size)));
+	} else {
+		bool midi = false;
+		for (auto f = refs.files.constBegin(); f != refs.files.constEnd() && !midi; ++f) {
+			if (f.key().compare(QStringLiteral("Music"), Qt::CaseInsensitive) != 0) {
+				continue;
+			}
+			for (const QString& name : f.value()) {
+				QString file = game.find(f.key(), name);
+				for (size_t i = 0; file.isEmpty() && i < rtps.size(); ++i) {
+					file = rtps[i].find(f.key(), name);
+				}
+				const QString suffix = QFileInfo(file).suffix().toLower();
+				if (suffix == QLatin1String("mid") || suffix == QLatin1String("midi")) {
+					midi = true;
+					break;
+				}
+			}
+		}
+		if (midi) {
+			log(tr("No game soundfont: players hear the MIDI music with their own soundfont or synthesizer "
+				"(Project Settings > EasyRPG Player > Soundfont)."));
+		}
 	}
 
 	// RPG_RT.ini: the title, and no RTP needed

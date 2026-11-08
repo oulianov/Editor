@@ -27,7 +27,12 @@
 //   from the Player's audio_generic_midiout.cpp);
 // - a software synthesizer, whose audio QAudioSink pulls (PulseAudio or
 //   PipeWire, WASAPI, Core Audio), the sequencer moving on with the frames
-//   made (PcmDriver): Linux, and Windows when its device is busy or fails.
+//   made (PcmDriver): FluidSynth for a soundfont, loaded away from the
+//   interface while the music waits; FmMidi on Linux without one, and on
+//   Windows when its device is busy or fails.
+// The audio is made ahead of what is heard (the buffer of the output): the
+// position is the one of the frames played, and a file ends once its last
+// notes faded out (kTail).
 
 #include "audio_backend.h"
 #include "audio_player.h"
@@ -44,12 +49,15 @@
 #include <QAudioSink>
 #include <QFile>
 #include <QFileInfo>
+#include <QFuture>
 #include <QMediaDevices>
+#include <QtConcurrent>
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <deque>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -60,12 +68,19 @@ namespace {
 
 /** Frames between two passes of the sequencer: ~1.5 ms, the Player's resolution */
 constexpr int kStep = 64;
+/** How long the last notes of a file sound after its end (their release), before it is over */
+constexpr qint64 kTailUs = 750'000;
+/** Reads past the end of a file before it is damaged: a last track declared a little too long plays, as in the Player */
+constexpr int kReadsPastEnd = 64 * 1024;
 
 uint32_t controlChange(uint32_t channel, uint32_t controller, uint32_t value) {
 	return 0xB0 | (channel & 0x0F) | (controller << 8) | (value << 16);
 }
 
-/** The bytes of the file for the sequencer, which reads on forever past the end of a damaged one */
+/**
+ * The bytes of the file for the sequencer, which reads on forever past the
+ * end of a damaged one (a track without its end): stopped after kReadsPastEnd
+ */
 struct FileReader {
 	struct PastTheEnd {};
 
@@ -78,7 +93,7 @@ struct FileReader {
 		if (self->next < self->bytes.size()) {
 			return static_cast<unsigned char>(self->bytes[self->next++]);
 		}
-		if (++self->pastEnd > 8) {
+		if (++self->pastEnd > kReadsPastEnd) {
 			throw PastTheEnd();
 		}
 		return EOF;
@@ -88,8 +103,8 @@ struct FileReader {
 /**
  * A MIDI file played: the sequencer, where it is, and what the Player
  * changes in the messages for RPG Maker's settings. The drivers move it on
- * from their threads: all but position(), duration(), loopStart() and
- * finished() with mutex() held.
+ * from their threads: all but position(), duration(), loopStart(), ended()
+ * and afterEnd() with mutex() held.
  */
 class MidiSequence final : private midisequencer::output {
 public:
@@ -131,19 +146,32 @@ public:
 	}
 
 	/** Where the messages go from now on (none: nowhere) */
-	void setOutput(MidiOutput* output) { m_output = output; }
+	void setOutput(MidiOutput* output) {
+		m_output = output;
+		// moved while the messages went nowhere: the programs and controllers on the way there, now
+		if (m_output && m_unsent) {
+			m_unsent = false;
+			m_sequencer.rewind();
+			m_sequencer.set_time(std::chrono::microseconds(static_cast<qint64>(m_timeUs)), this);
+		}
+	}
 	MidiOutput* output() const { return m_output; }
 
 	/** Moves on by some time (at the normal tempo), around the loop (the Player's UpdateMidi) */
 	void update(std::chrono::microseconds delta) {
-		if (m_paused || !m_output || m_finished) {
+		if (m_paused || !m_output) {
+			return;
+		}
+		if (m_ended) {
+			// the last notes fade out
+			m_afterEndUs += delta.count();
 			return;
 		}
 		m_timeUs += static_cast<double>(delta.count()) * m_pitch;
 		m_sequencer.play(std::chrono::microseconds(static_cast<qint64>(m_timeUs)), this);
 		if (m_sequencer.is_at_end()) {
 			if (!m_looping) {
-				m_finished = true;
+				m_ended = true;
 			} else if (m_loopUs < m_totalUs) {
 				m_timeUs = static_cast<double>(m_sequencer.rewind_to_loop()->time.count());
 			} else {
@@ -194,6 +222,7 @@ public:
 		allSoundOff();
 		m_paused = true;
 		m_sequencer.rewind();
+		m_unsent = false;
 		jumped(m_startUs);
 	}
 
@@ -203,6 +232,10 @@ public:
 		allSoundOff();
 		// the programs, controllers and pitch bends on the way there, without the notes
 		m_sequencer.set_time(std::chrono::microseconds(timeUs), this);
+		if (!m_output) {
+			// sent once it has an output
+			m_unsent = true;
+		}
 		jumped(timeUs);
 	}
 
@@ -217,7 +250,10 @@ public:
 	qint64 position() const { return m_positionMs; }
 	qint64 duration() const { return m_totalUs / 1000; }
 	qint64 loopStart() const { return m_loopUs / 1000; }
-	bool finished() const { return m_finished; }
+	/** The messages of a file not looping are over; its sound goes on a little */
+	bool ended() const { return m_ended; }
+	/** Since the end, in the time update() was given */
+	qint64 afterEndUs() const { return m_afterEndUs; }
 
 private:
 	void send(uint32_t message) {
@@ -228,7 +264,8 @@ private:
 
 	void jumped(qint64 timeUs) {
 		m_timeUs = static_cast<double>(timeUs);
-		m_finished = false;
+		m_ended = false;
+		m_afterEndUs = 0;
 		m_positionMs = timeUs / 1000;
 	}
 
@@ -321,12 +358,15 @@ private:
 	int m_balance = 50;
 	bool m_looping = false;
 	bool m_paused = true;
+	// moved without an output: what comes before is sent once it has one
+	bool m_unsent = false;
 	// as the file sets them
 	std::array<uint8_t, 16> m_channelVolumes;
 	std::array<uint8_t, 16> m_channelPans;
 
 	std::atomic<qint64> m_positionMs = 0;
-	std::atomic<bool> m_finished = false;
+	std::atomic<bool> m_ended = false;
+	std::atomic<qint64> m_afterEndUs = 0;
 };
 
 /**
@@ -367,15 +407,48 @@ private:
 
 /**
  * The audio of a software synthesizer, made as the output reads it: the
- * sequence moves on with the frames made, in steps of kStep. The output may
- * read from another thread than the interface's.
+ * sequence moves on with the frames made, in steps of kStep. Silent while
+ * it has no synthesizer yet (a soundfont loads): the music waits. The
+ * output may read from another thread than the interface's; all with the
+ * mutex of the sequence held.
  */
 class PcmDriver final : public QIODevice {
 public:
-	PcmDriver(MidiSequence& sequence, std::unique_ptr<MidiSynth> synth, const QAudioFormat& format)
-		: m_sequence(sequence), m_synth(std::move(synth)), m_format(format) {}
+	PcmDriver(MidiSequence& sequence, const QAudioFormat& format) : m_sequence(sequence), m_format(format) {}
 
 	MidiSynth* synth() const { return m_synth.get(); }
+	void setSynth(std::shared_ptr<MidiSynth> synth) { m_synth = std::move(synth); }
+
+	/** No frame made yet: the output starts */
+	void restart() {
+		m_made = 0;
+		m_marks.clear();
+		m_endFrame = -1;
+	}
+
+	/** The sequence jumped: the next frames made are there */
+	void jumped() {
+		m_marks.clear();
+		m_marks.push_back({m_made, m_sequence.position()});
+		m_endFrame = -1;
+	}
+
+	/** Where the file is in the frame played (counted from the start of the output) */
+	qint64 positionAt(qint64 played) const {
+		if (m_marks.empty()) {
+			return m_sequence.position();
+		}
+		// the last frames made before it; the first when it is older (a jump not heard yet)
+		auto after = std::upper_bound(m_marks.begin(), m_marks.end(), played, [](qint64 frame, const Mark& mark) {
+			return frame < mark.frame;
+		});
+		return after == m_marks.begin() ? after->positionMs : std::prev(after)->positionMs;
+	}
+
+	/** The end of the file was played, and its last notes faded out */
+	bool finishedAt(qint64 played) const {
+		return m_endFrame >= 0 && played >= m_endFrame + kTailUs * m_format.sampleRate() / 1'000'000;
+	}
 
 	bool isSequential() const override { return true; }
 	// endless, for the outputs that read only what is available (WASAPI)
@@ -389,15 +462,27 @@ protected:
 			return 0;
 		}
 		std::lock_guard lock(m_sequence.mutex());
-		m_buffer.resize(static_cast<std::size_t>(frames) * 2);
+		m_buffer.assign(static_cast<std::size_t>(frames) * 2, 0.0f);
 		for (int done = 0; done < frames; done += kStep) {
 			const int step = std::min(kStep, frames - done);
-			// the time of the frames, without losing the fractions of microseconds
-			m_carryUs += step * 1'000'000.0 / m_format.sampleRate();
-			const auto whole = static_cast<qint64>(m_carryUs);
-			m_carryUs -= static_cast<double>(whole);
-			m_sequence.update(std::chrono::microseconds(whole));
-			m_synth->render(m_buffer.data() + done * 2, step);
+			if (m_synth) {
+				// the time of the frames, without losing the fractions of microseconds
+				m_carryUs += step * 1'000'000.0 / m_format.sampleRate();
+				const auto whole = static_cast<qint64>(m_carryUs);
+				m_carryUs -= static_cast<double>(whole);
+				m_sequence.update(std::chrono::microseconds(whole));
+				m_synth->render(m_buffer.data() + done * 2, step);
+			}
+			if (m_endFrame < 0 && m_sequence.ended()) {
+				m_endFrame = m_made + step;
+			}
+			m_marks.push_back({m_made, m_sequence.position()});
+			m_made += step;
+		}
+		// what the output may still play: two seconds (its buffer is a fifth of one)
+		const qint64 kept = m_made - 2 * m_format.sampleRate();
+		while (m_marks.size() > 1 && m_marks[1].frame < kept) {
+			m_marks.pop_front();
 		}
 		auto* floats = reinterpret_cast<float*>(data);
 		auto* shorts = reinterpret_cast<int16_t*>(data);
@@ -416,11 +501,22 @@ protected:
 	qint64 writeData(const char*, qint64) override { return -1; }
 
 private:
+	/** The frames from this one on are at this position of the file */
+	struct Mark {
+		qint64 frame;
+		qint64 positionMs;
+	};
+
 	MidiSequence& m_sequence;
-	std::unique_ptr<MidiSynth> m_synth;
+	std::shared_ptr<MidiSynth> m_synth;
 	const QAudioFormat m_format;
 	std::vector<float> m_buffer;
 	double m_carryUs = 0;
+	// frames made since the output started, and where the file was in them
+	qint64 m_made = 0;
+	std::deque<Mark> m_marks;
+	// where the file ended, -1 before
+	qint64 m_endFrame = -1;
 };
 
 /** Stereo at the rate of the output, in floats or 16-bit integers: what it takes */
@@ -479,9 +575,16 @@ std::unique_ptr<MidiOutput> openSystemMidiOutput() {
 /** A backend has the MIDI device of the system: one at a time (the interface's thread only) */
 bool systemMidiOutputInUse = false;
 
+/** A soundfont loaded by FluidSynth, away from the interface: the first of the plan that loads */
+struct LoadedSoundfont {
+	std::shared_ptr<MidiSynth> synth;
+	QString soundfont;
+	QList<QPair<QString, QString>> failures;
+};
+
 class MidiAudioBackend final : public AudioBackend {
 public:
-	explicit MidiAudioBackend(bool fmMidiOnly) : m_fmMidiOnly(fmMidiOnly) {}
+	explicit MidiAudioBackend(const MidiPlan& plan) : m_plan(plan) {}
 
 	~MidiAudioBackend() override {
 		stopOutput();
@@ -550,13 +653,15 @@ public:
 	void seek(qint64 ms) override {
 		std::lock_guard lock(m_sequence.mutex());
 		m_sequence.seek(ms);
+		if (m_pcm) {
+			m_pcm->jumped();
+		}
 	}
 
-	void setGain(float gain) override {
-		// the volume of RPG Maker's slider, as the Player scales the channels with it
-		const float volume = QtAudio::convertVolume(gain, QtAudio::LinearVolumeScale, QtAudio::LogarithmicVolumeScale);
+	void setVolume(float volume, float fade) override {
+		// the channels scaled, as the Player does with the volume and its fade (SetFade)
 		std::lock_guard lock(m_sequence.mutex());
-		m_sequence.setVolume(volume);
+		m_sequence.setVolume(volume * fade);
 	}
 
 	void setPan(float pan) override {
@@ -574,10 +679,25 @@ public:
 		m_sequence.setLooping(looping);
 	}
 
-	qint64 position() const override { return m_sequence.position(); }
+	qint64 position() const override {
+		if (!playsPcm()) {
+			return m_sequence.position();
+		}
+		std::lock_guard lock(m_sequence.mutex());
+		return m_pcm->positionAt(playedFrames());
+	}
+
 	qint64 duration() const override { return m_sequence.duration(); }
 	qint64 loopStart() const override { return m_sequence.loopStart(); }
-	bool finished() const override { return m_sequence.finished(); }
+
+	bool finished() const override {
+		if (!playsPcm()) {
+			// the device plays the messages as they are sent: the tail after them
+			return m_sequence.ended() && m_sequence.afterEndUs() >= kTailUs;
+		}
+		std::lock_guard lock(m_sequence.mutex());
+		return m_pcm->finishedAt(playedFrames());
+	}
 
 	QString error() const override {
 		if (!m_error.isEmpty() || !m_sink || m_device) {
@@ -594,6 +714,20 @@ public:
 		}
 	}
 
+	Synth synth() const override {
+		if (m_device) {
+			return Synth::System;
+		}
+		if (!m_pcm || !m_pcm->synth()) {
+			return Synth::None;
+		}
+		return m_soundfont.isEmpty() ? Synth::FmMidi : Synth::Soundfont;
+	}
+
+	QString soundfont() const override { return m_soundfont; }
+
+	QList<QPair<QString, QString>> takeFailures() override { return std::exchange(m_failures, {}); }
+
 private:
 	enum class State {
 		Stopped,
@@ -601,50 +735,139 @@ private:
 		Paused
 	};
 
+	bool playsPcm() const {
+		return m_pcm && m_sink && !m_device && m_state != State::Stopped;
+	}
+
+	/** Frames played by the output since it started */
+	qint64 playedFrames() const {
+		return m_sink->processedUSecs() * m_format.sampleRate() / 1'000'000;
+	}
+
 	/**
-	 * Where it plays from the start: the device of the system when it has one
-	 * and no other file plays on it (as the Player plays only its music on it,
-	 * and the rest with its synthesizer), else a synthesizer
+	 * Where it plays from the start: the soundfonts of the plan with
+	 * FluidSynth (the music waits while it loads); else the device of the
+	 * system when allowed and no other file plays on it (as the Player plays
+	 * only its music on it, and the rest with its synthesizer); else FmMidi
 	 */
 	bool startOutput() {
-		if (!m_fmMidiOnly && !systemMidiOutputInUse) {
-			m_device = openSystemMidiOutput();
-		} else if (!m_fmMidiOnly) {
-			qCDebug(lcAudio).noquote() << "MIDI: the MIDI device plays another file, FmMidi plays" << m_fileName;
-		}
-		if (m_device) {
-			systemMidiOutputInUse = true;
-			{
-				std::lock_guard lock(m_sequence.mutex());
-				m_sequence.setOutput(m_device.get());
+		if (!m_plan.soundfonts.isEmpty() && !m_triedSoundfonts && MidiSynth::canPlaySoundfonts()) {
+			if (!startPcm()) {
+				return false;
 			}
-			m_deviceDriver = std::make_unique<DeviceDriver>(m_sequence);
+			if (!m_pcm->synth()) {
+				loadSoundfont();
+			}
 			return true;
 		}
+		if (m_plan.systemSynth && startDevice()) {
+			return true;
+		}
+		if (!startPcm()) {
+			return false;
+		}
+		if (!m_pcm->synth()) {
+			std::lock_guard lock(m_sequence.mutex());
+			m_pcm->setSynth(MidiSynth::createFmMidi(m_format.sampleRate()));
+			m_sequence.setOutput(m_pcm->synth());
+		}
+		return true;
+	}
 
+	bool startDevice() {
+		if (systemMidiOutputInUse) {
+			qCDebug(lcAudio).noquote() << "MIDI: the MIDI device plays another file, FmMidi plays" << m_fileName;
+			return false;
+		}
+		m_device = openSystemMidiOutput();
+		if (!m_device) {
+			return false;
+		}
+		systemMidiOutputInUse = true;
+		{
+			std::lock_guard lock(m_sequence.mutex());
+			m_sequence.setOutput(m_device.get());
+		}
+		m_deviceDriver = std::make_unique<DeviceDriver>(m_sequence);
+		return true;
+	}
+
+	/** The output of the software synthesizers started, with the synthesizer it has (none while one loads) */
+	bool startPcm() {
 		if (!m_pcm) {
 			const QAudioDevice device = QMediaDevices::defaultAudioOutput();
 			if (device.isNull()) {
 				m_error = AudioPlayer::tr("No audio output was found.");
 				return false;
 			}
-			const QAudioFormat format = outputFormat(device);
-			// the device of the system is not here: FluidSynth, else FmMidi
-			m_pcm = std::make_unique<PcmDriver>(m_sequence, MidiSynth::create(format.sampleRate(), !m_fmMidiOnly), format);
+			m_format = outputFormat(device);
+			m_pcm = std::make_unique<PcmDriver>(m_sequence, m_format);
 			m_pcm->open(QIODevice::ReadOnly | QIODevice::Unbuffered);
-			m_sink = std::make_unique<QAudioSink>(device, format);
+			m_sink = std::make_unique<QAudioSink>(device, m_format);
 			// a fifth of a second ahead: enough while the interface is busy, and
 			// the volume and the jumps are heard soon
-			m_sink->setBufferSize(format.bytesForDuration(200'000));
-			qCDebug(lcAudio).noquote() << "MIDI:" << m_pcm->synth()->name() << "to" << device.description()
-				<< format.sampleRate() << "Hz" << (format.sampleFormat() == QAudioFormat::Float ? "float" : "16-bit");
+			m_sink->setBufferSize(m_format.bytesForDuration(200'000));
+			qCDebug(lcAudio).noquote() << "MIDI: to" << device.description() << m_format.sampleRate() << "Hz"
+				<< (m_format.sampleFormat() == QAudioFormat::Float ? "float" : "16-bit");
 		}
 		{
 			std::lock_guard lock(m_sequence.mutex());
+			m_pcm->restart();
 			m_sequence.setOutput(m_pcm->synth());
 		}
 		m_sink->start(m_pcm.get());
 		return true;
+	}
+
+	/** The first soundfont of the plan that FluidSynth loads, away from the interface */
+	void loadSoundfont() {
+		if (m_loading) {
+			return;
+		}
+		m_loading = true;
+		const QStringList soundfonts = m_plan.soundfonts;
+		const int rate = m_format.sampleRate();
+		QtConcurrent::run([soundfonts, rate] {
+			LoadedSoundfont loaded;
+			for (const QString& path : soundfonts) {
+				std::string why;
+				if (std::unique_ptr<MidiSynth> synth = MidiSynth::createFluidSynth(rate, path.toStdString(), why)) {
+					loaded.synth = std::move(synth);
+					loaded.soundfont = path;
+					break;
+				}
+				qCDebug(lcAudio).noquote() << "MIDI: FluidSynth:" << QString::fromStdString(why);
+				loaded.failures.append({path, AudioPlayer::tr("FluidSynth could not load it")});
+			}
+			return loaded;
+		}).then(&m_context, [this](LoadedSoundfont loaded) {
+			soundfontLoaded(std::move(loaded));
+		});
+	}
+
+	void soundfontLoaded(LoadedSoundfont loaded) {
+		m_loading = false;
+		m_triedSoundfonts = true;
+		m_failures += loaded.failures;
+		for (const auto& [path, why] : loaded.failures) {
+			qCWarning(lcAudio).noquote() << "MIDI: the soundfont" << path << "cannot be played:" << why;
+		}
+		if (!loaded.synth) {
+			// none loads: the device of the system, else FmMidi
+			if (m_state != State::Stopped && m_plan.systemSynth && startDevice()) {
+				m_sink->stop();
+				return;
+			}
+			loaded.synth = MidiSynth::createFmMidi(m_format.sampleRate());
+		} else {
+			qCDebug(lcAudio).noquote() << "MIDI: FluidSynth with" << loaded.soundfont << "plays" << m_fileName;
+		}
+		m_soundfont = loaded.soundfont;
+		std::lock_guard lock(m_sequence.mutex());
+		m_pcm->setSynth(std::move(loaded.synth));
+		if (m_state != State::Stopped) {
+			m_sequence.setOutput(m_pcm->synth());
+		}
 	}
 
 	/** The output given back: the device closed (as the Player's Reset), the audio stopped */
@@ -665,20 +888,39 @@ private:
 		}
 	}
 
-	bool m_fmMidiOnly;
+	MidiPlan m_plan;
 	QString m_fileName;
 	QString m_error;
 	State m_state = State::Stopped;
 	// read by the outputs: destroyed after them
-	MidiSequence m_sequence;
+	mutable MidiSequence m_sequence;
 	std::unique_ptr<MidiOutput> m_device;
 	std::unique_ptr<DeviceDriver> m_deviceDriver;
+	QAudioFormat m_format;
 	std::unique_ptr<PcmDriver> m_pcm;
 	std::unique_ptr<QAudioSink> m_sink;
+	// the soundfont: loading, loaded (or none of the plan could be), which
+	bool m_loading = false;
+	bool m_triedSoundfonts = false;
+	QString m_soundfont;
+	QList<QPair<QString, QString>> m_failures;
+	// the loading of the soundfont tells only a backend still there
+	QObject m_context;
 };
 
 } // namespace
 
-std::unique_ptr<AudioBackend> createMidiAudioBackend(bool fmMidiOnly) {
-	return std::make_unique<MidiAudioBackend>(fmMidiOnly);
+std::unique_ptr<AudioBackend> createMidiAudioBackend(const MidiPlan& plan) {
+	return std::make_unique<MidiAudioBackend>(plan);
+}
+
+qint64 midiFileDuration(const QString& path) {
+	QFile file(path);
+	if (!file.open(QIODevice::ReadOnly)) {
+		return 0;
+	}
+	MidiSequence sequence;
+	QString error;
+	std::lock_guard lock(sequence.mutex());
+	return sequence.load(file.readAll(), error) ? sequence.duration() : 0;
 }

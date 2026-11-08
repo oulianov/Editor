@@ -13,6 +13,10 @@
             "features": ["qtquick"]
         },
         "kirigami",
-        "qqc2-breeze-style"
+        "qqc2-breeze-style",
+        {
+            "name": "fluidsynth",
+            "platform": "windows"
+        }
     ]
 }

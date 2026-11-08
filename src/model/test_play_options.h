@@ -44,6 +44,8 @@ class TestPlayOptions : public QObject
 	Q_PROPERTY(bool noSound MEMBER m_noSound NOTIFY changed)
 	Q_PROPERTY(bool noMusic MEMBER m_noMusic NOTIFY changed)
 	Q_PROPERTY(bool noRtp MEMBER m_noRtp NOTIFY changed)
+	/** No --soundfont: MIDI music with the Player's own soundfont setting (remembered: savePlayerSoundfont) */
+	Q_PROPERTY(bool playerSoundfont MEMBER m_playerSoundfont NOTIFY changed)
 
 	/** The party starts on a map of maps, at x, y (not with a savegame or in battle) */
 	Q_PROPERTY(bool replacePosition MEMBER m_replacePosition NOTIFY changed)
@@ -125,6 +127,8 @@ public:
 
 	/** Keeps the window size in the settings, for the next test plays (Test Play, Start Game Here...) */
 	Q_INVOKABLE void saveWindowZoom() const;
+	/** The Player's own soundfont or not, for the next test plays (read by GameRunner::launch) */
+	Q_INVOKABLE void savePlayerSoundfont() const;
 
 signals:
 	void changed();
@@ -136,6 +140,7 @@ private:
 	bool m_noSound = false;
 	bool m_noMusic = false;
 	bool m_noRtp = false;
+	bool m_playerSoundfont = false;
 	bool m_replacePosition = false;
 	int m_mapIndex = 0;
 	int m_x = 0;

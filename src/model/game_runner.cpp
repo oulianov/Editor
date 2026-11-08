@@ -15,6 +15,7 @@
  * along with EasyRPG Editor. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "game_runner.h"
+#include "common/soundfont.h"
 #include "core.h"
 #include "defines.h"
 #include "model/launcher_download.h"
@@ -85,6 +86,12 @@ GameRunner::Result GameRunner::launch(const QStringList& options, bool use_setti
 	if (!rtp.isEmpty() && !options.contains(QStringLiteral("--no-rtp"))) {
 		args << QStringLiteral("--rtp-path") << rtp;
 	}
+	// MIDI music as the Editor plays it (Players since 0.8; older ones skip it)
+	if (!options.contains(QStringLiteral("--no-audio")) && !options.contains(QStringLiteral("--soundfont"))) {
+		if (const QString soundfont = testPlaySoundfont(); !soundfont.isEmpty()) {
+			args << QStringLiteral("--soundfont") << QDir::toNativeSeparators(soundfont);
+		}
+	}
 	args << options;
 
 	qint64 pid = 0;
@@ -109,6 +116,21 @@ QStringList GameRunner::displayOptions(bool fullscreen, int window_zoom)
 		options << QStringLiteral("--window-zoom") << QString::number(window_zoom);
 	}
 	return options;
+}
+
+QString GameRunner::testPlaySoundfont()
+{
+	const auto& project = core().project();
+	if (!project || QSettings().value(TESTPLAY_PLAYER_SOUNDFONT_KEY, false).toBool()) {
+		return {};
+	}
+	const Soundfonts& soundfonts = Soundfonts::instance();
+	for (const QString& file : {Soundfonts::gameSoundfont(project->projectDir().absolutePath()), Soundfonts::editorDefault()}) {
+		if (!file.isEmpty() && soundfonts.refusal(file).isEmpty()) {
+			return QFileInfo(file).absoluteFilePath();
+		}
+	}
+	return {};
 }
 
 QStringList GameRunner::hereOptions(int map_id, int x, int y)

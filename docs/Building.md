@@ -12,7 +12,12 @@ Widgets. It needs:
   and [Breeze style](https://invent.kde.org/plasma/qqc2-breeze-style) (with
   KDE's extra-cmake-modules), [KDDockWidgets](https://github.com/KDAB/KDDockWidgets)
   (Qt Quick) and [glaze](https://github.com/stephenberry/glaze);
-- zlib.
+- zlib;
+- for the soundfonts of MIDI music: [FluidSynth](https://www.fluidsynth.org)
+  2 or 3, built in on Windows (vcpkg's, static; without it that Editor
+  plays MIDI with Windows' GS Wavetable Synth only), elsewhere the system's
+  `libfluidsynth`, loaded when the Editor runs (macOS plays them with its own
+  synthesizer).
 
 Kirigami, Breeze and KDDockWidgets use Qt's private headers: they are built
 for one Qt, and built again for another.
@@ -138,8 +143,8 @@ cmake --build build
 
 ## Linux and Windows
 
-Upstream's presets build zlib, inih, expat, glaze, Kirigami, Breeze and
-KDDockWidgets with vcpkg (the KDE ones from the overlay ports of
+Upstream's presets build zlib, inih, expat, glaze, Kirigami, Breeze,
+KDDockWidgets and, on Windows, FluidSynth with vcpkg (the KDE ones from the overlay ports of
 `builds/vcpkg_overlay`, which the presets pass). Qt 6.11.2 (Base, with
 Declarative, SVG and Tools; Multimedia, Shader Tools) comes from qt.io or
 [aqt](https://github.com/miurahr/aqtinstall), and on Linux ICU from the

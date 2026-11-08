@@ -551,6 +551,22 @@
         <source>The audio output stopped working.</source>
         <translation>La sortie audio a cessé de fonctionner.</translation>
     </message>
+    <message>
+        <source>Apple&apos;s synthesizer cannot play compressed SF3 soundfonts</source>
+        <translation>Le synthétiseur d&apos;Apple ne peut pas jouer les soundfonts SF3 compressées</translation>
+    </message>
+    <message>
+        <source>Apple&apos;s synthesizer could not read it</source>
+        <translation>Le synthétiseur d&apos;Apple n&apos;a pas pu la lire</translation>
+    </message>
+    <message>
+        <source>Apple&apos;s synthesizer refused it (error %1)</source>
+        <translation>Le synthétiseur d&apos;Apple l&apos;a refusée (erreur %1)</translation>
+    </message>
+    <message>
+        <source>FluidSynth could not load it</source>
+        <translation>FluidSynth n&apos;a pas pu la charger</translation>
+    </message>
 </context>
 <context>
     <name>BattleAnimation2Widget</name>
@@ -6791,6 +6807,18 @@ http://localhost:8000
         <translation>
    L&apos;Editor l&apos;a fait : %1</translation>
     </message>
+    <message>
+        <source>%1: %2. Choose another soundfont or remove it in Project Settings.</source>
+        <translation>%1 : %2. Choisissez une autre soundfont ou retirez-la dans les paramètres du projet.</translation>
+    </message>
+    <message>
+        <source>Game soundfont: %1, %2. Players hear the MIDI music with it, unless they chose a soundfont of their own.</source>
+        <translation>Soundfont du jeu : %1, %2. Les joueurs entendent la musique MIDI avec elle, sauf s&apos;ils ont choisi leur propre soundfont.</translation>
+    </message>
+    <message>
+        <source>No game soundfont: players hear the MIDI music with their own soundfont or synthesizer (Project Settings &gt; EasyRPG Player &gt; Soundfont).</source>
+        <translation>Aucune soundfont du jeu : les joueurs entendent la musique MIDI avec leur propre soundfont ou synthétiseur (Paramètres du projet &gt; EasyRPG Player &gt; Soundfont).</translation>
+    </message>
 </context>
 <context>
     <name>GamePatches</name>
@@ -8293,6 +8321,30 @@ http://localhost:8000
         <location filename="../src/ui/other/JukeboxWindow.qml" line="-134"/>
         <source>Repeat at the end. MIDI music uses its loop point when set.</source>
         <translation>Répéter à la fin. La musique MIDI utilise son point de boucle s’il est défini.</translation>
+    </message>
+    <message>
+        <source>MIDI Soundfont</source>
+        <translation>Soundfont MIDI</translation>
+    </message>
+    <message>
+        <source>What plays the MIDI music here, to hear a song as players will. Automatic: as EasyRPG Player chooses. For the Jukebox only: Automatic again once it is closed.</source>
+        <translation>Ce qui joue la musique MIDI ici, pour entendre un morceau comme les joueurs l&apos;entendront. Automatique : comme EasyRPG Player choisit. Pour cette fenêtre seulement : de nouveau Automatique une fois fermée.</translation>
+    </message>
+    <message>
+        <source>How Players Choose...</source>
+        <translation>Comment le Player choisit...</translation>
+    </message>
+    <message>
+        <source>The order EasyRPG Player tries the soundfonts in</source>
+        <translation>L&apos;ordre dans lequel EasyRPG Player essaie les soundfonts</translation>
+    </message>
+    <message>
+        <source>Use as Game Soundfont...</source>
+        <translation>Utiliser comme soundfont du jeu...</translation>
+    </message>
+    <message>
+        <source>Opens Project Settings with this file chosen as easyrpg.soundfont (copied on OK)</source>
+        <translation>Ouvre les paramètres du projet avec ce fichier choisi comme easyrpg.soundfont (copié avec OK)</translation>
     </message>
 </context>
 <context>
@@ -15169,6 +15221,129 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
         <source>The game title could not be written.</source>
         <translation>Le titre du jeu n&apos;a pas pu être écrit.</translation>
     </message>
+    <message>
+        <source>%1 cannot be the game soundfont: %2</source>
+        <translation>%1 ne peut pas être la soundfont du jeu : %2</translation>
+    </message>
+    <message>
+        <source>Soundfont</source>
+        <translation>Soundfont</translation>
+    </message>
+    <message>
+        <source>An SF2 file, copied in the game folder as easyrpg.soundfont on OK</source>
+        <translation>Un fichier SF2, copié dans le répertoire du jeu sous le nom easyrpg.soundfont avec OK</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Arrêter</translation>
+    </message>
+    <message>
+        <source>Play a Sample</source>
+        <translation>Écouter un extrait</translation>
+    </message>
+    <message>
+        <source>A short song of the game&apos;s music (or of the Editor) through this soundfont</source>
+        <translation>Un court morceau des musiques du jeu (ou de l&apos;éditeur) avec cette soundfont</translation>
+    </message>
+    <message>
+        <source>Show in Finder</source>
+        <translation>Afficher dans le Finder</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>Afficher dans l&apos;Explorateur</translation>
+    </message>
+    <message>
+        <source>Show in Folder</source>
+        <translation>Afficher dans le répertoire</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Retirer</translation>
+    </message>
+    <message>
+        <source>No game soundfont: easyrpg.soundfont goes to the trash on OK</source>
+        <translation>Aucune soundfont du jeu : easyrpg.soundfont va à la corbeille avec OK</translation>
+    </message>
+    <message>
+        <source>Help</source>
+        <translation>Aide</translation>
+    </message>
+    <message>
+        <source>How players&apos; MIDI music chooses its soundfont</source>
+        <translation>Comment la musique MIDI des joueurs choisit sa soundfont</translation>
+    </message>
+    <message>
+        <source>Copying the soundfont...</source>
+        <translation>Copie de la soundfont...</translation>
+    </message>
+    <message>
+        <source>Game Soundfont</source>
+        <translation>Soundfont du jeu</translation>
+    </message>
+    <message>
+        <source>Soundfonts (*.sf2 *.sf3 *.soundfont)</source>
+        <translation>Soundfonts (*.sf2 *.sf3 *.soundfont)</translation>
+    </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>Tous les fichiers (*)</translation>
+    </message>
+    <message>
+        <source>%1 could not be read: %2</source>
+        <translation>%1 n&apos;a pas pu être lu : %2</translation>
+    </message>
+    <message>
+        <source>%1 could not be written: %2</source>
+        <translation>%1 n&apos;a pas pu être écrit : %2</translation>
+    </message>
+    <message>
+        <source>None — players hear their own soundfont, or the built-in synthesizer</source>
+        <translation>Aucune — les joueurs entendent leur propre soundfont, ou le synthétiseur intégré</translation>
+    </message>
+    <message>
+        <source>%1 — %2</source>
+        <translation>%1 — %2</translation>
+    </message>
+    <message>
+        <source>%1 — %2, %3</source>
+        <translation>%1 — %2, %3</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n presets</source>
+        <translation>
+            <numerusform>%n préréglage</numerusform>
+            <numerusform>%n préréglages</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Moved to the trash on OK</source>
+        <translation>Mise à la corbeille avec OK</translation>
+    </message>
+    <message>
+        <source>Copied as easyrpg.soundfont on OK</source>
+        <translation>Copiée sous le nom easyrpg.soundfont avec OK</translation>
+    </message>
+    <message>
+        <source>Replace the game soundfont %1 with %2?</source>
+        <translation>Remplacer la soundfont du jeu %1 par %2 ?</translation>
+    </message>
+    <message>
+        <source>%1 is %2: it ships with every copy of the game, and players download it with it.</source>
+        <translation>%1 fait %2 : elle est livrée avec chaque copie du jeu, et les joueurs la téléchargent avec lui.</translation>
+    </message>
+    <message>
+        <source>Remove the game soundfont %1? It goes to the trash on OK: players then hear their own soundfont, or the built-in synthesizer.</source>
+        <translation>Retirer la soundfont du jeu %1 ? Elle va à la corbeille avec OK : les joueurs entendent alors leur propre soundfont, ou le synthétiseur intégré.</translation>
+    </message>
+    <message>
+        <source>The game folder is read-only: the soundfont was not changed.</source>
+        <translation>Le répertoire du jeu est en lecture seule : la soundfont n&apos;a pas été changée.</translation>
+    </message>
+    <message>
+        <source>%1 could not be removed.</source>
+        <translation>%1 n&apos;a pas pu être retiré.</translation>
+    </message>
 </context>
 <context>
     <name>QEventWidget</name>
@@ -16039,6 +16214,14 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <source>The game&apos;s screen enlarged 1 to 4 times. Default: the size the Player remembers. A window size saved in the Player&apos;s settings may be kept instead</source>
         <translation>L&apos;écran du jeu agrandi de 1 à 4 fois. Par défaut : la taille que le Player a retenue. Une taille de fenêtre enregistrée dans les réglages du Player peut être gardée à la place</translation>
     </message>
+    <message>
+        <source>Player&apos;s Soundfont</source>
+        <translation>Soundfont du Player</translation>
+    </message>
+    <message>
+        <source>MIDI music with the soundfont of the Player&apos;s own settings, instead of the game soundfont or the Editor&apos;s default (Settings &gt; Paths)</source>
+        <translation>La musique MIDI avec la soundfont des paramètres du Player, au lieu de la soundfont du jeu ou de celle de l&apos;éditeur par défaut (Paramètres &gt; Chemins)</translation>
+    </message>
 </context>
 <context>
     <name>SceneCommandWidget</name>
@@ -16814,6 +16997,22 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <source>%1: EasyRPG RTP, for the games of RPG Maker 2000 and 2003.</source>
         <translation>%1 : RTP d&apos;EasyRPG, pour les jeux RPG Maker 2000 et 2003.</translation>
     </message>
+    <message>
+        <source>MIDI soundfont</source>
+        <translation>Soundfont MIDI</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Aucune</translation>
+    </message>
+    <message>
+        <source>An SF2 file: the Editor plays MIDI music with it when the game has no soundfont, and test play gives it to the Player. None: a soundfont of the system, else its synthesizer.</source>
+        <translation>Un fichier SF2 : l&apos;éditeur joue la musique MIDI avec lui quand le jeu n&apos;a pas de soundfont, et le test du jeu le donne au Player. Aucune : une soundfont du système, sinon son synthétiseur.</translation>
+    </message>
+    <message>
+        <source>MIDI Soundfont</source>
+        <translation>Soundfont MIDI</translation>
+    </message>
 </context>
 <context>
     <name>ShakeScreenWidget</name>
@@ -17421,6 +17620,141 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <location line="+9"/>
         <source>Reset to %1</source>
         <translation>Remettre à %1</translation>
+    </message>
+</context>
+<context>
+    <name>Soundfonts</name>
+    <message>
+        <source>The soundfont cannot be read: %1</source>
+        <translation>La soundfont ne peut pas être lue : %1</translation>
+    </message>
+    <message>
+        <source>This is not an SF2 soundfont</source>
+        <translation>Ce n&apos;est pas une soundfont SF2</translation>
+    </message>
+    <message>
+        <source>The soundfont is damaged</source>
+        <translation>La soundfont est endommagée</translation>
+    </message>
+    <message>
+        <source>Not a General MIDI soundfont: RPG Maker songs may sound wrong</source>
+        <translation>Pas une soundfont General MIDI : les morceaux de RPG Maker peuvent sonner faux</translation>
+    </message>
+    <message>
+        <source>No drum kit: percussion will be silent</source>
+        <translation>Pas de batterie : les percussions seront muettes</translation>
+    </message>
+    <message>
+        <source>Compressed SF3: EasyRPG Player may not load it</source>
+        <translation>SF3 compressée : EasyRPG Player peut ne pas la charger</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 Mo</translation>
+    </message>
+    <message>
+        <source>Not with EASYRPG_EDITOR_AUDIO_BACKEND</source>
+        <translation>Pas avec EASYRPG_EDITOR_AUDIO_BACKEND</translation>
+    </message>
+    <message>
+        <source>Linux has no synthesizer of its own: FmMidi plays</source>
+        <translation>Linux n&apos;a pas de synthétiseur propre : FmMidi joue</translation>
+    </message>
+    <message>
+        <source>No project is open</source>
+        <translation>Aucun projet n&apos;est ouvert</translation>
+    </message>
+    <message>
+        <source>The game has no easyrpg.soundfont (Project Settings &gt; EasyRPG Player)</source>
+        <translation>Le jeu n&apos;a pas d&apos;easyrpg.soundfont (Paramètres du projet &gt; EasyRPG Player)</translation>
+    </message>
+    <message>
+        <source>None is chosen in Settings &gt; Paths</source>
+        <translation>Aucune n&apos;est choisie dans Paramètres &gt; Chemins</translation>
+    </message>
+    <message>
+        <source>This system has no standard soundfont folder</source>
+        <translation>Ce système n&apos;a pas de répertoire standard de soundfonts</translation>
+    </message>
+    <message>
+        <source>None in /usr/share/soundfonts or /usr/share/sounds/sf2</source>
+        <translation>Aucune dans /usr/share/soundfonts ni /usr/share/sounds/sf2</translation>
+    </message>
+    <message>
+        <source>No file is chosen</source>
+        <translation>Aucun fichier n&apos;est choisi</translation>
+    </message>
+    <message>
+        <source>FluidSynth is not installed: soundfonts cannot be played</source>
+        <translation>FluidSynth n&apos;est pas installé : les soundfonts ne peuvent pas être jouées</translation>
+    </message>
+    <message>
+        <source>%1 does not exist</source>
+        <translation>%1 n&apos;existe pas</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Automatique</translation>
+    </message>
+    <message>
+        <source>Game soundfont</source>
+        <translation>Soundfont du jeu</translation>
+    </message>
+    <message>
+        <source>Editor default</source>
+        <translation>Défaut de l&apos;éditeur</translation>
+    </message>
+    <message>
+        <source>System soundfont</source>
+        <translation>Soundfont du système</translation>
+    </message>
+    <message>
+        <source>Built-in (FmMidi)</source>
+        <translation>Intégré (FmMidi)</translation>
+    </message>
+    <message>
+        <source>Apple DLS</source>
+        <translation>Apple DLS</translation>
+    </message>
+    <message>
+        <source>Microsoft GS Wavetable Synth</source>
+        <translation>Microsoft GS Wavetable Synth</translation>
+    </message>
+    <message>
+        <source>System synthesizer</source>
+        <translation>Synthétiseur du système</translation>
+    </message>
+    <message>
+        <source>Soundfont file</source>
+        <translation>Fichier de soundfont</translation>
+    </message>
+    <message>
+        <source>Automatic: %1</source>
+        <translation>Automatique : %1</translation>
+    </message>
+    <message>
+        <source>%1 — %2</source>
+        <translation>%1 — %2</translation>
+    </message>
+    <message>
+        <source>FmMidi, EasyRPG Player&apos;s FM synthesizer, always there</source>
+        <translation>FmMidi, le synthétiseur FM d&apos;EasyRPG Player, toujours présent</translation>
+    </message>
+    <message>
+        <source>Apple DLS, the instruments of macOS</source>
+        <translation>Apple DLS, les instruments de macOS</translation>
+    </message>
+    <message>
+        <source>Microsoft GS Wavetable Synth, the instruments of Windows</source>
+        <translation>Microsoft GS Wavetable Synth, les instruments de Windows</translation>
+    </message>
+    <message>
+        <source>%1 could not be played%2. Playing: %3</source>
+        <translation>Impossible de jouer avec %1%2. À la place : %3</translation>
+    </message>
+    <message>
+        <source>It could not be loaded: %1</source>
+        <translation>Elle n&apos;a pas pu être chargée : %1</translation>
     </message>
 </context>
 <context>

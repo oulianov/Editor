@@ -20,6 +20,7 @@
 #include "core.h"
 #include "common/dbstring.h"
 #include "common/editor_settings.h"
+#include "common/soundfont.h"
 #include "common/logging.h"
 #include "controller/action_catalog.h"
 #include "controller/edit_locks.h"
@@ -31,6 +32,7 @@
 #include "model/game_runner.h"
 #include "model/map_tools.h"
 #include "model/project.h"
+#include "model/project_soundfont.h"
 #include "model/resource_library.h"
 #include "qmlbinding/database_session.h"
 #include "qmlbinding/json_t.h"
@@ -779,6 +781,61 @@ bool Automation::run(const QStringList& args) {
 		}
 		if (core().rtpDirs() != clean) {
 			fail(QStringLiteral("the RTP folders are \"%1\"").arg(core().rtpDirs().join(QStringLiteral("\", \""))));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "project-soundfont" && args.size() >= 2 && core().project()) {
+		// the game soundfont as Project Settings sets it on OK (the copy waited for)
+		ProjectSoundfont soundfont(core().project()->projectDir().absolutePath());
+		if (args[1] == QLatin1String("set") && args.size() >= 3) {
+			const QString file = args.mid(2).join(QLatin1Char(' '));
+			if (const QString refused = soundfont.check(file); !refused.isEmpty()) {
+				fail(QStringLiteral("%1 is refused: %2").arg(file, refused));
+				return false;
+			}
+			soundfont.choose(file);
+		} else if (args[1] == QLatin1String("remove") && args.size() == 2) {
+			soundfont.remove();
+		} else {
+			return false;
+		}
+		if (const QString error = soundfont.applyAndWait(); !error.isEmpty()) {
+			fail(error);
+			return false;
+		}
+		qCInfo(lcAutomation).noquote() << "game soundfont:" << soundfont.summary();
+		return true;
+	}
+	if (cmd == "expect-project-soundfont" && args.size() >= 2) {
+		// the game soundfont of the project open: its name as Project Settings shows it, or none
+		const QString folder = core().project() ? core().project()->projectDir().absolutePath() : QString();
+		const QString file = Soundfonts::gameSoundfont(folder);
+		const QString expected = args.mid(1).join(QLatin1Char(' '));
+		const QString original = Soundfonts::originalName(folder);
+		const QString name = file.isEmpty() ? QString()
+			: ProjectSoundfont::displayName(Soundfonts::instance().info(file), original, file);
+		const bool none = expected == QLatin1String("none");
+		if (none ? !file.isEmpty() : (name != expected && original != expected)) {
+			fail(file.isEmpty() ? QStringLiteral("the game has no soundfont")
+				: QStringLiteral("the game soundfont is \"%1\" (copied from \"%2\")").arg(name, original));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "expect-midi-soundfont" && args.size() >= 2) {
+		// what the previews play MIDI with now (Soundfonts' Automatic), and its file
+		Soundfonts& soundfonts = Soundfonts::instance();
+		const auto source = soundfonts.automaticSource();
+		static const QMap<QString, Soundfonts::Source> names = {
+			{QStringLiteral("game"), Soundfonts::Game}, {QStringLiteral("editor"), Soundfonts::EditorDefault},
+			{QStringLiteral("system"), Soundfonts::System}, {QStringLiteral("builtin"), Soundfonts::BuiltIn},
+			{QStringLiteral("platform"), Soundfonts::Platform}};
+		const QString file = soundfonts.path(source);
+		const bool sourceMatches = names.value(args[1], Soundfonts::Automatic) == source;
+		const bool fileMatches = args.size() < 3 || QDir::cleanPath(file) == QDir::cleanPath(args.mid(2).join(QLatin1Char(' ')));
+		if (!sourceMatches || !fileMatches) {
+			fail(QStringLiteral("MIDI plays with %1 \"%2\"").arg(names.key(source, QStringLiteral("?")), file));
 			return false;
 		}
 		return true;

@@ -5,6 +5,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls as Controls
+import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
 /**
@@ -27,6 +28,8 @@ Controls.ComboBox {
     property var fallbackValue: undefined
     /** The role telling whether an entry can be chosen (empty: they all can), as textRole */
     property string enabledRole: ""
+    /** The role of why an entry cannot be chosen, shown over it (empty: none) */
+    property string toolTipRole: ""
 
     /** Whether the entry at index can be chosen */
     function optionEnabled(index) {
@@ -59,17 +62,33 @@ Controls.ComboBox {
 
     // an entry that cannot be chosen is greyed (Breeze's delegate otherwise)
     delegate: Controls.MenuItem {
+        id: option
+
         required property var model
         required property int index
+        readonly property bool choosable: root.enabledRole === "" || model[root.enabledRole] !== false
+        readonly property string why: root.toolTipRole !== "" ? (model[root.toolTipRole] ?? "") : ""
 
         implicitWidth: leftPadding + implicitContentWidth + rightPadding
         width: parent ? parent.width : implicitWidth
         // a list of texts has no role: textRole ""
         text: root.textRole !== "" ? model[root.textRole] : model.modelData
         font: root.font
-        highlighted: root.highlightedIndex === index
+        highlighted: root.highlightedIndex === index && choosable
         hoverEnabled: root.hoverEnabled
-        enabled: root.enabledRole === "" || model[root.enabledRole] !== false
+        // with a reason, it stays enabled to be pointed at: greyed, its clicks taken
+        enabled: choosable || why !== ""
+        opacity: choosable || why === "" ? 1 : Ez.Metrics.disabledOpacity
+
+        MouseArea {
+            anchors.fill: parent
+            visible: !option.choosable
+            hoverEnabled: true
+            acceptedButtons: Qt.AllButtons
+            Controls.ToolTip.visible: containsMouse && option.why !== ""
+            Controls.ToolTip.text: option.why
+            Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
+        }
     }
 
     // the text inside: as high as a field's

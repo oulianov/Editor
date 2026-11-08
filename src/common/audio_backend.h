@@ -17,8 +17,22 @@
 
 #pragma once
 
+#include <QList>
+#include <QPair>
 #include <QString>
+#include <QStringList>
 #include <memory>
+
+/**
+ * What plays MIDI, as Soundfonts::plan() chose it (soundfont.h): the
+ * soundfonts in their order (the first one that loads plays), then the
+ * synthesizer of the system (Apple's DLS bank, Windows' GS Wavetable
+ * Synth) when allowed, then FmMidi
+ */
+struct MidiPlan {
+	QStringList soundfonts;
+	bool systemSynth = true;
+};
 
 /**
  * One way of playing one audio file, used by AudioPlayer (audio_player.h),
@@ -35,6 +49,8 @@ public:
 	virtual bool open(const QString& path, bool midi, QString& error) = 0;
 	/** Whether open() can load another file after this one (quicker than a new backend) */
 	virtual bool canReopen() const { return false; }
+	/** What plays the next MIDI file opened, for a backend that plays several ways */
+	virtual void setMidiPlan(const MidiPlan&) {}
 
 	virtual void play() = 0;
 	virtual void pause() = 0;
@@ -42,8 +58,12 @@ public:
 	virtual void stop() = 0;
 	virtual void seek(qint64 ms) = 0;
 
-	/** Linear gain, 0 to 1 */
-	virtual void setGain(float gain) = 0;
+	/**
+	 * RPG Maker's volume (0 to 1, the slider's) and how far the fade-in is
+	 * (0 to 1): sampled files scale their samples with the two, MIDI its
+	 * channels, as EasyRPG Player does
+	 */
+	virtual void setVolume(float volume, float fade) = 0;
 	/** -1 left, 0 center, 1 right */
 	virtual void setPan(float pan) = 0;
 	/** 1 is normal speed (RPG Maker's tempo / 100) */
@@ -61,17 +81,45 @@ public:
 	virtual bool finished() const = 0;
 	/** An error found after open() (decoding is asynchronous in some backends) */
 	virtual QString error() const { return QString(); }
+
+	/** What plays a MIDI file */
+	enum class Synth {
+		/** Not MIDI, or not known yet (a soundfont loads) */
+		None,
+		/** The soundfont of soundfont() */
+		Soundfont,
+		/** The system's (Apple DLS, Microsoft GS Wavetable Synth) */
+		System,
+		/** EasyRPG Player's FM synthesizer */
+		FmMidi
+	};
+	virtual Synth synth() const { return Synth::None; }
+	/** The soundfont of the plan that plays (Synth::Soundfont) */
+	virtual QString soundfont() const { return QString(); }
+	/** The soundfonts of the plan that could not be loaded, with why: given once */
+	virtual QList<QPair<QString, QString>> takeFailures() { return {}; }
+
+	/** The linear gain of RPG Maker's volume (0 to 1): the slider is perceptual */
+	static float linearGain(float volume);
 };
 
 #ifdef Q_OS_MACOS
-/** AVAudioEngine: WAV, MP3, AIFF, AAC, FLAC... and MIDI with the system's GS sound bank (audio_player_mac.mm) */
+/**
+ * AVAudioEngine: WAV, MP3, AIFF, AAC, FLAC... and MIDI with Apple's DLS
+ * synthesizer, which plays the first soundfont of the plan (setMidiPlan)
+ * that loads, else the system's GS sound bank (audio_player_mac.mm). A
+ * MIDI file whose plan has neither cannot be opened: FmMidi plays it
+ */
 std::unique_ptr<AudioBackend> createAppleAudioBackend();
 #endif
 /**
  * MIDI as EasyRPG Player plays it, for the systems whose Qt Multimedia has
- * none (audio_player_midi.cpp): on the MIDI device of Windows (its GS
- * Wavetable Synth), else with a software synthesizer through QAudioSink,
- * FluidSynth when found with a soundfont (Linux), else FmMidi; fmMidiOnly:
- * FmMidi always
+ * none (audio_player_midi.cpp): the soundfonts of the plan with FluidSynth
+ * (built in on Windows, the system's elsewhere), loaded away from the
+ * interface, else the MIDI device of Windows (its GS Wavetable Synth) when
+ * the plan allows it, else FmMidi, through QAudioSink
  */
-std::unique_ptr<AudioBackend> createMidiAudioBackend(bool fmMidiOnly);
+std::unique_ptr<AudioBackend> createMidiAudioBackend(const MidiPlan& plan);
+
+/** The length of a MIDI file as EasyRPG Player plays it (its tempo map), 0 when it cannot be read */
+qint64 midiFileDuration(const QString& path);

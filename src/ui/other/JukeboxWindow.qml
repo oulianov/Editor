@@ -14,7 +14,8 @@ import org.easyrpg.editor as Ez
  * the RTP, like RPG Maker's music and sound test windows. Not modal: it can
  * stay open while editing; it stops playing when closed. The lists, the
  * settings and the player are an Ez.AudioLibraryModel's, kept between
- * openings.
+ * openings. Its Soundfont choice compares what plays the MIDI music (the
+ * Jukebox's alone, not saved: Automatic again once closed).
  */
 Ez.DialogWindow {
     id: root
@@ -26,6 +27,13 @@ Ez.DialogWindow {
     readonly property bool stopped: library === null || library.state === Ez.AudioPlayer.Stopped
     /** The list shown */
     readonly property Ez.ColumnList currentList: music ? listMusic : listSound
+    readonly property Ez.AudioPlayer player: library ? library.player : null
+    /** The soundfonts of the choice, read again when they may have changed (the window shown, a failure) */
+    property var soundfontChoices: Ez.Soundfonts.choices()
+
+    function readSoundfonts() {
+        soundfontChoices = Ez.Soundfonts.choices()
+    }
 
     /** From the filter to the lines it shows (the first one when none is selected) */
     function goToList(play) {
@@ -49,6 +57,24 @@ Ez.DialogWindow {
         if (close) {
             close.objectName = "buttonClose"
         }
+    }
+    // the files may have changed meanwhile (Project Settings, Settings)
+    onActiveChanged: {
+        if (active) {
+            readSoundfonts()
+        }
+    }
+    // the choice is the Jukebox's while it is open
+    onVisibleChanged: {
+        if (!visible && player) {
+            // silent first: the song does not start again with Automatic
+            library.stop()
+            player.soundfontChoice = Ez.Soundfonts.Automatic
+        }
+    }
+    Connections {
+        target: Ez.Soundfonts
+        function onChanged() { root.readSoundfonts() }
     }
 
     Shortcut {
@@ -215,6 +241,75 @@ Ez.DialogWindow {
                 font.bold: root.library.statusIsError
             }
 
+            // what plays the MIDI music: the song through each soundfont, before shipping
+            Ez.Section {
+                objectName: "groupSoundfont"
+                title: qsTr("MIDI Soundfont")
+                Layout.fillWidth: true
+
+                // the drop-down, and on its right where the order is explained
+                RowLayout {
+                    spacing: Ez.Metrics.columnSpacing
+                    Layout.fillWidth: true
+
+                    Ez.ComboBox {
+                        id: soundfont
+                        objectName: "comboSoundfont"
+                        textRole: "name"
+                        valueRole: "source"
+                        enabledRole: "available"
+                        toolTipRole: "why"
+                        model: root.soundfontChoices
+                        Layout.fillWidth: true
+                        Controls.ToolTip.visible: hovered && !popup.visible
+                        Controls.ToolTip.text: qsTr("What plays the MIDI music here, to hear a song as players will. "
+                            + "Automatic: as EasyRPG Player chooses. For the Jukebox only: Automatic again once it is closed.")
+                        onActivated: {
+                            if (optionEnabled(currentIndex)) {
+                                root.player.soundfontChoice = currentValue
+                            } else {
+                                currentIndex = Qt.binding(() => Math.max(0, indexOfValue(root.player.soundfontChoice)))
+                            }
+                        }
+                        Binding on currentIndex {
+                            value: { soundfont.count; return Math.max(0, soundfont.indexOfValue(root.player ? root.player.soundfontChoice : 0)) }
+                        }
+                    }
+                    Ez.Button {
+                        objectName: "buttonSoundfontHelp"
+                        text: qsTr("How Players Choose...")
+                        icon.name: "help-contents"
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("The order EasyRPG Player tries the soundfonts in")
+                        onClicked: Ez.Editor.help("soundfont", this)
+                    }
+                }
+                // only when the soundfont chosen could not play: what plays instead
+                Ez.Note {
+                    objectName: "labelSoundfont"
+                    readonly property int choice: root.player ? root.player.soundfontChoice : Ez.Soundfonts.Automatic
+                    readonly property int playing: root.player ? root.player.synthSource : Ez.Soundfonts.Automatic
+                    visible: choice !== Ez.Soundfonts.Automatic && playing !== Ez.Soundfonts.Automatic && playing !== choice
+                    text: visible ? Ez.Soundfonts.describe(choice, playing, root.player.synthSoundfont) : ""
+                    font.bold: true
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                }
+                // the soundfont heard, for the game: Project Settings' Choose with it
+                Ez.Button {
+                    objectName: "buttonUseSoundfont"
+                    readonly property int source: root.player ? root.player.synthSource : 0
+                    visible: root.player !== null && root.player.synthSoundfont !== ""
+                        && (source === Ez.Soundfonts.EditorDefault || source === Ez.Soundfonts.System
+                            || source === Ez.Soundfonts.File)
+                    text: qsTr("Use as Game Soundfont...")
+                    Controls.ToolTip.visible: hovered
+                    Controls.ToolTip.text: qsTr("Opens Project Settings with this file chosen as easyrpg.soundfont (copied on OK)")
+                    onClicked: root.useAsGameSoundfont(root.player.synthSoundfont)
+                }
+            }
+
             // the four settings of RPG Maker's windows, with their scales and
             // the steps of its trackbars (11 positions), each with its default
             GridLayout {
@@ -279,6 +374,9 @@ Ez.DialogWindow {
             }
         }
     }
+
+    /** Project Settings, on the game soundfont, with this file chosen (the shell opens it) */
+    signal useAsGameSoundfont(string file)
 
     /** A list of the library (music or sounds): its files, then the database's */
     component AudioList: Ez.ColumnList {

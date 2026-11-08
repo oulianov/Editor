@@ -34,6 +34,8 @@ Ez.DialogWindow {
             check.ok = false
             return
         }
+        // read by the launch, for this test play and the next ones
+        root.options.savePlayerSoundfont()
         check.ok = testPlay.launch(root.options.arguments(), false)
         // the size chosen is the one of the next test plays too
         if (check.ok) {
@@ -150,6 +152,18 @@ Ez.DialogWindow {
                         onToggled: root.options.noMusic = checked
                         Binding on checked {
                             value: root.options.noMusic
+                        }
+                    }
+                    // remembered: the test plays without this window too
+                    Ez.CheckBox {
+                        objectName: "checkPlayerSoundfont"
+                        text: qsTr("Player's Soundfont")
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("MIDI music with the soundfont of the Player's own settings, "
+                            + "instead of the game soundfont or the Editor's default (Settings > Paths)")
+                        onToggled: root.options.playerSoundfont = checked
+                        Binding on checked {
+                            value: root.options.playerSoundfont
                         }
                     }
                 }

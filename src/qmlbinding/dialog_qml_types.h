@@ -20,11 +20,14 @@
 // The models of the dialogs of the Editor in the QML module, registered
 // from here: editor_core does not link QtQml. The windows are given them.
 
+#include <QJSEngine>
 #include <QObject>
 #include <QtQmlIntegration>
+#include "common/soundfont.h"
 #include "model/export_controller.h"
 #include "model/project_search.h"
 #include "model/project_settings.h"
+#include "model/project_soundfont.h"
 #include "model/search_results_model.h"
 #include "model/search_suggestions.h"
 #include "model/test_play_options.h"
@@ -78,6 +81,31 @@ struct ProjectSettingsForeign
 	QML_FOREIGN(ProjectSettings)
 	QML_NAMED_ELEMENT(ProjectSettings)
 	QML_UNCREATABLE("The settings are a project's")
+};
+
+/** The game soundfont of Project Settings */
+struct ProjectSoundfontForeign
+{
+	Q_GADGET
+	QML_FOREIGN(ProjectSoundfont)
+	QML_NAMED_ELEMENT(ProjectSoundfont)
+	QML_UNCREATABLE("The soundfont is a project's settings'")
+};
+
+/** What plays the MIDI music: the sources and their names, the Jukebox's choice */
+struct SoundfontsForeign
+{
+	Q_GADGET
+	QML_FOREIGN(Soundfonts)
+	QML_NAMED_ELEMENT(Soundfonts)
+	QML_SINGLETON
+
+public:
+	static Soundfonts* create(QQmlEngine*, QJSEngine*)
+	{
+		QJSEngine::setObjectOwnership(&Soundfonts::instance(), QJSEngine::CppOwnership);
+		return &Soundfonts::instance();
+	}
 };
 
 /** Test Play Options */

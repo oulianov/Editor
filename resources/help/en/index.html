@@ -27,6 +27,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <ul>
 <li><a href="#new-project">New project</a></li>
 <li><a href="#project-settings">Project settings</a></li>
+<li><a href="#soundfont">MIDI music and soundfonts</a></li>
 <li><a href="#maps">Maps and drawing</a></li>
 <li><a href="#map-properties">Map properties</a></li>
 <li><a href="#search">Search</a></li>
@@ -98,6 +99,21 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 </ul>
 <p><b>Open EasyRPG.ini</b> opens the file in the script editor of the Editor settings (created if missing), for the options not shown here; the window reads it again when you come back. Only the lines changed are written: the rest of RPG_RT.ini and EasyRPG.ini stays as it is.</p>
 
+<a name="soundfont"></a>
+<h3>MIDI music and soundfonts</h3>
+<p>A MIDI file holds the notes of a song, not its sound: the instruments come from a <b>soundfont</b> (an SF2 file) or from a synthesizer, so the same song can sound very different from one player to another. EasyRPG Player plays MIDI music with the first of these that works:</p>
+<ol>
+<li><b>The player's own soundfont</b>: the one chosen in the Player's settings (<b>Audio</b>, <b>Soundfont</b>), or given with <code>--soundfont</code> (EasyRPG Player 0.8 or later).</li>
+<li><b>The game soundfont</b>: <code>easyrpg.soundfont</code>, an SF2 file in the game folder (EasyRPG Player 0.7.0 or later).</li>
+<li><b>A soundfont of the system</b>: FluidSynth's default soundfont, the ones of the <code>SDL_SOUNDFONTS</code> environment variable, then <code>FluidR3_GM.sf2</code> in <code>/usr/share/soundfonts</code> or <code>/usr/share/sounds/sf2</code> (Linux, BSD and macOS).</li>
+<li><b>WildMidi</b>, with GUS patches, when they are installed.</li>
+<li><b>The synthesizer of the system</b>: Microsoft GS Wavetable Synth on Windows, Apple DLS on macOS.</li>
+<li><b>FmMidi</b>, the FM synthesizer built into the Player, always there.</li>
+</ol>
+<p>The soundfonts are only tried when the Player has FluidSynth (FluidLite on some systems) and its <b>FluidSynth (SF2)</b> option is on, as it is by default; each of WildMidi and the synthesizer of the system can be turned off in the same settings. A player who chose a soundfont of their own hears it instead of the game's.</p>
+<p><b>Project Settings &gt; EasyRPG Player &gt; Soundfont</b> gives the game its soundfont: <b>Choose...</b> an SF2 file, copied into the game folder as <code>easyrpg.soundfont</code> when you click OK (a large file shows the progress of the copy, which <b>Cancel</b> stops). <b>Play a Sample</b> plays a song of the game through it, <b>Remove</b> puts it in the trash on OK. The Editor checks that the file is a real SF2 soundfont and refuses the others. Ship the file with the game: it is part of the game folder.</p>
+<p>The Editor plays MIDI music (Jukebox, sound pickers, Resource Manager, Play a Sample) as players will, as far as it can know: the game soundfont, then the Editor's default soundfont (<b>Settings &gt; Paths &gt; MIDI soundfont</b>), then a soundfont of the system, then the synthesizer of the system (FmMidi on Linux). In the <b>Jukebox</b>, the <b>MIDI Soundfont</b> drop-down plays the songs through another of them, to compare; it is back to <b>Automatic</b> once the Jukebox is closed. A choice that is not there is grayed out: point at it to see why. When the soundfont chosen cannot be played, the Jukebox says so and what plays instead.</p>
+
 <a name="maps"></a>
 <h3>Maps and drawing</h3>
 <p>The <b>map tree</b> on the left lists every map of the project. Double-click a map to open it, right-click to create a new map, open its properties, copy, paste or delete it. Drag a map onto another one to make it a child map: child maps can inherit the music, battle background and permissions of their parent. Areas are rectangles of a parent map that have their own list of random encounters.</p>
@@ -149,8 +165,8 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="rtp"></a>
 <h3>RTP folders</h3>
-<p>The RTP (Run Time Package) is the set of standard graphics and sounds of RPG Maker 2000/2003. Games that use RTP files do not include them, so the Editor needs to know where the RTP is installed. In <b>Settings</b>, <b>RTP folders</b> lists the RTP folders (the ones containing CharSet, ChipSet, Music...): <b>Add...</b> one, <b>Remove</b> the one selected, or move it up or down. Each line tells whether the folder is there and which RTP it looks like (2000 or 2003); hover it to see more. The Editor keeps this list in its own settings: nothing is written in the game's folder.</p>
-<p><b>Download EasyRPG RTP...</b> downloads the EasyRPG RTP, the free RTP of the EasyRPG project for the games of both RPG Maker 2000 and 2003, into the Editor's data folder and adds it to the list (marked for an engine that has no folder yet). Downloaded before, you can download it again or just add its folder.</p>
+<p>The RTP (Run Time Package) is the set of standard graphics and sounds of RPG Maker 2000/2003. Games that use RTP files do not include them, so the Editor needs to know where the RTP is installed. In <b>Settings</b>, <b>RTP folders</b> lists the RTP folders (the ones containing CharSet, ChipSet, Music...): <b>Add</b> one (<b>From Folder...</b>), <b>Remove</b> the one selected, or move it up or down. Each line tells whether the folder is there and which RTP it looks like (2000 or 2003); hover it to see more. The Editor keeps this list in its own settings: nothing is written in the game's folder.</p>
+<p><b>Add &gt; Download EasyRPG RTP...</b> downloads the EasyRPG RTP, the free RTP of the EasyRPG project for the games of both RPG Maker 2000 and 2003, into the Editor's data folder and adds it to the list (marked for an engine that has no folder yet). Downloaded before, you can download it again or just add its folder.</p>
 <p>Mark in the <b>2000</b> and <b>2003</b> columns the folder that games of each engine use. With a game open, <b>This Game</b> shows the folder it uses; choose another one for this game only (the Editor remembers it for the game's folder), or click <b>Engine's Default</b> to use the folder marked for its engine again. The files a game lacks come from its folder first, then from the other folders, from top to bottom: the Editor's pictures, pickers and Resource Manager look for them in this order, and test play gives the Player the folders in this order (EasyRPG Player 0.7.0 or later). Files in your project always take priority over RTP files with the same name.</p>
 
 <a name="reload"></a>
@@ -163,7 +179,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="updates"></a>
 <h3>Updates</h3>
-<p>The Editor looks for a newer version a few seconds after it starts, then every hour while it runs, without interrupting you: nothing is shown when there is none or when the check fails. Turn <b>Check for updates automatically</b> off in <b>Settings</b> to stop these checks. <b>Check for Updates...</b>, just below <b>About EasyRPG Editor</b> (in the <b>Help</b> menu; on macOS, in the <b>EasyRPG Editor</b> menu), checks at once and tells you the result.</p>
+<p>The Editor looks for a newer version a few seconds after it starts, then every hour while it runs, without interrupting you: nothing is shown when there is none or when the check fails. Turn <b>Check for updates automatically</b> off in <b>Settings</b> to stop these checks. <b>Check for Updates...</b> (in the <b>Help</b> menu, below <b>About EasyRPG Editor</b>; on macOS, in the <b>EasyRPG Editor</b> menu, above <b>Quit</b>) checks at once and tells you the result.</p>
 <p>When a newer version is found, the menu item becomes <b>Install Update</b> with its version, and an <b>Update</b> button appears at the right end of the toolbar. Click either one to install it: the button shows the progress of the download, then <b>Restart to Update</b>. Restarting asks about unsaved maps as quitting does; if you cancel, or choose <b>Later</b>, the update is installed the next time you quit the Editor.</p>
 <ul>
 <li><b>macOS</b>: the disk image is downloaded, its application is checked (its signature, from the same developer) and copied next to the Editor, then put in its place once the Editor has quit. If the Editor cannot replace itself (its folder cannot be written, or macOS runs it from a temporary copy because it was opened where it was downloaded), the disk image is downloaded and opened instead: quit the Editor and drag the new one to its folder.</li>

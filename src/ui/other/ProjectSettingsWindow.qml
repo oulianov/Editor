@@ -15,9 +15,11 @@ import org.easyrpg.editor as Ez
  * Game Project > Project Settings: the folder and title of the game (RPG
  * Maker's Rename Project), the code page of its texts, the engine and the
  * fonts it runs with, and what only EasyRPG Player reads (the patches of
- * EasyRPG.ini, its fonts). The values are a ProjectSettings'; checked on
- * OK, then written by the window that opened this one (it closes and
- * reloads the project when the folder or the code page change).
+ * EasyRPG.ini, its fonts, the game soundfont). The values are a
+ * ProjectSettings'; checked on OK, then written by the window that opened
+ * this one (it closes and reloads the project when the folder or the code
+ * page change). The soundfont chosen or removed is done on OK first, here:
+ * a large copy keeps the window open with its progress, Cancel stops it.
  */
 Ez.DialogWindow {
     id: root
@@ -30,9 +32,55 @@ Ez.DialogWindow {
     /** The patch pointed at or focused, explained under them ("": none) */
     property string explained: ""
 
+    /** The sizes of the screen offered: the player's choice (0 x 0) first, Custom (-1) last */
+    readonly property var screenPresets: [
+        { name: qsTr("Player's choice (320×240 or wider)"), width: 0, height: 0 },
+        { name: qsTr("320×240 only"), width: 320, height: 240 },
+        { name: qsTr("416×240, widescreen"), width: 416, height: 240 },
+        { name: qsTr("560×240, ultrawide"), width: 560, height: 240 },
+        { name: "640×480", width: 640, height: 480 },
+        { name: qsTr("Custom"), width: -1, height: -1 }
+    ]
+    function screenPresetOf(size) {
+        const found = screenPresets.findIndex(preset => preset.width === size.width && preset.height === size.height)
+        return found >= 0 ? found : screenPresets.length - 1
+    }
+    readonly property Ez.ProjectSoundfont soundfont: settings.soundfont
+
+    /** A soundfont file chosen: checked, confirmed when it replaces one or is large, then copied on OK */
+    function chooseSoundfont(file) {
+        const refused = soundfont.check(file)
+        if (refused !== "") {
+            invalid.text = qsTr("%1 cannot be the game soundfont: %2").arg(file.split(/[\\/]/).pop()).arg(refused)
+            invalid.open()
+            return
+        }
+        const question = soundfont.chooseConfirmation(file)
+        if (question === "") {
+            soundfont.choose(file)
+            return
+        }
+        confirmSoundfont.file = file
+        confirmSoundfont.remove = false
+        confirmSoundfont.text = question
+        confirmSoundfont.open()
+    }
+    function removeSoundfont() {
+        const question = soundfont.removeConfirmation()
+        if (question === "") {
+            soundfont.remove()
+            return
+        }
+        confirmSoundfont.remove = true
+        confirmSoundfont.text = question
+        confirmSoundfont.open()
+    }
+
     objectName: "ProjectSettingsDialog"
     title: qsTr("Project Settings")
     preferredWidth: 600
+    // while the soundfont is copied: Cancel stops it
+    acceptable: !soundfont.busy
     buttons: [
         // what the Editor does not show: edited by hand, read again on coming back
         Ez.Button {
@@ -52,12 +100,58 @@ Ez.DialogWindow {
             root.settings.convertRequested = false
             invalid.text = error
             invalid.open()
+            return
+        }
+        // the soundfont first: the window closes once it is copied (finished)
+        if (root.soundfont.busy) {
+            check.ok = false
+        } else if (root.soundfont.pending) {
+            check.ok = false
+            const refused = root.soundfont.apply()
+            if (refused !== "") {
+                root.settings.convertRequested = false
+                invalid.text = refused
+                invalid.open()
+            }
+        }
+    }
+    // Cancel while the soundfont is copied stops the copy (the old file stays), not the window
+    onRejecting: check => {
+        if (root.soundfont.busy) {
+            check.ok = false
+            root.soundfont.cancel()
+        }
+    }
+    Component.onCompleted: {
+        // opened to use a soundfont (the Jukebox): where it shows, confirmed as when chosen here
+        if (root.soundfont.pending) {
+            tabs.currentIndex = 2
+            const question = root.soundfont.chooseConfirmation(root.soundfont.path)
+            if (question !== "") {
+                confirmSoundfont.file = root.soundfont.path
+                confirmSoundfont.remove = false
+                confirmSoundfont.dropOnNo = true
+                confirmSoundfont.text = question
+                Qt.callLater(confirmSoundfont.open)
+            }
         }
     }
     // EasyRPG.ini edited in the script editor: what it says now
     onActiveChanged: {
         if (active) {
             root.settings.readIni()
+        }
+    }
+    Connections {
+        target: root.soundfont
+        function onFinished(error, cancelled) {
+            if (error !== "") {
+                root.settings.convertRequested = false
+                invalid.text = error
+                invalid.open()
+            } else if (!cancelled) {
+                root.accept()
+            }
         }
     }
     Connections {
@@ -307,7 +401,8 @@ Ez.DialogWindow {
             // settings, not patches applied
             Ez.Note {
                 objectName: "labelPlayerAbout"
-                text: qsTr("Read by EasyRPG Player only (EasyRPG.ini, Font folder). RPG_RT.exe is not changed.")
+                text: qsTr("Read by EasyRPG Player (EasyRPG.ini, Font folder; the screen size in RPG_RT.ini, "
+                    + "which the Maniac Patch reads too). RPG_RT.exe is not changed.")
                 color: Ez.Metrics.mutedTextColor
             }
             Ez.Section {
@@ -419,6 +514,93 @@ Ez.DialogWindow {
                     }
                 }
             }
+            // the size of the game's screen (WinW and WinH of RPG_RT.ini), and
+            // the maps smaller than it (FakeResolution of EasyRPG.ini)
+            Ez.Section {
+                objectName: "groupScreen"
+                title: qsTr("Screen")
+
+                RowLayout {
+                    spacing: Ez.Metrics.columnSpacing
+                    Layout.fillWidth: true
+
+                    Ez.FormLabel {
+                        text: qsTr("Size")
+                    }
+                    Ez.ComboBox {
+                        id: screenPreset
+                        objectName: "comboScreenSize"
+                        /** Custom chosen, the size being one of the list's */
+                        property bool custom: false
+                        readonly property size size: root.settings.screenSize
+                        readonly property bool sized: size.width > 0
+                        textRole: "name"
+                        valueRole: "name"
+                        model: root.screenPresets
+                        Layout.fillWidth: true
+                        Controls.ToolTip.visible: hovered && !popup.visible
+                        Controls.ToolTip.text: qsTr("Player's choice: 320×240, or wider when the player chose Widescreen or "
+                            + "Ultrawide in EasyRPG Player's settings. A size: the game always has it (WinW and WinH of "
+                            + "RPG_RT.ini, EasyRPG Player 0.8 or later and the Maniac Patch); RPG Maker's menus, made "
+                            + "for 320×240, are centered in it.")
+                        onActivated: index => {
+                            const preset = root.screenPresets[index]
+                            custom = preset.width < 0
+                            if (!custom) {
+                                root.settings.screenSize = Qt.size(preset.width, preset.height)
+                            } else if (!sized) {
+                                root.settings.screenSize = Qt.size(320, 240)
+                            }
+                        }
+                        Binding on currentIndex {
+                            value: screenPreset.custom ? root.screenPresets.length - 1 : root.screenPresetOf(screenPreset.size)
+                        }
+                    }
+                    Ez.SpinBox {
+                        objectName: "spinScreenWidth"
+                        from: 160
+                        to: 3840
+                        enabled: screenPreset.sized
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("Width in pixels")
+                        onValueModified: root.settings.screenSize = Qt.size(value, screenPreset.size.height)
+                        Binding on value {
+                            value: screenPreset.sized ? screenPreset.size.width : 320
+                        }
+                    }
+                    Ez.Label {
+                        text: "×"
+                        font: Ez.Metrics.font
+                        enabled: screenPreset.sized
+                    }
+                    Ez.SpinBox {
+                        objectName: "spinScreenHeight"
+                        from: 120
+                        to: 2160
+                        enabled: screenPreset.sized
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("Height in pixels")
+                        onValueModified: root.settings.screenSize = Qt.size(screenPreset.size.width, value)
+                        Binding on value {
+                            value: screenPreset.sized ? screenPreset.size.height : 240
+                        }
+                    }
+                }
+                Ez.CheckBox {
+                    objectName: "checkCenterSmallMaps"
+                    text: qsTr("Center maps smaller than the screen")
+                    enabled: screenPreset.sized
+                    Controls.ToolTip.visible: hovered
+                    Controls.ToolTip.text: qsTr("EasyRPG Player's Fake Metrics (FakeResolution of EasyRPG.ini): a map smaller "
+                        + "than the screen is drawn in its middle with black borders, with its panorama and the pictures "
+                        + "that scroll with it, instead of from the top-left corner. For games made for 320×240. The Player "
+                        + "does it by itself in its widescreen and ultrawide modes.")
+                    onToggled: root.settings.centerSmallMaps = checked
+                    Binding on checked {
+                        value: root.settings.centerSmallMaps
+                    }
+                }
+            }
             // the fonts the Player draws with, in the Font folder of the game
             Ez.Section {
                 title: qsTr("Fonts")
@@ -469,8 +651,162 @@ Ez.DialogWindow {
                     }
                 }
             }
+            // easyrpg.soundfont: what the Player plays the MIDI music with, before the player's own
+            Ez.Section {
+                objectName: "groupSoundfont"
+                title: qsTr("Soundfont")
+
+                Ez.Label {
+                    objectName: "labelSoundfont"
+                    text: root.soundfont.summary
+                    font: Ez.Metrics.font
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    HoverHandler {
+                        id: soundfontHover
+                    }
+                    Controls.ToolTip.visible: soundfontHover.hovered && root.soundfont.path !== ""
+                    Controls.ToolTip.text: root.soundfont.path
+                }
+                // refused (red), or what may sound wrong
+                Ez.Note {
+                    objectName: "labelSoundfontWarning"
+                    visible: text !== ""
+                    text: root.soundfont.warning
+                    color: root.soundfont.invalid ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.neutralTextColor
+                }
+                Ez.Note {
+                    objectName: "labelSoundfontPending"
+                    visible: text !== ""
+                    text: root.soundfont.pendingText
+                    color: Ez.Metrics.mutedTextColor
+                }
+                RowLayout {
+                    spacing: Ez.Metrics.columnSpacing
+                    enabled: !root.soundfont.busy
+                    Layout.fillWidth: true
+
+                    Ez.Button {
+                        objectName: "pushSoundfontChoose"
+                        text: qsTr("Choose...")
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("An SF2 file, copied in the game folder as easyrpg.soundfont on OK")
+                        onClicked: soundfontDialog.open()
+                    }
+                    Ez.Button {
+                        objectName: "pushSoundfontSample"
+                        readonly property bool playing: samplePlayer.state !== Ez.AudioPlayer.Stopped
+                        text: playing ? qsTr("Stop") : qsTr("Play a Sample")
+                        icon.name: playing ? "media-playback-stop" : "media-playback-start"
+                        enabled: root.soundfont.present && !root.soundfont.invalid && Ez.Soundfonts.soundfontsPlayable()
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: Ez.Soundfonts.soundfontsPlayable()
+                            ? qsTr("A short song of the game's music (or of the Editor) through this soundfont")
+                            : Ez.Soundfonts.unavailable(Ez.Soundfonts.Game)
+                        onClicked: {
+                            if (playing) {
+                                samplePlayer.stop()
+                            } else {
+                                samplePlayer.play(root.soundfont.sampleMidi())
+                            }
+                        }
+                    }
+                    Ez.Button {
+                        objectName: "pushSoundfontReveal"
+                        text: Qt.platform.os === "osx" ? qsTr("Show in Finder")
+                            : Qt.platform.os === "windows" ? qsTr("Show in Explorer") : qsTr("Show in Folder")
+                        enabled: root.soundfont.path !== ""
+                        onClicked: root.soundfont.reveal()
+                    }
+                    Ez.Button {
+                        objectName: "pushSoundfontRemove"
+                        text: qsTr("Remove")
+                        enabled: root.soundfont.present
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("No game soundfont: easyrpg.soundfont goes to the trash on OK")
+                        onClicked: root.removeSoundfont()
+                    }
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                    Ez.Button {
+                        objectName: "pushSoundfontHelp"
+                        icon.name: "help-contents"
+                        display: Controls.AbstractButton.IconOnly
+                        text: qsTr("Help")
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("How players' MIDI music chooses its soundfont")
+                        onClicked: Ez.Editor.help("soundfont", this)
+                    }
+                }
+                // what the sample plays with, when it is not this soundfont
+                Ez.Note {
+                    objectName: "labelSoundfontSample"
+                    visible: samplePlayer.state !== Ez.AudioPlayer.Stopped && samplePlayer.synthSource !== Ez.Soundfonts.Automatic
+                        && samplePlayer.synthSource !== Ez.Soundfonts.File
+                    text: Ez.Soundfonts.describe(Ez.Soundfonts.File, samplePlayer.synthSource, samplePlayer.synthSoundfont)
+                    color: Kirigami.Theme.neutralTextColor
+                }
+                // the copy on OK: Cancel stops it
+                RowLayout {
+                    visible: root.soundfont.busy
+                    spacing: Ez.Metrics.columnSpacing
+                    Layout.fillWidth: true
+
+                    Ez.Label {
+                        text: qsTr("Copying the soundfont...")
+                        font: Ez.Metrics.font
+                    }
+                    Ez.ProgressBar {
+                        objectName: "progressSoundfont"
+                        from: 0
+                        to: 1
+                        value: root.soundfont.progress
+                        Layout.fillWidth: true
+                    }
+                }
+            }
             Item {
                 Layout.fillHeight: true
+            }
+        }
+    }
+
+    // the sample of the soundfont: the one chosen, before it is copied
+    Ez.AudioPlayer {
+        id: samplePlayer
+        soundfontChoice: Ez.Soundfonts.File
+        soundfontFile: root.soundfont.path
+    }
+    Dialogs.FileDialog {
+        id: soundfontDialog
+        title: qsTr("Game Soundfont")
+        nameFilters: [qsTr("Soundfonts (*.sf2 *.sf3 *.soundfont)"), qsTr("All files (*)")]
+        onAccepted: root.chooseSoundfont(Ez.Editor.localPath(selectedFile))
+    }
+    Ez.MessageDialog {
+        id: confirmSoundfont
+        objectName: "soundfontQuestion"
+        property string file
+        property bool remove: false
+        /** No drops the choice made before the window opened */
+        property bool dropOnNo: false
+        parent: Controls.Overlay.overlay
+        title: qsTr("Game Soundfont")
+        standardButtons: Controls.Dialog.Yes | Controls.Dialog.No
+        onAccepted: {
+            dropOnNo = false
+            if (remove) {
+                root.soundfont.remove()
+            } else {
+                root.soundfont.choose(file)
+            }
+        }
+        onRejected: {
+            if (dropOnNo) {
+                dropOnNo = false
+                root.soundfont.revert()
             }
         }
     }
