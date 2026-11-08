@@ -14924,11 +14924,6 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
         <translation>$A à $Z, puis $a à $z</translation>
     </message>
     <message>
-        <location line="+22"/>
-        <source>Read by EasyRPG Player only (EasyRPG.ini, Font folder). RPG_RT.exe is not changed.</source>
-        <translation>Lu seulement par EasyRPG Player (EasyRPG.ini, répertoire Font). RPG_RT.exe n&apos;est pas modifié.</translation>
-    </message>
-    <message>
         <location line="+4"/>
         <location line="+3"/>
         <source>Patches</source>
@@ -15343,6 +15338,66 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
     <message>
         <source>%1 could not be removed.</source>
         <translation>%1 n&apos;a pas pu être retiré.</translation>
+    </message>
+    <message>
+        <source>Player&apos;s choice (320×240 or wider)</source>
+        <translation>Au choix du joueur (320×240 ou plus large)</translation>
+    </message>
+    <message>
+        <source>320×240 only</source>
+        <translation>320×240 seulement</translation>
+    </message>
+    <message>
+        <source>416×240, widescreen</source>
+        <translation>416×240, écran large</translation>
+    </message>
+    <message>
+        <source>560×240, ultrawide</source>
+        <translation>560×240, ultra-large</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>Personnalisée</translation>
+    </message>
+    <message>
+        <source>Read by EasyRPG Player (EasyRPG.ini, Font folder; the screen size in RPG_RT.ini, which the Maniac Patch reads too). RPG_RT.exe is not changed.</source>
+        <translation>Lu par EasyRPG Player (EasyRPG.ini, répertoire Font ; la taille de l&apos;écran dans RPG_RT.ini, que le Maniac Patch lit aussi). RPG_RT.exe n&apos;est pas modifié.</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Écran</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Taille</translation>
+    </message>
+    <message>
+        <source>Player&apos;s choice: 320×240, or wider when the player chose Widescreen or Ultrawide in EasyRPG Player&apos;s settings. A size: the game always has it (WinW and WinH of RPG_RT.ini, EasyRPG Player 0.8 or later and the Maniac Patch); RPG Maker&apos;s menus, made for 320×240, are centered in it.</source>
+        <translation>Au choix du joueur : 320×240, ou plus large si le joueur a choisi Widescreen ou Ultrawide dans les paramètres d&apos;EasyRPG Player. Une taille : le jeu l&apos;a toujours (WinW et WinH de RPG_RT.ini, EasyRPG Player 0.8 ou plus récent et le Maniac Patch) ; les menus de RPG Maker, faits pour 320×240, y sont centrés.</translation>
+    </message>
+    <message>
+        <source>Width in pixels</source>
+        <translation>Largeur en pixels</translation>
+    </message>
+    <message>
+        <source>Height in pixels</source>
+        <translation>Hauteur en pixels</translation>
+    </message>
+    <message>
+        <source>Center maps smaller than the screen</source>
+        <translation>Centrer les cartes plus petites que l&apos;écran</translation>
+    </message>
+    <message>
+        <source>EasyRPG Player&apos;s Fake Metrics (FakeResolution of EasyRPG.ini): a map smaller than the screen is drawn in its middle with black borders, with its panorama and the pictures that scroll with it, instead of from the top-left corner. For games made for 320×240. The Player does it by itself in its widescreen and ultrawide modes.</source>
+        <translation>Les Fake Metrics d&apos;EasyRPG Player (FakeResolution d&apos;EasyRPG.ini) : une carte plus petite que l&apos;écran est dessinée en son milieu avec des bordures noires, avec son panorama et les images qui défilent avec elle, au lieu de partir du coin en haut à gauche. Pour les jeux faits pour 320×240. Le Player le fait de lui-même dans ses modes écran large et ultra-large.</translation>
+    </message>
+    <message>
+        <source>The size of the screen could not be written in RPG_RT.ini.</source>
+        <translation>La taille de l&apos;écran n&apos;a pas pu être écrite dans RPG_RT.ini.</translation>
+    </message>
+    <message>
+        <source>FakeResolution could not be written in EasyRPG.ini.</source>
+        <translation>FakeResolution n&apos;a pas pu être écrit dans EasyRPG.ini.</translation>
     </message>
 </context>
 <context>
