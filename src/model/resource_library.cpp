@@ -284,18 +284,18 @@ void ResourceLibraryModel::setGamePath(const QString& path)
 	reload(QString(), false);
 }
 
-QString ResourceLibraryModel::rtpPath() const
+QStringList ResourceLibraryModel::rtpPaths() const
 {
-	return m_rtpPath;
+	return m_rtpPaths;
 }
 
-void ResourceLibraryModel::setRtpPath(const QString& path)
+void ResourceLibraryModel::setRtpPaths(const QStringList& paths)
 {
-	if (path == m_rtpPath) {
+	if (paths == m_rtpPaths) {
 		return;
 	}
-	m_rtpPath = path;
-	emit rtpPathChanged();
+	m_rtpPaths = paths;
+	emit rtpPathsChanged();
 	reload(QString(), true);
 }
 
@@ -374,13 +374,20 @@ QString ResourceLibraryModel::gameFolderPath(int folder) const
 	return dir.isEmpty() ? FileFinder::CombinePath(QDir(m_gamePath).absolutePath(), name) : dir;
 }
 
-QString ResourceLibraryModel::rtpFolderPath(int folder) const
+QStringList ResourceLibraryModel::rtpFolderPaths(int folder) const
 {
+	QStringList paths;
 	const Folder* found = folderAt(folder);
-	if (!found || m_rtpPath.isEmpty() || !QDir(m_rtpPath).exists()) {
-		return QString();
+	for (const QString& rtp : m_rtpPaths) {
+		if (!found || rtp.isEmpty() || !QDir(rtp).exists()) {
+			continue;
+		}
+		const QString dir = FileFinder::Find(QDir(rtp), QString::fromLatin1(found->name), FileType::Default, QDir::Dirs);
+		if (!dir.isEmpty()) {
+			paths << dir;
+		}
 	}
-	return FileFinder::Find(QDir(m_rtpPath), QString::fromLatin1(found->name), FileType::Default, QDir::Dirs);
+	return paths;
 }
 
 int ResourceLibraryModel::folder() const
@@ -432,7 +439,7 @@ QString ResourceLibraryModel::countText() const
 	QString count = QCoreApplication::translate("ResourceManagerDialog", "Files: %1").arg(m_entries.size());
 	if (rtp > 0) {
 		count += QStringLiteral(", ") + QCoreApplication::translate("ResourceManagerDialog", "from the RTP: %1").arg(rtp);
-	} else if (m_rtpPath.isEmpty()) {
+	} else if (m_rtpPaths.isEmpty()) {
 		count += QStringLiteral(", ") + QCoreApplication::translate("ResourceManagerDialog", "no RTP path set");
 	}
 	return count;
@@ -459,9 +466,10 @@ void ResourceLibraryModel::reload(const QString& select, bool keep)
 	QHash<QString, int> seen;
 	const QStringList exts = extensions(folderType(m_folder));
 
-	// The game's files hide the RTP's of the same name; in one folder, the
-	// extension that the Player tries first wins (as FileFinder::Find)
-	auto scan = [&](const QString& dir, bool rtp) {
+	// The game's files hide the RTP's of the same name, the first RTP
+	// folder's those of the next ones; in one folder, the extension that the
+	// Player tries first wins (as FileFinder::Find)
+	auto scan = [&](const QString& dir, int source) {
 		if (dir.isEmpty() || !QDir(dir).exists()) {
 			return;
 		}
@@ -476,16 +484,19 @@ void ResourceLibraryModel::reload(const QString& select, bool keep)
 			auto it = seen.constFind(key);
 			if (it == seen.constEnd()) {
 				seen.insert(key, static_cast<int>(m_entries.size()));
-				m_entries.append({ name, info.absoluteFilePath(), rtp, rank, info.size() });
-			} else if (m_entries[*it].rtp == rtp && rank < m_entries[*it].rank) {
-				m_entries[*it] = { name, info.absoluteFilePath(), rtp, rank, info.size() };
+				m_entries.append({ name, info.absoluteFilePath(), source > 0, rank, info.size(), source });
+			} else if (m_entries[*it].source == source && rank < m_entries[*it].rank) {
+				m_entries[*it] = { name, info.absoluteFilePath(), source > 0, rank, info.size(), source };
 			}
 		}
 	};
 	if (hasGame()) {
-		scan(gameFolderPath(m_folder), false);
+		scan(gameFolderPath(m_folder), 0);
 	}
-	scan(rtpFolderPath(m_folder), true);
+	const QStringList rtp_dirs = rtpFolderPaths(m_folder);
+	for (int i = 0; i < rtp_dirs.size(); ++i) {
+		scan(rtp_dirs[i], i + 1);
+	}
 
 	QCollator collator;
 	collator.setNumericMode(true);
@@ -693,6 +704,11 @@ QStringList ResourceLibraryModel::fileInfo(const QString& path, bool rtp, const 
 	QStringList lines;
 	lines << (rtp ? QCoreApplication::translate("ResourceManagerDialog", "RTP file: %1")
 		: QCoreApplication::translate("ResourceManagerDialog", "Game file: %1")).arg(info.fileName());
+	if (rtp) {
+		// which of the RTP folders: the one above its folder (CharSet...)
+		lines << QCoreApplication::translate("ResourceManagerDialog", "RTP folder: %1")
+			.arg(QDir::toNativeSeparators(QFileInfo(info.absolutePath()).absolutePath()));
+	}
 	lines << QCoreApplication::translate("ResourceManagerDialog", "Size: %1").arg(QLocale().formattedDataSize(info.size()));
 	if (!image.isNull()) {
 		lines << QCoreApplication::translate("ResourceManagerDialog", "%1 x %2 pixels").arg(image.width()).arg(image.height());
@@ -1040,8 +1056,10 @@ ResourceResult ResourceLibraryModel::deleteCurrent()
 	} else if (row > 0) {
 		next = m_rows[row - 1];
 	}
-	const QString rtp_dir = rtpFolderPath(m_folder);
-	const bool in_rtp = !rtp_dir.isEmpty() && !FileFinder::Find(QDir(rtp_dir), entry.name, folderType(m_folder)).isEmpty();
+	const QStringList rtp_dirs = rtpFolderPaths(m_folder);
+	const bool in_rtp = std::any_of(rtp_dirs.cbegin(), rtp_dirs.cend(), [&](const QString& dir) {
+		return !FileFinder::Find(QDir(dir), entry.name, folderType(m_folder)).isEmpty();
+	});
 	refresh(in_rtp || next < 0 ? entry.name : m_entries[next].name);
 	return ResourceResult::done(entry.name);
 }
@@ -1055,7 +1073,8 @@ QString ResourceLibraryModel::openFolderPath() const
 	if (!game.isEmpty() && QDir(game).exists()) {
 		return game;
 	}
-	return rtpFolderPath(m_folder);
+	const QStringList rtp_dirs = rtpFolderPaths(m_folder);
+	return rtp_dirs.isEmpty() ? QString() : rtp_dirs.first();
 }
 
 bool ResourceLibraryModel::openFolder() const

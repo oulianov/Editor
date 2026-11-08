@@ -214,7 +214,7 @@ ProjectController* QmlShell::projectController() const
 
 void QmlShell::askForRtp()
 {
-	if (core().rtpPath("").isEmpty())
+	if (EditorSettings::instance().rtpFolders().isEmpty())
 		m_dialogs->settings();
 }
 
@@ -814,7 +814,7 @@ void QmlShell::exportGame()
 	if (!m_project->saveModifiedMaps(windowText(QT_TRANSLATE_NOOP("MainWindow", "Export Game")), windowText(QT_TRANSLATE_NOOP("MainWindow", "Some maps have unsaved changes.\nSave them before the export?"))))
 		return;
 	ExportController controller;
-	controller.setProject(*core().project(), core().rtpPath(QString()));
+	controller.setProject(*core().project(), core().rtpDirs());
 	QmlHost::exec(QStringLiteral("ExportWindow"), m_window, {{QStringLiteral("controller"), QVariant::fromValue(&controller)}});
 }
 

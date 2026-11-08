@@ -8445,6 +8445,10 @@ http://localhost:8000
         <source>The archive has no EasyRPG Player for %1.</source>
         <translation>L&apos;archive ne contient pas d&apos;EasyRPG Player pour %1.</translation>
     </message>
+    <message>
+        <source>Cannot write %1: %2</source>
+        <translation>Impossible d&apos;écrire %1 : %2</translation>
+    </message>
 </context>
 <context>
     <name>LocationCommandWidget</name>
@@ -15741,6 +15745,10 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
         <source>The %1 folder already has a file named %2.</source>
         <translation>Le répertoire %1 contient déjà un fichier nommé %2.</translation>
     </message>
+    <message>
+        <source>RTP folder: %1</source>
+        <translation>Répertoire des RTP : %1</translation>
+    </message>
 </context>
 <context>
     <name>RpgRtExe</name>
@@ -16590,11 +16598,6 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <translation>Chemins</translation>
     </message>
     <message>
-        <location line="+3"/>
-        <source>RTP folder</source>
-        <translation>Répertoire des RTP</translation>
-    </message>
-    <message>
         <location line="+115"/>
         <source>Select the RTP folder</source>
         <translation>Choisir le répertoire des RTP</translation>
@@ -16674,6 +16677,142 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
     <message>
         <source>Dark</source>
         <translation>Sombre</translation>
+    </message>
+    <message>
+        <source>RTP folders</source>
+        <translation>Répertoires des RTP</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>Répertoire</translation>
+    </message>
+    <message>
+        <source>RTP</source>
+        <translation>RTP</translation>
+    </message>
+    <message>
+        <source>Missing</source>
+        <translation>Absent</translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation>Autre</translation>
+    </message>
+    <message>
+        <source>This Game</source>
+        <translation>Ce jeu</translation>
+    </message>
+    <message>
+        <source>A game looks for the files it lacks in its RTP folder, then in the other folders from top to bottom.</source>
+        <translation>Un jeu cherche les fichiers qui lui manquent dans son répertoire des RTP, puis dans les autres répertoires, de haut en bas.</translation>
+    </message>
+    <message>
+        <source>The folder of the games of RPG Maker 2000</source>
+        <translation>Le répertoire des jeux RPG Maker 2000</translation>
+    </message>
+    <message>
+        <source>The folder of the games of RPG Maker 2003</source>
+        <translation>Le répertoire des jeux RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>The folder %1 uses: the one marked for its engine, or one of its own.</source>
+        <translation>Le répertoire qu&apos;utilise %1 : celui coché pour son moteur, ou un répertoire à lui.</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Ajouter</translation>
+    </message>
+    <message>
+        <source>From Folder...</source>
+        <translation>Depuis un répertoire...</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Retirer</translation>
+    </message>
+    <message>
+        <source>Move Up</source>
+        <translation>Monter</translation>
+    </message>
+    <message>
+        <source>Move Down</source>
+        <translation>Descendre</translation>
+    </message>
+    <message>
+        <source>Engine&apos;s Default</source>
+        <translation>Celui du moteur</translation>
+    </message>
+    <message>
+        <source>%1 uses the folder marked for RPG Maker %2 again.</source>
+        <translation>%1 utilise de nouveau le répertoire coché pour RPG Maker %2.</translation>
+    </message>
+    <message>
+        <source>Download EasyRPG RTP...</source>
+        <translation>Télécharger les RTP d&apos;EasyRPG...</translation>
+    </message>
+    <message>
+        <source>Download EasyRPG RTP</source>
+        <translation>Télécharger les RTP d&apos;EasyRPG</translation>
+    </message>
+    <message>
+        <source>EasyRPG&apos;s free RTP, for the games of RPG Maker 2000 and 2003: downloaded into %1 and added to the list.</source>
+        <translation>Les RTP libres d&apos;EasyRPG, pour les jeux RPG Maker 2000 et 2003 : téléchargés dans %1 et ajoutés à la liste.</translation>
+    </message>
+    <message>
+        <source>The EasyRPG RTP is already in %1. Download it again, or add this folder as it is?</source>
+        <translation>Les RTP d&apos;EasyRPG sont déjà dans %1. Les télécharger de nouveau, ou ajouter ce répertoire tel quel ?</translation>
+    </message>
+    <message>
+        <source>Download Again</source>
+        <translation>Retélécharger</translation>
+    </message>
+    <message>
+        <source>Add Folder</source>
+        <translation>Ajouter le répertoire</translation>
+    </message>
+    <message>
+        <source>official Japanese</source>
+        <translation>japonais officiel</translation>
+    </message>
+    <message>
+        <source>official English</source>
+        <translation>anglais officiel</translation>
+    </message>
+    <message>
+        <source>translated by %1</source>
+        <translation>traduit par %1</translation>
+    </message>
+    <message>
+        <source>Russian, translated by %1</source>
+        <translation>russe, traduit par %1</translation>
+    </message>
+    <message>
+        <source>Korean</source>
+        <translation>coréen</translation>
+    </message>
+    <message>
+        <source>official Traditional Chinese</source>
+        <translation>chinois traditionnel officiel</translation>
+    </message>
+    <message>
+        <source>%1 is missing: it is skipped.</source>
+        <translation>%1 est absent : il est ignoré.</translation>
+    </message>
+    <message>
+        <source>%1 is not a whole RTP: its files fill in for those the other folders lack.</source>
+        <translation>%1 n&apos;est pas un jeu de RTP complet : ses fichiers complètent ceux qui manquent aux autres répertoires.</translation>
+    </message>
+    <message>
+        <source>%1: RTP of RPG Maker %2.</source>
+        <translation>%1 : RTP de RPG Maker %2.</translation>
+    </message>
+    <message>
+        <source>%1: RTP of RPG Maker %2, %3.</source>
+        <translation>%1 : RTP de RPG Maker %2, %3.</translation>
+    </message>
+    <message>
+        <source>%1: EasyRPG RTP, for the games of RPG Maker 2000 and 2003.</source>
+        <translation>%1 : RTP d&apos;EasyRPG, pour les jeux RPG Maker 2000 et 2003.</translation>
     </message>
 </context>
 <context>
@@ -23051,6 +23190,17 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <location line="+2"/>
         <source>Language of the Editor (en, fr, de...), instead of the one chosen in the Editor.</source>
         <translation>Langue de l&apos;éditeur (en, fr, de...), à la place de celle choisie dans l&apos;éditeur.</translation>
+    </message>
+</context>
+<context>
+    <name>RtpDownload</name>
+    <message>
+        <source>The archive holds no RTP (no CharSet, ChipSet, Music... folders).</source>
+        <translation>L&apos;archive ne contient pas de RTP (pas de répertoires CharSet, ChipSet, Music...).</translation>
+    </message>
+    <message>
+        <source>Cannot move %1 to %2.</source>
+        <translation>Impossible de déplacer %1 vers %2.</translation>
     </message>
 </context>
 </TS>

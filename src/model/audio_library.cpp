@@ -332,14 +332,14 @@ bool AudioLibraryModel::hasGame() const {
 	return !m_gamePath.isEmpty();
 }
 
-QString AudioLibraryModel::rtpPath() const {
-	return m_rtpPath;
+QStringList AudioLibraryModel::rtpPaths() const {
+	return m_rtpPaths;
 }
 
-void AudioLibraryModel::setRtpPath(const QString& path) {
-	if (path != m_rtpPath) {
-		m_rtpPath = path;
-		emit rtpPathChanged();
+void AudioLibraryModel::setRtpPaths(const QStringList& paths) {
+	if (paths != m_rtpPaths) {
+		m_rtpPaths = paths;
+		emit rtpPathsChanged();
 	}
 }
 
@@ -376,16 +376,18 @@ void AudioLibraryModel::fill(Kind kind) {
 	const auto type = kind == Kind::Music ? FileFinder::FileType::Music : FileFinder::FileType::Sound;
 	const QStringList suffixes = FileFinder::GetFiltersForType(type);
 
-	// The game's files, then the RTP's not replaced by one of the game (the game uses its own)
+	// The game's files, then the RTP's not replaced by one of the game (the game uses its own),
+	// those of the first RTP folder before those of the next ones
 	const QString gameDir = FileFinder::Find(QDir(m_gamePath), folder, FileFinder::FileType::Default, QDir::Dirs);
-	const QString rtpDir = m_rtpPath.isEmpty() ? QString()
-		: FileFinder::Find(QDir(m_rtpPath), folder, FileFinder::FileType::Default, QDir::Dirs);
 	auto files = audioFiles(gameDir, suffixes);
 	const int gameCount = static_cast<int>(files.size());
 	std::map<QString, bool> fromRtp;
-	for (const auto& [key, path] : audioFiles(rtpDir, suffixes)) {
-		if (files.emplace(key, path).second) {
-			fromRtp[key] = true;
+	for (const QString& rtp : m_rtpPaths) {
+		const QString rtpDir = FileFinder::Find(QDir(rtp), folder, FileFinder::FileType::Default, QDir::Dirs);
+		for (const auto& [key, path] : audioFiles(rtpDir, suffixes)) {
+			if (files.emplace(key, path).second) {
+				fromRtp[key] = true;
+			}
 		}
 	}
 
@@ -415,8 +417,10 @@ void AudioLibraryModel::fill(Kind kind) {
 		}
 		// the game's file first, then the RTP's (as Project::findFile)
 		QString path = FileFinder::Find(QDir(m_gamePath), folder, file.name, type);
-		if (path.isEmpty() && !m_rtpPath.isEmpty()) {
-			path = FileFinder::Find(QDir(m_rtpPath), folder, file.name, type);
+		for (const QString& rtp : m_rtpPaths) {
+			if (path.isEmpty()) {
+				path = FileFinder::Find(QDir(rtp), folder, file.name, type);
+			}
 		}
 		AudioListModel::Entry line;
 		line.name = QStringLiteral("%1: %2").arg(QCoreApplication::translate("JukeboxDialog", file.label), file.name);

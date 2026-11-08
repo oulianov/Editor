@@ -24,6 +24,7 @@
 #include <QProcess>
 #include <QStringList>
 #include <QUrl>
+#include <functional>
 #include "model/game_export.h"
 
 class QNetworkReply;
@@ -56,18 +57,35 @@ namespace Launchers {
 	QString downloaded(ExportPlatform platform);
 	/** The platform of this computer (macOS, Windows, else Linux) */
 	ExportPlatform hostPlatform();
+	/**
+	 * The archive of the EasyRPG RTP, EasyRPG's free RTP for the games of
+	 * both engines: the EasyRPG/RTP repository's (easyrpg.org has no
+	 * release of it); with EASYRPG_EDITOR_LAUNCHER_BASE, its easyrpg-rtp.zip
+	 */
+	QUrl rtpUrl();
+	/** Where the EasyRPG RTP is extracted: rtp/easyrpg in the Editor's data
+	 *  folder, else beside EASYRPG_EDITOR_LAUNCHER_DIR (the scripts' own) */
+	QString rtpFolder();
 }
 
 /**
- * Downloads and extracts the EasyRPG Player of a platform. Archives are
- * extracted by the system's tools (ditto on macOS, unzip and tar on Linux,
- * tar.exe of Windows 10 and later): Qt has no public archive reader.
+ * Downloads and extracts the EasyRPG Player of a platform, or another
+ * archive (the EasyRPG RTP). Archives are extracted by the system's tools
+ * (ditto on macOS, unzip and tar on Linux, tar.exe of Windows 10 and
+ * later): Qt has no public archive reader.
  */
 class LauncherDownload : public QObject
 {
 	Q_OBJECT
 public:
 	explicit LauncherDownload(ExportPlatform platform, QObject* parent = nullptr);
+	/**
+	 * Any archive, saved as archive_name in dir (emptied first, removed on
+	 * failure) and extracted there; find: what is looked for in dir once
+	 * extracted (finished with it), missing: the error when it is not there
+	 */
+	LauncherDownload(const QUrl& url, const QString& dir, const QString& archive_name,
+		std::function<QString(const QString& dir)> find, const QString& missing, QObject* parent = nullptr);
 	~LauncherDownload() override;
 
 	void start();
@@ -75,7 +93,7 @@ public:
 
 signals:
 	void progress(qint64 received, qint64 total);
-	/** launcher: the program found in the archive, empty on error or cancel */
+	/** launcher: the program found in the archive (what find found), empty on error or cancel */
 	void finished(const QString& launcher, const QString& error);
 
 private:
@@ -83,7 +101,12 @@ private:
 	void extracted(int exit_code, QProcess::ExitStatus status);
 	void fail(const QString& error);
 
-	ExportPlatform m_platform;
+	QUrl m_url;
+	QString m_archiveName;
+	std::function<QString(const QString&)> m_find;
+	QString m_missing;
+	/** Why the archive could not be written (a full disk), empty if it could */
+	QString m_writeError;
 	QNetworkAccessManager m_network;
 	QPointer<QNetworkReply> m_reply;
 	QPointer<QProcess> m_process;

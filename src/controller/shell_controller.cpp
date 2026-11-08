@@ -852,7 +852,6 @@ QString ShellController::mapText() const
 void ShellController::applySettings()
 {
 	const EditorSettings& settings = EditorSettings::instance();
-	core().setRtpDir(settings.rtpPath());
 	core().setAnimationEnabled(settings.animateTiles());
 	m_project->updateWatcher();
 	// a new language at once: every window shows its texts again (the one

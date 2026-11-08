@@ -131,7 +131,7 @@ class AudioLibraryModel : public QObject
 	Q_PROPERTY(AudioListModel* sound READ sound CONSTANT)
 	Q_PROPERTY(AudioPlayer* player READ player CONSTANT)
 	Q_PROPERTY(QString gamePath READ gamePath WRITE setGamePath NOTIFY gamePathChanged)
-	Q_PROPERTY(QString rtpPath READ rtpPath WRITE setRtpPath NOTIFY rtpPathChanged)
+	Q_PROPERTY(QStringList rtpPaths READ rtpPaths WRITE setRtpPaths NOTIFY rtpPathsChanged)
 	Q_PROPERTY(Kind kind READ kind WRITE setKind NOTIFY kindChanged)
 	Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY filterChanged)
 	Q_PROPERTY(int fadeIn READ fadeIn WRITE setFadeIn NOTIFY fadeInChanged)
@@ -164,9 +164,9 @@ public:
 	QString gamePath() const;
 	void setGamePath(const QString& path);
 	bool hasGame() const;
-	/** The RTP folder of the settings, empty when none */
-	QString rtpPath() const;
-	void setRtpPath(const QString& path);
+	/** The RTP folders of the game (Core::rtpDirs), in order: the first having a file gives it */
+	QStringList rtpPaths() const;
+	void setRtpPaths(const QStringList& paths);
 	/** The music and the sounds of the System tab of the database */
 	void setSystem(const lcf::rpg::System& system);
 	void clearSystem();
@@ -218,7 +218,7 @@ public:
 
 signals:
 	void gamePathChanged();
-	void rtpPathChanged();
+	void rtpPathsChanged();
 	void kindChanged();
 	void filterChanged();
 	void fadeInChanged();
@@ -253,7 +253,7 @@ private:
 	AudioListModel* m_sound;
 	AudioPlayer* m_player;
 	QString m_gamePath;
-	QString m_rtpPath;
+	QStringList m_rtpPaths;
 	QList<SystemFile> m_systemMusic;
 	QList<SystemFile> m_systemSound;
 	QString m_filter;

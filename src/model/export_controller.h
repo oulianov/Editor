@@ -122,8 +122,8 @@ public:
 
 	/** The game to export: its settings are read (the saved ones, else the defaults) */
 	void setSource(const ExportSource& source, const QString& game_title);
-	/** setSource for a project: its folder, format, code page and title; rtp: the RTP folder */
-	void setProject(const Project& project, const QString& rtp);
+	/** setSource for a project: its folder, format, code page and title; rtp: its RTP folders, in order */
+	void setProject(const Project& project, const QStringList& rtp);
 	const ExportSource& source() const;
 	QString sourceFolder() const;
 	QString playerVersion() const;

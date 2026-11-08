@@ -18,6 +18,7 @@
 #include "core.h"
 #include <QDebug>
 #include "common/dbstring.h"
+#include "common/editor_settings.h"
 #include "common/image_loader.h"
 #include <QCoreApplication>
 #include <QDir>
@@ -51,6 +52,8 @@ Core::Core() :
 	connect(&m_editorState, &EditorState::toolChanged, this, &Core::toolChanged);
 	connect(&m_editorState, &EditorState::layerChanged, this, &Core::layerChanged);
 	connect(&m_editorState, &EditorState::selectionChanged, this, &Core::selectionChanged);
+	// the RTP folders chosen again (rtpDirs)
+	connect(&EditorSettings::instance(), &EditorSettings::changed, this, [this] { m_rtpStale = true; });
 }
 
 Core *Core::getCore()
@@ -71,7 +74,7 @@ void Core::LoadChipset(int n_chipsetid)
 	m_chipsetProject = project().get();
 	m_charsetCache.clear();
 	// unknown chipset: no tiles, not those of the previous one
-	m_chipsetTiles = ChipsetTiles::load(*project(), n_chipset, tileSize(), m_rtpDir);
+	m_chipsetTiles = ChipsetTiles::load(*project(), n_chipset, tileSize());
 	m_tilePainter.setTiles(m_chipsetTiles);
 	emit chipsetChanged();
 }
@@ -94,7 +97,7 @@ std::shared_ptr<const ChipsetTiles> Core::loadChipsetTiles(int chipset_id)
 	const lcf::rpg::Chipset chipset = findChipset(*project(), chipset_id);
 	if (chipset == m_chipsetTiles->chipset() && m_chipsetProject == project().get())
 		return m_chipsetTiles;
-	return ChipsetTiles::load(*project(), chipset, tileSize(), m_rtpDir);
+	return ChipsetTiles::load(*project(), chipset, tileSize());
 }
 
 void Core::LoadBackground(QString name)
@@ -138,9 +141,28 @@ void Core::setTileSize(int tile_size)
 	m_tileSize = tile_size;
 }
 
-QString Core::rtpPath(const QString &folder, const QString &filename) const
+const QStringList& Core::rtpDirs() const
 {
-	return m_rtpDir+folder+filename;
+	// the game's folder and engine (2003 in a database of RPG Maker 2003)
+	const Project* project = m_project.get();
+	const int engine = project && project->database().system.ldb_id == 2003 ? 2003 : 2000;
+	const QString key = project ? project->projectDir().absolutePath() + QLatin1Char('|') + QString::number(engine) : QString();
+	if (m_rtpStale || key != m_rtpProject) {
+		m_rtpDirs = EditorSettings::instance().rtpSearchPath(project ? project->projectDir().absolutePath() : QString(), engine);
+		m_rtpProject = key;
+		m_rtpStale = false;
+	}
+	return m_rtpDirs;
+}
+
+QString Core::findRtpFile(const QString& dir, const QString& filename, FileFinder::FileType type) const
+{
+	for (const QString& rtp : rtpDirs()) {
+		const QString found = FileFinder::Find(QDir(rtp), dir, filename, type);
+		if (!found.isEmpty())
+			return found;
+	}
+	return QString();
 }
 
 QString Core::defDir() const
@@ -218,11 +240,6 @@ void Core::renderEvent(const lcf::rpg::Event& event, const QRect &dest_rect)
 	m_tilePainter.renderEvent(event, dest_rect, character != m_eventCache.constEnd() ? &character.value() : nullptr);
 }
 
-void Core::setRtpDir(const QString &n_path)
-{
-	m_rtpDir = n_path;
-}
-
 EditorState& Core::editorState()
 {
 	return m_editorState;
@@ -264,9 +281,8 @@ QPixmap Core::charsetImage(const QString& name)
 	if (it != m_charsetCache.constEnd())
 		return it.value();
 
+	// the game's, else the RTP's
 	QPixmap charset(ImageLoader::Load(project()->findFile(CHARSET, name, FileFinder::FileType::Image)));
-	if (!charset)
-		charset = ImageLoader::Load(rtpPath(CHARSET, name));
 	if (!charset)
 	{
 		qWarning()<<"CharSet"<<name<<"not found.";

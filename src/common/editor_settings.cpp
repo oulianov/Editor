@@ -20,11 +20,17 @@
 #include "model/game_runner.h"
 #include <QSettings>
 #include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QPalette>
+#include <QSet>
 #include <QStandardPaths>
 #include <QStyleHints>
+#include <QVariantMap>
+#include <algorithm>
 
 namespace {
 	constexpr const char* ANIMATE_TILES_KEY = "animate_tiles";
@@ -55,9 +61,6 @@ void EditorSettings::setValue(const char* key, const QVariant& value) {
 
 QString EditorSettings::language() const { return value(LANGUAGE_KEY, QString()).toString(); }
 void EditorSettings::setLanguage(const QString& code) { setValue(LANGUAGE_KEY, code); }
-
-QString EditorSettings::rtpPath() const { return value(RTP_KEY, QString()).toString(); }
-void EditorSettings::setRtpPath(const QString& path) { setValue(RTP_KEY, path); }
 
 namespace {
 
@@ -198,6 +201,178 @@ void EditorSettings::updateColors() {
 		m_dark = dark;
 		emit darkChanged();
 	}
+}
+
+namespace {
+
+constexpr const char* RTP_FOLDERS_KEY = "rtp_folders";
+constexpr const char* RTP_DEFAULT_2000_KEY = "rtp_default_2000";
+constexpr const char* RTP_DEFAULT_2003_KEY = "rtp_default_2003";
+constexpr const char* RTP_PROJECTS_KEY = "rtp_projects";
+
+// The folders of an RTP (EasyRPG Player's RTP tables): those of both
+// engines, and those that only RPG Maker 2003's has
+constexpr const char* rtp_folders[] = { "backdrop", "battle", "charset", "chipset", "faceset", "gameover",
+	"monster", "music", "panorama", "sound", "system", "title" };
+constexpr const char* rtp_2003_folders[] = { "battlecharset", "battleweapon", "system2" };
+
+// The charset of the first hero, a name of its own in each translation
+struct RtpHero {
+	int engine;
+	const char* translation;
+	const char* name;
+};
+constexpr RtpHero rtp_heroes[] = {
+	{ 2000, "ja", "主人公1" }, { 2000, "en", "actor1" }, { 2000, "dm", "chara1" },
+	{ 2003, "ja", "主人公1" }, { 2003, "en", "actor1" }, { 2003, "rpga", "hero1" }, { 2003, "ru", "chara1" },
+	{ 2003, "rpgu", "protagonist1" }, { 2003, "ko", "주인공1" }, { 2003, "zh", "主角1" },
+};
+
+const char* rtpDefaultKey(int engine) {
+	return engine == 2003 ? RTP_DEFAULT_2003_KEY : RTP_DEFAULT_2000_KEY;
+}
+
+// The single folder of the Editors before the list, once: its first line,
+// the default of the engine it looks like (of both when it looks like
+// neither). rtp_path stays, for these Editors.
+void moveRtpPath(QSettings& settings) {
+	const QString old = settings.value(QLatin1String(RTP_KEY)).toString().trimmed();
+	if (old.isEmpty() || settings.contains(QLatin1String(RTP_FOLDERS_KEY))) {
+		return;
+	}
+	const QString folder = QDir::cleanPath(old);
+	// the EasyRPG RTP: for both
+	const int engine = EditorSettings::isEasyRpgRtp(folder) ? 0 : EditorSettings::rtpEngine(folder);
+	settings.setValue(QLatin1String(RTP_FOLDERS_KEY), QStringList{ folder });
+	if (engine != 2003) {
+		settings.setValue(QLatin1String(RTP_DEFAULT_2000_KEY), folder);
+	}
+	if (engine != 2000) {
+		settings.setValue(QLatin1String(RTP_DEFAULT_2003_KEY), folder);
+	}
+}
+
+}
+
+QStringList EditorSettings::rtpFolders() const {
+	QSettings settings;
+	moveRtpPath(settings);
+	return settings.value(QLatin1String(RTP_FOLDERS_KEY)).toStringList();
+}
+
+void EditorSettings::setRtpFolders(const QStringList& folders) {
+	QStringList list;
+	for (const QString& folder : folders) {
+		const QString clean = folder.trimmed().isEmpty() ? QString() : QDir::cleanPath(folder.trimmed());
+		if (!clean.isEmpty() && !list.contains(clean)) {
+			list << clean;
+		}
+	}
+	// the games whose folder was taken out use their engine's default again
+	QVariantMap projects = value(RTP_PROJECTS_KEY, QVariantMap()).toMap();
+	for (auto it = projects.begin(); it != projects.end();) {
+		it = list.contains(it.value().toString()) ? std::next(it) : projects.erase(it);
+	}
+	setValue(RTP_FOLDERS_KEY, list);
+	setValue(RTP_PROJECTS_KEY, projects);
+}
+
+QString EditorSettings::rtpDefault(int engine) const {
+	QSettings settings;
+	moveRtpPath(settings);
+	return settings.value(QLatin1String(rtpDefaultKey(engine))).toString();
+}
+
+void EditorSettings::setRtpDefault(int engine, const QString& folder) {
+	setValue(rtpDefaultKey(engine), folder.isEmpty() ? QString() : QDir::cleanPath(folder));
+}
+
+QString EditorSettings::rtpActive(const QString& project) const {
+	return value(RTP_PROJECTS_KEY, QVariantMap()).toMap().value(projectKey(project)).toString();
+}
+
+void EditorSettings::setRtpActive(const QString& project, const QString& folder) {
+	QVariantMap projects = value(RTP_PROJECTS_KEY, QVariantMap()).toMap();
+	if (folder.isEmpty()) {
+		projects.remove(projectKey(project));
+	} else {
+		projects.insert(projectKey(project), QDir::cleanPath(folder));
+	}
+	setValue(RTP_PROJECTS_KEY, projects);
+}
+
+QStringList EditorSettings::rtpSearchPath(const QString& project, int engine) const {
+	QStringList folders = rtpFolders();
+	folders.removeIf([](const QString& folder) { return !QFileInfo(folder).isDir(); });
+	// the game's own folder, else its engine's default: missing, the next choice
+	QString first;
+	if (!project.isEmpty()) {
+		first = rtpActive(project);
+		if (!folders.contains(first)) {
+			first = rtpDefault(engine);
+		}
+	}
+	if (folders.removeOne(first)) {
+		folders.prepend(first);
+	}
+	return folders;
+}
+
+QString EditorSettings::projectKey(const QString& dir) {
+	const QFileInfo info(dir);
+	const QString canonical = info.canonicalFilePath();
+	return canonical.isEmpty() ? QDir::cleanPath(info.absoluteFilePath()) : canonical;
+}
+
+QStringList EditorSettings::rtpKeys() {
+	return { QStringLiteral(RTP_KEY), QLatin1String(RTP_FOLDERS_KEY), QLatin1String(RTP_DEFAULT_2000_KEY),
+		QLatin1String(RTP_DEFAULT_2003_KEY), QLatin1String(RTP_PROJECTS_KEY) };
+}
+
+int EditorSettings::rtpEngine(const QString& folder) {
+	const QDir dir(folder);
+	if (folder.isEmpty() || !dir.exists()) {
+		return 0;
+	}
+	QSet<QString> names;
+	for (const QString& name : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+		names.insert(name.toLower());
+	}
+	const auto has = [&names](const char* name) { return names.contains(QLatin1String(name)); };
+	// most folders of an RTP: not a folder of a few extra files
+	if (std::count_if(std::begin(rtp_folders), std::end(rtp_folders), has) < 6) {
+		return 0;
+	}
+	return std::any_of(std::begin(rtp_2003_folders), std::end(rtp_2003_folders), has) ? 2003 : 2000;
+}
+
+bool EditorSettings::isEasyRpgRtp(const QString& folder) {
+	// README.md in the repository, README or README.txt in its archives
+	for (const QFileInfo& file : QDir(folder).entryInfoList({ QStringLiteral("README*") }, QDir::Files)) {
+		QFile readme(file.filePath());
+		if (readme.open(QIODevice::ReadOnly) && readme.read(512).contains("EasyRPG RTP")) {
+			return true;
+		}
+	}
+	return false;
+}
+
+QString EditorSettings::rtpTranslation(const QString& folder, int engine) {
+	QSet<QString> names;
+	for (const QFileInfo& dir : QDir(folder).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+		if (dir.fileName().compare(QLatin1String(CHARSET), Qt::CaseInsensitive) == 0) {
+			for (const QFileInfo& file : QDir(dir.filePath()).entryInfoList(QDir::Files)) {
+				// the names of the file system (decomposed Hangul on macOS) as written here
+				names.insert(file.completeBaseName().normalized(QString::NormalizationForm_C).toLower());
+			}
+		}
+	}
+	for (const RtpHero& hero : rtp_heroes) {
+		if (hero.engine == engine && names.contains(QString::fromUtf8(hero.name))) {
+			return QLatin1String(hero.translation);
+		}
+	}
+	return QString();
 }
 
 QString EditorSettings::playerPath() const { return value(PLAYER_PATH_KEY, QString()).toString(); }

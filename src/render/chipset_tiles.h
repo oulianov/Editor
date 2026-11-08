@@ -42,9 +42,9 @@ public:
 	ChipsetTiles(const lcf::rpg::Chipset& chipset, QPixmap image, int tile_size);
 
 	/** The tiles of a chipset of the project: its image in the project,
-	 *  else in the RTP (rtp_dir as Core::rtpPath has it); none for the ID 0 */
+	 *  else in its RTP folders (Project::findFile); none for the ID 0 */
 	static std::shared_ptr<const ChipsetTiles> load(const Project& project, const lcf::rpg::Chipset& chipset,
-		int tile_size, const QString& rtp_dir);
+		int tile_size);
 
 	const lcf::rpg::Chipset& chipset() const { return m_chipset; }
 	int id() const { return m_chipset.ID; }

@@ -71,22 +71,20 @@ bool findItems(ApplicationMenu& found)
 	found.services = services;
 	found.quit = quit;
 	found.hiding = hiding;
-	// the separator under About would open the menu
-	[menu removeItemAtIndex:2];
 	return true;
 }
 
-// Check for Updates and About right above Quit, the application's items
+// About first, Check for Updates right above Quit, the application's items
 // under Settings
 void arrange(const ApplicationMenu& items)
 {
 	NSMenu* menu = items.menu;
 	// Qt puts an application item (Test Play Options) after the last item
-	// it made, About once it is moved: back under Settings
+	// it made, Check for Updates once it is moved: back under Settings
 	NSMutableArray<NSMenuItem*>* moved = [NSMutableArray array];
 	for (NSInteger i = menu.numberOfItems - 1; i > [menu indexOfItem:items.services]; --i) {
 		NSMenuItem* item = [menu itemAtIndex:i];
-		if (!item.separatorItem && item != items.about && item != items.updates && item != items.quit
+		if (!item.separatorItem && item != items.updates && item != items.quit
 				&& ![items.hiding containsObject:item]) {
 			[moved insertObject:item atIndex:0];
 			[menu removeItemAtIndex:i];
@@ -98,13 +96,13 @@ void arrange(const ApplicationMenu& items)
 	for (NSMenuItem* item in moved)
 		[menu insertItem:item atIndex:at++];
 
-	const NSInteger quit = [menu indexOfItem:items.quit];
-	if ([menu indexOfItem:items.about] != quit - 1 || [menu indexOfItem:items.updates] != quit - 2) {
+	if ([menu indexOfItem:items.about] != 0) {
 		[menu removeItem:items.about];
+		[menu insertItem:items.about atIndex:0];
+	}
+	if ([menu indexOfItem:items.updates] != [menu indexOfItem:items.quit] - 1) {
 		[menu removeItem:items.updates];
-		const NSInteger above = [menu indexOfItem:items.quit];
-		[menu insertItem:items.updates atIndex:above];
-		[menu insertItem:items.about atIndex:above + 1];
+		[menu insertItem:items.updates atIndex:[menu indexOfItem:items.quit]];
 	}
 }
 

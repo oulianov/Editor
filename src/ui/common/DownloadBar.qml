@@ -8,14 +8,15 @@ import QtQuick.Layouts
 import org.easyrpg.editor as Ez
 
 /**
- * A download of the EasyRPG Player running (Ez.PlayerDownload): what is
- * downloaded, its progress, and a button to stop it. Shown while it runs.
+ * A download running (Ez.PlayerDownload, Ez.RtpDownload: busy, fileName,
+ * progress, progressMaximum, cancel()): what is downloaded, its progress,
+ * and a button to stop it. Shown while it runs.
  */
 ColumnLayout {
     id: root
 
-    /** The Ez.PlayerDownload shown */
-    property Ez.PlayerDownload download: null
+    /** The download shown */
+    property QtObject download: null
     /** The Cancel button of the bar (a window whose Cancel stops it too: none) */
     property bool cancelButton: true
 

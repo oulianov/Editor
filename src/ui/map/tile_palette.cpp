@@ -43,14 +43,7 @@ void TilePalette::setState(EditorState* state)
 	m_stateConnections.clear();
 	m_state = state;
 	if (m_state) {
-		m_stateConnections << connect(m_state, &EditorState::layerChanged, this, [this]() {
-			if (upper() != m_upper) {
-				m_upper = upper();
-				emit tilesChanged();
-			}
-			// each layer keeps its own tiles picked
-			showState();
-		});
+		m_stateConnections << connect(m_state, &EditorState::layerChanged, this, &TilePalette::followLayer);
 		// the eyedropper of the map picks tiles too
 		m_stateConnections << connect(m_state, &EditorState::selectionChanged, this, [this]() {
 			if (!m_settingState)
@@ -59,13 +52,67 @@ void TilePalette::setState(EditorState* state)
 	}
 	m_upper = upper();
 	showState();
+	m_active = isActive();
 	emit stateChanged();
 	emit tilesChanged();
+	emit activeChanged();
+}
+
+int TilePalette::layer() const
+{
+	return m_layer;
+}
+
+void TilePalette::setLayer(int layer)
+{
+	layer = layer == EditorState::LOWER || layer == EditorState::UPPER ? layer : -1;
+	if (layer == m_layer)
+		return;
+	m_layer = layer;
+	// a drag on the other tiles picks nothing
+	if (m_picking)
+		m_cancelled = true;
+	followLayer();
+	emit layerChanged();
+}
+
+bool TilePalette::isActive() const
+{
+	return m_layer < 0 || (m_state && m_state->layer() == m_layer);
 }
 
 bool TilePalette::upper() const
 {
-	return m_state && m_state->layer() != EditorState::LOWER;
+	return shownLayer() != EditorState::LOWER;
+}
+
+EditorState::Layer TilePalette::shownLayer() const
+{
+	if (m_layer >= 0)
+		return static_cast<EditorState::Layer>(m_layer);
+	return m_state ? m_state->layer() : EditorState::LOWER;
+}
+
+void TilePalette::edit()
+{
+	// as the double right-click on the map: the tool bar, the map, the
+	// status bar and the brush follow the state
+	if (m_state && m_layer >= 0 && m_state->layer() != m_layer)
+		m_state->setLayer(static_cast<EditorState::Layer>(m_layer));
+}
+
+void TilePalette::followLayer()
+{
+	if (upper() != m_upper) {
+		m_upper = upper();
+		emit tilesChanged();
+	}
+	// each layer keeps its own tiles picked
+	showState();
+	if (isActive() != m_active) {
+		m_active = isActive();
+		emit activeChanged();
+	}
 }
 
 QList<int> TilePalette::tiles() const
@@ -114,6 +161,8 @@ void TilePalette::press(int x, int y, Qt::MouseButton button)
 	}
 	if (button != Qt::LeftButton)
 		return;
+	// its tiles are for its layer: edited from the press on
+	edit();
 	m_cancelled = false;
 	m_initial = QPoint(x, y);
 	m_current = m_initial;
@@ -161,7 +210,7 @@ QRect TilePalette::dragged() const
 	return QRect(QPoint(left, top), QPoint(right, bottom));
 }
 
-void TilePalette::pick(const QRect& cells)
+void TilePalette::pick(QRect cells)
 {
 	if (!m_state || cells.isEmpty())
 		return;
@@ -182,7 +231,10 @@ void TilePalette::pick(const QRect& cells)
 				tiles.push_back(Autotile::translate(m_upper ? index + LowerTiles : index, SAMPLE));
 			}
 	}
+	// the layer changed during the drag (a key): back to the tiles'
+	edit();
 	m_last = cells;
+	setSelection(cells);
 	// the rectangle stays as dragged (the eraser row too)
 	m_settingState = true;
 	m_state->setSelection(std::move(tiles), width, height);
@@ -191,21 +243,22 @@ void TilePalette::pick(const QRect& cells)
 
 void TilePalette::showState()
 {
-	if (!m_state || m_state->layer() == EditorState::EVENT)
+	const EditorState::Layer layer = shownLayer();
+	if (!m_state || layer == EditorState::EVENT)
 		return;
 	// the palette index of the first tile: the terrain for lower tiles, from
 	// 162 for upper tiles; the row 0 is the eraser
-	const int offset = m_state->layer() == EditorState::UPPER ? LowerTiles : 0;
-	const int index = Autotile::translate(m_state->selection(0, 0)) - offset;
+	const int offset = layer == EditorState::UPPER ? LowerTiles : 0;
+	const int index = Autotile::translate(m_state->selection(0, 0, layer)) - offset;
 	if (index < 0)
 		return;
 	// tiles picked on the map are framed when they are a rectangle of the palette
-	const int width = m_state->selWidth();
-	const int height = m_state->selHeight();
+	const int width = m_state->selWidth(layer);
+	const int height = m_state->selHeight(layer);
 	bool framed = index % Columns + width <= Columns;
 	for (int y = 0; framed && y < height; y++)
 		for (int x = 0; framed && x < width; x++)
-			framed = Autotile::translate(m_state->selection(x, y)) - offset == index + x + y * Columns;
+			framed = Autotile::translate(m_state->selection(x, y, layer)) - offset == index + x + y * Columns;
 	m_last = framed ? QRect(index % Columns, index / Columns + 1, width, height) : QRect();
 	setSelection(m_last);
 }

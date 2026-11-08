@@ -78,8 +78,6 @@ std::shared_ptr<const QImage> loadCharset(const QString& name)
 	std::shared_ptr<const QImage> charset;
 	if (core().project())
 		charset = PictureCache::load(core().project()->findFile(CHARSET, name, FileFinder::FileType::Image));
-	if (!charset)
-		charset = PictureCache::load(core().rtpPath(CHARSET, name));
 	if (!charset) {
 		static const auto dummy = std::make_shared<const QImage>(
 			TilePainter::createDummyPixmap(288, 256).toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied));

@@ -27,10 +27,14 @@ import org.easyrpg.editor as Ez
  *
  * A column: title, width (none: a share of the rest), and text(row) for a
  * text, checked(row) and toggle(row, on) for a check box (named name +
- * row), icon(row) for a picture before the text; alignment (Text.AlignRight
- * for numbers) and dimmed(row) (a value the game cannot reach...) for the
- * text. The cells are read again
+ * row), a radio button with exclusive: true (one line of the column
+ * chosen: a click on it does not uncheck it), icon(row) for a picture
+ * before the text; alignment (Text.AlignRight for numbers,
+ * Text.AlignHCenter: a check box or radio button centred), elide
+ * (Text.ElideMiddle for paths) and dimmed(row) (a value the game cannot
+ * reach...) for the text, toolTip for its title. The cells are read again
  * when source (a Json, a JsonView or a list model) says its data changed.
+ * toolTip(row): what the pointer shows over a line (the whole of an elided path...).
  *
  * addLine: an empty line after the elements, to add one. Double-click and
  * Return on a line: activated(row) (rows on the empty line, or below the
@@ -59,6 +63,8 @@ FocusScope {
     property bool showHeader: true
     /** The menu of the right button (none: no menu) */
     property Ez.ContextMenu contextMenu: null
+    /** The tool tip of a line, a function of its row (none: no tool tips) */
+    property var toolTip: null
 
     signal activated(int row)
     signal removeRequested(int row)
@@ -74,7 +80,8 @@ FocusScope {
             const cells = []
             for (const column of columns) {
                 if (column.checked) {
-                    cells.push(column.checked(row) ? "[x]" : "[ ]")
+                    cells.push(column.exclusive ? (column.checked(row) ? "(x)" : "( )")
+                                                : (column.checked(row) ? "[x]" : "[ ]"))
                 }
                 if (column.icon) {
                     cells.push(String(column.icon(row)).split("/").pop())
@@ -194,11 +201,20 @@ FocusScope {
                         required property int index
                         width: root.widths[index] ?? implicitWidth
                         height: header.height
-                        leftPadding: Ez.Metrics.listTextPadding
+                        // centred over a centred column (marks)
+                        leftPadding: modelData.alignment === Text.AlignHCenter ? 0 : Ez.Metrics.listTextPadding
+                        horizontalAlignment: modelData.alignment === Text.AlignHCenter ? Text.AlignHCenter : Text.AlignLeft
                         verticalAlignment: Text.AlignVCenter
                         text: modelData.title ?? ""
                         elide: Text.ElideRight
                         font: Ez.Metrics.font
+
+                        HoverHandler {
+                            id: titleHover
+                        }
+                        Controls.ToolTip.visible: titleHover.hovered && (modelData.toolTip ?? "") !== ""
+                        Controls.ToolTip.text: modelData.toolTip ?? ""
+                        Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
                     }
                 }
             }
@@ -256,6 +272,14 @@ FocusScope {
                 width: ListView.view.width
                 height: root.lineHeight
 
+                HoverHandler {
+                    id: lineHover
+                    enabled: !!root.toolTip
+                }
+                Controls.ToolTip.visible: lineHover.hovered && line.index < root.rows && Controls.ToolTip.text !== ""
+                Controls.ToolTip.text: root.toolTip && line.index < root.rows ? (root.cell(root.toolTip, line.index, root.revision) ?? "") : ""
+                Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
+
                 Rectangle {
                     anchors.fill: parent
                     visible: line.current
@@ -295,16 +319,30 @@ FocusScope {
                             clip: true
 
                             Row {
-                                x: Ez.Metrics.listTextPadding
+                                // a check box or radio button alone: centred when the column is
+                                x: cell.modelData.alignment === Text.AlignHCenter && !cell.modelData.text
+                                   ? Math.max(0, Math.floor((cell.width - width) / 2)) : Ez.Metrics.listTextPadding
                                 height: parent.height
                                 spacing: Ez.Metrics.columnSpacing
 
                                 Controls.CheckBox {
-                                    visible: !!cell.modelData.checked
+                                    visible: !!cell.modelData.checked && !cell.modelData.exclusive
                                     objectName: visible && cell.modelData.name ? cell.modelData.name + line.index : ""
                                     anchors.verticalCenter: parent.verticalCenter
                                     padding: 0
                                     // no text: no room for one
+                                    spacing: 0
+                                    font: Ez.Metrics.font
+                                    checked: visible && line.index < root.rows && root.cell(cell.modelData.checked, line.index, root.revision)
+                                    onToggled: cell.modelData.toggle(line.index, checked)
+                                }
+                                // one per line, each in a cell of its own: the
+                                // column's toggle unchecks the others
+                                Controls.RadioButton {
+                                    visible: !!cell.modelData.checked && !!cell.modelData.exclusive
+                                    objectName: visible && cell.modelData.name ? cell.modelData.name + line.index : ""
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    padding: 0
                                     spacing: 0
                                     font: Ez.Metrics.font
                                     checked: visible && line.index < root.rows && root.cell(cell.modelData.checked, line.index, root.revision)
@@ -324,7 +362,7 @@ FocusScope {
                                     horizontalAlignment: cell.modelData.alignment ?? Text.AlignLeft
                                     opacity: !!cell.modelData.dimmed && line.index < root.rows
                                              && root.cell(cell.modelData.dimmed, line.index, root.revision) ? 0.5 : 1
-                                    elide: Text.ElideRight
+                                    elide: cell.modelData.elide ?? Text.ElideRight
                                     font: Ez.Metrics.font
                                     color: line.current && view.activeFocus ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                                 }

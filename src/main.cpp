@@ -91,14 +91,22 @@ int main(int argc, char *argv[]) {
 	if (automation) {
 		// Each script starts from the default settings, in its own file: runs
 		// in parallel do not see each other's, nor the user's (last project,
-		// window sizes...); only the RTP is the user's
-		QVariant rtp = QSettings().value(RTP_KEY);
+		// window sizes...); only the RTP folders are the user's (with their
+		// defaults and the games' choices)
+		QVariantMap rtp;
+		for (const QString& key : EditorSettings::rtpKeys()) {
+			if (QSettings().contains(key)) {
+				rtp.insert(key, QSettings().value(key));
+			}
+		}
 		const QString settings_dir = QDir::temp().filePath(
 			QStringLiteral("easyrpg-editor-script-%1").arg(QCoreApplication::applicationPid()));
 		QDir(settings_dir).removeRecursively();
 		QSettings::setDefaultFormat(QSettings::IniFormat);
 		QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settings_dir);
-		QSettings().setValue(RTP_KEY, rtp);
+		for (auto it = rtp.cbegin(); it != rtp.cend(); ++it) {
+			QSettings().setValue(it.key(), it.value());
+		}
 		// $SCRIPT_DIR in the commands of the script (Automation)
 		qputenv("EASYRPG_EDITOR_SCRIPT_DIR", settings_dir.toLocal8Bit());
 		// the Players a script downloads are its own too (Launchers::folder)

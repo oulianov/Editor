@@ -406,6 +406,8 @@ DatabaseEntryPage {
                     Ez.Button {
                         objectName: "pushPlay"
                         text: canvas.playing ? qsTr("Stop") : qsTr("Play")
+                        // as the Jukebox's and the sound pickers' buttons
+                        icon.name: canvas.playing ? "media-playback-stop" : "media-playback-start"
                         onClicked: canvas.togglePlay()
                     }
                 }

@@ -49,3 +49,29 @@ private:
 	QPointer<QWindow> m_window;
 	std::unique_ptr<QmlDialogService> m_dialogs;
 };
+
+/**
+ * The download of the EasyRPG RTP for QML windows (Ez.RtpDownload): its
+ * failures are shown over the window given.
+ */
+class QmlRtpDownload : public RtpDownload
+{
+	Q_OBJECT
+	QML_NAMED_ELEMENT(RtpDownload)
+	/** The window the failures are shown over */
+	Q_PROPERTY(QWindow* window READ window WRITE setWindow NOTIFY windowChanged)
+
+public:
+	explicit QmlRtpDownload(QObject* parent = nullptr);
+	~QmlRtpDownload() override;
+
+	QWindow* window() const;
+	void setWindow(QWindow* window);
+
+signals:
+	void windowChanged();
+
+private:
+	QPointer<QWindow> m_window;
+	std::unique_ptr<QmlDialogService> m_dialogs;
+};

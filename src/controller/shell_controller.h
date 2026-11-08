@@ -195,8 +195,8 @@ public:
 	/** The id and name of the map shown ("0001: name"), empty for none */
 	QString mapText() const;
 
-	/** The settings of the Settings window, again: the RTP, the animation,
-	 *  the watcher, the language */
+	/** The settings of the Settings window, again: the animation, the
+	 *  watcher, the language (Core reads the RTP folders itself) */
 	void applySettings();
 
 signals:

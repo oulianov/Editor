@@ -60,7 +60,7 @@ void saveSize(const QWindow* window, const char* key) {
 void useProject(AudioLibraryModel* library) {
 	const auto& project = core().project();
 	library->setGamePath(project ? project->projectDir().absolutePath() : QString());
-	library->setRtpPath(core().rtpPath(QString()));
+	library->setRtpPaths(core().rtpDirs());
 	if (project) {
 		library->setSystem(project->database().system);
 	} else {
@@ -158,7 +158,7 @@ void ResourceWindows::resourceManager(QWindow* over)
 	const auto& project = core().project();
 	QVariantMap properties = sizeProperties(RESOURCE_MANAGER_SIZE_KEY, QSize(860, 540), over);
 	properties.insert(QStringLiteral("gamePath"), project ? project->projectDir().absolutePath() : QString());
-	properties.insert(QStringLiteral("rtpPath"), core().rtpPath(QString()));
+	properties.insert(QStringLiteral("rtpPaths"), core().rtpDirs());
 	QmlHost::exec(QStringLiteral("ResourceManagerWindow"), over, properties, [](QQuickWindow* window) {
 		saveSize(window, RESOURCE_MANAGER_SIZE_KEY);
 	});

@@ -283,16 +283,77 @@ Ez.DialogWindow {
                     border.color: Ez.Metrics.sectionBorderColor
                     clip: true
 
-                    Image {
-                        anchors.fill: parent
-                        anchors.margins: 1
-                        visible: parent.enabled && (panoramaName.value ?? "") !== ""
-                        source: visible ? "image://project/Panorama/" + panoramaName.value : ""
-                        fillMode: Image.PreserveAspectFit
-                        horizontalAlignment: Image.AlignLeft
-                        verticalAlignment: Image.AlignTop
-                        smooth: false
-                        asynchronous: true
+                    // the picture as large as it fits, from the top left;
+                    // with an automatic scroll it moves as in the game
+                    // (EasyRPG Player's steps, as on the map: MapPanoramaView)
+                    Item {
+                        id: panoramaView
+
+                        readonly property size picture: panoramaImage.sourceSize
+                        readonly property real fit: picture.width > 0 && picture.height > 0
+                            ? Math.min((panorama.width - 2) / picture.width, (panorama.height - 2) / picture.height) : 1
+                        // in 32nds of a pixel a frame, from the values shown (not saved yet)
+                        readonly property int stepX: horizontalScroll.checked && horizontalAutoscroll.checked
+                                                     ? step(horizontalSpeed.value) : 0
+                        readonly property int stepY: verticalScroll.checked && verticalAutoscroll.checked
+                                                     ? step(verticalSpeed.value) : 0
+                        // how far right and down it moved, in pixels of the picture
+                        property int shiftX: 0
+                        property int shiftY: 0
+
+                        // 2^|speed| 32nds of a pixel a frame, a positive speed moving it right or down
+                        function step(speed) {
+                            speed = Math.max(-8, Math.min(8, speed))
+                            return speed < 0 ? (1 << -speed) : speed > 0 ? -(1 << speed) : 0
+                        }
+                        // its position wraps around the picture, drawn at the pixel left of it
+                        function scrolled(frame, step, size) {
+                            if (!step || size <= 0) {
+                                return 0
+                            }
+                            const left = Math.floor(frame * step / 32) % size
+                            return (size - left) % size
+                        }
+
+                        x: 1
+                        y: 1
+                        width: picture.width * fit
+                        height: picture.height * fit
+                        clip: true
+                        visible: panorama.enabled && (panoramaName.value ?? "") !== ""
+
+                        // two copies each way, the second one coming in as the first one leaves
+                        Item {
+                            scale: panoramaView.fit
+                            transformOrigin: Item.TopLeft
+
+                            Image {
+                                id: panoramaImage
+                                x: panoramaView.shiftX - panoramaView.picture.width
+                                y: panoramaView.shiftY - panoramaView.picture.height
+                                width: panoramaView.picture.width * 2
+                                height: panoramaView.picture.height * 2
+                                source: panoramaView.visible ? "image://project/Panorama/" + panoramaName.value : ""
+                                fillMode: Image.Tile
+                                smooth: false
+                                asynchronous: true
+                            }
+                        }
+                        // the frames of the game, 60 a second, while it moves
+                        FrameAnimation {
+                            running: root.visible && panoramaView.visible && (panoramaView.stepX !== 0 || panoramaView.stepY !== 0)
+                            onTriggered: {
+                                const frame = Math.floor(elapsedTime * 60)
+                                panoramaView.shiftX = panoramaView.scrolled(frame, panoramaView.stepX, panoramaView.picture.width)
+                                panoramaView.shiftY = panoramaView.scrolled(frame, panoramaView.stepY, panoramaView.picture.height)
+                            }
+                            onRunningChanged: {
+                                if (!running) {
+                                    panoramaView.shiftX = 0
+                                    panoramaView.shiftY = 0
+                                }
+                            }
+                        }
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -313,6 +374,7 @@ Ez.DialogWindow {
                 RowLayout {
                     spacing: Ez.Metrics.columnSpacing
                     Ez.CheckSection {
+                        id: horizontalScroll
                         checkName: "groupHorizontalScroll"
                         title: qsTr("Horizontal Scroll")
                         jsonData: root.form.map
@@ -336,6 +398,7 @@ Ez.DialogWindow {
                                 Layout.fillWidth: true
                             }
                             Ez.SpinBox {
+                                id: horizontalSpeed
                                 objectName: "spinHorizontalScrollSpeed"
                                 from: -8
                                 to: 8
@@ -346,6 +409,7 @@ Ez.DialogWindow {
                         }
                     }
                     Ez.CheckSection {
+                        id: verticalScroll
                         checkName: "groupVerticalScroll"
                         title: qsTr("Vertical Scroll")
                         jsonData: root.form.map
@@ -369,6 +433,7 @@ Ez.DialogWindow {
                                 Layout.fillWidth: true
                             }
                             Ez.SpinBox {
+                                id: verticalSpeed
                                 objectName: "spinVerticalScrollSpeed"
                                 from: -8
                                 to: 8

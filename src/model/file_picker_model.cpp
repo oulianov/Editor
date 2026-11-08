@@ -73,7 +73,7 @@ QHash<int, QByteArray> FilePickerModel::roleNames() const
 	return names;
 }
 
-void FilePickerModel::open(const QString& folder, const QString& gamePath, const QString& rtpPath, const QString& current)
+void FilePickerModel::open(const QString& folder, const QString& gamePath, const QStringList& rtpPaths, const QString& current)
 {
 	stop();
 	beginResetModel();
@@ -84,10 +84,11 @@ void FilePickerModel::open(const QString& folder, const QString& gamePath, const
 	m_current = -1;
 
 	// as ResourceLibraryModel lists them: the game's files hide the RTP's of
-	// the same name; in one folder, the extension the Player tries first wins
+	// the same name, the first RTP folder's those of the next ones; in one
+	// folder, the extension the Player tries first wins
 	const QStringList exts = ResourceLibraryModel::extensions(m_type);
 	QHash<QString, int> seen;
-	auto scan = [&](const QString& base, bool rtp) {
+	auto scan = [&](const QString& base, int source) {
 		if (base.isEmpty() || !QDir(base).exists()) {
 			return;
 		}
@@ -106,14 +107,16 @@ void FilePickerModel::open(const QString& folder, const QString& gamePath, const
 			auto it = seen.constFind(key);
 			if (it == seen.constEnd()) {
 				seen.insert(key, static_cast<int>(m_entries.size()));
-				m_entries.append({ name, info.absoluteFilePath(), rtp, rank });
-			} else if (m_entries[*it].rtp == rtp && rank < m_entries[*it].rank) {
-				m_entries[*it] = { name, info.absoluteFilePath(), rtp, rank };
+				m_entries.append({ name, info.absoluteFilePath(), source > 0, rank, source });
+			} else if (m_entries[*it].source == source && rank < m_entries[*it].rank) {
+				m_entries[*it] = { name, info.absoluteFilePath(), source > 0, rank, source };
 			}
 		}
 	};
-	scan(gamePath, false);
-	scan(rtpPath, true);
+	scan(gamePath, 0);
+	for (int i = 0; i < rtpPaths.size(); ++i) {
+		scan(rtpPaths[i], i + 1);
+	}
 
 	QCollator collator;
 	collator.setNumericMode(true);

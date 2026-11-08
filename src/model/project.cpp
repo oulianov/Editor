@@ -16,6 +16,7 @@
  */
 
 #include "project.h"
+#include "common/editor_settings.h"
 #include "common/ini_file.h"
 #include "defines.h"
 #include "common/filefinder.h"
@@ -368,13 +369,24 @@ QString Project::findFile(const QString& filename, FileFinder::FileType type) co
 }
 
 QString Project::findFile(const QString& dir, const QString& filename, FileFinder::FileType type) const {
-	QString found = FileFinder::Find(projectDir().absolutePath(), dir, filename, type);
-	const QString rtp = core().rtpPath(QString());
-	if (found.isEmpty() && !rtp.isEmpty()) {
-		// the game's own files first, then the RTP's (monsters, charsets... of RPG Maker)
-		found = FileFinder::Find(QDir(rtp), dir, filename, type);
+	const QString found = FileFinder::Find(projectDir().absolutePath(), dir, filename, type);
+	if (!found.isEmpty()) {
+		return found;
 	}
-	return found;
+	// the game's own files first, then the RTP's (monsters, charsets... of
+	// RPG Maker), in the order of its RTP folders: Core keeps those of the
+	// project open
+	if (core().project().get() == this) {
+		return core().findRtpFile(dir, filename, type);
+	}
+	const int engine = database().system.ldb_id == 2003 ? 2003 : 2000;
+	for (const QString& rtp : EditorSettings::instance().rtpSearchPath(projectDir().absolutePath(), engine)) {
+		const QString in_rtp = FileFinder::Find(QDir(rtp), dir, filename, type);
+		if (!in_rtp.isEmpty()) {
+			return in_rtp;
+		}
+	}
+	return QString();
 }
 
 QString Project::findFileOrDefault(const QString& filename) const {

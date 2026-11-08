@@ -21,9 +21,9 @@ import org.easyrpg.editor as Ez
 Ez.DialogWindow {
     id: root
 
-    /** The folder of the game open, and the RTP */
+    /** The folder of the game open, and its RTP folders in order */
     property string gamePath
-    property string rtpPath
+    property var rtpPaths: []
     readonly property alias library: library
 
     readonly property bool image: library.kind === Ez.ResourceLibraryModel.Image
@@ -71,7 +71,7 @@ Ez.DialogWindow {
     Ez.ResourceLibraryModel {
         id: library
         gamePath: root.gamePath
-        rtpPath: root.rtpPath
+        rtpPaths: root.rtpPaths
         onFolderChanged: player.stop()
         onAboutToRemoveFile: player.stop()
     }
@@ -239,7 +239,7 @@ Ez.DialogWindow {
                         Ez.Button {
                             objectName: "pushOpenFolder"
                             text: qsTr("Open Folder")
-                            enabled: root.gamePath !== "" || root.rtpPath !== ""
+                            enabled: root.gamePath !== "" || root.rtpPaths.length > 0
                             Layout.fillWidth: true
                             Controls.ToolTip.visible: hovered
                             Controls.ToolTip.text: qsTr("Show the folder of the file in the file manager")
@@ -311,12 +311,14 @@ Ez.DialogWindow {
                     Ez.Button {
                         objectName: "pushPlay"
                         text: qsTr("Play")
+                        icon.name: "media-playback-start"
                         enabled: library.canExport
                         onClicked: root.play()
                     }
                     Ez.Button {
                         objectName: "pushStop"
                         text: qsTr("Stop")
+                        icon.name: "media-playback-stop"
                         enabled: player.state !== Ez.AudioPlayer.Stopped
                         onClicked: player.stop()
                     }

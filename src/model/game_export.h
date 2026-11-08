@@ -82,8 +82,8 @@ struct ExportSource
 	QDir dir;
 	FileFinder::ProjectType type = FileFinder::ProjectType::Legacy;
 	QString encoding;
-	/** The RTP folder of the settings, empty if none */
-	QString rtp;
+	/** The RTP folders of the game, in the order its files are looked for (Core::rtpDirs) */
+	QStringList rtp;
 };
 
 /**

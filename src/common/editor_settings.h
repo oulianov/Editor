@@ -19,6 +19,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 
 /**
  * The options of the Editor (the Settings window), saved with QSettings.
@@ -48,8 +49,44 @@ public:
 	/** The windows show dark colors (the scheme chosen, else the system's) */
 	bool isDark() const;
 
-	QString rtpPath() const;
-	void setRtpPath(const QString& path);
+	/**
+	 * The RTP folders of the Settings, in the order their files are looked
+	 * for. The single folder of the Editors before them becomes their first,
+	 * the default of the engine it looks like (of both when it looks like neither).
+	 */
+	QStringList rtpFolders() const;
+	/** Also forgets the games' choices of folders no longer in the list */
+	void setRtpFolders(const QStringList& folders);
+	/** The folder of the games of an engine (2000, 2003) that chose none; empty: none */
+	QString rtpDefault(int engine) const;
+	void setRtpDefault(int engine, const QString& folder);
+	/** The folder a game chose instead of its engine's default (projectKey: its
+	 *  folder); empty: the default */
+	QString rtpActive(const QString& project) const;
+	void setRtpActive(const QString& project, const QString& folder);
+	/**
+	 * The RTP folders where a game's files are looked for, in order: the
+	 * one it uses (its own, else its engine's default, the first of them
+	 * there), then the other ones in the order of the list; the missing ones
+	 * left out. No project: the list.
+	 */
+	QStringList rtpSearchPath(const QString& project, int engine) const;
+	/** A game's folder as the settings know it (its canonical path) */
+	static QString projectKey(const QString& dir);
+	/** The keys of the RTP settings, which the scripts take from the user's */
+	static QStringList rtpKeys();
+	/** The RTP a folder looks like: 2000, 2003, else 0 (another folder, missing) */
+	static int rtpEngine(const QString& folder);
+	/** The folder holds the EasyRPG RTP (its README says so), made for the
+	 *  games of both engines */
+	static bool isEasyRpgRtp(const QString& folder);
+	/**
+	 * Which translation of the RTP a folder holds, by the name of its first
+	 * hero (EasyRPG Player's RTP tables, simplified): "ja", "en", "dm" (Don
+	 * Miguel's), "rpga" (RPG Advocate's), "ru", "rpgu" (RPG Universe's),
+	 * "ko", "zh"; empty: unknown
+	 */
+	static QString rtpTranslation(const QString& folder, int engine);
 
 	/** The EasyRPG Player for test play; empty: searched next to the Editor and in the PATH */
 	QString playerPath() const;

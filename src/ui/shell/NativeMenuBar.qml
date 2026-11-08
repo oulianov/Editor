@@ -14,8 +14,8 @@ import org.easyrpg.editor as Ez
  * given) and Settings go to the application menu (their roles): macOS would
  * guess others from their texts, wrongly in some languages ("Options du
  * test du jeu..." as Preferences). Test Play Options is there too, beside
- * Settings. Check for Updates and About are moved down, right above Quit
- * (arrangeApplicationMenu). Its menus and items are the platform's
+ * Settings. Check for Updates is moved down, right above Quit, About
+ * staying first (arrangeApplicationMenu). Its menus and items are the platform's
  * (PlatformMenuBar).
  */
 Ez.PlatformMenuBar {

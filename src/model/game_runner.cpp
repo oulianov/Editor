@@ -20,6 +20,7 @@
 #include "model/launcher_download.h"
 #include "model/project.h"
 #include <QCoreApplication>
+#include <QDebug>
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
@@ -28,6 +29,30 @@
 
 namespace {
 std::function<bool()> before_launch;
+
+// The value of --rtp-path: the folders in the order the Player looks in
+// them, before its own. Players since 0.7.0 split it at ';', and at ':'
+// out of Windows (whose paths have one); older ones skip the option and
+// its value, a list or not. A folder whose path has one would be cut in
+// two: left out.
+QString rtpPathOption(const QStringList& folders)
+{
+	QStringList kept;
+	for (const QString& folder : folders) {
+		const QString path = QDir::toNativeSeparators(folder);
+#ifdef Q_OS_WIN
+		const bool cut = path.contains(QLatin1Char(';'));
+#else
+		const bool cut = path.contains(QLatin1Char(';')) || path.contains(QLatin1Char(':'));
+#endif
+		if (cut) {
+			qWarning() << "RTP folder left out of the test play, the Player would cut its path:" << path;
+			continue;
+		}
+		kept << path;
+	}
+	return kept.join(QDir::listSeparator());
+}
 }
 
 GameRunner::Result GameRunner::launch(const QStringList& options, bool use_settings, const QString& chosen_player)
@@ -55,9 +80,9 @@ GameRunner::Result GameRunner::launch(const QStringList& options, bool use_setti
 			args << QStringLiteral("--hide-title");
 		}
 	}
-	// the RTP the Editor uses
-	const QString rtp = QSettings().value(RTP_KEY).toString();
-	if (!rtp.isEmpty() && QFileInfo(rtp).isDir() && !options.contains(QStringLiteral("--no-rtp"))) {
+	// the RTP folders the Editor uses for the game, in its order
+	const QString rtp = rtpPathOption(core().rtpDirs());
+	if (!rtp.isEmpty() && !options.contains(QStringLiteral("--no-rtp"))) {
 		args << QStringLiteral("--rtp-path") << rtp;
 	}
 	args << options;

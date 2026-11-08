@@ -75,8 +75,10 @@ public:
 	/** The tile picked at off_x, off_y of the selection of a layer (the
 	 *  current one by default), repeated past its size */
 	short selection(int off_x, int off_y, std::optional<Layer> layer = std::nullopt) const;
-	int selWidth() const;
-	int selHeight() const;
+	/** The size of the selection of a layer (the current one by default);
+	 *  1 x 1 on the event layer */
+	int selWidth(std::optional<Layer> layer = std::nullopt) const;
+	int selHeight(std::optional<Layer> layer = std::nullopt) const;
 	/** The tiles of the current layer, n_w x n_h of them */
 	void setSelection(std::vector<short> n_sel, int n_w, int n_h);
 	/** All drawing controls, including the inactive layers' brushes. */

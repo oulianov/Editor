@@ -125,7 +125,7 @@ class ResourceLibraryModel : public QAbstractListModel
 {
 	Q_OBJECT
 	Q_PROPERTY(QString gamePath READ gamePath WRITE setGamePath NOTIFY gamePathChanged)
-	Q_PROPERTY(QString rtpPath READ rtpPath WRITE setRtpPath NOTIFY rtpPathChanged)
+	Q_PROPERTY(QStringList rtpPaths READ rtpPaths WRITE setRtpPaths NOTIFY rtpPathsChanged)
 	Q_PROPERTY(ResourceFolderModel* folders READ folders CONSTANT)
 	Q_PROPERTY(int folder READ folder WRITE setFolder NOTIFY folderChanged)
 	Q_PROPERTY(QString folderName READ folderName NOTIFY folderChanged)
@@ -178,9 +178,9 @@ public:
 	/** The folder of the game, empty when no game is open */
 	QString gamePath() const;
 	void setGamePath(const QString& path);
-	/** The RTP folder of the settings, empty when none */
-	QString rtpPath() const;
-	void setRtpPath(const QString& path);
+	/** The RTP folders of the game (Core::rtpDirs), in order: the first having a file gives it */
+	QStringList rtpPaths() const;
+	void setRtpPaths(const QStringList& paths);
 	bool hasGame() const;
 
 	ResourceFolderModel* folders() const;
@@ -197,8 +197,8 @@ public:
 	static QString folderDescription(int folder);
 	/** The folder of the game, whatever its case (Charset, CHARSET...), else where it would be */
 	QString gameFolderPath(int folder) const;
-	/** The folder of the RTP, empty when it has none */
-	QString rtpFolderPath(int folder) const;
+	/** The folder in each RTP folder that has it, in their order */
+	QStringList rtpFolderPaths(int folder) const;
 
 	/** The folder shown (remembered for the next time) */
 	int folder() const;
@@ -292,7 +292,7 @@ public:
 
 signals:
 	void gamePathChanged();
-	void rtpPathChanged();
+	void rtpPathsChanged();
 	void folderChanged();
 	void filterChanged();
 	/** The files were listed again (countText) */
@@ -312,6 +312,8 @@ private:
 		/** The extension's place in extensions(): the Player's choice */
 		int rank = 0;
 		qint64 size = 0;
+		/** The folder it is in: 0 the game's, then the RTP's in order */
+		int source = 0;
 	};
 
 	void reload(const QString& select, bool keep);
@@ -325,7 +327,7 @@ private:
 	ResourceFolderModel* m_folders;
 	ResourceImportChoices* m_choices = nullptr;
 	QString m_gamePath;
-	QString m_rtpPath;
+	QStringList m_rtpPaths;
 	int m_folder = 0;
 	QString m_filter;
 	bool m_useTrash = true;

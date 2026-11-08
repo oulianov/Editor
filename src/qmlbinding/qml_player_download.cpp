@@ -40,3 +40,27 @@ void QmlPlayerDownload::setWindow(QWindow* window)
 	setDialogService(m_dialogs.get());
 	emit windowChanged();
 }
+
+QmlRtpDownload::QmlRtpDownload(QObject* parent) :
+	RtpDownload(parent), m_dialogs(std::make_unique<QmlDialogService>())
+{
+	setDialogService(m_dialogs.get());
+}
+
+QmlRtpDownload::~QmlRtpDownload() = default;
+
+QWindow* QmlRtpDownload::window() const
+{
+	return m_window;
+}
+
+void QmlRtpDownload::setWindow(QWindow* window)
+{
+	if (m_window == window) {
+		return;
+	}
+	m_window = window;
+	m_dialogs = std::make_unique<QmlDialogService>(window);
+	setDialogService(m_dialogs.get());
+	emit windowChanged();
+}

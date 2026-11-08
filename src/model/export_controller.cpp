@@ -187,7 +187,7 @@ void ExportController::setSource(const ExportSource& source, const QString& game
 	emit dirtyChanged();
 }
 
-void ExportController::setProject(const Project& project, const QString& rtp)
+void ExportController::setProject(const Project& project, const QStringList& rtp)
 {
 	ExportSource source;
 	source.dir = project.projectDir();

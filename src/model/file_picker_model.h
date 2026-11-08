@@ -119,10 +119,10 @@ public:
 	 *
 	 * @param folder The folder of the game (CharSet...), which says the kind of files
 	 * @param gamePath The folder of the game (empty: none)
-	 * @param rtpPath The folder of the RTP (empty: none)
+	 * @param rtpPaths The RTP folders, in order: the first one having a file gives it
 	 * @param current The file of the data, without its extension
 	 */
-	void open(const QString& folder, const QString& gamePath, const QString& rtpPath, const QString& current);
+	void open(const QString& folder, const QString& gamePath, const QStringList& rtpPaths, const QString& current);
 
 	QString folder() const { return m_folder; }
 	Preview preview() const { return m_preview; }
@@ -182,6 +182,8 @@ private:
 		bool rtp = false;
 		/** The extension's place in the Player's order */
 		int rank = 0;
+		/** The folder it is in: 0 the game's, then the RTP's in order */
+		int source = 0;
 	};
 
 	void updateCurrent();

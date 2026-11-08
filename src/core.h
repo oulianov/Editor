@@ -92,7 +92,14 @@ public:
 	int tileSize();
 	void setTileSize(int tileSize);
 
-	QString rtpPath(const QString &folder, const QString &filename = QString()) const;
+	/**
+	 * The RTP folders of the project open, in the order its files are
+	 * looked for in them (EditorSettings::rtpSearchPath): the one it uses,
+	 * then the others of the Settings; without a project, those of the Settings
+	 */
+	const QStringList& rtpDirs() const;
+	/** A file of the RTP (dir: CharSet...), from the first RTP folder that has it; empty if none */
+	QString findRtpFile(const QString& dir, const QString& filename, FileFinder::FileType type = FileFinder::FileType::Default) const;
 
 	QString gameTitle();
 	void setGameTitle(const QString &gameTitle);
@@ -106,8 +113,6 @@ public:
 
 	QString defDir() const;
 	void setDefDir(const QString &defDir);
-
-	void setRtpDir(const QString &n_path);
 
 	/** The layer, tool, tiles picked and clipboards, shared by all maps */
 	EditorState& editorState();
@@ -202,7 +207,10 @@ private:
 	const Project* m_chipsetProject = nullptr;
 	int m_tileSize;
 	QString m_defDir;
-	QString m_rtpDir;
+	// rtpDirs, read again when the settings, the project or its engine change
+	mutable QStringList m_rtpDirs;
+	mutable QString m_rtpProject;
+	mutable bool m_rtpStale = true;
 	EditorState m_editorState;
 	std::shared_ptr<const ChipsetTiles> m_chipsetTiles;
 	// draws with m_chipsetTiles, over the panorama and in the frames of the

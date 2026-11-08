@@ -31,6 +31,11 @@ namespace {
 // the latest stable release of the EasyRPG Player (easyrpg.org/player/downloads)
 const char kVersion[] = "0.8.1.1";
 const char kBaseUrl[] = "https://easyrpg.org/downloads/player/0.8.1.1/";
+// the EasyRPG RTP: easyrpg.org/downloads/rtp has no release of it, the
+// repository is its source (a zip of the files in a folder RTP-master)
+const char kRtpUrl[] = "https://github.com/EasyRPG/RTP/archive/refs/heads/master.zip";
+// the name of its archives (its Makefile's dist-zip), at a base of tests
+const char kRtpArchive[] = "easyrpg-rtp.zip";
 
 QString archiveName(ExportPlatform platform)
 {
@@ -61,6 +66,26 @@ QUrl Launchers::url(ExportPlatform platform)
 		base += QLatin1Char('/');
 	}
 	return QUrl(base).resolved(QUrl(name));
+}
+
+QUrl Launchers::rtpUrl()
+{
+	QString base = qEnvironmentVariable("EASYRPG_EDITOR_LAUNCHER_BASE");
+	if (base.isEmpty()) {
+		return QUrl(QString::fromLatin1(kRtpUrl));
+	}
+	if (!base.endsWith(QLatin1Char('/'))) {
+		base += QLatin1Char('/');
+	}
+	return QUrl(base).resolved(QUrl(QString::fromLatin1(kRtpArchive)));
+}
+
+QString Launchers::rtpFolder()
+{
+	const QString launchers = qEnvironmentVariable("EASYRPG_EDITOR_LAUNCHER_DIR");
+	const QString root = launchers.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+		: QFileInfo(launchers).absolutePath();
+	return root + QStringLiteral("/rtp/easyrpg");
 }
 
 QString Launchers::folder(ExportPlatform platform)
@@ -202,7 +227,15 @@ QStringList Launchers::find(ExportPlatform platform)
 }
 
 LauncherDownload::LauncherDownload(ExportPlatform platform, QObject* parent) :
-	QObject(parent), m_platform(platform)
+	LauncherDownload(Launchers::url(platform), Launchers::folder(platform) + QLatin1Char('/') + Launchers::version(),
+		Launchers::url(platform).fileName(), [platform](const QString& dir) { return Launchers::findIn(platform, dir); },
+		tr("The archive has no EasyRPG Player for %1.").arg(ExportPreset::name(platform)), parent)
+{
+}
+
+LauncherDownload::LauncherDownload(const QUrl& url, const QString& dir, const QString& archive_name,
+		std::function<QString(const QString&)> find, const QString& missing, QObject* parent) :
+	QObject(parent), m_url(url), m_archiveName(archive_name), m_find(std::move(find)), m_missing(missing), m_dir(dir)
 {
 }
 
@@ -215,24 +248,23 @@ LauncherDownload::~LauncherDownload()
 
 void LauncherDownload::start()
 {
-	const QUrl url = Launchers::url(m_platform);
-	m_dir = Launchers::folder(m_platform) + QLatin1Char('/') + Launchers::version();
 	// a fresh folder: what an interrupted download left is replaced
 	QDir(m_dir).removeRecursively();
-	if (url.isEmpty() || !QDir().mkpath(m_dir)) {
+	if (m_url.isEmpty() || !QDir().mkpath(m_dir)) {
 		fail(tr("Cannot create %1.").arg(QDir::toNativeSeparators(m_dir)));
 		return;
 	}
-	m_file.setFileName(m_dir + QLatin1Char('/') + url.fileName());
+	m_file.setFileName(m_dir + QLatin1Char('/') + m_archiveName);
 	if (!m_file.open(QIODevice::WriteOnly)) {
 		fail(tr("Cannot write %1.").arg(QDir::toNativeSeparators(m_file.fileName())));
 		return;
 	}
-	m_reply = m_network.get(QNetworkRequest(url));
+	m_reply = m_network.get(QNetworkRequest(m_url));
 	connect(m_reply.data(), &QNetworkReply::readyRead, this, [this] {
-		// none after an abort (cancel)
-		if (m_reply->isOpen()) {
-			m_file.write(m_reply->readAll());
+		// none after an abort (cancel, a full disk)
+		if (m_reply->isOpen() && m_writeError.isEmpty() && m_file.write(m_reply->readAll()) < 0) {
+			m_writeError = m_file.errorString();
+			m_reply->abort();
 		}
 	});
 	connect(m_reply.data(), &QNetworkReply::downloadProgress, this, &LauncherDownload::progress);
@@ -266,8 +298,17 @@ void LauncherDownload::downloaded()
 		fail(tr("Download cancelled."));
 		return;
 	}
-	m_file.write(m_reply->readAll());
+	if (m_writeError.isEmpty() && m_file.write(m_reply->readAll()) < 0) {
+		m_writeError = m_file.errorString();
+	}
+	if (m_writeError.isEmpty() && !m_file.flush()) {
+		m_writeError = m_file.errorString();
+	}
 	m_file.close();
+	if (!m_writeError.isEmpty()) {
+		fail(tr("Cannot write %1: %2").arg(QDir::toNativeSeparators(m_file.fileName()), m_writeError));
+		return;
+	}
 	const int status = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 	if (m_reply->error() != QNetworkReply::NoError || status >= 400) {
 		fail(tr("Download of %1 failed: %2").arg(m_reply->url().toString(), m_reply->errorString()));
@@ -320,9 +361,9 @@ void LauncherDownload::extracted(int exit_code, QProcess::ExitStatus status)
 		return;
 	}
 	QFile::remove(m_file.fileName());
-	const QString launcher = Launchers::findIn(m_platform, m_dir);
+	const QString launcher = m_find ? m_find(m_dir) : QString();
 	if (launcher.isEmpty()) {
-		fail(tr("The archive has no EasyRPG Player for %1.").arg(ExportPreset::name(m_platform)));
+		fail(m_missing);
 		return;
 	}
 	emit finished(launcher, QString());

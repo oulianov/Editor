@@ -23,6 +23,7 @@
 #include <QQuickTextDocument>
 #include <QUrl>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QtQmlIntegration>
 
 
@@ -36,7 +37,8 @@ class EditorBridge : public QObject {
 	QML_NAMED_ELEMENT(Editor)
 	QML_SINGLETON
 	Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY settingsChanged)
-	Q_PROPERTY(QString rtpPath READ rtpPath WRITE setRtpPath NOTIFY settingsChanged)
+	/** The RTP folders, in the order their files are looked for (EditorSettings::rtpFolders) */
+	Q_PROPERTY(QStringList rtpFolders READ rtpFolders WRITE setRtpFolders NOTIFY settingsChanged)
 	Q_PROPERTY(QString playerPath READ playerPath WRITE setPlayerPath NOTIFY settingsChanged)
 	Q_PROPERTY(QString scriptEditor READ scriptEditor WRITE setScriptEditor NOTIFY settingsChanged)
 	Q_PROPERTY(bool reloadExternalChanges READ reloadExternalChanges WRITE setReloadExternalChanges NOTIFY settingsChanged)
@@ -66,8 +68,8 @@ public:
 
 	QString language() const;
 	void setLanguage(const QString& code);
-	QString rtpPath() const;
-	void setRtpPath(const QString& path);
+	QStringList rtpFolders() const;
+	void setRtpFolders(const QStringList& folders);
 	QString playerPath() const;
 	void setPlayerPath(const QString& path);
 	QString scriptEditor() const;
@@ -97,6 +99,18 @@ public:
 	/** The font of the forms (font) */
 	static QFont formFont();
 
+	/** The RTP folder of the games of an engine (2000, 2003) that chose none; empty: none */
+	Q_INVOKABLE QString rtpDefault(int engine) const;
+	Q_INVOKABLE void setRtpDefault(int engine, const QString& folder);
+	/** What a folder holds: {exists, engine: 2000, 2003 or 0 (not an RTP),
+	 *  translation (EditorSettings::rtpTranslation), easyrpg: the EasyRPG RTP} */
+	Q_INVOKABLE QVariantMap rtpFolderInfo(const QString& folder) const;
+	/** The game open, for its RTP folder: {folder, name, engine (2000,
+	 *  2003), active: the folder it chose, empty for its engine's default};
+	 *  empty without a game */
+	Q_INVOKABLE QVariantMap rtpProject() const;
+	/** The folder a game uses instead of its engine's default (empty: the default again) */
+	Q_INVOKABLE void setRtpActive(const QString& project, const QString& folder);
 	/** Window sizes, tabs, selections... back to their defaults (the preferences and games stay) */
 	Q_INVOKABLE void resetLocalState();
 	/** The guide at a topic, next to the window of from */

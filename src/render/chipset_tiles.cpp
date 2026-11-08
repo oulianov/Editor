@@ -485,14 +485,12 @@ ChipsetTiles::ChipsetTiles(const lcf::rpg::Chipset& chipset, QPixmap o_chipset, 
 }
 
 std::shared_ptr<const ChipsetTiles> ChipsetTiles::load(const Project& project, const lcf::rpg::Chipset& chipset,
-	int tile_size, const QString& rtp_dir)
+	int tile_size)
 {
 	if (chipset.ID == 0)
 		return std::make_shared<const ChipsetTiles>(chipset);
 	const QString chipset_name = ToQString(chipset.chipset_name);
-	QPixmap image = ImageLoader::Load(project.findFile(CHIPSET, chipset_name, FileFinder::FileType::Image));
-	if (!image)
-		image = ImageLoader::Load(rtp_dir + CHIPSET + chipset_name);
+	const QPixmap image = ImageLoader::Load(project.findFile(CHIPSET, chipset_name, FileFinder::FileType::Image));
 	if (!image)
 		qWarning()<<"Chipset"<<chipset_name<<"not found.";
 	return std::make_shared<const ChipsetTiles>(chipset, image, tile_size);

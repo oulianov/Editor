@@ -31,7 +31,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><a href="#map-properties">Map properties</a></li>
 <li><a href="#search">Search</a></li>
 <li><a href="#test-play">Test play</a></li>
-<li><a href="#rtp">RTP path</a></li>
+<li><a href="#rtp">RTP folders</a></li>
 <li><a href="#reload">Reload files changed on disk</a></li>
 <li><a href="#screenshots">Screenshots</a></li>
 <li><a href="#updates">Updates</a></li>
@@ -76,7 +76,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <!-- ============================================================ -->
 <h2>Project and maps</h2>
 
-<p>The Editor remembers window sizes and positions, docked panel sizes and placement, splitter widths, table columns, database and event pages, selections, scroll positions and each project's open maps, tile brushes, layers and zoom. In <b>Settings</b>, choose <b>Reset local state</b> to restore these defaults immediately. Game files, unsaved edits, the Player and RTP paths, language and other preferences are kept.</p>
+<p>The Editor remembers window sizes and positions, docked panel sizes and placement, splitter widths, table columns, database and event pages, selections, scroll positions and each project's open maps, tile brushes, layers and zoom. In <b>Settings</b>, choose <b>Reset local state</b> to restore these defaults immediately. Game files, unsaved edits, the Player path and RTP folders, language and other preferences are kept.</p>
 
 <a name="new-project"></a>
 <h3>New project</h3>
@@ -109,6 +109,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><b>Events</b> (F7): double-click a tile to create or edit an event, drag an event to move it, right-click to copy, paste or delete it.</li>
 </ul>
 <p>As in RPG Maker 2003, a double right-click on the map switches between the lower and the upper layer (not with the Zoom tool, nor from the event layer).</p>
+<p>Widen the palette (or zoom it out with Ctrl + wheel) until both fit, and it shows the lower tiles on the left and the upper tiles on the right. Picking tiles on a side switches to its layer, from the event layer too; the side of the other layer is faded and keeps its own tiles picked.</p>
 <p>Drawing tools: <b>Pen</b> draws tile by tile, <b>Rectangle</b> fills a rectangle, <b>Circle</b> fills an ellipse, <b>Fill</b> replaces a whole area of identical tiles. Pick tiles in the chipset palette; you can select several tiles at once to stamp a block. A right-click on the map picks the tile under the pointer, a right-drag a block of tiles. Use <b>Zoom In</b>, <b>Zoom Out</b> and <b>Zoom 100%</b> to change the view, or Ctrl + mouse wheel (on macOS, Command or Control + wheel) over the map, which zooms around the pointer. Drag with the middle mouse button to scroll the map, whatever the tool. <b>Save Map</b> (Ctrl+S) writes your changes, <b>Revert Map</b> (Ctrl+R) discards them, Ctrl+Z undoes the last change.</p>
 
 <a name="map-properties"></a>
@@ -147,8 +148,10 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 </ul>
 
 <a name="rtp"></a>
-<h3>RTP path</h3>
-<p>The RTP (Run Time Package) is the set of standard graphics and sounds of RPG Maker 2000/2003. Games that use RTP files do not include them, so the Editor needs to know where the RTP is installed. Set <b>Path to RTP</b> to the RTP folder (the one containing CharSet, ChipSet, Music...). Files in your project always take priority over RTP files with the same name.</p>
+<h3>RTP folders</h3>
+<p>The RTP (Run Time Package) is the set of standard graphics and sounds of RPG Maker 2000/2003. Games that use RTP files do not include them, so the Editor needs to know where the RTP is installed. In <b>Settings</b>, <b>RTP folders</b> lists the RTP folders (the ones containing CharSet, ChipSet, Music...): <b>Add...</b> one, <b>Remove</b> the one selected, or move it up or down. Each line tells whether the folder is there and which RTP it looks like (2000 or 2003); hover it to see more. The Editor keeps this list in its own settings: nothing is written in the game's folder.</p>
+<p><b>Download EasyRPG RTP...</b> downloads the EasyRPG RTP, the free RTP of the EasyRPG project for the games of both RPG Maker 2000 and 2003, into the Editor's data folder and adds it to the list (marked for an engine that has no folder yet). Downloaded before, you can download it again or just add its folder.</p>
+<p>Mark in the <b>2000</b> and <b>2003</b> columns the folder that games of each engine use. With a game open, <b>This Game</b> shows the folder it uses; choose another one for this game only (the Editor remembers it for the game's folder), or click <b>Engine's Default</b> to use the folder marked for its engine again. The files a game lacks come from its folder first, then from the other folders, from top to bottom: the Editor's pictures, pickers and Resource Manager look for them in this order, and test play gives the Player the folders in this order (EasyRPG Player 0.7.0 or later). Files in your project always take priority over RTP files with the same name.</p>
 
 <a name="reload"></a>
 <h3>Reload files changed on disk</h3>

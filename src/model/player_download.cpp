@@ -18,8 +18,11 @@
 #include "player_download.h"
 #include "controller/dialog_service.h"
 #include "model/game_runner.h"
+#include "common/editor_settings.h"
 #include "model/launcher_download.h"
 #include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 
 PlayerDownload::PlayerDownload(QObject* parent) : QObject(parent)
 {
@@ -126,6 +129,141 @@ bool PlayerDownload::start()
 }
 
 void PlayerDownload::cancel()
+{
+	if (m_download) {
+		m_cancelled = true;
+		m_download->cancel();
+	}
+}
+
+namespace {
+// The RTP in a folder extracted: the folder itself, else the folder of the
+// archive in it (RTP-master, EasyRPG-RTP...); empty if none
+QString rtpIn(const QString& dir)
+{
+	if (EditorSettings::rtpEngine(dir) != 0) {
+		return dir;
+	}
+	for (const QFileInfo& sub : QDir(dir).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+		if (EditorSettings::rtpEngine(sub.filePath()) != 0) {
+			return sub.filePath();
+		}
+	}
+	return QString();
+}
+}
+
+RtpDownload::RtpDownload(QObject* parent) : QObject(parent)
+{
+}
+
+RtpDownload::~RtpDownload()
+{
+	if (m_download) {
+		// nobody listens any more
+		m_download->disconnect(this);
+		m_download->cancel();
+	}
+}
+
+bool RtpDownload::isBusy() const
+{
+	return !m_download.isNull();
+}
+
+int RtpDownload::progress() const
+{
+	return m_progress;
+}
+
+int RtpDownload::progressMaximum() const
+{
+	return m_progressMaximum;
+}
+
+QString RtpDownload::fileName() const
+{
+	return QStringLiteral("easyrpg-rtp.zip");
+}
+
+QString RtpDownload::folder() const
+{
+	return QDir::cleanPath(Launchers::rtpFolder());
+}
+
+void RtpDownload::setDialogService(DialogService* dialogs)
+{
+	m_dialogs = dialogs;
+}
+
+DialogService& RtpDownload::dialogs() const
+{
+	return m_dialogs ? *m_dialogs : DialogService::instance();
+}
+
+void RtpDownload::setProgress(int value, int maximum)
+{
+	if (value != m_progress || maximum != m_progressMaximum) {
+		m_progress = value;
+		m_progressMaximum = maximum;
+		emit progressChanged();
+	}
+}
+
+QString RtpDownload::downloaded() const
+{
+	return EditorSettings::rtpEngine(folder()) != 0 ? folder() : QString();
+}
+
+bool RtpDownload::start()
+{
+	if (m_download) {
+		return false;
+	}
+	m_cancelled = false;
+	// beside the folder: the RTP there stays until the new one is complete
+	const QString target = folder();
+	m_download = new LauncherDownload(Launchers::rtpUrl(), target + QStringLiteral(".download"), fileName(), rtpIn,
+		tr("The archive holds no RTP (no CharSet, ChipSet, Music... folders)."), this);
+	connect(m_download, &LauncherDownload::progress, this, [this](qint64 received, qint64 total) {
+		// in KB: the bars count with int
+		setProgress(static_cast<int>(received / 1024), total > 0 ? static_cast<int>(total / 1024) : 0);
+	});
+	connect(m_download, &LauncherDownload::finished, this, [this, target](const QString& rtp, QString error) {
+		m_download->deleteLater();
+		m_download = nullptr;
+		QString result;
+		if (!rtp.isEmpty()) {
+			// the one there set aside until the new one is in its place
+			const QString temp = target + QStringLiteral(".download");
+			const QString old = target + QStringLiteral(".old");
+			QDir(old).removeRecursively();
+			const bool had = QFileInfo::exists(target);
+			if ((!had || QDir().rename(target, old)) && QDir().rename(rtp, target)) {
+				result = target;
+				QDir(old).removeRecursively();
+			} else {
+				if (had && !QFileInfo::exists(target)) {
+					QDir().rename(old, target);
+				}
+				error = tr("Cannot move %1 to %2.").arg(QDir::toNativeSeparators(rtp), QDir::toNativeSeparators(target));
+			}
+			QDir(temp).removeRecursively();
+		}
+		setProgress(result.isEmpty() ? 0 : 1, 1);
+		emit busyChanged();
+		if (result.isEmpty() && !m_cancelled) {
+			dialogs().warning(QCoreApplication::translate("ExportDialog", "Download"), error);
+		}
+		emit finished(result);
+	});
+	setProgress(0, 0);
+	emit busyChanged();
+	m_download->start();
+	return true;
+}
+
+void RtpDownload::cancel()
 {
 	if (m_download) {
 		m_cancelled = true;

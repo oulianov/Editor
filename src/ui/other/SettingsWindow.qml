@@ -20,9 +20,137 @@ Ez.DialogWindow {
 
     objectName: "SettingsDialog"
     title: qsTr("Settings")
-    preferredWidth: 380
-    // not closed while the Player is downloaded for it
-    acceptable: !download.busy
+    // the table of the RTP folders: a path beside its marks
+    preferredWidth: 470
+    // not closed while the Player or the RTP is downloaded for it
+    acceptable: !download.busy && !rtpDownload.busy
+
+    /**
+     * The RTP folders as edited, written on OK: {path, exists, engine,
+     * translation, easyrpg} in their order, the folder marked for each engine, and the
+     * game open ({folder, name, engine}, empty without one) with the folder
+     * it chose (empty: its engine's default)
+     */
+    property var rtpRows: []
+    property string rtpDefault2000: ""
+    property string rtpDefault2003: ""
+    property var rtpProject: ({})
+    property string rtpActive: ""
+    readonly property bool rtpHasProject: (rtpProject.folder ?? "") !== ""
+    readonly property var rtpCurrent: rtpTable.currentIndex >= 0 && rtpTable.currentIndex < rtpRows.length
+        ? rtpRows[rtpTable.currentIndex] : null
+
+    /** A line of the table (an empty one while the table catches up with a line taken out) */
+    function rtpAt(index) {
+        return rtpRows[index] ?? { path: "", exists: true, engine: 0, translation: "", easyrpg: false }
+    }
+    function rtpRow(path) {
+        const info = Ez.Editor.rtpFolderInfo(path)
+        return { path: path, exists: info.exists, engine: info.engine, translation: info.translation, easyrpg: info.easyrpg }
+    }
+    /** A folder for the games of an engine: its RTP, or the EasyRPG RTP (both) */
+    function rtpServes(row, engine) {
+        return row.easyrpg || row.engine === engine
+    }
+    /** The folder the game open uses: its own, else its engine's default,
+     *  else the first one there is (EditorSettings::rtpSearchPath) */
+    function rtpUsed() {
+        if (!rtpHasProject) {
+            return ""
+        }
+        const has = path => path !== "" && rtpRows.some(row => row.path === path)
+        if (has(rtpActive)) {
+            return rtpActive
+        }
+        const fallback = rtpProject.engine === 2003 ? rtpDefault2003 : rtpDefault2000
+        return has(fallback) ? fallback : (rtpRows.find(row => row.exists) ?? { path: "" }).path
+    }
+    /** Adds a folder at the end (what the folder dialog gives, and the
+     *  scripts, the EasyRPG RTP downloaded); the first one of an engine is its default */
+    function addRtpFolder(path) {
+        let folder = String(path).trim()
+        while (folder.length > 1 && (folder.endsWith("/") || folder.endsWith("\\"))) {
+            folder = folder.slice(0, -1)
+        }
+        if (folder === "") {
+            return
+        }
+        const known = rtpRows.findIndex(row => row.path === folder)
+        if (known < 0) {
+            const row = rtpRow(folder)
+            if (rtpDefault2000 === "" && (row.engine !== 2003 || row.easyrpg)) {
+                rtpDefault2000 = folder
+            }
+            if (rtpDefault2003 === "" && (row.engine !== 2000 || row.easyrpg)) {
+                rtpDefault2003 = folder
+            }
+            rtpRows = rtpRows.concat([row])
+        }
+        rtpTable.currentIndex = known >= 0 ? known : rtpRows.length - 1
+        rtpTable.revision++
+    }
+    /** The mark of a folder taken out goes to the next folder of the same engine */
+    function removeRtpFolder(index) {
+        if (index < 0 || index >= rtpRows.length) {
+            return
+        }
+        const path = rtpRows[index].path
+        rtpRows = rtpRows.filter((row, i) => i !== index)
+        const next = engine => (rtpRows.find(row => rtpServes(row, engine)) ?? { path: "" }).path
+        if (rtpDefault2000 === path) {
+            rtpDefault2000 = next(2000)
+        }
+        if (rtpDefault2003 === path) {
+            rtpDefault2003 = next(2003)
+        }
+        if (rtpActive === path) {
+            rtpActive = ""
+        }
+        rtpTable.currentIndex = Math.min(index, rtpRows.length - 1)
+        rtpTable.revision++
+    }
+    function moveRtpFolder(index, delta) {
+        const to = index + delta
+        if (index < 0 || to < 0 || to >= rtpRows.length) {
+            return
+        }
+        const rows = rtpRows.slice()
+        rows.splice(to, 0, rows.splice(index, 1)[0])
+        rtpRows = rows
+        rtpTable.currentIndex = to
+        rtpTable.revision++
+    }
+    function rtpTranslationText(code) {
+        switch (code) {
+        case "ja": return qsTr("official Japanese")
+        case "en": return qsTr("official English")
+        case "dm": return qsTr("translated by %1").arg("Don Miguel")
+        case "rpga": return qsTr("translated by %1").arg("RPG Advocate")
+        case "ru": return qsTr("Russian, translated by %1").arg("Vlad")
+        case "rpgu": return qsTr("translated by %1").arg("RPG Universe")
+        case "ko": return qsTr("Korean")
+        case "zh": return qsTr("official Traditional Chinese")
+        }
+        return ""
+    }
+    /** What a folder holds: the tool tip of its line */
+    function rtpDescription(row) {
+        if (!row || row.path === "") {
+            return ""
+        }
+        if (!row.exists) {
+            return qsTr("%1 is missing: it is skipped.").arg(row.path)
+        }
+        if (row.engine === 0) {
+            return qsTr("%1 is not a whole RTP: its files fill in for those the other folders lack.").arg(row.path)
+        }
+        if (row.easyrpg) {
+            return qsTr("%1: EasyRPG RTP, for the games of RPG Maker 2000 and 2003.").arg(row.path)
+        }
+        const translation = rtpTranslationText(row.translation)
+        return translation === "" ? qsTr("%1: RTP of RPG Maker %2.").arg(row.path).arg(row.engine)
+                                  : qsTr("%1: RTP of RPG Maker %2, %3.").arg(row.path).arg(row.engine).arg(translation)
+    }
 
     Component.onCompleted: {
         language.currentIndex = Math.max(0, language.indexOfValue(Ez.Editor.language))
@@ -30,7 +158,12 @@ Ez.DialogWindow {
         reloadExternal.checked = Ez.Editor.reloadExternalChanges
         maniacMode.checked = Ez.Editor.maniacMode
         searchCache.checked = Ez.Editor.searchCache
-        rtpPath.text = Ez.Editor.rtpPath
+        rtpDefault2000 = Ez.Editor.rtpDefault(2000)
+        rtpDefault2003 = Ez.Editor.rtpDefault(2003)
+        rtpRows = Ez.Editor.rtpFolders.map(path => rtpRow(path))
+        rtpProject = Ez.Editor.rtpProject()
+        rtpActive = rtpProject.active ?? ""
+        rtpTable.currentIndex = rtpRows.length > 0 ? 0 : -1
         playerPath.text = Ez.Editor.playerPath
         scriptEditor.text = Ez.Editor.scriptEditor
         animateTiles.checked = Ez.Editor.animateTiles
@@ -42,10 +175,11 @@ Ez.DialogWindow {
     onAccepted: {
         // all read before the first is written; the language last, the
         // windows show it at once
-        let rtp = rtpPath.text.trim()
-        if (rtp !== "" && !rtp.endsWith("/")) {
-            rtp += "/"
-        }
+        const rtpFolders = rtpRows.map(row => row.path)
+        const rtp2000 = rtpDefault2000
+        const rtp2003 = rtpDefault2003
+        const rtpGame = rtpProject.folder ?? ""
+        const rtpOwn = rtpActive
         const reload = reloadExternal.checked
         const maniac = maniacMode.checked
         const cache = searchCache.checked
@@ -60,7 +194,13 @@ Ez.DialogWindow {
         Ez.Editor.reloadExternalChanges = reload
         Ez.Editor.maniacMode = maniac
         Ez.Editor.searchCache = cache
-        Ez.Editor.rtpPath = rtp
+        // the folders first: the games' choices of folders taken out go with them
+        Ez.Editor.rtpFolders = rtpFolders
+        Ez.Editor.setRtpDefault(2000, rtp2000)
+        Ez.Editor.setRtpDefault(2003, rtp2003)
+        if (rtpGame !== "") {
+            Ez.Editor.setRtpActive(rtpGame, rtpOwn)
+        }
         Ez.Editor.playerPath = player
         Ez.Editor.scriptEditor = editor
         Ez.Editor.animateTiles = animate
@@ -138,17 +278,154 @@ Ez.DialogWindow {
         }
     }
 
+    // the RTP folders of every game, in the Editor's settings: none in the
+    // game's folder, no EasyRPG.ini key
+    Ez.Section {
+        title: qsTr("RTP folders")
+        Ez.ArrayTable {
+            id: rtpTable
+            objectName: "tableRtp"
+            rows: root.rtpRows.length
+            visibleRows: 4
+            Layout.fillWidth: true
+            toolTip: row => root.rtpDescription(root.rtpAt(row))
+            columns: [
+                { title: qsTr("Folder"), elide: Text.ElideMiddle,
+                  toolTip: qsTr("A game looks for the files it lacks in its RTP folder, then in the other folders from top to bottom."),
+                  text: row => root.rtpAt(row).path, dimmed: row => !root.rtpAt(row).exists },
+                { title: qsTr("RTP"), width: rtpTable.kindWidth,
+                  text: row => !root.rtpAt(row).exists ? qsTr("Missing") : root.rtpAt(row).easyrpg ? "EasyRPG"
+                               : root.rtpAt(row).engine > 0 ? String(root.rtpAt(row).engine) : qsTr("Other"),
+                  dimmed: row => !root.rtpAt(row).exists },
+                // radio-like: the folder of each engine's games
+                { title: "2000", width: rtpTable.markWidth, name: "radioRtp2000_", exclusive: true,
+                  alignment: Text.AlignHCenter, toolTip: qsTr("The folder of the games of RPG Maker 2000"),
+                  checked: row => root.rtpAt(row).path === root.rtpDefault2000,
+                  toggle: (row, on) => {
+                      if (on) {
+                          root.rtpDefault2000 = root.rtpAt(row).path
+                      }
+                      rtpTable.revision++
+                  } },
+                { title: "2003", width: rtpTable.markWidth, name: "radioRtp2003_", exclusive: true,
+                  alignment: Text.AlignHCenter, toolTip: qsTr("The folder of the games of RPG Maker 2003"),
+                  checked: row => root.rtpAt(row).path === root.rtpDefault2003,
+                  toggle: (row, on) => {
+                      if (on) {
+                          root.rtpDefault2003 = root.rtpAt(row).path
+                      }
+                      rtpTable.revision++
+                  } }
+            ].concat(!root.rtpHasProject ? [] : [
+                // the folder of the game open: its engine's default, or one of
+                // its own (the default chosen again: none of its own)
+                { title: qsTr("This Game"), width: rtpTable.gameWidth, name: "radioRtpGame_", exclusive: true,
+                  alignment: Text.AlignHCenter,
+                  toolTip: qsTr("The folder %1 uses: the one marked for its engine, or one of its own.").arg(root.rtpProject.name),
+                  checked: row => root.rtpAt(row).path !== "" && root.rtpAt(row).path === root.rtpUsed(),
+                  toggle: (row, on) => {
+                      if (on) {
+                          const path = root.rtpAt(row).path
+                          root.rtpActive = path === (root.rtpProject.engine === 2003 ? root.rtpDefault2003
+                                                                                    : root.rtpDefault2000) ? "" : path
+                      }
+                      rtpTable.revision++
+                  } }
+            ])
+            onRemoveRequested: row => root.removeRtpFolder(row)
+
+            // the columns as wide as their titles and texts, the folder the rest
+            readonly property int kindWidth: Math.ceil(Math.max(...[qsTr("RTP"), qsTr("Missing"), qsTr("Other"), "EasyRPG"]
+                .map(text => rtpMetrics.advanceWidth(text)))) + 2 * Ez.Metrics.listTextPadding + 6
+            readonly property int markWidth: Math.max(Math.ceil(rtpMetrics.advanceWidth("2000")) + 12, 34)
+            readonly property int gameWidth: Math.ceil(rtpMetrics.advanceWidth(qsTr("This Game"))) + 12
+            FontMetrics {
+                id: rtpMetrics
+                font: Ez.Metrics.font
+            }
+        }
+        RowLayout {
+            spacing: Ez.Metrics.columnSpacing
+            Layout.fillWidth: true
+            // a folder of this computer, or EasyRPG's free RTP (for both
+            // engines) downloaded into the Editor's data folder
+            Ez.FieldButton {
+                objectName: "buttonRtpAdd"
+                text: qsTr("Add")
+                menu: Controls.Menu {
+                    Controls.MenuItem {
+                        objectName: "addRtpFolder"
+                        text: qsTr("From Folder...")
+                        onTriggered: rtpDialog.open()
+                    }
+                    Controls.MenuItem {
+                        objectName: "downloadRtp"
+                        text: qsTr("Download EasyRPG RTP...")
+                        enabled: !rtpDownload.busy
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("EasyRPG's free RTP, for the games of RPG Maker 2000 and 2003: downloaded into %1 and added to the list.")
+                            .arg(rtpDownload.folder)
+                        onTriggered: {
+                            if (rtpDownload.downloaded() !== "") {
+                                rtpThere.open()
+                            } else {
+                                rtpDownload.start()
+                            }
+                        }
+                    }
+                }
+            }
+            Ez.Button {
+                objectName: "buttonRtpRemove"
+                text: qsTr("Remove")
+                enabled: root.rtpCurrent !== null
+                onClicked: root.removeRtpFolder(rtpTable.currentIndex)
+            }
+            // arrows: as narrow as they are high
+            Ez.Button {
+                objectName: "buttonRtpUp"
+                text: "▲"
+                implicitWidth: implicitHeight + 6
+                enabled: rtpTable.currentIndex > 0 && root.rtpCurrent !== null
+                Controls.ToolTip.visible: hovered
+                Controls.ToolTip.text: qsTr("Move Up")
+                onClicked: root.moveRtpFolder(rtpTable.currentIndex, -1)
+            }
+            Ez.Button {
+                objectName: "buttonRtpDown"
+                text: "▼"
+                implicitWidth: implicitHeight + 6
+                enabled: root.rtpCurrent !== null && rtpTable.currentIndex < root.rtpRows.length - 1
+                Controls.ToolTip.visible: hovered
+                Controls.ToolTip.text: qsTr("Move Down")
+                onClicked: root.moveRtpFolder(rtpTable.currentIndex, 1)
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+            // back to the engine's default, for the game open
+            Ez.Button {
+                objectName: "buttonRtpEngineDefault"
+                visible: root.rtpHasProject
+                text: qsTr("Engine's Default")
+                enabled: root.rtpActive !== ""
+                Controls.ToolTip.visible: hovered
+                Controls.ToolTip.text: qsTr("%1 uses the folder marked for RPG Maker %2 again.")
+                    .arg(root.rtpProject.name ?? "").arg(root.rtpProject.engine ?? 2000)
+                onClicked: {
+                    root.rtpActive = ""
+                    rtpTable.revision++
+                }
+            }
+        }
+        Ez.DownloadBar {
+            download: rtpDownload
+        }
+    }
+
     Ez.Section {
         title: qsTr("Paths")
         Ez.Form {
-            Ez.FormLabel {
-                text: qsTr("RTP folder")
-            }
-            Ez.PathField {
-                id: rtpPath
-                fieldName: "lineRtpPath"
-                onBrowse: rtpDialog.open()
-            }
             Ez.FormLabel {
                 text: qsTr("EasyRPG Player")
             }
@@ -244,6 +521,39 @@ Ez.DialogWindow {
         Layout.fillHeight: true
     }
 
+    Ez.RtpDownload {
+        id: rtpDownload
+        window: root
+        // written on OK, as the other options
+        onFinished: folder => {
+            if (folder !== "") {
+                root.addRtpFolder(folder)
+            }
+        }
+    }
+    // downloaded before: again, or the folder as it is
+    Ez.MessageDialog {
+        id: rtpThere
+        objectName: "rtpThereDialog"
+        title: qsTr("Download EasyRPG RTP")
+        text: qsTr("The EasyRPG RTP is already in %1. Download it again, or add this folder as it is?").arg(rtpDownload.folder)
+        standardButtons: Controls.Dialog.Yes | Controls.Dialog.No | Controls.Dialog.Cancel
+        Component.onCompleted: {
+            standardButton(Controls.Dialog.Yes).text = qsTr("Download Again")
+            standardButton(Controls.Dialog.No).text = qsTr("Add Folder")
+        }
+        onAccepted: rtpDownload.start()
+        // No (Add Folder) and Cancel both reject: which button was it
+        Connections {
+            target: rtpThere.footer
+            function onClicked(button) {
+                if (button === rtpThere.standardButton(Controls.Dialog.No)) {
+                    root.addRtpFolder(rtpDownload.folder)
+                }
+            }
+        }
+    }
+
     Ez.PlayerDownload {
         id: download
         window: root
@@ -258,8 +568,8 @@ Ez.DialogWindow {
     Dialogs.FolderDialog {
         id: rtpDialog
         title: qsTr("Select the RTP folder")
-        currentFolder: Ez.Editor.url(rtpPath.text)
-        onAccepted: rtpPath.text = Ez.Editor.localPath(selectedFolder) + "/"
+        currentFolder: Ez.Editor.url(root.rtpCurrent ? root.rtpCurrent.path : "")
+        onAccepted: root.addRtpFolder(Ez.Editor.localPath(selectedFolder))
     }
     Dialogs.FileDialog {
         id: playerDialog

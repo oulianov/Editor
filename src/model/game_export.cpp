@@ -30,12 +30,14 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QSet>
 #include <lcf/encoder.h>
 #include <lcf/ldb/reader.h>
 #include <lcf/lmt/reader.h>
 #include <lcf/lmu/reader.h>
 #include <algorithm>
 #include <sstream>
+#include <vector>
 
 namespace {
 const ExportPlatform kPlatforms[] = { ExportPlatform::Windows, ExportPlatform::MacOS, ExportPlatform::Linux, ExportPlatform::Web };
@@ -456,12 +458,16 @@ bool GameExporter::prepare()
 
 	// the files the game uses that are not in it: from the RTP, or missing
 	ResourceIndex game(dir.absolutePath());
-	ResourceIndex rtp(m_source.rtp.isEmpty() ? QString() : QDir(m_source.rtp).absolutePath());
+	// the RTP folders in the order the Player looks in them: the first having a file gives it
+	std::vector<ResourceIndex> rtps;
+	for (const QString& folder : m_source.rtp) {
+		rtps.emplace_back(QDir(folder).absolutePath());
+	}
 	QStringList from_rtp;
-	auto addRtp = [&](const QString& folder, const QString& file) {
+	auto addRtp = [&](ResourceIndex& rtp, const QString& folder, const QString& file) {
 		const QString game_folder = game.folder(folder).isEmpty() ? folder : game.folder(folder);
 		const QString path = game_folder + QLatin1Char('/') + file;
-		if (from_rtp.contains(path)) {
+		if (from_rtp.contains(path, Qt::CaseInsensitive)) {
 			return;
 		}
 		from_rtp << path;
@@ -478,10 +484,16 @@ bool GameExporter::prepare()
 			if (!game.find(f.key(), name).isEmpty()) {
 				continue;
 			}
-			const QString file = rtp.find(f.key(), name);
-			if (!file.isEmpty()) {
-				addRtp(f.key(), file);
-			} else {
+			bool found = false;
+			for (ResourceIndex& rtp : rtps) {
+				const QString file = rtp.find(f.key(), name);
+				if (!file.isEmpty()) {
+					addRtp(rtp, f.key(), file);
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
 				missing << f.key() + QLatin1Char('/') + name;
 			}
 		}
@@ -489,9 +501,15 @@ bool GameExporter::prepare()
 	// picture names completed by a variable: every RTP picture starting the same way
 	for (auto f = refs.filePrefixes.constBegin(); f != refs.filePrefixes.constEnd(); ++f) {
 		for (const QString& prefix : f.value()) {
-			for (const QString& file : rtp.files(f.key())) {
-				if (file.startsWith(prefix, Qt::CaseInsensitive) && game.find(f.key(), QFileInfo(file).completeBaseName()).isEmpty()) {
-					addRtp(f.key(), file);
+			QSet<QString> taken;
+			for (ResourceIndex& rtp : rtps) {
+				for (const QString& file : rtp.files(f.key())) {
+					const QString name = QFileInfo(file).completeBaseName();
+					if (file.startsWith(prefix, Qt::CaseInsensitive) && game.find(f.key(), name).isEmpty()
+							&& !taken.contains(name.toLower())) {
+						taken.insert(name.toLower());
+						addRtp(rtp, f.key(), file);
+					}
 				}
 			}
 		}

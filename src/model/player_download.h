@@ -87,3 +87,64 @@ private:
 	int m_progress = 0;
 	int m_progressMaximum = 0;
 };
+
+/**
+ * The EasyRPG RTP, EasyRPG's free RTP for the games of both engines,
+ * downloaded from the Settings (LauncherDownload): extracted in the
+ * Editor's data folder (Launchers::rtpFolder), where it replaces the one
+ * there once the new one is complete. The failures go through the
+ * DialogService given, else the installed one.
+ */
+class RtpDownload : public QObject
+{
+	Q_OBJECT
+	Q_PROPERTY(bool busy READ isBusy NOTIFY busyChanged)
+	/** In KB, out of progressMaximum (0: unknown yet) */
+	Q_PROPERTY(int progress READ progress NOTIFY progressChanged)
+	Q_PROPERTY(int progressMaximum READ progressMaximum NOTIFY progressChanged)
+	/** The archive downloaded, its file name */
+	Q_PROPERTY(QString fileName READ fileName CONSTANT)
+	/** Where it goes */
+	Q_PROPERTY(QString folder READ folder CONSTANT)
+
+public:
+	explicit RtpDownload(QObject* parent = nullptr);
+	/** A download still running is cancelled */
+	~RtpDownload() override;
+
+	bool isBusy() const;
+	int progress() const;
+	int progressMaximum() const;
+	QString fileName() const;
+	QString folder() const;
+
+	/** Where the failures go (nullptr: the installed DialogService) */
+	void setDialogService(DialogService* dialogs);
+
+	/** The folder when it holds an RTP downloaded before, else empty */
+	Q_INVOKABLE QString downloaded() const;
+	/**
+	 * Downloads it, also when it is there
+	 *
+	 * @return false when nothing starts (already running)
+	 */
+	Q_INVOKABLE bool start();
+	/** Stops the download: finished with no folder, nothing told */
+	Q_INVOKABLE void cancel();
+
+signals:
+	void busyChanged();
+	void progressChanged();
+	/** The folder of the RTP; empty when cancelled or failed (the failure told) */
+	void finished(const QString& folder);
+
+private:
+	DialogService& dialogs() const;
+	void setProgress(int value, int maximum);
+
+	DialogService* m_dialogs = nullptr;
+	QPointer<LauncherDownload> m_download;
+	bool m_cancelled = false;
+	int m_progress = 0;
+	int m_progressMaximum = 0;
+};

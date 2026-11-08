@@ -192,7 +192,7 @@ std::optional<Pickers::FileChoice> Pickers::pickFile(QObject* from, const FileRe
 	});
 	applyChoice(*model, request.current);
 	model->open(request.folder, project ? project->projectDir().absolutePath() : QString(),
-		core().rtpPath(QString()), request.current.name);
+		core().rtpDirs(), request.current.name);
 	const QMetaObject::Connection applying = QObject::connect(model, &FilePickerModel::applied, model, [&] {
 		if (applied) {
 			applied(choiceOf(*model));

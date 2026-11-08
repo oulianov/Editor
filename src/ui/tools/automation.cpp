@@ -31,6 +31,7 @@
 #include "model/game_runner.h"
 #include "model/map_tools.h"
 #include "model/project.h"
+#include "model/resource_library.h"
 #include "qmlbinding/database_session.h"
 #include "qmlbinding/json_t.h"
 #include "qmlbinding/project_data_gadget.h"
@@ -764,6 +765,33 @@ bool Automation::run(const QStringList& args) {
 		const bool none = args[1] == QLatin1String("none");
 		if (none ? !player.isEmpty() : !player.contains(args[1])) {
 			fail(QStringLiteral("the Player found is \"%1\"").arg(player));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "expect-rtp" && args.size() >= 2) {
+		// the RTP folders of the project open, in the order its files are
+		// looked for (Core::rtpDirs, as test play passes them)
+		const QStringList expected = args.size() == 2 && args[1] == QLatin1String("none") ? QStringList() : args.mid(1);
+		QStringList clean;
+		for (const QString& folder : expected) {
+			clean << QDir::cleanPath(folder);
+		}
+		if (core().rtpDirs() != clean) {
+			fail(QStringLiteral("the RTP folders are \"%1\"").arg(core().rtpDirs().join(QStringLiteral("\", \""))));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "expect-rtp-file" && args.size() == 4) {
+		// where the project open finds a file of a folder (CharSet...): the
+		// game's, else the first RTP folder having it (Project::findFile)
+		const int known = ResourceLibraryModel::folderOf(args[1]);
+		const auto type = known >= 0 ? ResourceLibraryModel::folderType(known) : FileFinder::FileType::Image;
+		const QString found = core().project() ? core().project()->findFile(args[1], args[2], type) : QString();
+		const bool none = args[3] == QLatin1String("none");
+		if (none ? !found.isEmpty() : QDir::cleanPath(found) != QDir::cleanPath(args[3])) {
+			fail(QStringLiteral("%1/%2 is found at \"%3\"").arg(args[1], args[2], found));
 			return false;
 		}
 		return true;

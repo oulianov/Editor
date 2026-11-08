@@ -29,7 +29,10 @@
  * The tiles of the palette of the layer edited and their picking
  * (Palette.qml draws them): 6 a row, the eraser row first, then the lower
  * tiles (the water and the animated tiles, deep water among water, then the
- * terrains) or the upper ones; the event layer shows the upper ones.
+ * terrains) or the upper ones; the event layer shows the upper ones. With
+ * a layer of its own (the palette wide enough for both side by side), it
+ * shows that layer's tiles whatever the layer edited, and a pick makes its
+ * layer the one edited.
  *
  * Its cells are those of the palette, the eraser row 0. A drag of the left
  * button picks a rectangle of tiles, at most 6 rows high, which the right
@@ -42,6 +45,8 @@ class TilePalette : public QObject
 	Q_OBJECT
 	QML_ELEMENT
 	Q_PROPERTY(EditorState* state READ state WRITE setState NOTIFY stateChanged)
+	Q_PROPERTY(int layer READ layer WRITE setLayer NOTIFY layerChanged)
+	Q_PROPERTY(bool active READ isActive NOTIFY activeChanged)
 	Q_PROPERTY(QList<int> tiles READ tiles NOTIFY tilesChanged)
 	Q_PROPERTY(int columns READ columns CONSTANT)
 	Q_PROPERTY(int rows READ rows NOTIFY tilesChanged)
@@ -58,6 +63,13 @@ public:
 
 	EditorState* state() const;
 	void setState(EditorState* state);
+
+	/** The layer whose tiles are shown: -1 (the default) the layer edited,
+	 *  EditorState::LOWER or UPPER that one, edited once a tile is picked */
+	int layer() const;
+	void setLayer(int layer);
+	/** Its tiles are those of the layer edited: always without a layer of its own */
+	bool isActive() const;
 
 	/** The tile ids of the cells, row by row; -1: the eraser row's, drawn apart */
 	QList<int> tiles() const;
@@ -76,16 +88,24 @@ public:
 
 signals:
 	void stateChanged();
+	void layerChanged();
+	void activeChanged();
 	void tilesChanged();
 	void selectionChanged();
 	void pickingChanged();
 
 private:
 	bool upper() const;
+	/** The layer of the tiles shown: its own, else the state's */
+	EditorState::Layer shownLayer() const;
+	/** Its own layer becomes the one edited, as the layer actions make it */
+	void edit();
+	/** The tiles, the frame and the activity, after a change of layer */
+	void followLayer();
 	/** The rectangle dragged from m_initial to m_current: within the tiles, 6 rows at most */
 	QRect dragged() const;
-	/** The tiles of a rectangle go to the state */
-	void pick(const QRect& cells);
+	/** The tiles of a rectangle go to the state (a copy: the frame can move meanwhile) */
+	void pick(QRect cells);
 	/** The rectangle of the state's selection, unless on the event layer */
 	void showState();
 	void setSelection(const QRect& cells);
@@ -93,7 +113,9 @@ private:
 
 	QPointer<EditorState> m_state;
 	QList<QMetaObject::Connection> m_stateConnections;
+	int m_layer = -1;
 	bool m_upper = false;
+	bool m_active = true;
 	QRect m_selection;
 	// the rectangle picked last, framed again when a drag is cancelled
 	QRect m_last;

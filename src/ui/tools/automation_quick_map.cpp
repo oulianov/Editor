@@ -377,8 +377,57 @@ std::optional<bool> MapDriver::run(const QStringList& args)
 		mouse(QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton);
 		return true;
 	}
+	if (m_palette && cmd == "expect-palette" && args.size() >= 2 && (args[1] == "lower" || args[1] == "upper")) {
+		// the frame of a side of the palette, in its own cells: the side by
+		// side's lower tiles (alone: the layer edited's), or the upper ones
+		const auto* picker = m_palette->property(args[1] == "lower" ? "picker" : "upperPicker").value<QObject*>();
+		QStringList rect = args;
+		rect.removeAt(1);
+		return picker && expectRect(QStringLiteral("the frame of the %1 tiles").arg(args[1]),
+			picker->property("selection").toRect(), rect);
+	}
 	if (m_palette && cmd == "expect-palette") {
 		return expectRect(QStringLiteral("the palette's selection"), m_palette->property("selectionRect").toRect(), args);
+	}
+	if (m_palette && cmd == "expect-palette-split" && args.size() == 2 && (args[1] == "on" || args[1] == "off")) {
+		if (m_palette->property("split").toBool() != (args[1] == "on")) {
+			m_fail(QStringLiteral("the palette %1 (%2 wide)").arg(args[1] == "on" ? "shows a layer" : "shows both layers")
+				.arg(m_palette->width()));
+			return false;
+		}
+		return true;
+	}
+	if (m_palette && cmd == "expect-layer" && args.size() == 2) {
+		// the layer edited, as the tool bar's layer buttons set it
+		const auto* state = qobject_cast<EditorState*>(m_palette->property("editorState").value<QObject*>());
+		const QStringList layers{"lower", "upper", "event"};
+		if (!state || !layers.contains(args[1])) {
+			m_fail("usage: expect-layer lower|upper|event");
+			return false;
+		}
+		if (layers[state->layer()] != args[1]) {
+			m_fail(QStringLiteral("the layer edited is the %1 one, not the %2 one").arg(layers[state->layer()], args[1]));
+			return false;
+		}
+		return true;
+	}
+	if (m_palette && cmd == "log-palette" && args.size() == 1) {
+		// its size, zoom, layout, the layer edited, the frames of both sides
+		const auto* state = qobject_cast<EditorState*>(m_palette->property("editorState").value<QObject*>());
+		const auto frame = [this](const char* picker) {
+			const auto* side = m_palette->property(picker).value<QObject*>();
+			return side ? rectText(side->property("selection").toRect()) : QStringLiteral("?");
+		};
+		// side by side from: 12 columns, the gap, the scroll bar
+		const QQuickItem* bar = findItem(m_palette, QStringLiteral("paletteScrollY"));
+		const double both = 12 * m_palette->property("cellSize").toDouble() + m_palette->property("gap").toDouble()
+			+ (bar ? bar->implicitWidth() : 0);
+		qCInfo(lcAutomation).noquote() << QStringLiteral("palette: %1x%2, zoom %3, %4 (side by side from %5), layer %6, frame %7, lower/left %8, upper %9")
+			.arg(m_palette->width()).arg(m_palette->height()).arg(m_palette->property("zoom").toDouble())
+			.arg(m_palette->property("split").toBool() ? "side by side" : "alone").arg(both)
+			.arg(state ? QStringList{"lower", "upper", "event"}.value(state->layer()) : QStringLiteral("?"))
+			.arg(rectText(m_palette->property("selectionRect").toRect()), frame("picker"), frame("upperPicker"));
+		return true;
 	}
 	if (m_palette && cmd == "palette-wheel" && (args.size() == 5 || (args.size() == 6 && args[5] == "touchpad"))
 			&& toInts(args, 1, {&x, &y, &a}) && args[4] == "ctrl") {

@@ -18,7 +18,9 @@ The script runs once the project is loaded, then the Editor quits. The exit
 code is the number of failed commands and checks (0 when all pass).
 
 Scripts keep their settings apart from yours (last project, window sizes),
-and nothing is saved unless the script does it. Each run has a folder of its
+and nothing is saved unless the script does it; they start with your RTP
+folders (Settings, RTP folders: the table, its marks for 2000 and 2003, the
+folder each game chose). Each run has a folder of its
 own, removed when the Editor quits: `$SCRIPT_DIR` in the arguments of the
 commands. The EasyRPG Player downloaded by a script goes there too. They run in English, so that
 `click` and `type` find the same texts on every system; `--language fr` runs
@@ -147,6 +149,8 @@ at once: the next commands act on the dialog, until `close`.
 | `pick-entry LIST ID [none]` | Opens the entry picker (`Pickers::pickEntry`) on a list of the database as JSON names it (`switches`, `items`...), starting on the entry ID, with "(None)" first when `none`. Returns at once; its answer: the ID chosen (0: "(None)") or `cancel`.
 | `expect-answer VALUE` | Fails unless the last `dialog-service` question was answered VALUE: `reload`, `overwrite` or `cancel` for a file changed on disk; `yes`, `no` or `cancel` for a question; `ok` once a message is closed; `(waiting)` while it is shown. The same for the last `pick-file` or `pick-entry`.
 | `expect-player TEXT\|none` | Fails unless the EasyRPG Player that test play runs (found next to the Editor, in the PATH... else downloaded) has the text in its path, or there is none (`none`). Scripts download Players into their own folder; `EASYRPG_EDITOR_LAUNCHER_BASE` (a folder URL) replaces easyrpg.org, as the tests' fake archives do. Scripts check for updates of the Editor automatically only with `EDITOR_UPDATE_FEED`, a release feed of their own (see link:Updates.adoc[Updates]).
+| `expect-rtp FOLDER...\|none` | Fails unless the RTP folders of the project open are these, in this order (`Core::rtpDirs`): the one the game uses (its own, else the one marked for its engine), then the other ones of the Settings in their order, the missing ones left out. Test play passes them in this order with `--rtp-path`.
+| `expect-rtp-file FOLDER NAME PATH\|none` | Fails unless the project open finds the file NAME (no extension) of a folder (`CharSet`...) at PATH: the game's own, else the one of the first RTP folder having it; `none`: in none.
 | `color-scheme dark\|light\|system` | Chooses the color scheme as the Settings do (General, Color scheme; in the script's own settings): every window in dark or light colors with the icons drawn for them, on any platform (offscreen, which has no dark mode, in Fusion's colors); `system` goes back to the system's. The windows opened after it are drawn in it from the start.
 | `check-layout` | Fails for every control smaller than it needs to be (clipped text...) and for overlapping radio options.
 | `set-enabled NAME on\|off` | Enables or disables a control (or a section, with its controls) of a QML window, by its object name or button text: to see how the windows draw what cannot be changed.
@@ -190,7 +194,25 @@ progress bar (`3/10`, `busy` while its end is not known), the lines of a list
 of a button box from left to right (`buttonBox`: `Save Mine | Cancel`).
 `expect` with the objectName of the window itself (`SettingsDialog`,
 `helpWindow`, `messageWindow`, `DatabaseDialog`) reads its title. A table
-drawing its cells (`Ez.ArrayTable`) shows its lines as `cell | cell`.
+drawing its cells (`Ez.ArrayTable`) shows its lines as `cell | cell`, a
+check box as `[x]` or `[ ]`, a radio button as `(x)` or `( )`.
+
+The RTP folders of the Settings (`SettingsDialog`, `action actionSettings`,
+written on OK): `tableRtp` (the folder, the RTP it looks like, its marks
+for 2000, 2003 and the game open), the marks `radioRtp2000_N`,
+`radioRtp2003_N` and `radioRtpGame_N` of line N (from 0: `set-control
+radioRtp2000_1 on`), `buttonRtpAdd` (its menu: `addRtpFolder`, a folder
+dialog, scripts add a folder with `call SettingsDialog addRtpFolder PATH`;
+`downloadRtp`, see below), `buttonRtpRemove`,
+`buttonRtpUp`, `buttonRtpDown` (the line selected: `focus tableRtp` and
+the arrow keys), `buttonRtpEngineDefault` (the game open uses the folder
+marked for its engine again; `hover tableRtp` shows what a folder holds),
+`downloadRtp` (the EasyRPG RTP downloaded and added: `downloadText`,
+`downloadProgress` and `cancelDownload` while it runs; already there,
+`rtpThereDialog` asks: `Download Again`, `Add Folder` or `Cancel`). With
+`EASYRPG_EDITOR_LAUNCHER_BASE`, the RTP is that folder's `easyrpg-rtp.zip`
+(an archive of an RTP, in a folder or not), and a script extracts it into
+its own folder (`$SCRIPT_DIR/rtp/easyrpg`).
 
 The database window (`DatabaseDialog`, Game > Database; Search opens it at
 a common event or a monster group) has these names: `tabOld_Pages` (its pages), `buttonBox` (OK, Cancel, Apply, Help), and
@@ -339,7 +361,10 @@ Its tool bar has the layer, tool, undo and zoom actions of the main window
 actions. Its status bar shows the cell under the pointer (`labelCell`) and
 the last request of the map (`labelRequest`: `new event X,Y`, `edit event
 ID`, `place teleport X,Y`, `start game X,Y`), which only the main window
-answers. The input goes through the window system, as a hand would:
+answers. The commands of the palette act on the main window's palette too,
+which shows the lower and the upper tiles side by side once its dock is
+wide enough (`resize` the main window: its docks widen with it). The input
+goes through the window system, as a hand would:
 
 [cols="1,3"]
 |===
@@ -350,10 +375,14 @@ answers. The input goes through the window system, as a hand would:
 | `map-key SEQUENCE` | Presses a key on the map: the map takes the keys it uses before the shortcuts of the window, as when typed.
 | `map-wheel X Y DELTA [ctrl] [meta] [shift] [touchpad]` | Turns the wheel over a cell (a notch is 120), with these keys held; with Ctrl (on macOS Meta too: the Control key), it zooms. `touchpad`: from a device Qt takes for a touchpad, as the mouse wheel of XWayland on Linux (its relative pointer).
 | `map-zoom ZOOM`, `map-scroll X Y`, `map-area X Y W H\|none` | Sets the zoom (snapped as the zoom menu does), scrolls the view to a pixel of the map, dashes the boundaries of an area.
-| `palette-click X Y [right]`, `palette-drag X1 Y1 X2 Y2 [cancel]` | Clicks or drags on cells of the palette (row 0: the eraser); `cancel`: the right button before the left one is released.
+| `palette-click X Y [right]`, `palette-drag X1 Y1 X2 Y2 [cancel]` | Clicks or drags on cells of the palette (row 0: the eraser); `cancel`: the right button before the left one is released. With the lower and the upper tiles side by side, the upper ones are the columns 6 to 11.
 | `palette-wheel X Y DELTA ctrl [touchpad]`, `expect-palette-zoom ZOOM` | Zooms the palette with Ctrl + wheel over a cell (`touchpad`: as for `map-wheel`); fails unless the palette has this zoom.
+| `expect-palette-split on\|off` | Fails unless the palette shows the lower and the upper tiles side by side (`on`: wide enough for both at its zoom) or the tiles of the layer edited alone (`off`).
+| `expect-palette lower\|upper X Y W H\|none` | Fails unless the frame of one side of the palette is on these cells, in the side's own columns (0 to 5); without the palette side by side, `lower` is the frame of the tiles shown.
+| `expect-layer lower\|upper\|event` | Fails unless this layer is edited (the layer buttons of the tool bar, F5 to F7, a tile picked on a side of the palette).
+| `log-palette` | Logs the palette's size, zoom and layout (the width from which it shows both layers), the layer edited, its frame and those of both sides.
 | `expect-zoom ZOOM` | Fails unless the map is shown at this zoom.
-| `expect-selection`, `expect-brush`, `expect-floating`, `expect-palette` `X Y W H\|none` | Fails unless the selection of the selection tool, the frame of the tool, the pasted tiles floating or the frame of the palette are on these cells.
+| `expect-selection`, `expect-brush`, `expect-floating`, `expect-palette` `X Y W H\|none` | Fails unless the selection of the selection tool, the frame of the tool, the pasted tiles floating or the frame of the palette are on these cells (side by side: the frame of the layer edited, the upper one's on the event layer, from the column 6 for the upper tiles).
 | `expect-picked TILE W H` | Fails unless the tiles picked for the layer edited start with TILE, W x H of them.
 | `expect-cursor NAME` | Fails unless the map has this cursor (`PenCursor`, `MoveCursor`, `ForbiddenCursor`, `ArrowCursor`...).
 | `expect-cell-under X Y` | Fails unless the cell under the pointer is this one (after a zoom).

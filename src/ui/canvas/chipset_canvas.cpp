@@ -148,10 +148,8 @@ void ChipsetCanvas::loadGraphic()
 	if (name.isEmpty() || !found.project || !found.project->hasProject()) {
 		return;
 	}
+	// the game's, else the RTP's
 	m_graphic = ImageLoader::Load(found.project->project().findFile(CHIPSET, name, FileFinder::FileType::Image));
-	if (m_graphic.isNull()) {
-		m_graphic = ImageLoader::Load(core().rtpPath(CHIPSET, name));
-	}
 }
 
 void ChipsetCanvas::render()

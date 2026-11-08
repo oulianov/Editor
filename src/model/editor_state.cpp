@@ -76,22 +76,22 @@ short EditorState::selection(int off_x, int off_y, std::optional<Layer> layer) c
 	return result;
 }
 
-int EditorState::selWidth() const
+int EditorState::selWidth(std::optional<Layer> layer) const
 {
 	int w = 1;
-	if (m_layer == LOWER)
+	if (layer.value_or(m_layer) == LOWER)
 		w = m_lowerSelW;
-	if (m_layer == UPPER)
+	if (layer.value_or(m_layer) == UPPER)
 		w = m_upperSelW;
 	return w;
 }
 
-int EditorState::selHeight() const
+int EditorState::selHeight(std::optional<Layer> layer) const
 {
 	int h = 1;
-	if (m_layer == LOWER)
+	if (layer.value_or(m_layer) == LOWER)
 		h = m_lowerSelH;
-	if (m_layer == UPPER)
+	if (layer.value_or(m_layer) == UPPER)
 		h = m_upperSelH;
 	return h;
 }
