@@ -16,6 +16,7 @@
  */
 
 #include "map_panorama_item.h"
+#include <QHash>
 #include <QElapsedTimer>
 #include <QMatrix4x4>
 #include <QQuickWindow>
@@ -84,26 +85,54 @@ qint64 floorDiv(qint64 a, qint64 b)
 	return a / b - (a % b != 0 && (a < 0) != (b < 0));
 }
 
-// How far right (or down) a picture size pixels wide scrolled in frame,
-// as the Player draws it: its position in 32nds of a pixel wraps around
-// the picture, and is drawn at the pixel left of it
-int scrolled(qint64 frame, int step, int size)
+// How far right (or down) a picture size pixels wide scrolled at a
+// position (32nds of a pixel), as the Player draws it: the position wraps
+// around the picture, and is drawn at the pixel left of it
+int scrolled(qint64 position, int size)
 {
-	if (!step || size <= 0)
+	if (size <= 0)
 		return 0;
-	const qint64 left = floorDiv(frame * step, 32) % size;
+	const qint64 left = floorDiv(position, 32) % size;
 	return static_cast<int>((size - left) % size);
 }
 
-// The first frame after frame that moves the picture a pixel
-qint64 nextMove(qint64 frame, int step)
+// The frames from a position until a step moves the picture a pixel
+qint64 framesToMove(qint64 position, int step)
 {
-	const qint64 pixel = floorDiv(frame * step, 32);
-	qint64 next = frame + 1;
+	const qint64 pixel = floorDiv(position, 32);
+	qint64 frames = 1;
 	// a step is 2 to 256: 16 frames at most
-	while (floorDiv(next * step, 32) == pixel)
-		next++;
-	return next;
+	while (floorDiv(position + frames * step, 32) == pixel)
+		frames++;
+	return frames;
+}
+
+// The autoscroll of a map's panorama, shared by its views (the floating
+// tiles' panorama scrolls with the map's): where each axis is, in 32nds of
+// a pixel, at a frame. As the Player's Parallax, a new speed goes on from
+// there: the picture keeps its place
+struct Scroll
+{
+	qint64 frame = -1;
+	QPoint step;
+	qint64 x = 0;
+	qint64 y = 0;
+
+	// moved on to a frame at its step
+	void advance(qint64 to)
+	{
+		if (frame >= 0 && to > frame) {
+			x += (to - frame) * step.x();
+			y += (to - frame) * step.y();
+		}
+		frame = std::max(frame, to);
+	}
+};
+
+QHash<const MapDocument*, Scroll>& scrolls()
+{
+	static QHash<const MapDocument*, Scroll> all;
+	return all;
 }
 
 // The time of the game, from the first panorama view: the views of a map
@@ -116,6 +145,11 @@ qint64 scrollTime()
 		return timer;
 	}();
 	return clock.nsecsElapsed();
+}
+
+qint64 scrollFrame()
+{
+	return scrollTime() * FramesPerSecond / NsPerSecond;
 }
 
 }
@@ -149,7 +183,8 @@ void MapPanoramaView::setDocument(MapDocument* document)
 	if (m_doc) {
 		// Map Properties can change the panorama and the size
 		m_docConnections << connect(m_doc, &MapDocument::mapReplaced, this, &MapPanoramaView::reload);
-		m_docConnections << connect(m_doc, &QObject::destroyed, this, [this]() {
+		m_docConnections << connect(m_doc, &QObject::destroyed, this, [this, document]() {
+			scrolls().remove(document);
 			setDocument(nullptr);
 		});
 	}
@@ -221,6 +256,16 @@ void MapPanoramaView::reload()
 	m_name = name;
 	m_picture = std::move(picture);
 	m_scrollStep = step;
+	if (m_doc) {
+		// the same place at the new speed; an axis that stops is back at rest
+		Scroll& scroll = scrolls()[m_doc];
+		scroll.advance(scrollFrame());
+		if (!step.x())
+			scroll.x = 0;
+		if (!step.y())
+			scroll.y = 0;
+		scroll.step = step;
+	}
 	if (!m_picture || m_picture->cacheKey() != m_darkKey) {
 		m_darkPicture = QImage();
 		m_darkKey = 0;
@@ -269,7 +314,10 @@ void MapPanoramaView::scroll()
 	const qint64 now = scrollTime();
 	const qint64 frame = now * FramesPerSecond / NsPerSecond;
 	const QSize size = m_picture ? m_picture->size() : QSize();
-	const QPoint shift(scrolled(frame, m_scrollStep.x(), size.width()), scrolled(frame, m_scrollStep.y(), size.height()));
+	Scroll* scroll = m_doc ? &scrolls()[m_doc] : nullptr;
+	if (scroll)
+		scroll->advance(frame);
+	const QPoint shift = scroll ? QPoint(scrolled(scroll->x, size.width()), scrolled(scroll->y, size.height())) : QPoint();
 	if (shift != m_scrollShift) {
 		m_scrollShift = shift;
 		update();
@@ -284,9 +332,10 @@ void MapPanoramaView::scroll()
 	if (!m_frameConnection)
 		m_frameConnection = connect(window(), &QQuickWindow::afterAnimating, this, &MapPanoramaView::scroll);
 	qint64 next = std::numeric_limits<qint64>::max();
-	for (const int step : {m_scrollStep.x(), m_scrollStep.y()})
-		if (step)
-			next = std::min(next, nextMove(frame, step));
+	if (scroll && scroll->step.x())
+		next = std::min(next, frame + framesToMove(scroll->x, scroll->step.x()));
+	if (scroll && scroll->step.y())
+		next = std::min(next, frame + framesToMove(scroll->y, scroll->step.y()));
 	const qint64 wait = (next * NsPerSecond / FramesPerSecond - now) / 1'000'000;
 	if (wait < FrameMs)
 		update();

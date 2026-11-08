@@ -297,9 +297,14 @@ Ez.DialogWindow {
                                                      ? step(horizontalSpeed.value) : 0
                         readonly property int stepY: verticalScroll.checked && verticalAutoscroll.checked
                                                      ? step(verticalSpeed.value) : 0
+                        // where it is, in 32nds of a pixel as the Player keeps it: a
+                        // new speed goes on from there, the picture keeps its place
+                        property real positionX: 0
+                        property real positionY: 0
+                        property int lastFrame: 0
                         // how far right and down it moved, in pixels of the picture
-                        property int shiftX: 0
-                        property int shiftY: 0
+                        readonly property int shiftX: scrolled(positionX, picture.width)
+                        readonly property int shiftY: scrolled(positionY, picture.height)
 
                         // 2^|speed| 32nds of a pixel a frame, a positive speed moving it right or down
                         function step(speed) {
@@ -307,11 +312,11 @@ Ez.DialogWindow {
                             return speed < 0 ? (1 << -speed) : speed > 0 ? -(1 << speed) : 0
                         }
                         // its position wraps around the picture, drawn at the pixel left of it
-                        function scrolled(frame, step, size) {
-                            if (!step || size <= 0) {
+                        function scrolled(position, size) {
+                            if (size <= 0) {
                                 return 0
                             }
-                            const left = Math.floor(frame * step / 32) % size
+                            const left = Math.floor(position / 32) % size
                             return (size - left) % size
                         }
 
@@ -344,13 +349,18 @@ Ez.DialogWindow {
                             running: root.visible && panoramaView.visible && (panoramaView.stepX !== 0 || panoramaView.stepY !== 0)
                             onTriggered: {
                                 const frame = Math.floor(elapsedTime * 60)
-                                panoramaView.shiftX = panoramaView.scrolled(frame, panoramaView.stepX, panoramaView.picture.width)
-                                panoramaView.shiftY = panoramaView.scrolled(frame, panoramaView.stepY, panoramaView.picture.height)
+                                const frames = frame - panoramaView.lastFrame
+                                panoramaView.lastFrame = frame
+                                // an axis that stops is back at rest
+                                panoramaView.positionX = panoramaView.stepX ? panoramaView.positionX + frames * panoramaView.stepX : 0
+                                panoramaView.positionY = panoramaView.stepY ? panoramaView.positionY + frames * panoramaView.stepY : 0
                             }
                             onRunningChanged: {
+                                // its time starts again from 0
+                                panoramaView.lastFrame = 0
                                 if (!running) {
-                                    panoramaView.shiftX = 0
-                                    panoramaView.shiftY = 0
+                                    panoramaView.positionX = 0
+                                    panoramaView.positionY = 0
                                 }
                             }
                         }
