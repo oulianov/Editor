@@ -15,7 +15,7 @@ import org.easyrpg.editor as Ez
  * over all of them (Enter picks the command of that name, else the first
  * match). Opened by CommandEditing::pickCommand, which reads code.
  *
- * pages: [{title, entries: [{code, name, source, rpg2k3Only, maniacOnly}]}], an
+ * pages: [{title, entries: [{code, name, source, rpg2k3Only, maniacOnly, easyrpgOnly}]}], an
  * entry of code 0 is the gap between two groups; the one of code -1 (in a
  * map event, a common event) opens the battle event commands (battlePages)
  * in this window again, over it: Cancel comes back here, a command chosen
@@ -33,9 +33,10 @@ Ez.DialogWindow {
     property string searchText: ""
     /** The commands of a battle */
     property bool battle: false
-    /** The game is RPG Maker 2003's, uses the Maniac Patch: their commands can be chosen */
+    /** The game is RPG Maker 2003's, uses the Maniac Patch, EasyRPG Player's extensions: their commands can be chosen */
     property bool rpg2k3: true
     property bool maniac: false
+    property bool easyrpg: false
     /** The command chosen (0: none) */
     property int code: 0
 
@@ -55,7 +56,7 @@ Ez.DialogWindow {
     function openBattleCommands() {
         const search = searchField.text.trim()
         const found = battleNamed(folded(search), false).length > 0
-        if (Ez.Editor.exec("CommandPalette", { pages: battlePages, battle: true, rpg2k3: rpg2k3, maniac: maniac,
+        if (Ez.Editor.exec("CommandPalette", { pages: battlePages, battle: true, rpg2k3: rpg2k3, maniac: maniac, easyrpg: easyrpg,
                                                opener: root, searchText: found ? search : "" }, root.contentItem) === 1) {
             root.accept()
         }
@@ -67,6 +68,9 @@ Ez.DialogWindow {
         }
         if (entry.maniacOnly && !maniac) {
             return qsTr("Only with the Maniac Patch")
+        }
+        if (entry.easyrpgOnly && !easyrpg) {
+            return qsTr("Only with the EasyRPG Extensions (Project Settings > EasyRPG Player > Patches)")
         }
         return ""
     }

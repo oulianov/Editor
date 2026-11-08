@@ -3397,11 +3397,183 @@ void addBattle(Table& table) {
 		QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Conditional Branch (battle)"), conditionFields(true));
 }
 
+// The value of the mode first: a constant, a variable, a variable pointer
+// (EasyRPG Player's ValueOrVariable), its fields of a kind for the constant
+Fields easyValue(const char* id, Label label, int modeIndex, Fields constant, Fields other) {
+	const char* modeId = name(id, "Mode");
+	Fields list = fields(mode(modeId, label, modeIndex, -1, {{0, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Constant")), Kind::Number},
+		{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable")), Kind::Variable},
+		{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable pointer")), Kind::Variable}}));
+	for (auto& one : constant) {
+		one.flags |= Flag::Inline;
+		one.visible.push_back({modeId, {0}, false});
+		append(list, one);
+	}
+	for (auto& one : other) {
+		one.flags |= Flag::Inline;
+		one.visible.push_back({modeId, {1, 2}, false});
+		append(list, one);
+	}
+	return list;
+}
+
+/** A string given in the command (its text), by a string variable or a string pointer */
+Items stringSources() {
+	return {{0, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Text")},
+		{1, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "String"))},
+		{2, maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "String pointer"))}};
+}
+
+// EasyRPG Player's own commands (its EasyRPG Extensions: [Patch] EasyRPG=1),
+// as it reads them (Game_Interpreter*::CommandEasyRpg*), named as on its wiki
+// (user:player:easyrpg-commands). A value is a pair of parameters: its mode
+// (0 a constant, 1 a variable, 2 a variable pointer), then the value
+void addEasyRpg(Table& table) {
+	const char* context = "EasyRpgCommandWidget";
+	const Label x = maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "X"));
+	const Label y = maniac(QT_TRANSLATE_NOOP("ManiacCommandWidget", "Y"));
+	const Label event = QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Event");
+	const Items characters = locationCharacters();
+
+	// Trigger Event At: parameter 4, bit 0, the event turns to the hero;
+	// missing in the first version of the command, which always turned it
+	table.add(Code::EasyRpg_TriggerEventAt, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Trigger Event At")), fields(
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Cell")),
+		value("x", x, 0, -1, 1, 0, 9999),
+		value("y", y, 2, -1, 3, 0, 9999),
+		check("faceHero", 4, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "The event turns to the hero")).bit(0).withDefault(1).extension(),
+		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Starts the events of the cell as the hero's Action Key does: "
+			"those started by the Action Key, at the hero's level, in the order of their IDs."))
+	), Flag::EasyRpg);
+
+	// Pathfinder: the events ignored and the move frequency after parameter
+	// 10, of a length of their own, in the editor's QML
+	table.custom(Code::EasyRpg_Pathfinder, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Pathfinder")), fields(
+		section(event),
+		entryValue("event", event, 0, -1, 1, Kind::Character, event, characters),
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Destination")),
+		value("x", x, 2, -1, 3, 0, 9999),
+		value("y", y, 4, -1, 5, 0, 9999),
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Route")),
+		startingAt(value("search", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Search limit"), 6, -1, 7, 1, int32Max), 500),
+		startingAt(value("steps", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Steps (-1: all)"), 8, -1, 9, -1, int32Max), -1),
+		check("diagonal", 10, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Diagonal moves")).bit(1),
+		check("skipFailed", 10, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Skip the steps the event cannot take")).bit(4),
+		check("debug", 10, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Write the search in EasyRPG Player's log")).bit(2),
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "While the Event Moves")),
+		check("waitMoving", 10, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Wait until it stops, then find the route")).bit(0),
+		check("skipMoving", 10, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Skip the command")).bit(3).enabledUnless("waitMoving", {1})
+	), Flag::EasyRpg);
+
+	// Wait for Single Movement: the result in a variable (0: none), given
+	// by a mode as the other values
+	table.add(Code::EasyRpg_WaitForSingleMovement, context,
+		palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Wait for Single Movement")), fields(
+		section(event),
+		entryValue("event", event, 0, -1, 1, Kind::Character, event, characters),
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Waiting")),
+		value("failures", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Failed moves allowed (0: no limit)"), 2, -1, 3, 0, int32Max),
+		easyValue("result", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Success in"), 4,
+			fields(variable("result", 5).withItems({{0, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "(None)")}}).withDefault(0)),
+			fields(variable("resultVariable", 5))),
+		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Waits for the move route of this event only: 1 in the variable once "
+			"it ends, 0 when it gave up."))
+	), Flag::EasyRpg);
+
+	// Set Interpreter Flag: the patch named in the string (the editor's
+	// QML offers the names EasyRPG Player knows)
+	table.custom(Code::EasyRpg_SetInterpreterFlag, context,
+		palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Set Interpreter Flag")), fields(
+		// a drop-down of the names in the editor
+		section({}),
+		string("patch", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Patch")),
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "State")),
+		easyValue("state", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "State"), 0,
+			fields(choice("state", 1, {}, {{0, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Off")},
+				{1, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "On")}}).radio()),
+			fields(variable("stateVariable", 1))),
+		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "For this event and the events it calls, until it ends."))
+	), Flag::EasyRpg);
+
+	// Process JSON: the path then the JSON in the string when the command
+	// holds them, their lengths in parameters 9 and 3 (the editor's QML)
+	const Fields operations = fields(choice("operation", 1, {}, {
+		{0, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Get Value")},
+		{1, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Set Value")},
+		{2, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Get Length")},
+		{3, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Get Keys")},
+		{4, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Get Type")},
+		{5, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Remove Key")},
+		{6, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Array Push")},
+		{7, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Array Pop")},
+		{8, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Contains")}}));
+	table.custom(Code::EasyRpg_ProcessJson, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Process JSON")), fields(
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Operation")),
+		easyValue("operation", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Operation"), 0, operations,
+			fields(variable("operationVariable", 1))),
+		// in the editor's sections of the JSON and of the path, with their texts
+		section({}),
+		choice("source", 2, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Given as"), stringSources()),
+		stringId("sourceString", 3).withDefault(1).inlined().when("source", {1}),
+		variable("sourceVariable", 3).inlined().when("source", {2}),
+		section({}),
+		choice("pathSource", 8, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Given as"), stringSources()),
+		stringId("pathString", 9).withDefault(1).inlined().when("pathSource", {1}),
+		variable("pathVariable", 9).inlined().when("pathSource", {2}),
+		choice("codes", 10, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Codes in the path"), {
+			{0, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Kept as written")},
+			{1, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Replaced (\\V[1], \\T[1]...)")},
+			{2, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Replaced, numbers in hexadecimal")},
+			{3, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Replaced (\\V[1], \\T[1]...)"), Flag::Kept}}).bitsAt(0, 2),
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Result")),
+		easyValue("target", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Kind"), 4,
+			fields(choice("target", 5, {}, {{0, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Switch")},
+				{1, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Variable")},
+				{2, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "String")}})),
+			fields(variable("targetVariable", 5))),
+		easyValue("id", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Number"), 6,
+			fields(ref(Kind::Switch, "switch", 7).when("targetMode", {0}).when("target", {0}),
+				variable("variable", 7).when("targetMode", {0}).when("target", {1}),
+				stringId("string", 7).withDefault(1).when("targetMode", {0}).when("target", {2}),
+				number("id", 7, {}, 0, int32Max).when("targetMode", {1, 2})),
+			fields(variable("idVariable", 7))),
+		check("pretty", 10, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Pretty print (into a string)")).bit(2),
+		check("keysObject", 10, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Keys as { \"keys\": [...] }")).bit(3)
+			.when("operationMode", {0}).when("operation", {3})
+	), Flag::EasyRpg);
+
+	// Clone Map Event: the name in the string (empty: the source's own)
+	table.add(Code::EasyRpg_CloneMapEvent, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Clone Map Event")), fields(
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Source")),
+		entryValue("map", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Map"), 0, -1, 1, Kind::Map,
+			QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Map"), {{0, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Current map")}}),
+		value("event", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Event ID"), 2, -1, 3, 1, int32Max),
+		section(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Copy")),
+		value("x", x, 4, -1, 5, 0, 9999),
+		value("y", y, 6, -1, 7, 0, 9999),
+		value("id", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "ID (0: the next free one)"), 8, -1, 9, 0, int32Max),
+		anyString(value("name", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Name (empty: the source's)"), 10, -1, 11, 0, int32Max,
+			stringModes())),
+		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "A copy of an event of this map or of another one, on this map until "
+			"it is entered again (save games keep it). An ID in use replaces its event."))
+	), Flag::EasyRpg);
+
+	// Destroy Map Event: 0 is This Event too
+	table.add(Code::EasyRpg_DestroyMapEvent, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Destroy Map Event")), fields(
+		section(event),
+		entryValue("event", event, 0, -1, 1, Kind::Character, event,
+			{characters.front(), {0, characters.front().text, Flag::Kept}}),
+		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Removes the event from the map until it is entered again "
+			"(save games keep it removed); Erase Event only hides it."))
+	), Flag::EasyRpg);
+}
+
 const std::vector<Schema>& table() {
 	static const std::vector<Schema> schemas = [] {
 		Table table;
 		addBattle2003(table);
 		addManiac(table);
+		addEasyRpg(table);
 		addMessagesAndParty(table);
 		addSystemAndScenes(table);
 		addMapAndScreen(table);

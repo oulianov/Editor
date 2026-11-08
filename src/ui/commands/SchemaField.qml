@@ -344,7 +344,9 @@ Loader {
             objectName: root.name
             jsonData: root.session
             key: root.key
-            model: root.withUnknown(root.session.maps, qsTranslate("LocationCommandWidget", "Unknown Map (%1)"))
+            // the items of the field first (Clone Map Event's current map)
+            model: root.withUnknown((root.shown.items ?? []).map(item => ({ value: item.value, text: root.tr(item.text) }))
+                                    .concat(root.session.maps), qsTranslate("LocationCommandWidget", "Unknown Map (%1)"))
         }
     }
 

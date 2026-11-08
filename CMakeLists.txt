@@ -350,9 +350,12 @@ set(EDITOR_QML_UI
 	src/ui/commands/MessageTextArea.qml
 	src/ui/commands/MoveEventEditor.qml
 	src/ui/commands/OpenShopEditor.qml
+	src/ui/commands/PathfinderEditor.qml
 	src/ui/commands/PictureEditor.qml
+	src/ui/commands/ProcessJsonEditor.qml
 	src/ui/commands/RawCommandEditor.qml
 	src/ui/commands/ScriptEditor.qml
+	src/ui/commands/SetInterpreterFlagEditor.qml
 	src/ui/commands/SchemaField.qml
 	src/ui/commands/SchemaForm.qml
 	src/ui/commands/SchemaRows.qml

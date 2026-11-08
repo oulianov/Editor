@@ -50,7 +50,7 @@ CommandEditorRegistry::Context registryContext(bool battle, bool is_new, int tro
 	return context;
 }
 
-/** The buttons of the palette, page by page: {title, entries: {code, name, source, rpg2k3Only, maniacOnly}},
+/** The buttons of the palette, page by page: {title, entries: {code, name, source, rpg2k3Only, maniacOnly, easyrpgOnly}},
  *  a gap: code 0, the entry of the battle event commands: -1 */
 QVariantList palettePages(const std::vector<const CommandCatalog::Page*>& shown)
 {
@@ -70,6 +70,7 @@ QVariantList palettePages(const std::vector<const CommandCatalog::Page*>& shown)
 				{QStringLiteral("source"), QString::fromUtf8(entry.name)},
 				{QStringLiteral("rpg2k3Only"), entry.rpg2k3_only},
 				{QStringLiteral("maniacOnly"), entry.maniac_only},
+				{QStringLiteral("easyrpgOnly"), entry.easyrpg_only},
 			});
 		}
 		pages.append(QVariantMap{
@@ -109,13 +110,15 @@ std::optional<Code> CommandEditing::pickCommand(QWindow* over, ProjectData& proj
 {
 	const bool rpg2k3 = project.database().system.ldb_id == 2003;
 	const bool maniac = GamePatches::usesManiac(project.project());
+	const bool easyrpg = GamePatches::hasEasyRpg(project.project());
 	// a map event, a common event: their last entry opens the battle event
 	// commands (the palette again, over it), which are inserted as in a battle
 	const QVariantList battle_pages = battle ? QVariantList() : palettePages({&CommandCatalog::battlePage()});
 	int code = 0;
 	const int result = QmlHost::exec(QStringLiteral("CommandPalette"), over,
-		{{QStringLiteral("pages"), palettePages(CommandCatalog::pages(battle, maniac))}, {QStringLiteral("battlePages"), battle_pages},
-			{QStringLiteral("battle"), battle}, {QStringLiteral("rpg2k3"), rpg2k3}, {QStringLiteral("maniac"), maniac}},
+		{{QStringLiteral("pages"), palettePages(CommandCatalog::pages(battle, maniac, easyrpg))}, {QStringLiteral("battlePages"), battle_pages},
+			{QStringLiteral("battle"), battle}, {QStringLiteral("rpg2k3"), rpg2k3}, {QStringLiteral("maniac"), maniac},
+			{QStringLiteral("easyrpg"), easyrpg}},
 		[&code](QQuickWindow* window) { code = window->property("code").toInt(); });
 	if (result != 1 || code <= 0) {
 		return std::nullopt;

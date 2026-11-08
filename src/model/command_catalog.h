@@ -24,7 +24,7 @@
 /**
  * The commands an event can be given, as RPG Maker 2003's "Event Commands"
  * window shows them: pages of buttons in groups, in its order, the battle
- * events' own page, and the Maniac Patch's. Their names are the window's
+ * events' own page, then EasyRPG Player's and the Maniac Patch's. Their names are the window's
  * (context EventCommandPalette): CommandPalette.qml shows them.
  */
 namespace CommandCatalog {
@@ -37,6 +37,8 @@ namespace CommandCatalog {
 		const char* name;
 		bool rpg2k3_only;
 		bool maniac_only = false;
+		/** EasyRPG Player's own: the game needs its EasyRPG Extensions ([Patch] EasyRPG=1) */
+		bool easyrpg_only = false;
 	};
 
 	struct Page {
@@ -51,14 +53,18 @@ namespace CommandCatalog {
 	/** The pages of a map event, without the Maniac Patch's (the last one
 	 *  ends with the entry of the battle event commands) */
 	const std::vector<Page>& mapPages();
+	/** The commands only EasyRPG Player runs (its EasyRPG Extensions), by
+	 *  theme; in battle, those it runs there too */
+	const Page& easyRpgPage(bool battle = false);
 	/** The commands of the Maniac Patch, by theme */
 	const Page& maniacPage();
 	/** The commands of battle events (RPG Maker 2003's 37 buttons) */
 	const Page& battlePage();
-	/** The pages of the window: those of a map event and the Maniac Patch's,
-	 *  else for a battle its page (and the Maniac Patch's when the game uses
-	 *  it, which also runs its commands in battles) */
-	std::vector<const Page*> pages(bool battle, bool maniac);
+	/** The pages of the window: those of a map event, EasyRPG Player's and
+	 *  the Maniac Patch's, else for a battle its page, and EasyRPG Player's
+	 *  and the Maniac Patch's when the game uses them (they run some of
+	 *  their commands in battles) */
+	std::vector<const Page*> pages(bool battle, bool maniac, bool easyrpg);
 
 	/** The name of a kind of command, as on its button (translated); empty when none */
 	QString commandName(Code code);

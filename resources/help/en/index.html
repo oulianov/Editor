@@ -69,6 +69,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><a href="#commands-sound">Sound and movie</a></li>
 <li><a href="#commands-flow">Flow control</a></li>
 <li><a href="#commands-battle">Battle events</a></li>
+<li><a href="#commands-easyrpg">EasyRPG Player commands</a></li>
 <li><a href="#commands-maniac">Maniac Patch commands</a></li>
 </ul>
 </td></tr>
@@ -95,7 +96,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <ul>
 <li><b>General</b>: the <b>Directory Name</b> and <b>Game Name</b> (as RPG Maker's Rename Project), and the <b>Encoding</b> of the texts (<code>[EasyRPG] Encoding</code> of RPG_RT.ini). Texts shown garbled usually mean a wrong one: the project is closed (asking to save it) and opened again in the one chosen.</li>
 <li><b>Engine</b>: the format of the project (<b>Convert to RPG Maker 2003...</b> converts it, after a backup), the players in the game folder with their version (RPG_RT.exe of RPG Maker 2000 or 2003, the Maniac Patch, EasyRPG Player), the <b>Text font</b> of the game (saved in the database, with a sentence drawn as EasyRPG Player draws it), the fonts RPG_RT.exe asks Windows for, and the symbols of messages ($A...).</li>
-<li><b>EasyRPG Player</b>: what EasyRPG Player reads; RPG_RT.exe is not changed. <b>Patches</b> are detected from the game files as the Player does, chosen (written in the <code>[Patch]</code> section of EasyRPG.ini), or taken as written in EasyRPG.ini, which the Editor then leaves as it is (the choice when EasyRPG.ini sets other options, such as AntiLagSwitch). Point at a patch to see what it changes. The Maniac Patch adds its commands to the <a href="#command-palette">Event Commands</a> window. <b>Screen</b>: the size of the game's screen. <b>Player's choice</b> writes none: the game is 320×240, or wider when the player chose Widescreen (416×240) or Ultrawide (560×240) in the Player's settings. Any other size is the game's own, for every player (<code>WinW</code> and <code>WinH</code> of RPG_RT.ini, read by EasyRPG Player 0.8 or later and by the Maniac Patch; <b>320×240 only</b> keeps players from widening it); the window sizes of <b>Test Play Options</b> are multiples of it. <b>Center maps smaller than the screen</b> (<code>FakeResolution</code> of EasyRPG.ini) draws such a map in the middle with black borders, as the Player does by itself when the player chose a wider screen. <b>Fonts</b>: the Player's own, or a font file copied in the Font folder of the game (<b>Choose...</b>).</li>
+<li><b>EasyRPG Player</b>: what EasyRPG Player reads; RPG_RT.exe is not changed. <b>Patches</b> are detected from the game files as the Player does, chosen (written in the <code>[Patch]</code> section of EasyRPG.ini), or taken as written in EasyRPG.ini, which the Editor then leaves as it is (the choice when EasyRPG.ini sets other options, such as AntiLagSwitch). Point at a patch to see what it changes. The EasyRPG Extensions and the Maniac Patch enable their commands in the <a href="#command-palette">Event Commands</a> window. <b>Screen</b>: the size of the game's screen. <b>Player's choice</b> writes none: the game is 320×240, or wider when the player chose Widescreen (416×240) or Ultrawide (560×240) in the Player's settings. Any other size is the game's own, for every player (<code>WinW</code> and <code>WinH</code> of RPG_RT.ini, read by EasyRPG Player 0.8 or later and by the Maniac Patch; <b>320×240 only</b> keeps players from widening it); the window sizes of <b>Test Play Options</b> are multiples of it. <b>Center maps smaller than the screen</b> (<code>FakeResolution</code> of EasyRPG.ini) draws such a map in the middle with black borders, as the Player does by itself when the player chose a wider screen. <b>Fonts</b>: the Player's own, or a font file copied in the Font folder of the game (<b>Choose...</b>).</li>
 </ul>
 <p><b>Open EasyRPG.ini</b> opens the file in the script editor of the Editor settings (created if missing), for the options not shown here; the window reads it again when you come back. Only the lines changed are written: the rest of RPG_RT.ini and EasyRPG.ini stays as it is.</p>
 
@@ -230,7 +231,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="command-palette"></a>
 <h3>Event Commands window</h3>
-<p>Lists every event command, grouped in tabs (messages, game progression, map, screen, sound, flow control...). Click a command to add it. Type in the <b>search field</b> to filter the list by name in all tabs at once; <b>Enter</b> picks the best match. Commands that do not exist in the current game type (RPG Maker 2000 or 2003) or need the Maniac Patch are greyed out; point at one to see why.</p>
+<p>Lists every event command, grouped in tabs (messages, game progression, map, screen, sound, flow control...). Click a command to add it. Type in the <b>search field</b> to filter the list by name in all tabs at once; <b>Enter</b> picks the best match. Commands that do not exist in the current game type (RPG Maker 2000 or 2003), or need the <a href="#commands-easyrpg">EasyRPG Extensions</a> or the <a href="#commands-maniac">Maniac Patch</a>, are greyed out; point at one to see why.</p>
 <p>The battle pages of a monster group list the <b>Battle Event Commands</b> instead (the enemies' HP, MP and conditions, the battle background, Force Flee, End Battle...). RPG Maker offers them in battle pages only; here a map event or a common event can have them too (a common event called from a battle page, for example): <b>Battle Event Commands...</b>, at the bottom of the <b>Flow &amp; System</b> tab, opens them in a window of their own. Click one to add it as in a battle page, or <b>Cancel</b> to go back to the event commands. The search finds them through that button (point at it to see which ones); clicked, it opens them with the same search.</p>
 
 <a name="move-route"></a>
@@ -849,6 +850,51 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <p>Makes a hero repeat a battle command (such as Attack) several times in one turn.</p>
 
 <p><a href="#top">Back to top</a></p>
+
+<a name="commands-easyrpg"></a>
+<h2>EasyRPG Player commands</h2>
+<p>Commands only EasyRPG Player runs. They are in the <b>EasyRPG Player</b> page of the command list (Process JSON and Set Interpreter Flag also in battle events), enabled when the game uses the <b>EasyRPG Extensions</b> (<b>Project Settings &gt; EasyRPG Player &gt; Patches</b>, written <code>EasyRPG=1</code> in the <code>[Patch]</code> section of EasyRPG.ini). EasyRPG Player skips them otherwise, and RPG_RT.exe never runs them. Most of their values are a number, a variable, or a variable pointer (the variable whose number another variable holds).</p>
+
+<a name="cmd-EasyRpg_TriggerEventAt"></a>
+<h3>Trigger Event At (EasyRPG Player)</h3>
+<p>Starts the events of a cell of the map as if the hero had pressed the Action Key in front of them: those whose page is started by the Action Key, at the hero's level (Same Level as Hero), in the order of their IDs. Nothing starts while the hero is in the airship. <b>The event turns to the hero</b>, as an event the hero talks to does; leave it off to keep its direction.</p>
+
+<a name="cmd-EasyRpg_CloneMapEvent"></a>
+<h3>Clone Map Event (EasyRPG Player)</h3>
+<p>Adds a copy of an event of this map or of another map (the map, or <b>Current map</b>) at a cell of the current map. <b>ID</b> is the ID of the copy; 0 takes the next free ID, and an ID in use replaces its event. <b>Name</b> renames the copy (a text, a string variable or a string variable pointer); leave it empty to keep the name of the source. The copy stays until the map is entered again, and save games keep it.</p>
+
+<a name="cmd-EasyRpg_DestroyMapEvent"></a>
+<h3>Destroy Map Event (EasyRPG Player)</h3>
+<p>Removes an event from the current map (<b>This Event</b>, or an event ID, a variable or a variable pointer) until the map is entered again; save games keep it removed. <a href="#cmd-EraseEvent">Erase Event</a> only hides it.</p>
+
+<a name="cmd-EasyRpg_Pathfinder"></a>
+<h3>Pathfinder (EasyRPG Player)</h3>
+<p>Moves an event (or the hero or a vehicle) to a cell along the shortest route around walls and other events, as a move route; the event's page goes on at once (follow it with <a href="#cmd-EasyRpg_WaitForSingleMovement">Wait for Single Movement</a> to wait for the event).</p>
+<ul>
+<li><b>Destination</b>: the cell to reach.</li>
+<li><b>Route</b>: <b>Search limit</b>, the number of cells looked at before giving up (larger maps need more); <b>Steps</b>, how many steps of the route it walks (-1: the whole route); <b>Diagonal moves</b> lets the route go diagonally; <b>Skip the steps the event cannot take</b> goes on when a step is blocked (by an event that moved since) instead of trying it again; the last option writes the search in EasyRPG Player's log.</li>
+<li><b>While the Event Moves</b>, when the command runs while the event is between two cells: wait until it stops, then find the route, or skip the command. Otherwise the route is found from where the event is.</li>
+<li><b>Events the Search Ignores</b>: events the route may go through, as if they were not there (for example events that will have moved). <b>Listed here</b> lists them; with <b>Variable</b>, the variable chosen holds the number of the variable where the list starts, which holds how many events, the variables after it their IDs (<b>Variable pointer</b>: one more variable in between).</li>
+<li><b>Move Frequency</b>: how often the event takes a step, 1 to 8 (3 by default).</li>
+</ul>
+
+<a name="cmd-EasyRpg_WaitForSingleMovement"></a>
+<h3>Wait for Single Movement (EasyRPG Player)</h3>
+<p>Waits until one event (or the hero or a vehicle) has finished its move route, unlike <a href="#cmd-ProceedWithMovement">Proceed with Movement</a> which waits for all of them. <b>Failed moves allowed</b>: once the route was blocked that many times, it is cancelled and the wait ends (0: no limit). <b>Success in</b>: a variable set to 1 when the route ended (or there was none), 0 when it was cancelled.</p>
+
+<a name="cmd-EasyRpg_ProcessJson"></a>
+<h3>Process JSON (EasyRPG Player)</h3>
+<p>Reads or changes a JSON text, typed in the command or in a string variable. EasyRPG Player runs it on the platforms that have its JSON support (not all consoles).</p>
+<ul>
+<li><b>Operation</b>: <b>Get Value</b> reads the value at the path into the result; <b>Set Value</b> writes the result's value there; <b>Get Length</b> the number of entries of an array or object (a switch: ON when there are some); <b>Get Keys</b> the keys of an object, as a JSON array (or <code>{ "keys": [...] }</code>); <b>Get Type</b> the type of the value (a variable: 0 missing, 1 object, 2 array, 3 text, 4 number, 5 true or false, 6 null; a switch: ON when it exists and is not null; a string: its name); <b>Remove Key</b> removes the value; <b>Array Push</b> adds the result's value at the end of the array, <b>Array Pop</b> takes its last entry into the result; <b>Contains</b>: 1 when the path exists. Set Value, Remove Key and Array Push change the JSON, so it must be in a string variable.</li>
+<li><b>JSON</b>: typed here (checked as you type: EasyRPG Player skips the command when it is not valid JSON), in a string variable or in a string variable pointer.</li>
+<li><b>Path</b>: a JSON Pointer (<code>/</code> the whole JSON, <code>/name</code> a key, <code>/list/0</code> the first entry of an array), typed or in a string variable. <b>Codes in the path</b> such as <code>\V[1]</code> can be replaced first, so a path can change with a variable.</li>
+<li><b>Result</b>: the switch, variable or string variable read into or written from (a string needs the Maniac Patch too). <b>Pretty print</b> writes a JSON result into a string over several indented lines.</li>
+</ul>
+
+<a name="cmd-EasyRpg_SetInterpreterFlag"></a>
+<h3>Set Interpreter Flag (EasyRPG Player)</h3>
+<p>Turns a patch on or off for this event, and the events it calls, until it ends, whatever EasyRPG.ini chose: the Maniac Patch, DynRPG, the Ineluki Key Patch, Common This Event, Unlock Pictures, the RPG Maker 2003 commands, the RPG Maker 2000 battle system or the Destiny Patch. The state is <b>On</b>, <b>Off</b>, or a variable (0 off, anything else on). The patch's name is written in the command; a name EasyRPG Player does not know does nothing. Some platforms of EasyRPG Player cannot change patches and skip the command.</p>
 
 <a name="commands-maniac"></a>
 <h2>Maniac Patch commands</h2>

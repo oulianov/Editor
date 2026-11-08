@@ -182,6 +182,9 @@ namespace CommandSchema {
 		/** RPG Maker's control of a value that a field of the Maniac Patch
 		 *  edits in its games (on the same bits, with more choices): hidden there */
 		NotManiac = 1 << 15,
+		/** Schema: a command of EasyRPG Player's extensions (its editor shows
+		 *  the fields of the mode chosen, as the Maniac Patch's) */
+		EasyRpg = 1 << 16,
 	};
 	Q_DECLARE_FLAGS(Flags, Flag)
 	Q_FLAG_NS(Flags)
@@ -267,7 +270,8 @@ namespace CommandSchema {
 		Code code = Code::END;
 		Label title;
 		std::vector<Field> fields;
-		/** Rpg2003: the command needs RPG Maker 2003; Maniac: Maniac Patch */
+		/** Rpg2003: the command needs RPG Maker 2003; Maniac: Maniac Patch;
+		 *  EasyRpg: EasyRPG Player's extensions */
 		Flags flags;
 		/** The QML hand-writes the editor: the fields describe it */
 		bool custom = false;

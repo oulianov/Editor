@@ -189,6 +189,10 @@ bool GamePatches::hasManiac(const Project& project) {
 	return read(project).values.value(QStringLiteral("Maniac")) > 0;
 }
 
+bool GamePatches::hasEasyRpg(const Project& project) {
+	return read(project).values.value(QStringLiteral("EasyRPG")) > 0;
+}
+
 GamePatchesWatch::GamePatchesWatch() : m_mode(EditorSettings::instance().maniacMode()) {
 	// the settings tell of every option: only a switch of the mode counts
 	connect(&EditorSettings::instance(), &EditorSettings::changed, this, [this] {

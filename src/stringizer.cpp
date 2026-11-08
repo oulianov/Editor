@@ -2508,6 +2508,129 @@ namespace
 			return Stringizer::tr("Unknown");
 		}
 	}
+
+	/** A character given by a mode (EasyRPG Player's commands: 0 the ID) */
+	QString easyRpgCharacter(int mode, int id)
+	{
+		return mode == 0 ? characterName(id) : maniacValue(mode, id);
+	}
+
+	/** A variable given by a mode: 0 its ID, 1 the ID in a variable, 2 in a variable pointer */
+	QString easyRpgVariable(int mode, int id)
+	{
+		switch (mode)
+		{
+		case 0: return variable(id, true);
+		case 1: return QString("V[%1]").arg(variable(id));
+		case 2: return QString("V[V[%1]]").arg(variable(id));
+		default: return "?";
+		}
+	}
+
+	/** The beginning of a text written in a command (its first line, 30 characters) */
+	QString excerpt(const QString& text)
+	{
+		const QString line = text.section('\n', 0, 0).section('\r', 0, 0).simplified();
+		return line.size() > 30 ? line.left(29) + QChar(0x2026) : line;
+	}
+
+	// EasyRPG Player's own commands, read as it reads them: each value after
+	// its mode (0 a constant, 1 a variable, 2 a variable pointer)
+	QString stringizeEasyRpg(const lcf::rpg::EventCommand& com)
+	{
+		using C = lcf::rpg::EventCommand::Code;
+		const int size = static_cast<int>(com.parameters.size());
+		auto p = [&com, size](int i) { return i < size ? com.parameters[i] : 0; };
+		const QString text = ToQString(com.string);
+		switch (static_cast<C>(com.code))
+		{
+		case C::EasyRpg_TriggerEventAt:
+			// the first version of the command (4 parameters) always turned the event to the hero
+			return Stringizer::tr("Trigger Event At") + ": (" + maniacValue(p(0), p(1)) + "," + maniacValue(p(2), p(3)) + ")"
+				+ (size > 4 && !(p(4) & 1) ? ", " + Stringizer::tr("Keeping its direction") : QString());
+		case C::EasyRpg_Pathfinder: {
+			QStringList options;
+			if (p(10) & 2)
+				options << Stringizer::tr("Diagonal");
+			if (p(10) & 16)
+				options << Stringizer::tr("Skipping blocked steps");
+			if (p(10) & 1)
+				options << Stringizer::tr("Waiting while it moves");
+			else if (p(10) & 8)
+				options << Stringizer::tr("Skipped while it moves");
+			if (p(11) == 0 && p(12) > 0)
+				options << Stringizer::tr("Ignoring %n event(s)", nullptr, p(12));
+			else if (p(11) != 0)
+				options << Stringizer::tr("Ignoring the events listed from variable %1").arg(maniacValue(p(11), p(12)));
+			return Stringizer::tr("Pathfinder") + ": " + easyRpgCharacter(p(0), p(1)) + QString::fromUtf8(" \u2192 (")
+				+ maniacValue(p(2), p(3)) + "," + maniacValue(p(4), p(5)) + ")" + (options.isEmpty() ? QString() : ", " + options.join(", "));
+		}
+		case C::EasyRpg_WaitForSingleMovement: {
+			QString result = Stringizer::tr("Wait for Single Movement") + ": " + easyRpgCharacter(p(0), p(1));
+			if (p(2) != 0 || p(3) != 0)
+				result += ", " + Stringizer::tr("Failures allowed") + " " + maniacValue(p(2), p(3));
+			if (p(4) != 0 || p(5) > 0)
+				result += ", " + Stringizer::tr("Success in") + " " + easyRpgVariable(p(4), p(5));
+			return result;
+		}
+		case C::EasyRpg_SetInterpreterFlag: {
+			// without a name: the number of the patch in parameter 2
+			const QString patch = !text.isEmpty() ? text : size > 2 ? QString("#%1").arg(p(2)) : QString("?");
+			const QString state = p(0) == 0 ? (p(1) ? Stringizer::tr("ON") : Stringizer::tr("OFF")) : "= " + maniacValue(p(0), p(1));
+			return Stringizer::tr("Set Interpreter Flag") + ": " + patch + " " + state;
+		}
+		case C::EasyRpg_ProcessJson: {
+			const QStringList operations = {Stringizer::tr("Get Value"), Stringizer::tr("Set Value"), Stringizer::tr("Get Length"),
+				Stringizer::tr("Get Keys"), Stringizer::tr("Get Type"), Stringizer::tr("Remove Key"), Stringizer::tr("Array Push"),
+				Stringizer::tr("Array Pop"), Stringizer::tr("Contains")};
+			const QString operation = p(0) == 0 ? choiceName(operations, p(1)) : maniacValue(p(0), p(1));
+			// the string: the path, then the JSON, each when written in the command
+			const QList<uint> characters = text.toUcs4();
+			int at = 0;
+			auto take = [&](int count) {
+				const int from = std::min<int>(at, characters.size());
+				const int to = std::min<int>(from + std::max(0, count), characters.size());
+				at = to;
+				return QString::fromUcs4(reinterpret_cast<const char32_t*>(characters.constData()) + from, to - from);
+			};
+			const QString path = p(8) == 0 ? "\"" + excerpt(take(p(9))) + "\"" : maniacString(p(8), p(9), QString());
+			const QString json = p(2) == 0 ? excerpt(take(p(3))) : maniacString(p(2), p(3), QString());
+			QString target;
+			const QString id = p(6) == 0 ? QString::number(p(7)) : maniacValue(p(6), p(7));
+			if (p(4) != 0) {
+				target = Stringizer::tr("Kind %1").arg(maniacValue(p(4), p(5))) + " #" + id;
+			} else if (p(5) == 0) {
+				target = p(6) == 0 ? QString("S[%1:%2]").arg(p(7), 4, 10, QChar('0')).arg(Stringizer::switchName(p(7))) : "S[" + id + "]";
+			} else if (p(5) == 1) {
+				target = p(6) == 0 ? variable(p(7), true) : "V[" + id + "]";
+			} else {
+				target = p(6) == 0 ? stringVariable(p(7)) : "T[" + id + "]";
+			}
+			return Stringizer::tr("Process JSON") + ": " + operation + " " + path + ", " + json + QString::fromUtf8(" \u2192 ") + target;
+		}
+		case C::EasyRpg_CloneMapEvent: {
+			const QString map = p(0) == 0 ? (p(1) == 0 ? Stringizer::tr("Current map") : Stringizer::mapName(p(1))) : maniacValue(p(0), p(1));
+			QString result = Stringizer::tr("Clone Map Event") + ": " + map + ", " + Stringizer::tr("Event") + " " + maniacValue(p(2), p(3))
+				+ QString::fromUtf8(" \u2192 (") + maniacValue(p(4), p(5)) + "," + maniacValue(p(6), p(7)) + ")";
+			if (p(8) != 0 || p(9) > 0)
+				result += ", " + Stringizer::tr("ID") + " " + maniacValue(p(8), p(9));
+			if (p(10) != 0 || !text.isEmpty())
+				result += ", " + maniacString(p(10), p(11), text);
+			return result;
+		}
+		case C::EasyRpg_DestroyMapEvent:
+			return Stringizer::tr("Destroy Map Event") + ": " + (p(0) == 0 && p(1) == 0 ? Stringizer::tr("This Event") : easyRpgCharacter(p(0), p(1)));
+		// in liblcf, not run by EasyRPG Player
+		case C::EasyRpg_CallMovementAction:
+			return Stringizer::tr("Call Movement Action");
+		case C::EasyRpg_AnimateVariable:
+			return Stringizer::tr("Animate Variable");
+		case C::EasyRpg_StringPictureMenu:
+			return Stringizer::tr("String Picture Menu");
+		default:
+			return Stringizer::tr("Unknown");
+		}
+	}
 }
 
 namespace Stringizer
@@ -2934,6 +3057,16 @@ namespace Stringizer
 		case C::Maniac_Console:
 		case C::Maniac_ControlSelfVariable:
 		case C::Maniac_ControlMediaOption:	 return stringizeManiac(com);
+		case C::EasyRpg_TriggerEventAt:
+		case C::EasyRpg_Pathfinder:
+		case C::EasyRpg_CallMovementAction:
+		case C::EasyRpg_WaitForSingleMovement:
+		case C::EasyRpg_AnimateVariable:
+		case C::EasyRpg_SetInterpreterFlag:
+		case C::EasyRpg_ProcessJson:
+		case C::EasyRpg_CloneMapEvent:
+		case C::EasyRpg_DestroyMapEvent:
+		case C::EasyRpg_StringPictureMenu:	 return stringizeEasyRpg(com);
 		default:						 return tr("Unknown Command %1").arg(com.code);
 		}
 	}

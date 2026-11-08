@@ -198,6 +198,23 @@ const std::map<EventCommand::Code, std::vector<int32_t>>& table() {
 		{Code::Maniac_ControlSelfVariable, {0x00001003, 1, 1, 1, 1, 1, 1, 32, 1}},
 		// Get the screen mode in V[1]
 		{Code::Maniac_ControlMediaOption, {0, 0, 0, 1}},
+		// EasyRPG Player's commands, as its test game writes them: each value
+		// after its mode (0: a constant). Trigger Event At: the cell 0,0, the
+		// event turning to the hero
+		{Code::EasyRpg_TriggerEventAt, {0, 0, 0, 0, 1}},
+		// This Event to 0,0: 500 tries, no step limit, no flag, no event
+		// ignored, the move frequency 3 (the Player's default)
+		{Code::EasyRpg_Pathfinder, {0, 10005, 0, 0, 0, 0, 0, 500, 0, -1, 0, 0, 0, 0, 3}},
+		// This Event, waiting until its route ends, no result
+		{Code::EasyRpg_WaitForSingleMovement, {0, 10005, 0, 0, 0, 0}},
+		// on (the name of the patch in the string: make)
+		{Code::EasyRpg_SetInterpreterFlag, {0, 1}},
+		// Get Value: the JSON in T[1], its root ("/", the string: make) into V[1]
+		{Code::EasyRpg_ProcessJson, {0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0}},
+		// event 1 of the current map to 0,0, the next free ID, its own name
+		{Code::EasyRpg_CloneMapEvent, {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0}},
+		// This Event
+		{Code::EasyRpg_DestroyMapEvent, {0, 10005}},
 	};
 	return defaults;
 }
@@ -239,6 +256,11 @@ std::vector<EventCommand> EventCommandDefaults::make(Code code, int indent) {
 		case Code::Maniac_ShowStringPicture:
 			// text, system graphic and font, each after its mode + 1
 			return { line(code, indent, params, "\x01\x01\x01") };
+		case Code::EasyRpg_SetInterpreterFlag:
+			return { line(code, indent, params, "maniac") };
+		case Code::EasyRpg_ProcessJson:
+			// the path written in the command (parameter 9: its length)
+			return { line(code, indent, params, "/") };
 		case Code::Comment:
 		case Code::ShowMessage:
 		case Code::Label:

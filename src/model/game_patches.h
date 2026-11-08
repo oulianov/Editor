@@ -75,6 +75,9 @@ namespace GamePatches {
 	bool usesManiac(const Project& project);
 	/** The game's own Maniac Patch: its [Patch], else detected */
 	bool hasManiac(const Project& project);
+	/** The game turns on EasyRPG Player's extensions ([Patch] EasyRPG=1):
+	 *  its own event commands run */
+	bool hasEasyRpg(const Project& project);
 }
 
 /**

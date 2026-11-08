@@ -3678,6 +3678,293 @@ Les fichiers de RPG Maker 2000 sont dans :
     </message>
 </context>
 <context>
+    <name>EasyRpgCommandWidget</name>
+    <message>
+        <source>Events the Search Ignores</source>
+        <translation>Évènements ignorés par la recherche</translation>
+    </message>
+    <message>
+        <source>Listed here</source>
+        <translation>Listés ici</translation>
+    </message>
+    <message>
+        <source>This variable holds the number of the variable where the list starts: that one holds how many events, the variables after it their IDs.</source>
+        <translation>Cette variable contient le numéro de la variable où commence la liste : celle-ci contient le nombre d&apos;évènements, les variables suivantes leurs ID.</translation>
+    </message>
+    <message>
+        <source>This variable holds the number of a variable, which holds the number of the variable where the list starts: that one holds how many events, the variables after it their IDs.</source>
+        <translation>Cette variable contient le numéro d&apos;une variable, qui contient le numéro de la variable où commence la liste : celle-ci contient le nombre d&apos;évènements, les variables suivantes leurs ID.</translation>
+    </message>
+    <message>
+        <source>Add Event</source>
+        <translation>Ajouter un évènement</translation>
+    </message>
+    <message>
+        <source>Move Frequency</source>
+        <translation>Fréquence des mouvements</translation>
+    </message>
+    <message>
+        <source>JSON</source>
+        <translation>JSON</translation>
+    </message>
+    <message>
+        <source>This operation changes the JSON: give it as a string variable, or EasyRPG Player skips the command.</source>
+        <translation>Cette opération modifie le JSON : donnez-le dans une variable chaîne, sinon EasyRPG Player ignore la commande.</translation>
+    </message>
+    <message>
+        <source>Not valid JSON: %1. EasyRPG Player skips the command.</source>
+        <translation>JSON non valide : %1. EasyRPG Player ignore la commande.</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Chemin</translation>
+    </message>
+    <message>
+        <source>A JSON Pointer: / for the whole JSON, /name for a key, /list/0 for the first entry of an array.</source>
+        <translation>Un pointeur JSON : / pour tout le JSON, /nom pour une clé, /liste/0 pour le premier élément d&apos;un tableau.</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2000 Battle System</source>
+        <translation>Système de combat de RPG Maker 2000</translation>
+    </message>
+    <message>
+        <source>Destiny Patch</source>
+        <translation>Destiny Patch</translation>
+    </message>
+    <message>
+        <source>(None)</source>
+        <translation>(Aucun)</translation>
+    </message>
+    <message>
+        <source>Other: %1</source>
+        <translation>Autre : %1</translation>
+    </message>
+    <message>
+        <source>Patch</source>
+        <translation>Patch</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Texte</translation>
+    </message>
+    <message>
+        <source>Event</source>
+        <translation>Évènement</translation>
+    </message>
+    <message>
+        <source>Cell</source>
+        <translation>Case</translation>
+    </message>
+    <message>
+        <source>The event turns to the hero</source>
+        <translation>L&apos;évènement se tourne vers le héros</translation>
+    </message>
+    <message>
+        <source>Starts the events of the cell as the hero&apos;s Action Key does: those started by the Action Key, at the hero&apos;s level, in the order of their IDs.</source>
+        <translation>Démarre les évènements de la case comme la touche Action du héros : ceux démarrés par la touche Action, au niveau du héros, dans l&apos;ordre de leurs ID.</translation>
+    </message>
+    <message>
+        <source>Destination</source>
+        <translation>Destination</translation>
+    </message>
+    <message>
+        <source>Route</source>
+        <translation>Trajet</translation>
+    </message>
+    <message>
+        <source>Search limit</source>
+        <translation>Limite de recherche</translation>
+    </message>
+    <message>
+        <source>Steps (-1: all)</source>
+        <translation>Pas (-1 : tous)</translation>
+    </message>
+    <message>
+        <source>Diagonal moves</source>
+        <translation>Déplacements en diagonale</translation>
+    </message>
+    <message>
+        <source>Skip the steps the event cannot take</source>
+        <translation>Sauter les pas que l&apos;évènement ne peut pas faire</translation>
+    </message>
+    <message>
+        <source>Write the search in EasyRPG Player&apos;s log</source>
+        <translation>Écrire la recherche dans le journal d&apos;EasyRPG Player</translation>
+    </message>
+    <message>
+        <source>While the Event Moves</source>
+        <translation>Pendant que l&apos;évènement se déplace</translation>
+    </message>
+    <message>
+        <source>Wait until it stops, then find the route</source>
+        <translation>Attendre qu&apos;il s&apos;arrête, puis chercher le trajet</translation>
+    </message>
+    <message>
+        <source>Skip the command</source>
+        <translation>Ignorer la commande</translation>
+    </message>
+    <message>
+        <source>Waiting</source>
+        <translation>Attente</translation>
+    </message>
+    <message>
+        <source>Failed moves allowed (0: no limit)</source>
+        <translation>Déplacements bloqués permis (0 : sans limite)</translation>
+    </message>
+    <message>
+        <source>Success in</source>
+        <translation>Réussite dans</translation>
+    </message>
+    <message>
+        <source>Waits for the move route of this event only: 1 in the variable once it ends, 0 when it gave up.</source>
+        <translation>Attend le trajet de cet évènement seulement : 1 dans la variable quand il se termine, 0 quand il est abandonné.</translation>
+    </message>
+    <message>
+        <source>State</source>
+        <translation>État</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation>Désactivé</translation>
+    </message>
+    <message>
+        <source>On</source>
+        <translation>Activé</translation>
+    </message>
+    <message>
+        <source>For this event and the events it calls, until it ends.</source>
+        <translation>Pour cet évènement et ceux qu&apos;il appelle, jusqu&apos;à sa fin.</translation>
+    </message>
+    <message>
+        <source>Get Value</source>
+        <translation>Lire une valeur</translation>
+    </message>
+    <message>
+        <source>Set Value</source>
+        <translation>Écrire une valeur</translation>
+    </message>
+    <message>
+        <source>Get Length</source>
+        <translation>Lire la longueur</translation>
+    </message>
+    <message>
+        <source>Get Keys</source>
+        <translation>Lire les clés</translation>
+    </message>
+    <message>
+        <source>Get Type</source>
+        <translation>Lire le type</translation>
+    </message>
+    <message>
+        <source>Remove Key</source>
+        <translation>Supprimer une clé</translation>
+    </message>
+    <message>
+        <source>Array Push</source>
+        <translation>Ajouter à un tableau</translation>
+    </message>
+    <message>
+        <source>Array Pop</source>
+        <translation>Retirer d&apos;un tableau</translation>
+    </message>
+    <message>
+        <source>Contains</source>
+        <translation>Contient</translation>
+    </message>
+    <message>
+        <source>Operation</source>
+        <translation>Opération</translation>
+    </message>
+    <message>
+        <source>Given as</source>
+        <translation>Donné par</translation>
+    </message>
+    <message>
+        <source>Codes in the path</source>
+        <translation>Codes dans le chemin</translation>
+    </message>
+    <message>
+        <source>Kept as written</source>
+        <translation>Gardés tels quels</translation>
+    </message>
+    <message>
+        <source>Replaced (\V[1], \T[1]...)</source>
+        <translation>Remplacés (\V[1], \T[1]...)</translation>
+    </message>
+    <message>
+        <source>Replaced, numbers in hexadecimal</source>
+        <translation>Remplacés, nombres en hexadécimal</translation>
+    </message>
+    <message>
+        <source>Result</source>
+        <translation>Résultat</translation>
+    </message>
+    <message>
+        <source>Kind</source>
+        <translation>Type</translation>
+    </message>
+    <message>
+        <source>Switch</source>
+        <translation>Interrupteur</translation>
+    </message>
+    <message>
+        <source>Variable</source>
+        <translation>Variable</translation>
+    </message>
+    <message>
+        <source>String</source>
+        <translation>Chaîne</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>Numéro</translation>
+    </message>
+    <message>
+        <source>Pretty print (into a string)</source>
+        <translation>Mise en forme lisible (dans une chaîne)</translation>
+    </message>
+    <message>
+        <source>Keys as { &quot;keys&quot;: [...] }</source>
+        <translation>Clés en { &quot;keys&quot;: [...] }</translation>
+    </message>
+    <message>
+        <source>Source</source>
+        <translation>Source</translation>
+    </message>
+    <message>
+        <source>Map</source>
+        <translation>Carte</translation>
+    </message>
+    <message>
+        <source>Current map</source>
+        <translation>Carte actuelle</translation>
+    </message>
+    <message>
+        <source>Event ID</source>
+        <translation>ID de l&apos;évènement</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copie</translation>
+    </message>
+    <message>
+        <source>ID (0: the next free one)</source>
+        <translation>ID (0 : le prochain libre)</translation>
+    </message>
+    <message>
+        <source>Name (empty: the source&apos;s)</source>
+        <translation>Nom (vide : celui de la source)</translation>
+    </message>
+    <message>
+        <source>A copy of an event of this map or of another one, on this map until it is entered again (save games keep it). An ID in use replaces its event.</source>
+        <translation>Une copie d&apos;un évènement de cette carte ou d&apos;une autre, sur cette carte jusqu&apos;à ce qu&apos;on y entre de nouveau (les sauvegardes la gardent). Un ID déjà pris remplace son évènement.</translation>
+    </message>
+    <message>
+        <source>Removes the event from the map until it is entered again (save games keep it removed); Erase Event only hides it.</source>
+        <translation>Retire l&apos;évènement de la carte jusqu&apos;à ce qu&apos;on y entre de nouveau (les sauvegardes le gardent retiré) ; Effacer cet évènement ne fait que le cacher.</translation>
+    </message>
+</context>
+<context>
     <name>EditActions</name>
     <message>
         <location filename="../src/ui/event/CommandList.qml" line="+538"/>
@@ -5614,6 +5901,42 @@ Les fichiers de RPG Maker 2000 sont dans :
         <location line="+49"/>
         <source>Battle Event Commands</source>
         <translation>Commandes d&apos;évènement de combat</translation>
+    </message>
+    <message>
+        <source>Pathfinder</source>
+        <translation>Chercher un trajet</translation>
+    </message>
+    <message>
+        <source>Process JSON</source>
+        <translation>Traiter du JSON</translation>
+    </message>
+    <message>
+        <source>Set Interpreter Flag</source>
+        <translation>Activer un patch pour l&apos;évènement</translation>
+    </message>
+    <message>
+        <source>Only with the EasyRPG Extensions (Project Settings &gt; EasyRPG Player &gt; Patches)</source>
+        <translation>Uniquement avec les Extensions EasyRPG (Paramètres du projet &gt; EasyRPG Player &gt; Patchs)</translation>
+    </message>
+    <message>
+        <source>EasyRPG Player</source>
+        <translation>EasyRPG Player</translation>
+    </message>
+    <message>
+        <source>Trigger Event At</source>
+        <translation>Déclencher l&apos;évènement d&apos;une case</translation>
+    </message>
+    <message>
+        <source>Clone Map Event</source>
+        <translation>Cloner un évènement</translation>
+    </message>
+    <message>
+        <source>Destroy Map Event</source>
+        <translation>Détruire un évènement</translation>
+    </message>
+    <message>
+        <source>Wait for Single Movement</source>
+        <translation>Attendre le déplacement d&apos;un évènement</translation>
     </message>
 </context>
 <context>
@@ -21058,6 +21381,129 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <location line="+31"/>
         <source>Unknown Command %1</source>
         <translation>Commande inconnue %1</translation>
+    </message>
+    <message>
+        <source>Trigger Event At</source>
+        <translation>Déclencher l&apos;évènement d&apos;une case</translation>
+    </message>
+    <message>
+        <source>Keeping its direction</source>
+        <translation>Sans changer de direction</translation>
+    </message>
+    <message>
+        <source>Diagonal</source>
+        <translation>Diagonale</translation>
+    </message>
+    <message>
+        <source>Skipping blocked steps</source>
+        <translation>Pas bloqués sautés</translation>
+    </message>
+    <message>
+        <source>Waiting while it moves</source>
+        <translation>Attente pendant qu&apos;il se déplace</translation>
+    </message>
+    <message>
+        <source>Skipped while it moves</source>
+        <translation>Ignorée pendant qu&apos;il se déplace</translation>
+    </message>
+    <message>
+        <source>Ignoring the events listed from variable %1</source>
+        <translation>Évènements ignorés listés à partir de la variable %1</translation>
+    </message>
+    <message>
+        <source>Pathfinder</source>
+        <translation>Chercher un trajet</translation>
+    </message>
+    <message>
+        <source>Wait for Single Movement</source>
+        <translation>Attendre le déplacement d&apos;un évènement</translation>
+    </message>
+    <message>
+        <source>Failures allowed</source>
+        <translation>Échecs permis</translation>
+    </message>
+    <message>
+        <source>Success in</source>
+        <translation>Réussite dans</translation>
+    </message>
+    <message>
+        <source>Set Interpreter Flag</source>
+        <translation>Activer un patch pour l&apos;évènement</translation>
+    </message>
+    <message>
+        <source>Get Value</source>
+        <translation>Lire une valeur</translation>
+    </message>
+    <message>
+        <source>Set Value</source>
+        <translation>Écrire une valeur</translation>
+    </message>
+    <message>
+        <source>Get Length</source>
+        <translation>Lire la longueur</translation>
+    </message>
+    <message>
+        <source>Get Keys</source>
+        <translation>Lire les clés</translation>
+    </message>
+    <message>
+        <source>Get Type</source>
+        <translation>Lire le type</translation>
+    </message>
+    <message>
+        <source>Remove Key</source>
+        <translation>Supprimer une clé</translation>
+    </message>
+    <message>
+        <source>Array Push</source>
+        <translation>Ajouter à un tableau</translation>
+    </message>
+    <message>
+        <source>Array Pop</source>
+        <translation>Retirer d&apos;un tableau</translation>
+    </message>
+    <message>
+        <source>Contains</source>
+        <translation>Contient</translation>
+    </message>
+    <message>
+        <source>Kind %1</source>
+        <translation>Type %1</translation>
+    </message>
+    <message>
+        <source>Process JSON</source>
+        <translation>Traiter du JSON</translation>
+    </message>
+    <message>
+        <source>Current map</source>
+        <translation>Carte actuelle</translation>
+    </message>
+    <message>
+        <source>Clone Map Event</source>
+        <translation>Cloner un évènement</translation>
+    </message>
+    <message>
+        <source>Destroy Map Event</source>
+        <translation>Détruire un évènement</translation>
+    </message>
+    <message>
+        <source>Call Movement Action</source>
+        <translation>Appeler une action de déplacement</translation>
+    </message>
+    <message>
+        <source>Animate Variable</source>
+        <translation>Animer une variable</translation>
+    </message>
+    <message>
+        <source>String Picture Menu</source>
+        <translation>Menu d&apos;images de texte</translation>
+    </message>
+    <message numerus="yes">
+        <source>Ignoring %n event(s)</source>
+        <translation>
+            <numerusform>%n évènement ignoré</numerusform>
+            <numerusform>%n évènements ignorés</numerusform>
+        </translation>
     </message>
 </context>
 <context>

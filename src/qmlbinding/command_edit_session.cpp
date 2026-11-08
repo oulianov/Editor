@@ -247,9 +247,9 @@ bool CommandSchemaView::custom() const {
 }
 
 bool CommandSchemaView::hides() const {
-	// the editors of the Maniac Patch show the fields of the mode chosen,
-	// the others grey what does not apply (as RPG Maker)
-	return m_schema && (m_schema->flags & Flag::Maniac);
+	// the editors of the Maniac Patch and of EasyRPG Player show the fields
+	// of the mode chosen, the others grey what does not apply (as RPG Maker)
+	return m_schema && (m_schema->flags & (Flag::Maniac | Flag::EasyRpg));
 }
 
 QVariantMap CommandSchemaView::title() const {

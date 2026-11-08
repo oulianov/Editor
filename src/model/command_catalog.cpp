@@ -148,6 +148,29 @@ const std::vector<Page>& mapPages()
 	return pages;
 }
 
+// The commands of EasyRPG Player's extensions, by theme (EasyRPG Player's
+// wiki: user:player:easyrpg-commands). The movement ones are of map events
+// only; Clone and Destroy Map Event change the map: not in battles
+const Page& easyRpgPage(bool battle)
+{
+	static const Page map = { QT_TRANSLATE_NOOP("EventCommandPalette", "EasyRPG Player"), {
+		{Code::EasyRpg_TriggerEventAt, QT_TRANSLATE_NOOP("EventCommandPalette", "Trigger Event At"), false, false, true},
+		{Code::EasyRpg_CloneMapEvent, QT_TRANSLATE_NOOP("EventCommandPalette", "Clone Map Event"), false, false, true},
+		{Code::EasyRpg_DestroyMapEvent, QT_TRANSLATE_NOOP("EventCommandPalette", "Destroy Map Event"), false, false, true},
+		{Code::END, nullptr, false},
+		{Code::EasyRpg_Pathfinder, QT_TRANSLATE_NOOP("EventCommandPalette", "Pathfinder"), false, false, true},
+		{Code::EasyRpg_WaitForSingleMovement, QT_TRANSLATE_NOOP("EventCommandPalette", "Wait for Single Movement"), false, false, true},
+		{Code::END, nullptr, false},
+		{Code::EasyRpg_ProcessJson, QT_TRANSLATE_NOOP("EventCommandPalette", "Process JSON"), false, false, true},
+		{Code::EasyRpg_SetInterpreterFlag, QT_TRANSLATE_NOOP("EventCommandPalette", "Set Interpreter Flag"), false, false, true},
+	}};
+	static const Page fight = { map.title, {
+		{Code::EasyRpg_ProcessJson, QT_TRANSLATE_NOOP("EventCommandPalette", "Process JSON"), false, false, true},
+		{Code::EasyRpg_SetInterpreterFlag, QT_TRANSLATE_NOOP("EventCommandPalette", "Set Interpreter Flag"), false, false, true},
+	}};
+	return battle ? fight : map;
+}
+
 // The Maniac Patch commands, by theme
 const Page& maniacPage()
 {
@@ -244,11 +267,14 @@ const Page& battlePage()
 	return page;
 }
 
-std::vector<const Page*> pages(bool battle, bool maniac)
+std::vector<const Page*> pages(bool battle, bool maniac, bool easyrpg)
 {
 	std::vector<const Page*> shown;
 	if (battle) {
 		shown.push_back(&battlePage());
+		if (easyrpg) {
+			shown.push_back(&easyRpgPage(true));
+		}
 		if (maniac) {
 			shown.push_back(&maniacPage());
 		}
@@ -257,6 +283,7 @@ std::vector<const Page*> pages(bool battle, bool maniac)
 	for (const auto& page : mapPages()) {
 		shown.push_back(&page);
 	}
+	shown.push_back(&easyRpgPage());
 	shown.push_back(&maniacPage());
 	return shown;
 }
@@ -268,7 +295,7 @@ QString translate(const char* text)
 
 QString commandName(Code code)
 {
-	for (const Page* page : pages(false, true)) {
+	for (const Page* page : pages(false, true, true)) {
 		for (const auto& entry : page->entries) {
 			if (entry.code == code && entry.name) {
 				return translate(entry.name);

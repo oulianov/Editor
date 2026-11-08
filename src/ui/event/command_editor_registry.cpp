@@ -70,6 +70,9 @@ const std::vector<std::pair<Code, const char*>>& editors() {
 		{Code::Maniac_Script, "ScriptEditor"},
 		{Code::Maniac_Console, "ConsoleEditor"},
 		{Code::Maniac_CallCommand, "CallCommandEditor"},
+		{Code::EasyRpg_Pathfinder, "PathfinderEditor"},
+		{Code::EasyRpg_SetInterpreterFlag, "SetInterpreterFlagEditor"},
+		{Code::EasyRpg_ProcessJson, "ProcessJsonEditor"},
 	};
 	return list;
 }
