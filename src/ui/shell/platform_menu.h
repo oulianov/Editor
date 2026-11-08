@@ -209,3 +209,9 @@ private:
 	QList<QObject*> m_data;
 	QPointer<QWindow> m_window;
 };
+
+#ifdef Q_OS_MACOS
+/** Moves Check for Updates and About down the application menu, right above
+ *  Quit (platform_menu_mac.mm); once, when the menu is there */
+void arrangeApplicationMenu();
+#endif

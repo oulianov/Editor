@@ -342,6 +342,10 @@ void PlatformMenuBar::addMenu(PlatformMenu* menu)
 				m_handle->syncMenu(menu->handle());
 		});
 	}
+#ifdef Q_OS_MACOS
+	if (m_handle)
+		arrangeApplicationMenu();
+#endif
 	emit menusChanged();
 }
 
@@ -354,6 +358,10 @@ void PlatformMenuBar::componentComplete()
 	m_window = findWindow();
 	if (m_handle)
 		m_handle->handleReparent(m_window);
+#ifdef Q_OS_MACOS
+	if (m_handle)
+		arrangeApplicationMenu();
+#endif
 }
 
 QWindow* PlatformMenuBar::findWindow() const

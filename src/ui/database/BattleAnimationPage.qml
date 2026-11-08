@@ -16,8 +16,9 @@ import org.easyrpg.editor as Ez
  * zoomed, faded and tinted around the target), shown over a monster of the
  * database; the effect timings (a sound effect, a flash and a shake on a
  * frame). The cels, frames and timings have Cut/Copy/Paste menus; the
- * frame tools are Mass Copy/Clear, Autocomplete and Mass Modify. What is
- * done to the animation is the canvas's (Ez.AnimationCanvas).
+ * frame tools are Mass Copy/Clear, Autocomplete and Mass Modify; Play
+ * shows the frames with the sound effects of the timings. What is done to
+ * the animation is the canvas's (Ez.AnimationCanvas).
  */
 DatabaseEntryPage {
     id: root
@@ -39,6 +40,8 @@ DatabaseEntryPage {
     onEntryChanged: canvas.stop()
 
     function editTiming(index) {
+        // its sound effect is heard in the picker, alone
+        canvas.stop()
         Ez.Editor.exec("AnimationTimingDialog", { canvas: canvas, index: index, rpg2k3: root.rpg2k3 }, timings)
     }
     /** RPG Maker opens the cel properties: here the fields beside */
@@ -312,6 +315,8 @@ DatabaseEntryPage {
                         objectName: "viewAnimation"
                         entry: root.entry
                         target: targetCombo.currentIndex
+                        // the sound effects of the timings, as in battle
+                        playSounds: true
                         highlight: Kirigami.Theme.highlightColor
                         patternBackground: Kirigami.Theme.backgroundColor
                         transformOrigin: Item.TopLeft

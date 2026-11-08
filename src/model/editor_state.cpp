@@ -98,7 +98,8 @@ int EditorState::selHeight() const
 
 void EditorState::setSelection(std::vector<short> n_sel, int n_w, int n_h)
 {
-	if (static_cast<int>(n_sel.size()) != n_w * n_h)
+	// an empty selection would leave the tiles of a stroke to divide by 0
+	if (n_w <= 0 || n_h <= 0 || static_cast<int>(n_sel.size()) != n_w * n_h)
 		return;
 	switch(m_layer)
 	{

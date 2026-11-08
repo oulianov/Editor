@@ -17,18 +17,64 @@
 
 #include "test_play_options.h"
 #include "common/dbstring.h"
+#include "common/ini_file.h"
+#include "defines.h"
 #include "model/game_runner.h"
+#include "model/project.h"
 #include "model/project_data.h"
 #include <QCoreApplication>
 #include <QSettings>
+#include <QSize>
 #include <algorithm>
+
+namespace {
+/**
+ * The size of the game's screen in the Player: WinW and WinH of RPG_RT.ini
+ * (the Maniac Patch's, which the Player reads with or without it), else
+ * 320x240. The Player's own Widescreen and Ultrawide resolutions are its
+ * settings, unknown here.
+ */
+QSize screenSize(const ProjectData& project)
+{
+	QSize size(320, 240);
+	if (!project.hasProject()) {
+		return size;
+	}
+	const QString ini = project.project().findFile(QStringLiteral(RM_INI));
+	if (ini.isEmpty()) {
+		return size;
+	}
+	for (const auto& [key, value] : IniFile::read(ini, "RPG_RT")) {
+		bool ok = false;
+		const int pixels = value.toInt(&ok, 0);
+		if (!ok || pixels <= 0) {
+			continue;
+		}
+		if (key.compare("WinW", Qt::CaseInsensitive) == 0) {
+			size.setWidth(pixels);
+		} else if (key.compare("WinH", Qt::CaseInsensitive) == 0) {
+			size.setHeight(pixels);
+		}
+	}
+	return size;
+}
+}
 
 // The texts are translated in the context RunGameDialog, as RunGameWindow.qml's
 // (TestPlayOptions::tr would be another one)
 TestPlayOptions::TestPlayOptions(const ProjectData& project, QObject* parent) :
 	QObject(parent)
 {
-	m_fullscreen = QSettings().value(TESTPLAY_FULLSCREEN_KEY, false).toBool();
+	const QSettings settings;
+	m_fullscreen = settings.value(TESTPLAY_FULLSCREEN_KEY, false).toBool();
+	m_windowZoom = std::clamp(settings.value(TESTPLAY_WINDOW_ZOOM_KEY, 0).toInt(), 0, GameRunner::MaxWindowZoom);
+
+	// the zooms of the Player's window (its Window Zoom setting), as the sizes they make
+	const QSize screen = screenSize(project);
+	m_windowSizes << QCoreApplication::translate("RunGameDialog", "Default");
+	for (int zoom = 1; zoom <= GameRunner::MaxWindowZoom; ++zoom) {
+		m_windowSizes << QStringLiteral("%1×%2 (×%3)").arg(screen.width() * zoom).arg(screen.height() * zoom).arg(zoom);
+	}
 
 	for (const auto& map : project.treeMap().maps) {
 		if (map.ID > 0 && map.type == lcf::rpg::TreeMap::MapType_map) {
@@ -95,8 +141,7 @@ int TestPlayOptions::mapId() const
 
 QStringList TestPlayOptions::arguments() const
 {
-	QStringList args;
-	args << (m_fullscreen ? QStringLiteral("--fullscreen") : QStringLiteral("--window"));
+	QStringList args = GameRunner::displayOptions(m_fullscreen, m_windowZoom);
 
 	if (m_mode == NewGame) {
 		args << QStringLiteral("--new-game");
@@ -139,4 +184,9 @@ QStringList TestPlayOptions::arguments() const
 		args << QStringLiteral("--no-rtp");
 	}
 	return args;
+}
+
+void TestPlayOptions::saveWindowZoom() const
+{
+	QSettings().setValue(TESTPLAY_WINDOW_ZOOM_KEY, m_windowZoom);
 }

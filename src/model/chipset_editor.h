@@ -49,10 +49,15 @@ public:
 	static constexpr int LowerTiles = 162;
 	static constexpr int UpperTiles = 144;
 
-	/** The side under the pointer in the Directions mode, shown as RPG Maker does */
+	/**
+	 * The tile under the pointer, shown lit (in the Terrain mode, only on the
+	 * lower layer: the upper one has no terrain), and in the Directions mode
+	 * the side a click changes, shown as RPG Maker does
+	 */
 	struct Hover {
 		/** -1: none */
 		int tile = -1;
+		/** Up, Down, Left, Right; 0 outside the Directions mode */
 		int side = 0;
 	};
 
@@ -97,9 +102,9 @@ public:
 	bool dragging() const;
 
 	const Hover& hover() const;
-	/** The pointer moved to a point; true when the side under it changed */
+	/** The pointer moved to a point; true when the tile or side under it changed */
 	bool hoverAt(const QPointF& pos);
-	/** The pointer left; true when there was a side under it */
+	/** The pointer left; true when there was a tile under it */
 	bool clearHover();
 
 	/** RPG Maker's "Set Uniform Terrain": one terrain on all lower tiles */
@@ -108,6 +113,9 @@ public:
 private:
 	/** Gives a tile what the mode does: the stroke's flags when dragging */
 	void apply(int index, bool right_button, bool dragged);
+	/** What is under the pointer, again (another mode, layer or chipset);
+	 *  true when it changed */
+	bool updateHover();
 
 	lcf::rpg::Chipset* m_chipset = nullptr;
 	bool m_lower = true;
@@ -121,4 +129,7 @@ private:
 		int side = 0;
 	} m_stroke;
 	Hover m_hover;
+	/** Where the pointer is, while it is over the tiles */
+	QPointF m_pointer;
+	bool m_pointed = false;
 };

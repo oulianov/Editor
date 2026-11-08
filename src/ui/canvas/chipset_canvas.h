@@ -32,8 +32,9 @@
  * ChipsetEditorPainter), in a database window's copy: those of a layer, 6
  * per row at twice their size, with the marks of the editing mode (the
  * terrain; ○ × ☆; RPG Maker 2003's Directions arrows and dots, the side
- * under the pointer yellow; □). A click or a drag edits them; the item is
- * as large as the tiles (in a scrolled view), 32 points a tile.
+ * under the pointer yellow; □). The tile under the pointer is lit, its
+ * mark larger and brighter. A click or a drag edits them; the item is as
+ * large as the tiles (in a scrolled view), 32 points a tile.
  */
 class ChipsetCanvas : public QQuickPaintedItem
 {
@@ -49,6 +50,8 @@ class ChipsetCanvas : public QQuickPaintedItem
 	Q_PROPERTY(int terrainId READ terrainId WRITE setTerrainId NOTIFY terrainIdChanged)
 	/** Behind the tiles (the color of the lists) */
 	Q_PROPERTY(QColor background READ background WRITE setBackground NOTIFY backgroundChanged)
+	/** The frame and halo of the tile under the pointer (the color of the selection) */
+	Q_PROPERTY(QColor highlight READ highlight WRITE setHighlight NOTIFY highlightChanged)
 
 public:
 	explicit ChipsetCanvas(QQuickItem* parent = nullptr);
@@ -63,6 +66,8 @@ public:
 	void setTerrainId(int terrain_id);
 	QColor background() const;
 	void setBackground(const QColor& color);
+	QColor highlight() const;
+	void setHighlight(const QColor& color);
 
 	/** RPG Maker's "Set Uniform Terrain": one terrain on all lower tiles */
 	Q_INVOKABLE void setUniformTerrain(int terrain_id);
@@ -79,6 +84,7 @@ signals:
 	void modeChanged();
 	void terrainIdChanged();
 	void backgroundChanged();
+	void highlightChanged();
 	/** A click or a drag changed tiles */
 	void edited();
 
@@ -87,6 +93,7 @@ protected:
 	void mouseDoubleClickEvent(QMouseEvent* event) override;
 	void mouseMoveEvent(QMouseEvent* event) override;
 	void mouseReleaseEvent(QMouseEvent* event) override;
+	void mouseUngrabEvent() override;
 	void hoverMoveEvent(QHoverEvent* event) override;
 	void hoverLeaveEvent(QHoverEvent* event) override;
 
@@ -106,5 +113,6 @@ private:
 	QString m_graphicName;
 	QImage m_rendered;
 	QColor m_background = Qt::white;
+	QColor m_highlight = QColor(61, 174, 233);
 	bool m_editing = false;
 };

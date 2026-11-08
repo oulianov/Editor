@@ -17,21 +17,42 @@
 
 #include "audio_player.h"
 #include "audio_backend.h"
+#include "common/logging.h"
 
 #include <QAudio>
 #include <QAudioOutput>
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QMediaPlayer>
+#include <QSet>
 #include <QUrl>
 #include <algorithm>
 
 namespace {
 
+/**
+ * EASYRPG_EDITOR_AUDIO_BACKEND, to test the backends of other systems:
+ * "qt" plays on macOS as on Linux (Qt Multimedia, and MIDI with FluidSynth
+ * when found, else FmMidi); "fmmidi" does the same with FmMidi for MIDI on
+ * every system (on Windows, instead of its MIDI device).
+ * EASYRPG_EDITOR_SOUNDFONT names the soundfont FluidSynth tries first
+ * (midi_synth.cpp).
+ */
+QString backendOverride() {
+	return qEnvironmentVariable("EASYRPG_EDITOR_AUDIO_BACKEND").toLower();
+}
+
 /** Qt Multimedia: what the platform's backend decodes (FFmpeg, AVFoundation, Media Foundation, GStreamer) */
 class QtMediaBackend final : public AudioBackend {
 public:
-	bool open(const QString& path, bool, QString&) override {
+	QString name() const override { return QStringLiteral("Qt Multimedia"); }
+
+	bool open(const QString& path, bool, QString& error) override {
+		// no media plugin of Qt Multimedia (its FFmpeg plugin, missing from a package): nothing would happen
+		if (!m_player.isAvailable()) {
+			error = AudioPlayer::tr("Qt Multimedia cannot play files on this system: its media plugin is missing.");
+			return false;
+		}
 		m_player.setAudioOutput(&m_output);
 		// loads asynchronously: errors come through error()
 		m_player.setSource(QUrl::fromLocalFile(path));
@@ -109,21 +130,26 @@ bool AudioPlayer::play(const QString& path) {
 	}
 
 	const bool midi = isMidi(path);
+	const QString fileName = QFileInfo(path).fileName();
+	const QString forced = backendOverride();
 	QString error;
 #ifdef Q_OS_MACOS
-	m_backend = previous ? std::move(previous) : createAppleAudioBackend();
-	if (!m_backend->open(path, midi, error)) {
-		m_backend.reset();
+	if (forced.isEmpty()) {
+		m_backend = previous ? std::move(previous) : createAppleAudioBackend();
+		if (!m_backend->open(path, midi, error)) {
+			qCWarning(lcAudio).noquote() << "AVAudioEngine cannot play" << fileName << ":" << error;
+			m_backend.reset();
+		}
 	}
 #endif
+	previous.reset();
+	// Qt Multimedia has no synthesizer: the Editor's
 	if (!m_backend) {
-		if (midi) {
-			// Qt Multimedia has no synthesizer
-			fail(tr("MIDI files cannot be played on this system."));
+		m_backend = midi ? createMidiAudioBackend(forced == QLatin1String("fmmidi")) : std::make_unique<QtMediaBackend>();
+		if (!m_backend->open(path, midi, error)) {
+			fail(tr("%1 cannot be played: %2").arg(fileName, error));
 			return false;
 		}
-		m_backend = std::make_unique<QtMediaBackend>();
-		m_backend->open(path, midi, error);
 	}
 
 	// the fade-in starts silent
@@ -131,7 +157,18 @@ bool AudioPlayer::play(const QString& path) {
 	applyGain();
 	m_backend->setPan((std::clamp(m_balance, 0, 100) - 50) / 50.0f);
 	m_backend->setRate(std::clamp(m_tempo, 50, 150) / 100.0f);
+	m_backend->setLooping(m_looping);
 	m_backend->play();
+
+	// which plays (a MIDI backend chooses as it starts): once each, for those
+	// who tell what they hear, or not
+	static QSet<QString> logged;
+	if (!logged.contains(m_backend->name())) {
+		logged.insert(m_backend->name());
+		qCInfo(lcAudio).noquote() << "Audio:" << m_backend->name() << "plays" << fileName;
+	} else {
+		qCDebug(lcAudio).noquote() << "Audio:" << m_backend->name() << "plays" << fileName;
+	}
 	setState(State::Playing);
 	tick();
 	return true;
@@ -212,6 +249,9 @@ void AudioPlayer::setFadeIn(int ms) {
 
 void AudioPlayer::setLooping(bool looping) {
 	m_looping = looping;
+	if (m_backend) {
+		m_backend->setLooping(looping);
+	}
 	emit settingsChanged();
 }
 
@@ -232,6 +272,7 @@ void AudioPlayer::setState(State state) {
 }
 
 void AudioPlayer::fail(const QString& message) {
+	qCWarning(lcAudio).noquote() << message;
 	if (m_backend) {
 		m_backend->stop();
 	}

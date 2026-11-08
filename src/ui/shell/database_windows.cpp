@@ -17,6 +17,7 @@
 
 #include "database_windows.h"
 #include <QQuickWindow>
+#include <QScreen>
 #include <QVariantMap>
 #include "core.h"
 #include "editor_window.h"
@@ -63,5 +64,8 @@ void DatabaseWindows::open(EditorWindow& main, const DatabaseTarget& target)
 	QVariantMap properties;
 	if (!start.isEmpty())
 		properties.insert(QStringLiteral("start"), start);
+	// its first size fits the screen of the main window, where it opens
+	if (const QScreen* screen = main.handle() ? main.handle()->screen() : nullptr)
+		properties.insert(QStringLiteral("screenArea"), QRectF(screen->availableGeometry()));
 	QmlHost::exec(QStringLiteral("DatabaseWindow"), main.handle(), properties);
 }

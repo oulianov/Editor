@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 cmake_policy(SET CMP0091 NEW) # Support MSVC_RUNTIME_LIBRARY
 
-project(EasyRPG_Editor VERSION 0.2.10
+project(EasyRPG_Editor VERSION 0.2.11
 	DESCRIPTION "Editor for RPG Maker 2000/2003 games (fork of the EasyRPG Editor)"
 	HOMEPAGE_URL "https://github.com/oulianov/Editor"
 	LANGUAGES CXX)
@@ -76,6 +76,14 @@ set(EDITOR_SOURCES
 	src/common/audio_backend.h
 	src/common/audio_player.cpp
 	src/common/audio_player.h
+	src/common/audio_player_midi.cpp
+	src/common/midi_synth.cpp
+	src/common/midi_synth.h
+	src/common/midi/midiprogram.h
+	src/common/midi/midisequencer.cpp
+	src/common/midi/midisequencer.h
+	src/common/midi/midisynth.cpp
+	src/common/midi/midisynth.h
 	src/common/filefinder.cpp
 	src/common/logging.cpp
 	src/common/logging.h
@@ -695,10 +703,21 @@ if(MSVC)
 endif()
 if(APPLE)
 	# audio of the Jukebox and the pickers: Apple's audio engine, with MIDI;
-	# the Player brought to the front when a test play starts
-	target_sources(editor_core PRIVATE src/common/audio_player_mac.mm src/model/game_runner_mac.mm)
-	set_source_files_properties(src/common/audio_player_mac.mm src/model/game_runner_mac.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+	# the Player brought to the front when a test play starts; the order of
+	# the application menu
+	target_sources(editor_core PRIVATE src/common/audio_player_mac.mm src/model/game_runner_mac.mm src/ui/shell/platform_menu_mac.mm)
+	set_source_files_properties(src/common/audio_player_mac.mm src/model/game_runner_mac.mm src/ui/shell/platform_menu_mac.mm
+		PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 	target_link_libraries(editor_core PUBLIC "-framework AVFoundation" "-framework AudioToolbox" "-framework Foundation" "-framework AppKit")
+endif()
+if(WIN32)
+	# MIDI on the MIDI device of Windows (its GS Wavetable Synth), as EasyRPG Player
+	target_sources(editor_core PRIVATE src/common/midiout_device_win32.cpp src/common/midiout_device_win32.h)
+	target_link_libraries(editor_core PUBLIC winmm)
+endif()
+if(NOT MSVC)
+	# EasyRPG Player's FM synthesizer (MIDI where Qt Multimedia has none), kept as it is
+	set_source_files_properties(src/common/midi/midisynth.cpp PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-enum-float-conversion")
 endif()
 
 # The JsonT types of the QML binding (the Editor and the binding test)

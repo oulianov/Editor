@@ -49,7 +49,8 @@ GameRunner::Result GameRunner::launch(const QStringList& options, bool use_setti
 	QStringList args{QStringLiteral("--project-path"), project_dir, QStringLiteral("--test-play")};
 	if (use_settings) {
 		QSettings settings;
-		args << (settings.value(TESTPLAY_FULLSCREEN_KEY, false).toBool() ? QStringLiteral("--fullscreen") : QStringLiteral("--window"));
+		args << displayOptions(settings.value(TESTPLAY_FULLSCREEN_KEY, false).toBool(),
+			settings.value(TESTPLAY_WINDOW_ZOOM_KEY, 0).toInt());
 		if (!settings.value(TESTPLAY_SHOW_TITLE_KEY, true).toBool()) {
 			args << QStringLiteral("--hide-title");
 		}
@@ -69,6 +70,20 @@ GameRunner::Result GameRunner::launch(const QStringList& options, bool use_setti
 	activatePlayer(pid);
 #endif
 	return Result::Started;
+}
+
+QStringList GameRunner::displayOptions(bool fullscreen, int window_zoom)
+{
+	if (fullscreen) {
+		return {QStringLiteral("--fullscreen")};
+	}
+	QStringList options{QStringLiteral("--window")};
+	// --window-zoom since Player 0.7, older ones skip the options they do not know.
+	// A size the Player saved in its settings wins when the game's screen keeps 320x240.
+	if (window_zoom > 0 && window_zoom <= MaxWindowZoom) {
+		options << QStringLiteral("--window-zoom") << QString::number(window_zoom);
+	}
+	return options;
 }
 
 QStringList GameRunner::hereOptions(int map_id, int x, int y)

@@ -14,11 +14,14 @@ import org.easyrpg.editor as Ez
  * cells, the grid of the event layer, an area).
  *
  * The mouse and the keys go to the editor as cells: the keys of the map
- * before the shortcuts of the window, as RPG Maker. Ctrl + wheel, a pinch
- * and the zoom tool zoom by the editor's steps, snapped to whole pixels of
- * the screen, the cell under the pointer staying in place. The view scrolls
- * while a drag goes past its edges. The editor's requests (a new or edited
- * event, a teleport, a test play) come out as signals for the host.
+ * before the shortcuts of the window, as RPG Maker; a double right-click
+ * switches between the lower and the upper layer, as RPG Maker 2003. Ctrl +
+ * wheel (on macOS Command or Control + wheel), a pinch and the zoom tool
+ * zoom by the editor's steps, snapped to whole pixels of the screen, the
+ * cell under the pointer staying in place. The view scrolls while a drag
+ * goes past its edges, and follows a drag with the middle button, whatever
+ * the layer and the tool. The editor's requests (a new or edited event, a
+ * teleport, a test play) come out as signals for the host.
  */
 FocusScope {
     id: root
@@ -163,6 +166,40 @@ FocusScope {
         d.edge = Qt.point(x < margin ? x - margin : x > view.width - margin ? x - view.width + margin : 0,
                           y < margin ? y - margin : y > view.height - margin ? y - view.height + margin : 0)
     }
+    // the middle button drags the view: the point grabbed stays under the pointer
+    function pan(mouse) {
+        const x = mouse.x - view.contentX
+        const y = mouse.y - view.contentY
+        scrollTo(d.panScroll.x + d.panFrom.x - x, d.panScroll.y + d.panFrom.y - y, true)
+        d.pointer = Qt.point(x, y)
+        // another cell under it only where the view stopped at an edge
+        if (editor) {
+            const cell = cellAt(x + view.contentX, y + view.contentY)
+            editor.move(cell.x, cell.y, mouse.buttons)
+        }
+    }
+    // Ctrl + wheel (on macOS Command or Control + wheel) zooms by the steps
+    // of the zoom tool, a step a notch (a trackpad: every 60 pixels), with
+    // other keys held too; false: the view scrolls
+    function wheelZoom(wheel) {
+        const keys = Qt.platform.os === "osx" ? (Qt.ControlModifier | Qt.MetaModifier) : Qt.ControlModifier
+        if (!editor || !(wheel.modifiers & keys)) {
+            return false
+        }
+        // not the turns going on by themselves once the fingers are lifted
+        if (wheel.phase === Qt.ScrollMomentum) {
+            return true
+        }
+        d.wheel += wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : wheel.pixelDelta.y * 2
+        const steps = Math.trunc(d.wheel / 120)
+        d.wheel -= steps * 120
+        d.anchor = Qt.point(wheel.x - view.contentX, wheel.y - view.contentY)
+        for (let i = 0; i < Math.abs(steps); i++) {
+            editor.wheel(steps > 0 ? 120 : -120, wheel.modifiers)
+        }
+        d.anchor = Qt.point(-1, -1)
+        return true
+    }
     // the keys the map does not take scroll it, as a scroll view does
     function scrollKey(event) {
         if (event.modifiers !== Qt.NoModifier && event.modifiers !== Qt.KeypadModifier) {
@@ -219,6 +256,11 @@ FocusScope {
         // pointer went past the drag distance since
         property point pressAt: Qt.point(0, 0)
         property bool dragStarted: false
+        // the middle button drags the view: where it was pressed, in the
+        // view, and the scroll then
+        property bool panning: false
+        property point panFrom: Qt.point(0, 0)
+        property point panScroll: Qt.point(0, 0)
         // Ctrl + wheel: the turns not zoomed yet (a notch is 120)
         property real wheel: 0
         // the scroll bars, while the map is larger than the view
@@ -413,19 +455,28 @@ FocusScope {
         }
 
         // the mouse over the whole view, in cells (outside the map: none);
-        // the cursor is the overlay's, under it
+        // the cursor is the overlay's, under it, but while the middle button
+        // drags the view
         MouseArea {
             id: pointer
 
             width: view.contentWidth
             height: view.contentHeight
             hoverEnabled: true
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
             // a drag draws, it does not scroll the view
             preventStealing: true
+            cursorShape: d.panning ? Qt.ClosedHandCursor : undefined
 
             onPressed: (mouse) => {
                 root.forceActiveFocus(Qt.MouseFocusReason)
+                if (mouse.button === Qt.MiddleButton) {
+                    // the view follows, the editor knows nothing of it
+                    d.panning = true
+                    d.panFrom = Qt.point(mouse.x - view.contentX, mouse.y - view.contentY)
+                    d.panScroll = Qt.point(view.contentX, view.contentY)
+                    return
+                }
                 root.track(mouse)
                 d.press = Qt.point(mouse.x, mouse.y)
                 if (mouse.button === Qt.LeftButton) {
@@ -442,6 +493,10 @@ FocusScope {
                 d.anchor = Qt.point(-1, -1)
             }
             onPositionChanged: (mouse) => {
+                if (d.panning) {
+                    root.pan(mouse)
+                    return
+                }
                 root.track(mouse)
                 if (root.editor) {
                     const cell = root.cellAt(mouse.x, mouse.y)
@@ -457,6 +512,10 @@ FocusScope {
                 }
             }
             onReleased: (mouse) => {
+                if (mouse.button === Qt.MiddleButton) {
+                    d.panning = false
+                    return
+                }
                 root.track(mouse)
                 d.edge = Qt.point(0, 0)
                 if (root.editor) {
@@ -468,15 +527,25 @@ FocusScope {
             // window opened by a double-click): nothing dragged is dropped
             onCanceled: {
                 d.edge = Qt.point(0, 0)
+                d.panning = false
                 if (root.editor) {
                     root.editor.cancelPress()
                 }
             }
+            // the left button's opens an event, the right one's switches the
+            // layer (MapEditor::doubleClick); the middle one's does nothing
             onDoubleClicked: (mouse) => {
-                if (root.editor) {
+                if (root.editor && mouse.button !== Qt.MiddleButton) {
                     const cell = root.cellAt(mouse.x, mouse.y)
-                    root.editor.doubleClick(cell.x, cell.y)
+                    root.editor.doubleClick(cell.x, cell.y, mouse.button)
                 }
+            }
+            // Ctrl + wheel zooms, before the view, which scrolls without it.
+            // Not a WheelHandler, which takes the wheels of mice only (Qt
+            // takes XWayland's for a touchpad's: the Linux AppImage) and the
+            // exact modifiers it is given only
+            onWheel: (wheel) => {
+                wheel.accepted = root.wheelZoom(wheel)
             }
             onExited: {
                 // the frame of the tool goes with the pointer
@@ -485,26 +554,7 @@ FocusScope {
                 }
             }
 
-            // Ctrl + wheel zooms by the steps of the zoom tool, a step a notch
-            WheelHandler {
-                id: wheelZoom
-                target: null
-                acceptedModifiers: Qt.ControlModifier
-                onWheel: (event) => {
-                    if (!root.editor) {
-                        return
-                    }
-                    d.wheel += event.angleDelta.y
-                    const steps = Math.trunc(d.wheel / 120)
-                    d.wheel -= steps * 120
-                    d.anchor = Qt.point(wheelZoom.point.position.x - view.contentX, wheelZoom.point.position.y - view.contentY)
-                    for (let i = 0; i < Math.abs(steps); i++) {
-                        root.editor.wheel(steps > 0 ? 120 : -120, event.modifiers)
-                    }
-                    d.anchor = Qt.point(-1, -1)
-                }
-            }
-            // a pinch too, a step each time the fingers spread by about 1.4
+            // a pinch zooms too, a step each time the fingers spread by about 1.4
             PinchHandler {
                 id: pinchZoom
                 target: null

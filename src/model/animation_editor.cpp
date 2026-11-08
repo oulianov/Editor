@@ -570,6 +570,7 @@ void AnimationEditor::play() {
 		// without the selected cel
 		emit previewChanged();
 	}
+	reachTimings();
 }
 
 void AnimationEditor::stop() {
@@ -594,6 +595,19 @@ void AnimationEditor::step() {
 		return;
 	}
 	setCurrentFrame(next);
+	reachTimings();
+}
+
+void AnimationEditor::reachTimings() {
+	if (!m_anim || !isPlaying()) return;
+	// as the Player: frames counted from 1, every timing of the frame (copies: a slot may change them)
+	std::vector<lcf::rpg::AnimationTiming> reached;
+	for (const auto& timing : m_anim->timings) {
+		if (timing.frame == m_frame + 1) reached.push_back(timing);
+	}
+	for (const auto& timing : reached) {
+		emit timingReached(timing);
+	}
 }
 
 void AnimationEditor::refreshFrames(int select) {

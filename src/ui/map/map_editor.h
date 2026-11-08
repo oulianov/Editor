@@ -193,7 +193,11 @@ public:
 	Q_INVOKABLE void move(int x, int y, Qt::MouseButtons buttons);
 	/** buttons: those still held */
 	Q_INVOKABLE void release(int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons);
-	Q_INVOKABLE void doubleClick(int x, int y);
+	/** The left button on the event layer edits the event of the cell, or
+	 *  makes one. The right button switches between the lower and the upper
+	 *  layer, as in RPG Maker 2003 (not with the zoom tool, nor from the
+	 *  event layer) */
+	Q_INVOKABLE void doubleClick(int x, int y, Qt::MouseButton button = Qt::LeftButton);
 	/**
 	 * The pointer pressed went past the platform's drag distance: what the
 	 * press grabbed (an event, a start position, the selected items or
@@ -208,7 +212,8 @@ public:
 	/** Run (or only test, for a shortcut override) a key of the map; true
 	 *  when the map takes it, before the shortcuts of the window */
 	Q_INVOKABLE bool handleKey(int key, Qt::KeyboardModifiers modifiers, bool run = true);
-	/** Ctrl + wheel zooms, by the steps of the zoom tool; true when taken */
+	/** Ctrl + wheel zooms, by the steps of the zoom tool (on macOS Command
+	 *  or Control + wheel); true when taken */
 	Q_INVOKABLE bool wheel(int delta, Qt::KeyboardModifiers modifiers);
 	/** A step of a pinch: the fingers spread by factor since the last one */
 	Q_INVOKABLE void pinch(qreal factor);
@@ -301,7 +306,7 @@ private:
 	void onPress(int x, int y, Qt::MouseButton button, Qt::KeyboardModifiers modifiers);
 	void onMove(int x, int y, Qt::MouseButtons buttons);
 	void onRelease(int x, int y, Qt::MouseButton button, Qt::MouseButtons buttons);
-	void onDoubleClick(int x, int y);
+	void onDoubleClick(int x, int y, Qt::MouseButton button);
 	/** What the press grabbed follows the pointer to m_cur */
 	void dragTo();
 	void onLayerChanged();

@@ -207,7 +207,8 @@ public:
 	 */
 
 	bool isPlaying() const;
-	/** From the first frame to the last, a frame every kPlayInterval ms */
+	/** From the first frame to the last, a frame every kPlayInterval ms;
+	 *  timingReached() on the frames of the timings */
 	void play();
 	void stop();
 	void togglePlay();
@@ -230,6 +231,9 @@ signals:
 	void timingsChanged();
 	void currentTimingChanged();
 	void playingChanged(bool playing);
+	/** The playback shows the frame of a timing: in battle its sound effect
+	 *  plays then, and its flash and shake start */
+	void timingReached(const lcf::rpg::AnimationTiming& timing);
 	void useGridChanged(bool on);
 	/** The preview must be drawn again */
 	void previewChanged();
@@ -249,6 +253,8 @@ private:
 	/** From currentFrameChanged() to previewChanged() */
 	void emitFrameShown();
 	void refreshTimings(int select);
+	/** timingReached() for the timings of the frame the playback shows */
+	void reachTimings();
 	void cellsEdited();
 
 	lcf::rpg::Animation* m_anim = nullptr;

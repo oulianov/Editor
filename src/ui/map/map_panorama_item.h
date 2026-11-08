@@ -22,6 +22,7 @@
 #include <QMetaObject>
 #include <QPointer>
 #include <QQuickItem>
+#include <QTimer>
 #include <memory>
 #include "model/map_document.h"
 
@@ -35,6 +36,10 @@
  * Only the copies of the picture in sight have nodes. The picture is read
  * once per file (PictureCache) and its texture shared in the window
  * (MapTextureCache).
+ *
+ * A panorama that scrolls automatically (Map Properties: Autoscroll) moves
+ * while shown, as EasyRPG Player moves it (Game_Map::Parallax::Update) at
+ * 60 frames a second: its copies keep their nodes, only the move changes.
  */
 class MapPanoramaView : public QQuickItem
 {
@@ -90,6 +95,9 @@ private:
 	QSize mapPixels() const;
 	void updateSize();
 	void watchViewport();
+	/** Moves the picture to where it scrolled by now, and waits for its
+	 *  next move while it scrolls in sight */
+	void scroll();
 
 	QPointer<MapDocument> m_doc;
 	QList<QMetaObject::Connection> m_docConnections;
@@ -105,4 +113,12 @@ private:
 	bool m_changed = true;
 	int m_builtCopies = 0;
 	QList<QMetaObject::Connection> m_viewportConnections;
+	// the autoscroll of each axis, as Game_Map::Parallax::Update: 32nds
+	// of a pixel a frame, positive leftwards and upwards (0: none)
+	QPoint m_scrollStep;
+	// how far it scrolled right and down, in pixels of the map
+	QPoint m_scrollShift;
+	// the frames of the window, then the timer, call scroll() again
+	QMetaObject::Connection m_frameConnection;
+	QTimer m_scrollTimer;
 };

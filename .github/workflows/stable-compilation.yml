@@ -334,6 +334,19 @@ jobs:
             echo "::error::The AppImage bundles Qt Widgets"
             exit 1
           fi
+          # Qt Multimedia's FFmpeg plugin and Qt's FFmpeg libraries: without
+          # them, the Jukebox and the pickers play no WAV, OGG or MP3
+          plugin=squashfs-root/usr/plugins/multimedia/libffmpegmediaplugin.so
+          if [ ! -e "$plugin" ]; then
+            echo "::error::The AppImage has no FFmpeg plugin of Qt Multimedia"
+            exit 1
+          fi
+          deps=$(env -u LD_LIBRARY_PATH ldd "$plugin")
+          echo "$deps"
+          if echo "$deps" | grep -q 'not found' || echo "$deps" | grep -E 'libav|libsw' | grep -qv squashfs-root; then
+            echo "::error::The FFmpeg plugin of the AppImage misses libraries, or takes FFmpeg's from the system"
+            exit 1
+          fi
           env -u QT_PLUGIN_PATH -u QML2_IMPORT_PATH -u LD_LIBRARY_PATH \
             "./$appimage" --appimage-extract-and-run --script tests/startup.txt build/testgame2003
           rm -rf squashfs-root

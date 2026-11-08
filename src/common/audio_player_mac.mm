@@ -160,6 +160,8 @@ public:
 		m_engine = nil;
 	}
 
+	QString name() const override { return QStringLiteral("AVAudioEngine"); }
+
 	bool canReopen() const override { return true; }
 
 	bool open(const QString& path, bool midi, QString& error) override {

@@ -16,15 +16,18 @@
  */
 
 #include "animation_canvas.h"
+#include "common/audio_player.h"
 #include "common/dbstring.h"
 #include "core.h"
 #include "defines.h"
 #include "model/animation_tools.h"
+#include "model/project.h"
 #include "model/project_data.h"
 #include "qmlbinding/database_entry.h"
 #include "render/game_graphic.h"
 #include <QKeyEvent>
 #include <QPainter>
+#include <QQuickWindow>
 #include <algorithm>
 
 namespace {
@@ -32,6 +35,8 @@ constexpr int screen_width = AnimationEditor::kScreenWidth;
 constexpr int screen_height = AnimationEditor::kScreenHeight;
 // the size of the patterns in the strip under the preview
 constexpr int thumb = 48;
+// the sound effects heard at once: past them the one heard the longest is cut
+constexpr size_t max_sounds = 8;
 
 /** A cel tinted like the Player does: each channel scaled, then the saturation */
 QImage toned(const QImage& source, const lcf::rpg::AnimationCellData& cell)
@@ -140,7 +145,21 @@ AnimationCanvas::AnimationCanvas(QQuickItem* parent) : QQuickPaintedItem(parent)
 	});
 	connect(&m_editor, &AnimationEditor::timingsChanged, this, &AnimationCanvas::timingsChanged);
 	connect(&m_editor, &AnimationEditor::currentTimingChanged, this, &AnimationCanvas::currentTimingChanged);
-	connect(&m_editor, &AnimationEditor::playingChanged, this, &AnimationCanvas::playingChanged);
+	connect(&m_editor, &AnimationEditor::playingChanged, this, [this](bool playing) {
+		if (playing && m_playSounds) {
+			// found before the first frame, not while it plays; a file added since is heard
+			m_soundFiles.clear();
+			if (auto* anim = m_editor.animation()) {
+				for (const auto& timing : anim->timings) {
+					soundFile(ToQString(timing.se.name));
+				}
+			}
+		}
+		emit playingChanged();
+	});
+	connect(&m_editor, &AnimationEditor::timingReached, this, [this](const lcf::rpg::AnimationTiming& timing) {
+		playSound(timing.se);
+	});
 	connect(&m_editor, &AnimationEditor::useGridChanged, this, &AnimationCanvas::useGridChanged);
 	connect(&m_editor, &AnimationEditor::previewChanged, this, &AnimationCanvas::render);
 }
@@ -198,6 +217,8 @@ int AnimationCanvas::firstTarget() const
 
 void AnimationCanvas::findAnimation()
 {
+	// the sounds of the animation shown before stop
+	stopSounds();
 	const DatabaseEntry found = DatabaseEntry::of(m_entry);
 	lcf::rpg::Animation* anim = nullptr;
 	if (found.valid() && found.list == QLatin1String("animations")
@@ -371,6 +392,22 @@ void AnimationCanvas::setCurrentTiming(int index)
 bool AnimationCanvas::playing() const
 {
 	return m_editor.isPlaying();
+}
+
+bool AnimationCanvas::playSounds() const
+{
+	return m_playSounds;
+}
+
+void AnimationCanvas::setPlaySounds(bool on)
+{
+	if (m_playSounds != on) {
+		m_playSounds = on;
+		if (!on) {
+			stopSounds();
+		}
+		emit playSoundsChanged();
+	}
 }
 
 bool AnimationCanvas::useGrid() const
@@ -690,12 +727,76 @@ void AnimationCanvas::massModify(int first, int last, const QVariantList& cels, 
 
 void AnimationCanvas::togglePlay()
 {
+	if (m_editor.isPlaying()) {
+		stopSounds();
+	}
 	m_editor.togglePlay();
 }
 
 void AnimationCanvas::stop()
 {
+	stopSounds();
 	m_editor.stop();
+}
+
+void AnimationCanvas::playSound(const lcf::rpg::Sound& se)
+{
+	// hidden, it is silent
+	if (!m_playSounds || !isVisible() || !window() || !window()->isVisible()) {
+		return;
+	}
+	const QString name = ToQString(se.name);
+	if (name.isEmpty() || name == QLatin1String("(OFF)") || se.volume <= 0) {
+		return;
+	}
+	const QString path = soundFile(name);
+	if (path.isEmpty()) {
+		return;
+	}
+	// a player done with its sound, else a new one, else the one heard the longest
+	AudioPlayer* player = nullptr;
+	const auto idle = std::ranges::find_if(m_players, [](const AudioPlayer* p) {
+		return p->state() == AudioPlayer::State::Stopped;
+	});
+	if (idle != m_players.end()) {
+		player = *idle;
+		m_players.erase(idle);
+	} else if (m_players.size() < max_sounds) {
+		player = new AudioPlayer(this);
+	} else {
+		player = m_players.front();
+		m_players.erase(m_players.begin());
+	}
+	m_players.push_back(player);
+	player->setVolume(se.volume);
+	player->setTempo(se.tempo);
+	player->setBalance(se.balance);
+	player->play(path);
+}
+
+void AnimationCanvas::stopSounds()
+{
+	for (AudioPlayer* player : m_players) {
+		if (player->state() != AudioPlayer::State::Stopped) {
+			player->stop();
+		}
+	}
+}
+
+QString AnimationCanvas::soundFile(const QString& name)
+{
+	if (name.isEmpty() || name == QLatin1String("(OFF)")) {
+		return QString();
+	}
+	if (const auto found = m_soundFiles.constFind(name); found != m_soundFiles.cend()) {
+		return *found;
+	}
+	ProjectData* project = projectData();
+	// as the pickers find it
+	const QString path = project && project->hasProject()
+		? project->project().findFile(QStringLiteral(SOUND), name, FileFinder::FileType::Sound) : QString();
+	m_soundFiles.insert(name, path);
+	return path;
 }
 
 void AnimationCanvas::render()
@@ -825,6 +926,26 @@ void AnimationCanvas::mouseReleaseEvent(QMouseEvent* event)
 		changed(QStringLiteral("frames"));
 	}
 	event->accept();
+}
+
+void AnimationCanvas::itemChange(ItemChange change, const ItemChangeData& value)
+{
+	if (change == ItemVisibleHasChanged && !value.boolValue) {
+		// another page of the database shown
+		stopSounds();
+	} else if (change == ItemSceneChange) {
+		disconnect(m_windowShown);
+		stopSounds();
+		if (value.window) {
+			// the window closed (OK, Cancel) or hidden
+			m_windowShown = connect(value.window, &QWindow::visibleChanged, this, [this](bool shown) {
+				if (!shown) {
+					stopSounds();
+				}
+			});
+		}
+	}
+	QQuickPaintedItem::itemChange(change, value);
 }
 
 void AnimationCanvas::keyPressEvent(QKeyEvent* event)

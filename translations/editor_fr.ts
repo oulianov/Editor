@@ -519,14 +519,37 @@
         <translation>Le fichier %1 n&apos;existe pas.</translation>
     </message>
     <message>
-        <location line="+15"/>
-        <source>MIDI files cannot be played on this system.</source>
-        <translation>Les fichiers MIDI ne peuvent pas être lus sur ce système.</translation>
-    </message>
-    <message>
         <location line="+139"/>
         <source>%1 cannot be played: %2</source>
         <translation>Impossible de lire %1 : %2</translation>
+    </message>
+    <message>
+        <source>Qt Multimedia cannot play files on this system: its media plugin is missing.</source>
+        <translation>Qt Multimedia ne peut pas lire de fichiers sur ce système : son module de lecture est absent.</translation>
+    </message>
+    <message>
+        <source>The MIDI file is damaged.</source>
+        <translation>Le fichier MIDI est endommagé.</translation>
+    </message>
+    <message>
+        <source>This is not a MIDI file.</source>
+        <translation>Ce n&apos;est pas un fichier MIDI.</translation>
+    </message>
+    <message>
+        <source>The MIDI file has no music.</source>
+        <translation>Le fichier MIDI ne contient pas de musique.</translation>
+    </message>
+    <message>
+        <source>No audio output was found.</source>
+        <translation>Aucune sortie audio n&apos;a été trouvée.</translation>
+    </message>
+    <message>
+        <source>The audio output could not be opened.</source>
+        <translation>La sortie audio n&apos;a pas pu être ouverte.</translation>
+    </message>
+    <message>
+        <source>The audio output stopped working.</source>
+        <translation>La sortie audio a cessé de fonctionner.</translation>
     </message>
 </context>
 <context>
@@ -15996,6 +16019,18 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <source>The database could not be written.</source>
         <translation>Impossible d&apos;écrire la base de données.</translation>
     </message>
+    <message>
+        <source>Window Size</source>
+        <translation>Taille de la fenêtre</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Par défaut</translation>
+    </message>
+    <message>
+        <source>The game&apos;s screen enlarged 1 to 4 times. Default: the size the Player remembers. A window size saved in the Player&apos;s settings may be kept instead</source>
+        <translation>L&apos;écran du jeu agrandi de 1 à 4 fois. Par défaut : la taille que le Player a retenue. Une taille de fenêtre enregistrée dans les réglages du Player peut être gardée à la place</translation>
+    </message>
 </context>
 <context>
     <name>SceneCommandWidget</name>
@@ -16623,6 +16658,22 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <location line="+13"/>
         <source>The program of the system (no line)</source>
         <translation>Le programme du système (sans ligne)</translation>
+    </message>
+    <message>
+        <source>Color scheme</source>
+        <translation>Jeu de couleurs</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>Système</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Clair</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Sombre</translation>
     </message>
 </context>
 <context>

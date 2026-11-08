@@ -26,6 +26,7 @@ Ez.DialogWindow {
 
     Component.onCompleted: {
         language.currentIndex = Math.max(0, language.indexOfValue(Ez.Editor.language))
+        colorScheme.currentIndex = Math.max(0, colorScheme.indexOfValue(Ez.Editor.colorScheme))
         reloadExternal.checked = Ez.Editor.reloadExternalChanges
         maniacMode.checked = Ez.Editor.maniacMode
         searchCache.checked = Ez.Editor.searchCache
@@ -54,6 +55,7 @@ Ez.DialogWindow {
         const colors = commandColors.checked
         const stripes = commandStripes.checked
         const updates = checkUpdates.checked
+        const scheme = colorScheme.currentValue
         const code = language.currentValue
         Ez.Editor.reloadExternalChanges = reload
         Ez.Editor.maniacMode = maniac
@@ -65,6 +67,7 @@ Ez.DialogWindow {
         Ez.Editor.commandColors = colors
         Ez.Editor.commandStripes = stripes
         Ez.Editor.checkForUpdates = updates
+        Ez.Editor.colorScheme = scheme
         Ez.Editor.language = code
     }
 
@@ -80,6 +83,20 @@ Ez.DialogWindow {
                 textRole: "name"
                 valueRole: "code"
                 model: [{ code: "", name: qsTr("System Language") }].concat(Ez.Editor.languages)
+            }
+            // every window light or dark at once on OK, title bars and
+            // menus too where the system can
+            Ez.FormLabel {
+                text: qsTr("Color scheme")
+            }
+            Ez.ComboBox {
+                id: colorScheme
+                objectName: "comboColorScheme"
+                model: [
+                    { value: "system", text: qsTr("System") },
+                    { value: "light", text: qsTr("Light") },
+                    { value: "dark", text: qsTr("Dark") }
+                ]
             }
         }
         // none without a place to look for them (Ez.Updater)

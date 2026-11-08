@@ -87,6 +87,8 @@ Controls.Slider {
         property real rest: 0
 
         target: null
+        // the mice of XWayland too, which Qt takes for touchpads (Linux)
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         enabled: root.stepped && root.activeFocus && root.enabled
         onWheel: event => {
             const angle = event.angleDelta

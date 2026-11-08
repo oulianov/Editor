@@ -26,12 +26,12 @@ lcf::rpg::Chipset* ChipsetEditor::chipset() const {
 void ChipsetEditor::setChipset(lcf::rpg::Chipset* chipset) {
 	m_chipset = chipset;
 	m_stroke = {};
-	if (!chipset) {
-		return;
+	if (chipset) {
+		chipset->terrain_data.resize(LowerTiles, 1);
+		chipset->passable_data_lower.resize(LowerTiles, AllDirections);
+		chipset->passable_data_upper.resize(UpperTiles, AllDirections);
 	}
-	chipset->terrain_data.resize(LowerTiles, 1);
-	chipset->passable_data_lower.resize(LowerTiles, AllDirections);
-	chipset->passable_data_upper.resize(UpperTiles, AllDirections);
+	updateHover();
 }
 
 bool ChipsetEditor::lowerLayer() const {
@@ -40,6 +40,7 @@ bool ChipsetEditor::lowerLayer() const {
 
 void ChipsetEditor::setLowerLayer(bool lower) {
 	m_lower = lower;
+	updateHover();
 }
 
 ChipsetEditor::Mode ChipsetEditor::mode() const {
@@ -48,6 +49,7 @@ ChipsetEditor::Mode ChipsetEditor::mode() const {
 
 void ChipsetEditor::setMode(Mode mode) {
 	m_mode = mode;
+	updateHover();
 }
 
 int ChipsetEditor::terrainId() const {
@@ -202,22 +204,28 @@ const ChipsetEditor::Hover& ChipsetEditor::hover() const {
 }
 
 bool ChipsetEditor::hoverAt(const QPointF& pos) {
+	m_pointer = pos;
+	m_pointed = true;
+	return updateHover();
+}
+
+bool ChipsetEditor::clearHover() {
+	m_pointed = false;
+	return updateHover();
+}
+
+bool ChipsetEditor::updateHover() {
 	Hover hover;
-	if (m_chipset && m_mode == Mode::Directions) {
-		hover.tile = tileAt(pos);
-		if (hover.tile >= 0) {
-			hover.side = sideAt(pos, hover.tile);
+	// the tiles a click changes: no terrain on the upper layer
+	if (m_pointed && m_chipset && (m_lower || m_mode != Mode::Terrain)) {
+		hover.tile = tileAt(m_pointer);
+		if (hover.tile >= 0 && m_mode == Mode::Directions) {
+			hover.side = sideAt(m_pointer, hover.tile);
 		}
 	}
 	const bool changed = hover.tile != m_hover.tile || hover.side != m_hover.side;
 	m_hover = hover;
 	return changed;
-}
-
-bool ChipsetEditor::clearHover() {
-	const bool had = m_hover.tile >= 0;
-	m_hover = {};
-	return had;
 }
 
 void ChipsetEditor::setUniformTerrain(int terrain_id) {

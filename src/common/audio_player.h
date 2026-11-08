@@ -30,7 +30,9 @@ class AudioBackend;
  *
  * On macOS, AVAudioEngine plays WAV, MP3, OGG, Opus... and MIDI with the
  * system's sound bank; elsewhere (or for what it cannot read) QMediaPlayer
- * plays what the Qt Multimedia backend can decode, and MIDI is not supported.
+ * plays what the Qt Multimedia backend can decode, and MIDI plays with a
+ * software synthesizer through QAudioSink (createMidiAudioBackend). The log
+ * (category editor.audio) tells which plays, and why a file cannot.
  *
  * In QML (Ez.AudioPlayer) its properties and play(path), play(), pause()
  * and stop() are the same.

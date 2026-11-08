@@ -32,6 +32,8 @@ Item {
     readonly property Ez.JsonView jsonData: session.database
     readonly property alias database: root.jsonData
     property alias currentIndex: tabs.currentIndex
+    /** The width the tabs of all the pages need side by side (the window's first width) */
+    readonly property int tabsWidth: Math.ceil(tabs.implicitWidth)
     /** The topic of the guide for the page shown */
     readonly property string topic: list !== "" ? (singleTopics[list] ?? "database")
                                                 : (pages[tabs.currentIndex] ? pages[tabs.currentIndex].topic : "database")

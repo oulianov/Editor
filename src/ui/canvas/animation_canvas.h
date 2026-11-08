@@ -18,6 +18,7 @@
 #pragma once
 
 #include <QColor>
+#include <QHash>
 #include <QImage>
 #include <QPointer>
 #include <QQuickPaintedItem>
@@ -25,6 +26,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QtQmlIntegration>
+#include <vector>
 
 #include "model/animation_editor.h"
 #include "qmlbinding/json_view.h"
@@ -36,9 +38,11 @@
  * the frame shown over a monster of the database, its cels placed and
  * dragged with the mouse (Shift: all of them, Ctrl: the one behind), moved
  * with the arrows; the frames, cels and effect timings with RPG Maker's
- * Cut/Copy/Paste; the frame tools (AnimationTools); the playback, without
- * sound. The patterns of the graphic are drawn for the strip under it.
+ * Cut/Copy/Paste; the frame tools (AnimationTools); the playback, with
+ * the sound effects of the timings as in battle (playSounds). The patterns
+ * of the graphic are drawn for the strip under it.
  */
+class AudioPlayer;
 class ProjectData;
 
 class AnimationCanvas : public QQuickPaintedItem
@@ -71,6 +75,9 @@ class AnimationCanvas : public QQuickPaintedItem
 	Q_PROPERTY(QVariantList timingRows READ timingRows NOTIFY timingsChanged)
 	Q_PROPERTY(int currentTiming READ currentTiming WRITE setCurrentTiming NOTIFY currentTimingChanged)
 	Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
+	/** The playback plays the sound effects of the timings on their frames,
+	 *  as in battle; off, it is silent (the previews that play on their own) */
+	Q_PROPERTY(bool playSounds READ playSounds WRITE setPlaySounds NOTIFY playSoundsChanged)
 	Q_PROPERTY(bool useGrid READ useGrid WRITE setUseGrid NOTIFY useGridChanged)
 	/** The cross where the cel coordinates start from is drawn (not in a mere preview) */
 	Q_PROPERTY(bool showOrigin READ showOrigin WRITE setShowOrigin NOTIFY showOriginChanged)
@@ -106,6 +113,8 @@ public:
 	int currentTiming() const;
 	void setCurrentTiming(int index);
 	bool playing() const;
+	bool playSounds() const;
+	void setPlaySounds(bool on);
 	bool useGrid() const;
 	void setUseGrid(bool on);
 	bool showOrigin() const;
@@ -170,7 +179,8 @@ public:
 	/** cels: the slots chosen; values: pattern (from 0), zoom, transparency, tone [r, g, b, saturation], each when set */
 	Q_INVOKABLE void massModify(int first, int last, const QVariantList& cels, const QVariantMap& values);
 
-	// the playback (silent)
+	// the playback: stopped here, the sound effects heard stop too (played
+	// to its end, they ring on, as in battle)
 	Q_INVOKABLE void togglePlay();
 	Q_INVOKABLE void stop();
 
@@ -189,6 +199,7 @@ signals:
 	void timingsChanged();
 	void currentTimingChanged();
 	void playingChanged();
+	void playSoundsChanged();
 	void useGridChanged();
 	void showOriginChanged();
 	void revisionChanged();
@@ -203,6 +214,8 @@ protected:
 	void mouseMoveEvent(QMouseEvent* event) override;
 	void mouseReleaseEvent(QMouseEvent* event) override;
 	void keyPressEvent(QKeyEvent* event) override;
+	/** Hidden (another page shown, its window closed), it is silent */
+	void itemChange(ItemChange change, const ItemChangeData& value) override;
 
 private:
 	/** The project of the entry, else the one open for animationId */
@@ -219,6 +232,11 @@ private:
 	void changed(const QString& path);
 	void bump();
 	QPointF screenPoint(const QPointF& pos) const;
+	/** As the Player's SePlay: nothing for none, "(OFF)" or the volume 0 */
+	void playSound(const lcf::rpg::Sound& se);
+	void stopSounds();
+	/** The file of a sound effect: the game's, else the RTP's; empty when none */
+	QString soundFile(const QString& name);
 
 	QPointer<JsonView> m_entry;
 	AnimationEditor m_editor;
@@ -233,4 +251,10 @@ private:
 	QColor m_patternBackground = Qt::white;
 	int m_revision = 0;
 	bool m_editing = false;
+	bool m_playSounds = false;
+	/** A player each sound heard at once, the last started at the end */
+	std::vector<AudioPlayer*> m_players;
+	/** The files of the sound effects, found again for each playback */
+	QHash<QString, QString> m_soundFiles;
+	QMetaObject::Connection m_windowShown;
 };

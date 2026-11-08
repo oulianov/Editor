@@ -42,16 +42,20 @@ QSize size(const ChipsetEditor& editor);
 /**
  * Draws the tiles from the top-left corner of the painter, on the
  * background already there. graphic: the chipset image, null for the
- * marks alone.
+ * marks alone. The tile under the pointer (ChipsetEditor::hover) is lit:
+ * tinted and framed in highlight, its mark larger and paler in a halo of
+ * it (in the Directions mode, the mark of the side under the pointer).
  */
-void paint(QPainter& painter, const ChipsetEditor& editor, const QPixmap& graphic);
+void paint(QPainter& painter, const ChipsetEditor& editor, const QPixmap& graphic,
+	const QColor& highlight = QColor(61, 174, 233));
 
 /**
  * A mark of the Directions mode, as RPG Maker 2003 draws it in a square of
  * 16 pixels at a point: an arrow where the hero can walk out of the tile,
  * a dot where not; white, the one under the mouse yellow. side: a flag of
- * ChipsetEditor (Up, Down, Left, Right).
+ * ChipsetEditor (Up, Down, Left, Right); halo: around it (invalid: none).
  */
-void drawDirection(QPainter& painter, QPoint at, int side, bool open, bool hovered);
+void drawDirection(QPainter& painter, QPoint at, int side, bool open, bool hovered,
+	const QColor& halo = QColor());
 
 }

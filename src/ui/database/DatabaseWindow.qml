@@ -26,6 +26,31 @@ Ez.DialogWindow {
     /** The page and the entry shown at first (DatabasePage.start) */
     property alias start: view.start
     readonly property alias view: view
+    /**
+     * The part of the screen it opens on that windows can use (DatabaseWindows
+     * gives the main window's): its first size depends on it
+     */
+    property rect screenArea: Ez.Editor.screenArea(contentItem)
+
+    /**
+     * The size it opens at the first time (then where and as large as it
+     * was closed, QmlHost): all the tabs side by side (the widest pages,
+     * Hero Status and System, need less, in French too) and the Heroes page
+     * whole, higher on a large screen for the lists, command lists and
+     * canvases; within the screen (on a laptop's, the pages scroll), with
+     * room for its title bar, which is not in its size, above it once
+     * centred. One list alone: a smaller one.
+     */
+    function firstSize() {
+        const titleRoom = 32
+        let width = list === "" ? Math.max(1040, view.tabsWidth + 2 * Ez.Metrics.dialogMargin) : 480
+        let height = list === "" ? Math.max(850, screenArea.height * 0.7) : 420
+        if (screenArea.width > 0 && screenArea.height > 0) {
+            width = Math.min(width, screenArea.width - 2 * titleRoom)
+            height = Math.min(height, screenArea.height - 2 * titleRoom)
+        }
+        return Qt.size(Math.floor(width), Math.floor(height))
+    }
 
     /** Shows a page and an entry of it (DatabasePage.showEntry) */
     function showEntry(start) {
@@ -62,17 +87,20 @@ Ez.DialogWindow {
     flags: Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowMinMaxButtonsHint
     standardButtons: Controls.DialogButtonBox.Ok | Controls.DialogButtonBox.Cancel
                      | Controls.DialogButtonBox.Apply | Controls.DialogButtonBox.Help
-    // as wide as its widest pages (Hero Status, Terrain; in French too):
-    // no page scrolls sideways; one list alone: a smaller one
-    preferredWidth: list === "" ? 1040 : 480
-    height: Math.max(minimumHeight, list === "" ? 635 : 420)
 
     onAccepting: (check) => {
         check.ok = applyChanges()
     }
     onClosing: view.saveViewState()
 
-    Component.onCompleted: view.session.window = root
+    Component.onCompleted: {
+        view.session.window = root
+        // set once, before QmlHost centres it at that size: a page made
+        // later does not resize it
+        const size = firstSize()
+        preferredWidth = size.width
+        preferredHeight = size.height
+    }
     Binding {
         target: view.session
         property: "editing"

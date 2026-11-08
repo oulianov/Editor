@@ -48,11 +48,13 @@ class EditorBridge : public QObject {
 	Q_PROPERTY(bool animateTiles READ animateTiles WRITE setAnimateTiles NOTIFY settingsChanged)
 	Q_PROPERTY(bool commandColors READ commandColors WRITE setCommandColors NOTIFY settingsChanged)
 	Q_PROPERTY(bool commandStripes READ commandStripes WRITE setCommandStripes NOTIFY settingsChanged)
+	/** Light or dark windows: "system", "light" or "dark", shown at once (EditorSettings::colorScheme) */
+	Q_PROPERTY(QString colorScheme READ colorScheme WRITE setColorScheme NOTIFY settingsChanged)
 	Q_PROPERTY(QString defaultScriptEditor READ defaultScriptEditor CONSTANT)
 	/** The languages of the Editor besides the system's: {code, name} in their own language */
 	Q_PROPERTY(QVariantList languages READ languages CONSTANT)
 	Q_PROPERTY(QString version READ version CONSTANT)
-	/** The system shows dark colors */
+	/** The windows show dark colors: the scheme chosen, else the system's */
 	Q_PROPERTY(bool dark READ dark NOTIFY darkChanged)
 	/** The font of the forms: the small size of the platform on macOS */
 	Q_PROPERTY(QFont font READ font CONSTANT)
@@ -84,6 +86,8 @@ public:
 	void setCommandColors(bool on);
 	bool commandStripes() const;
 	void setCommandStripes(bool on);
+	QString colorScheme() const;
+	void setColorScheme(const QString& scheme);
 	QString defaultScriptEditor() const;
 	QVariantList languages() const;
 	QString version() const;

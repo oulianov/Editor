@@ -253,6 +253,27 @@ private:
 		QWindowSystemInterface::handleMouseEvent<Sync>(m_window, m_timestamp += 10, native(position), nativeGlobal(position),
 			buttons, button, type, modifiers);
 	}
+	/** The wheel turned over a point (a notch is 120); touchpad: by a device
+	 *  Qt takes for a touchpad, as the wheel of XWayland (its relative pointer) */
+	void wheel(const QPointF& at, int delta, Qt::KeyboardModifiers modifiers, bool touchpad)
+	{
+		mouse(QEvent::MouseMove, at, Qt::NoButton, Qt::NoButton, modifiers);
+		if (touchpad) {
+			static const QPointingDevice* device = [] {
+				auto* device = new QPointingDevice(QStringLiteral("automation relative pointer"), 1001,
+					QInputDevice::DeviceType::TouchPad, QPointingDevice::PointerType::Finger,
+					QInputDevice::Capability::Position | QInputDevice::Capability::Scroll, 1, 3);
+				QWindowSystemInterface::registerInputDevice(device);
+				return device;
+			}();
+			QWindowSystemInterface::handleWheelEvent(m_window, m_timestamp += 10, device, native(at), nativeGlobal(at),
+				QPoint(), QPoint(0, delta), modifiers);
+		} else {
+			QWindowSystemInterface::handleWheelEvent(m_window, m_timestamp += 10, native(at), nativeGlobal(at), QPoint(),
+				QPoint(0, delta), modifiers);
+		}
+		QWindowSystemInterface::flushWindowSystemEvents();
+	}
 	void click(const QPointF& position, Qt::MouseButton button, bool twice = false,
 		Qt::KeyboardModifiers modifiers = Qt::NoModifier)
 	{
@@ -359,13 +380,10 @@ std::optional<bool> MapDriver::run(const QStringList& args)
 	if (m_palette && cmd == "expect-palette") {
 		return expectRect(QStringLiteral("the palette's selection"), m_palette->property("selectionRect").toRect(), args);
 	}
-	if (m_palette && cmd == "palette-wheel" && args.size() == 5 && toInts(args, 1, {&x, &y, &a}) && args[4] == "ctrl") {
+	if (m_palette && cmd == "palette-wheel" && (args.size() == 5 || (args.size() == 6 && args[5] == "touchpad"))
+			&& toInts(args, 1, {&x, &y, &a}) && args[4] == "ctrl") {
 		// Ctrl + wheel over a cell of the palette: its zoom
-		const QPointF at = paletteCellPoint(x, y);
-		mouse(QEvent::MouseMove, at, Qt::NoButton, Qt::NoButton, Qt::ControlModifier);
-		QWindowSystemInterface::handleWheelEvent(m_window, m_timestamp += 10, native(at), nativeGlobal(at), QPoint(),
-			QPoint(0, a), Qt::ControlModifier);
-		QWindowSystemInterface::flushWindowSystemEvents();
+		wheel(paletteCellPoint(x, y), a, Qt::ControlModifier, args.size() == 6);
 		return true;
 	}
 	if (m_palette && cmd == "expect-palette-zoom" && args.size() == 2) {
@@ -400,10 +418,12 @@ std::optional<bool> MapDriver::run(const QStringList& args)
 		return words;
 	};
 	if ((cmd == "map-click" || cmd == "map-double-click") && args.size() >= 3 && toInts(args, 1, {&x, &y})) {
-		const auto words = options(3, {"left", "right", "shift"});
+		const auto words = options(3, {"left", "right", "middle", "shift"});
 		if (!words)
 			return false;
-		click(cellPoint(x, y, true), words->contains("right") ? Qt::RightButton : Qt::LeftButton, cmd == "map-double-click",
+		const Qt::MouseButton button = words->contains("right") ? Qt::RightButton
+			: words->contains("middle") ? Qt::MiddleButton : Qt::LeftButton;
+		click(cellPoint(x, y, true), button, cmd == "map-double-click",
 			words->contains("shift") ? Qt::ShiftModifier : Qt::NoModifier);
 		return true;
 	}
@@ -416,7 +436,8 @@ std::optional<bool> MapDriver::run(const QStringList& args)
 		return true;
 	}
 	if (cmd == "map-press" && (args.size() == 3 || args.size() == 4) && toInts(args, 1, {&x, &y})) {
-		const Qt::MouseButton button = args.value(3) == "right" ? Qt::RightButton : Qt::LeftButton;
+		const Qt::MouseButton button = args.value(3) == "right" ? Qt::RightButton
+			: args.value(3) == "middle" ? Qt::MiddleButton : Qt::LeftButton;
 		const QPointF at = cellPoint(x, y, true);
 		pointer().pressScroll = scroll();
 		mouse(QEvent::MouseMove, at, Qt::NoButton, Qt::NoButton);
@@ -447,7 +468,8 @@ std::optional<bool> MapDriver::run(const QStringList& args)
 		return true;
 	}
 	if (cmd == "map-release" && args.size() == 1) {
-		const Qt::MouseButton button = pointer().buttons & Qt::LeftButton ? Qt::LeftButton : Qt::RightButton;
+		const Qt::MouseButton button = pointer().buttons & Qt::LeftButton ? Qt::LeftButton
+			: pointer().buttons & Qt::RightButton ? Qt::RightButton : Qt::MiddleButton;
 		mouse(QEvent::MouseButtonRelease, pointer().position, button, pointer().buttons & ~button);
 		return true;
 	}
@@ -467,16 +489,16 @@ std::optional<bool> MapDriver::run(const QStringList& args)
 		QWindowSystemInterface::handleKeyEvent<Sync>(m_window, m_timestamp += 10, QEvent::KeyRelease, key.key(), key.keyboardModifiers());
 		return true;
 	}
-	if (cmd == "map-wheel" && (args.size() == 4 || args.size() == 5) && toInts(args, 1, {&x, &y, &a})) {
+	if (cmd == "map-wheel" && args.size() >= 4 && toInts(args, 1, {&x, &y, &a})) {
 		// a wheel turned over a cell (a notch is 120), with Ctrl to zoom
-		if (args.size() == 5 && args[4] != "ctrl")
+		const auto words = options(4, {"ctrl", "meta", "shift", "touchpad"});
+		if (!words)
 			return false;
-		const Qt::KeyboardModifiers modifiers = args.size() == 5 ? Qt::ControlModifier : Qt::NoModifier;
-		const QPointF at = cellPoint(x, y, true);
-		mouse(QEvent::MouseMove, at, Qt::NoButton, Qt::NoButton, modifiers);
-		QWindowSystemInterface::handleWheelEvent(m_window, m_timestamp += 10, native(at), nativeGlobal(at), QPoint(),
-			QPoint(0, a), modifiers);
-		QWindowSystemInterface::flushWindowSystemEvents();
+		Qt::KeyboardModifiers modifiers;
+		modifiers.setFlag(Qt::ControlModifier, words->contains("ctrl"));
+		modifiers.setFlag(Qt::MetaModifier, words->contains("meta"));
+		modifiers.setFlag(Qt::ShiftModifier, words->contains("shift"));
+		wheel(cellPoint(x, y, true), a, modifiers, words->contains("touchpad"));
 		return true;
 	}
 	if (cmd == "pinch" && args.size() == 3 && args[1] == "map") {
@@ -631,7 +653,9 @@ std::optional<bool> MapDriver::run(const QStringList& args)
 		const QRectF cells = m_editor->viewCells();
 		qCInfo(lcAutomation).noquote() << QStringLiteral("map: zoom %1, scrolled to %2, %3, cells %4,%5 to %6,%7 shown, selection %8, brush %9")
 			.arg(m_editor->scale()).arg(scroll().x()).arg(scroll().y()).arg(cells.left(), 0, 'f', 1).arg(cells.top(), 0, 'f', 1)
-			.arg(cells.right(), 0, 'f', 1).arg(cells.bottom(), 0, 'f', 1).arg(rectText(m_editor->selectionRect()), rectText(m_editor->brushRect()));
+			.arg(cells.right(), 0, 'f', 1).arg(cells.bottom(), 0, 'f', 1).arg(rectText(m_editor->selectionRect()), rectText(m_editor->brushRect()))
+			// the window's: the hand of a drag with the middle button
+			+ QStringLiteral(", window cursor %1").arg(QLatin1String(QMetaEnum::fromType<Qt::CursorShape>().valueToKey(m_window->cursor().shape())));
 		return true;
 	}
 	return std::nullopt;

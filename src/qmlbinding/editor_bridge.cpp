@@ -33,7 +33,6 @@
 #include <QQuickTextDocument>
 #include <QQuickWindow>
 #include <QScreen>
-#include <QStyleHints>
 #include <QTextBlock>
 #include <QTextDocument>
 #include <qpa/qplatformtheme.h>
@@ -41,7 +40,7 @@
 
 EditorBridge::EditorBridge(QObject* parent) : QObject(parent) {
 	connect(&EditorSettings::instance(), &EditorSettings::changed, this, &EditorBridge::settingsChanged);
-	connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, &EditorBridge::darkChanged);
+	connect(&EditorSettings::instance(), &EditorSettings::darkChanged, this, &EditorBridge::darkChanged);
 }
 
 QString EditorBridge::language() const { return EditorSettings::instance().language(); }
@@ -66,6 +65,8 @@ bool EditorBridge::commandColors() const { return EditorSettings::instance().com
 void EditorBridge::setCommandColors(bool on) { EditorSettings::instance().setCommandColors(on); }
 bool EditorBridge::commandStripes() const { return EditorSettings::instance().commandStripes(); }
 void EditorBridge::setCommandStripes(bool on) { EditorSettings::instance().setCommandStripes(on); }
+QString EditorBridge::colorScheme() const { return EditorSettings::instance().colorScheme(); }
+void EditorBridge::setColorScheme(const QString& scheme) { EditorSettings::instance().setColorScheme(scheme); }
 QString EditorBridge::defaultScriptEditor() const { return EditorSettings::defaultScriptEditor(); }
 
 QVariantList EditorBridge::languages() const {
@@ -81,7 +82,7 @@ QString EditorBridge::version() const {
 }
 
 bool EditorBridge::dark() const {
-	return QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
+	return EditorSettings::instance().isDark();
 }
 
 QFont EditorBridge::font() const {

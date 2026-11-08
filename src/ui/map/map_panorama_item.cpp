@@ -16,13 +16,18 @@
  */
 
 #include "map_panorama_item.h"
+#include <QElapsedTimer>
 #include <QMatrix4x4>
 #include <QQuickWindow>
+#include <QSGClipNode>
+#include <QSGGeometry>
 #include <QSGImageNode>
 #include <QSGRectangleNode>
 #include <QSGTexture>
 #include <QSGTransformNode>
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include "core.h"
 #include "defines.h"
 #include "map_layer_item.h"
@@ -35,9 +40,16 @@
 
 namespace {
 
+// The frames of the game, as EasyRPG Player counts them
+constexpr qint64 FramesPerSecond = 60;
+constexpr qint64 NsPerSecond = 1'000'000'000;
+// a frame of the window, about
+constexpr int FrameMs = 17;
+
 // The zoom, the copies of the picture in sight, or the magenta of a map
 // without a panorama. It holds the texture of the picture, shared with the
-// other views of the window.
+// other views of the window. A scrolling panorama has its copies in a clip
+// (the map) and a move (the scroll).
 class PanoramaNode : public QSGTransformNode
 {
 public:
@@ -46,15 +58,65 @@ public:
 		while (QSGNode* child = firstChild())
 			delete child;
 		none = nullptr;
+		scroll = nullptr;
 		copies.clear();
 	}
 
 	std::shared_ptr<QSGTexture> texture;
 	qint64 picture = 0;
 	QSGRectangleNode* none = nullptr;
-	// where the copies are, in pixels of the map
+	QSGTransformNode* scroll = nullptr;
+	// where the copies are, in pixels of the map (before the scroll)
 	std::vector<QRect> copies;
 };
+
+// The step of Game_Map::Parallax::Update for a speed of Map Properties
+// (-8 to 8): 2^|speed| 32nds of a pixel a frame, a positive speed moving
+// the picture right or down
+int scrollStep(int speed)
+{
+	speed = std::clamp(speed, -8, 8);
+	return speed < 0 ? (1 << -speed) : speed > 0 ? -(1 << speed) : 0;
+}
+
+qint64 floorDiv(qint64 a, qint64 b)
+{
+	return a / b - (a % b != 0 && (a < 0) != (b < 0));
+}
+
+// How far right (or down) a picture size pixels wide scrolled in frame,
+// as the Player draws it: its position in 32nds of a pixel wraps around
+// the picture, and is drawn at the pixel left of it
+int scrolled(qint64 frame, int step, int size)
+{
+	if (!step || size <= 0)
+		return 0;
+	const qint64 left = floorDiv(frame * step, 32) % size;
+	return static_cast<int>((size - left) % size);
+}
+
+// The first frame after frame that moves the picture a pixel
+qint64 nextMove(qint64 frame, int step)
+{
+	const qint64 pixel = floorDiv(frame * step, 32);
+	qint64 next = frame + 1;
+	// a step is 2 to 256: 16 frames at most
+	while (floorDiv(next * step, 32) == pixel)
+		next++;
+	return next;
+}
+
+// The time of the game, from the first panorama view: the views of a map
+// (the floating tiles' panorama...) scroll together
+qint64 scrollTime()
+{
+	static const QElapsedTimer clock = [] {
+		QElapsedTimer timer;
+		timer.start();
+		return timer;
+	}();
+	return clock.nsecsElapsed();
+}
 
 }
 
@@ -64,6 +126,9 @@ MapPanoramaView::MapPanoramaView(QQuickItem* parent) :
 	setFlag(ItemHasContents);
 	// clipRect() is then the part of the item in its Flickable (or window)
 	setFlag(ItemObservesViewport);
+	m_scrollTimer.setSingleShot(true);
+	m_scrollTimer.setTimerType(Qt::PreciseTimer);
+	connect(&m_scrollTimer, &QTimer::timeout, this, &MapPanoramaView::scroll);
 }
 
 MapPanoramaView::~MapPanoramaView() = default;
@@ -140,8 +205,14 @@ QImage MapPanoramaView::picture() const
 void MapPanoramaView::reload()
 {
 	QString name;
-	if (m_doc && m_doc->hasMap() && m_doc->map().parallax_flag)
-		name = ToQString(m_doc->map().parallax_name);
+	QPoint step;
+	if (m_doc && m_doc->hasMap() && m_doc->map().parallax_flag) {
+		const lcf::rpg::Map& map = m_doc->map();
+		name = ToQString(map.parallax_name);
+		// only an axis that loops scrolls by itself
+		step = QPoint(map.parallax_loop_x && map.parallax_auto_loop_x ? scrollStep(map.parallax_sx) : 0,
+			map.parallax_loop_y && map.parallax_auto_loop_y ? scrollStep(map.parallax_sy) : 0);
+	}
 	// as Core::panorama: in the project, not in the RTP
 	std::shared_ptr<const QImage> picture;
 	if (!name.isEmpty() && core().project())
@@ -149,6 +220,7 @@ void MapPanoramaView::reload()
 	const bool changed = name != m_name || picture != m_picture;
 	m_name = name;
 	m_picture = std::move(picture);
+	m_scrollStep = step;
 	if (!m_picture || m_picture->cacheKey() != m_darkKey) {
 		m_darkPicture = QImage();
 		m_darkKey = 0;
@@ -156,6 +228,7 @@ void MapPanoramaView::reload()
 	m_changed = true;
 	updateSize();
 	update();
+	scroll();
 	if (changed)
 		emit pictureChanged();
 }
@@ -190,10 +263,48 @@ void MapPanoramaView::watchViewport()
 			m_viewportConnections << connect(item, signal, this, &QQuickItem::update);
 }
 
+void MapPanoramaView::scroll()
+{
+	m_scrollTimer.stop();
+	const qint64 now = scrollTime();
+	const qint64 frame = now * FramesPerSecond / NsPerSecond;
+	const QSize size = m_picture ? m_picture->size() : QSize();
+	const QPoint shift(scrolled(frame, m_scrollStep.x(), size.width()), scrolled(frame, m_scrollStep.y(), size.height()));
+	if (shift != m_scrollShift) {
+		m_scrollShift = shift;
+		update();
+	}
+	if (!m_picture || m_scrollStep.isNull() || !isVisible() || !window()) {
+		disconnect(m_frameConnection);
+		return;
+	}
+	// The frames of the window show the moves: once the next one is less
+	// than a frame away, each frame asks for the next (update(), which only
+	// this item draws again). Further, a timer wakes them up a frame before.
+	if (!m_frameConnection)
+		m_frameConnection = connect(window(), &QQuickWindow::afterAnimating, this, &MapPanoramaView::scroll);
+	qint64 next = std::numeric_limits<qint64>::max();
+	for (const int step : {m_scrollStep.x(), m_scrollStep.y()})
+		if (step)
+			next = std::min(next, nextMove(frame, step));
+	const qint64 wait = (next * NsPerSecond / FramesPerSecond - now) / 1'000'000;
+	if (wait < FrameMs)
+		update();
+	else
+		m_scrollTimer.start(static_cast<int>(std::min<qint64>(wait - FrameMs, std::numeric_limits<int>::max())));
+}
+
 void MapPanoramaView::itemChange(ItemChange change, const ItemChangeData& value)
 {
 	if ((change == ItemSceneChange && value.window) || change == ItemParentHasChanged)
 		watchViewport();
+	if (change == ItemSceneChange) {
+		// the frames of the new window, if any
+		disconnect(m_frameConnection);
+		scroll();
+	} else if (change == ItemVisibleHasChanged) {
+		scroll();
+	}
 	QQuickItem::itemChange(change, value);
 }
 
@@ -250,7 +361,14 @@ QSGNode* MapPanoramaView::updatePaintNode(QSGNode* old_node, UpdatePaintNodeData
 		? QRect(QPoint(static_cast<int>(std::floor(visible.left() / m_zoom)), static_cast<int>(std::floor(visible.top() / m_zoom))),
 			QPoint(static_cast<int>(std::ceil(visible.right() / m_zoom)) - 1, static_cast<int>(std::ceil(visible.bottom() / m_zoom)) - 1))
 		: QRect();
-	const std::vector<Panorama::Copy> copies = Panorama::copies(m_picture->size(), map, area);
+	// An axis that scrolls has the copies of a map one picture larger,
+	// moved back by a picture less the scroll: wherever the scroll is, they
+	// cover the map (cut at its edges), and only the move changes
+	const QSize size = m_picture->size();
+	const QSize back(m_scrollStep.x() ? size.width() : 0, m_scrollStep.y() ? size.height() : 0);
+	const bool scrolls = !back.isNull();
+	const std::vector<Panorama::Copy> copies = Panorama::copies(size, map + back,
+		area.isEmpty() ? area : area.adjusted(0, 0, back.width(), back.height()));
 	if (m_darkened && m_darkKey != m_picture->cacheKey()) {
 		m_darkPicture = MapLayerView::darken(*m_picture);
 		m_darkKey = m_picture->cacheKey();
@@ -259,11 +377,26 @@ QSGNode* MapPanoramaView::updatePaintNode(QSGNode* old_node, UpdatePaintNodeData
 	std::vector<QRect> targets;
 	for (const Panorama::Copy& copy : copies)
 		targets.push_back(copy.target);
-	if (m_changed || root->none || root->picture != shown.cacheKey() || targets != root->copies) {
+	if (m_changed || root->none || root->picture != shown.cacheKey() || targets != root->copies || scrolls != (root->scroll != nullptr)) {
 		root->clear();
 		if (root->picture != shown.cacheKey()) {
 			root->texture = MapTextureCache::texture(window(), shown);
 			root->picture = shown.cacheKey();
+		}
+		QSGNode* parent = root;
+		if (scrolls) {
+			const QRectF rect(QPoint(0, 0), map);
+			auto* clip = new QSGClipNode();
+			auto* geometry = new QSGGeometry(QSGGeometry::defaultAttributes_Point2D(), 4);
+			QSGGeometry::updateRectGeometry(geometry, rect);
+			clip->setGeometry(geometry);
+			clip->setFlag(QSGNode::OwnsGeometry);
+			clip->setIsRectangular(true);
+			clip->setClipRect(rect);
+			root->scroll = new QSGTransformNode();
+			clip->appendChildNode(root->scroll);
+			root->appendChildNode(clip);
+			parent = root->scroll;
 		}
 		for (const Panorama::Copy& copy : copies) {
 			QSGImageNode* node = window()->createImageNode();
@@ -273,9 +406,18 @@ QSGNode* MapPanoramaView::updatePaintNode(QSGNode* old_node, UpdatePaintNodeData
 			node->setFiltering(QSGTexture::Nearest);
 			node->setRect(QRectF(copy.target));
 			node->setSourceRect(QRectF(copy.source));
-			root->appendChildNode(node);
+			parent->appendChildNode(node);
 		}
 		root->copies = std::move(targets);
+	}
+	if (root->scroll) {
+		// on a pixel of the screen, as the corner of the map
+		const double pixels = m_zoom * dpr;
+		QMatrix4x4 move;
+		move.translate(static_cast<float>(std::round((m_scrollShift.x() - back.width()) * pixels) / pixels),
+			static_cast<float>(std::round((m_scrollShift.y() - back.height()) * pixels) / pixels));
+		if (move != root->scroll->matrix())
+			root->scroll->setMatrix(move);
 	}
 	m_builtCopies = static_cast<int>(root->copies.size());
 	m_changed = false;

@@ -105,8 +105,8 @@ at once: the next commands act on the dialog, until `close`.
 | `expect-option-enabled NAME INDEX on\|off` | The same for one item of a combo box.
 | `inspect-controls FILE` | Writes the controls and group boxes of the dialog to a JSON file: values, choices, enabled states, position and widths (to find what makes a window too wide).
 | `check-option-spacing PIXELS` | Checks the vertical clearance between sibling check boxes and radio buttons, including their rendered indicators.
-| `map-click X Y [left\|right] [shift]` | Clicks a cell of the map shown (see the map canvas below); `shift`: with Shift held.
-| `map-double-click X Y` | Double-clicks a cell of the map shown.
+| `map-click X Y [left\|right\|middle] [shift]` | Clicks a cell of the map shown (see the map canvas below); `shift`: with Shift held.
+| `map-double-click X Y [left\|right\|middle]` | Double-clicks a cell of the map shown (`right`: switches between the lower and the upper layer).
 | `map-drag X1 Y1 X2 Y2 [right] [shift]` | Drags on the map with the left button (`right`: the right one), through every cell; `shift`: with Shift held.
 | `palette INDEX [W H]` | Selects tiles of the palette of the current layer (0: the first tile after the eraser row), a block of W x H tiles.
 | `expect-tile lower\|upper X Y ID [exact]` | Fails unless the tile of the cell is ID (lower layer: the same terrain, unless `exact`: the borders too).
@@ -147,7 +147,7 @@ at once: the next commands act on the dialog, until `close`.
 | `pick-entry LIST ID [none]` | Opens the entry picker (`Pickers::pickEntry`) on a list of the database as JSON names it (`switches`, `items`...), starting on the entry ID, with "(None)" first when `none`. Returns at once; its answer: the ID chosen (0: "(None)") or `cancel`.
 | `expect-answer VALUE` | Fails unless the last `dialog-service` question was answered VALUE: `reload`, `overwrite` or `cancel` for a file changed on disk; `yes`, `no` or `cancel` for a question; `ok` once a message is closed; `(waiting)` while it is shown. The same for the last `pick-file` or `pick-entry`.
 | `expect-player TEXT\|none` | Fails unless the EasyRPG Player that test play runs (found next to the Editor, in the PATH... else downloaded) has the text in its path, or there is none (`none`). Scripts download Players into their own folder; `EASYRPG_EDITOR_LAUNCHER_BASE` (a folder URL) replaces easyrpg.org, as the tests' fake archives do. Scripts check for updates of the Editor automatically only with `EDITOR_UPDATE_FEED`, a release feed of their own (see link:Updates.adoc[Updates]).
-| `color-scheme dark\|light` | Shows the windows in a dark palette with the icons drawn for it, as a dark mode does, on any platform (offscreen too); `light` goes back to the palette the Editor started with. The windows opened after it are drawn in it from the start.
+| `color-scheme dark\|light\|system` | Chooses the color scheme as the Settings do (General, Color scheme; in the script's own settings): every window in dark or light colors with the icons drawn for them, on any platform (offscreen, which has no dark mode, in Fusion's colors); `system` goes back to the system's. The windows opened after it are drawn in it from the start.
 | `check-layout` | Fails for every control smaller than it needs to be (clipped text...) and for overlapping radio options.
 | `set-enabled NAME on\|off` | Enables or disables a control (or a section, with its controls) of a QML window, by its object name or button text: to see how the windows draw what cannot be changed.
 | `check-disabled` | Fails for every disabled button, check box, radio button, combo box, spin box, slider, field or label of a QML window drawn as an enabled one (not faded, as the Ez controls draw them).
@@ -345,13 +345,13 @@ answers. The input goes through the window system, as a hand would:
 |===
 | Command | Effect
 
-| `map-press X Y [right]`, `map-move X Y`, `map-release` | Presses a button on a cell, moves the pointer to a cell (the buttons held stay held), releases it.
+| `map-press X Y [right\|middle]`, `map-move X Y`, `map-release` | Presses a button on a cell, moves the pointer to a cell (the buttons held stay held: the middle one drags the view), releases it.
 | `map-move-out left\|right\|up\|down PIXELS` | Moves the pointer past an edge of the view (a drag scrolls it).
 | `map-key SEQUENCE` | Presses a key on the map: the map takes the keys it uses before the shortcuts of the window, as when typed.
-| `map-wheel X Y DELTA [ctrl]` | Turns the wheel over a cell (a notch is 120); with Ctrl, it zooms.
+| `map-wheel X Y DELTA [ctrl] [meta] [shift] [touchpad]` | Turns the wheel over a cell (a notch is 120), with these keys held; with Ctrl (on macOS Meta too: the Control key), it zooms. `touchpad`: from a device Qt takes for a touchpad, as the mouse wheel of XWayland on Linux (its relative pointer).
 | `map-zoom ZOOM`, `map-scroll X Y`, `map-area X Y W H\|none` | Sets the zoom (snapped as the zoom menu does), scrolls the view to a pixel of the map, dashes the boundaries of an area.
 | `palette-click X Y [right]`, `palette-drag X1 Y1 X2 Y2 [cancel]` | Clicks or drags on cells of the palette (row 0: the eraser); `cancel`: the right button before the left one is released.
-| `palette-wheel X Y DELTA ctrl`, `expect-palette-zoom ZOOM` | Zooms the palette with Ctrl + wheel over a cell; fails unless the palette has this zoom.
+| `palette-wheel X Y DELTA ctrl [touchpad]`, `expect-palette-zoom ZOOM` | Zooms the palette with Ctrl + wheel over a cell (`touchpad`: as for `map-wheel`); fails unless the palette has this zoom.
 | `expect-zoom ZOOM` | Fails unless the map is shown at this zoom.
 | `expect-selection`, `expect-brush`, `expect-floating`, `expect-palette` `X Y W H\|none` | Fails unless the selection of the selection tool, the frame of the tool, the pasted tiles floating or the frame of the palette are on these cells.
 | `expect-picked TILE W H` | Fails unless the tiles picked for the layer edited start with TILE, W x H of them.
@@ -359,7 +359,7 @@ answers. The input goes through the window system, as a hand would:
 | `expect-cell-under X Y` | Fails unless the cell under the pointer is this one (after a zoom).
 | `expect-dragging on\|off` | Fails unless a button is held on the map (a stroke, a selection, a drag).
 | `expect-scrolled left\|right\|up\|down\|none` | Fails unless the view scrolled that way since the last `map-press` or `map-scroll`.
-| `log-map` | Logs the zoom, the scroll, the cells shown, the selection and the brush.
+| `log-map` | Logs the zoom, the scroll, the cells shown, the selection, the brush and the cursor of the window (`ClosedHandCursor` while the middle button drags the view).
 | `map-frames FRAMES DX DY [NAME]` | Times the next frames of the window while the view scrolls DX, DY pixels a frame (back at the ends), and logs them with the name once done (wait meanwhile).
 |===
 

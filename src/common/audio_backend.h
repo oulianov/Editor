@@ -28,6 +28,9 @@ class AudioBackend {
 public:
 	virtual ~AudioBackend() = default;
 
+	/** What plays, for the log */
+	virtual QString name() const = 0;
+
 	/** Loads the file; false with a message when this backend cannot play it */
 	virtual bool open(const QString& path, bool midi, QString& error) = 0;
 	/** Whether open() can load another file after this one (quicker than a new backend) */
@@ -46,6 +49,8 @@ public:
 	/** 1 is normal speed (RPG Maker's tempo / 100) */
 	virtual void setRate(float rate) = 0;
 	virtual bool canPan() const { return true; }
+	/** Loops by itself, without a gap (else AudioPlayer seeks to loopStart() once finished()) */
+	virtual void setLooping(bool) {}
 
 	virtual qint64 position() const = 0;
 	/** 0 while unknown */
@@ -62,3 +67,11 @@ public:
 /** AVAudioEngine: WAV, MP3, AIFF, AAC, FLAC... and MIDI with the system's GS sound bank (audio_player_mac.mm) */
 std::unique_ptr<AudioBackend> createAppleAudioBackend();
 #endif
+/**
+ * MIDI as EasyRPG Player plays it, for the systems whose Qt Multimedia has
+ * none (audio_player_midi.cpp): on the MIDI device of Windows (its GS
+ * Wavetable Synth), else with a software synthesizer through QAudioSink,
+ * FluidSynth when found with a soundfont (Linux), else FmMidi; fmMidiOnly:
+ * FmMidi always
+ */
+std::unique_ptr<AudioBackend> createMidiAudioBackend(bool fmMidiOnly);

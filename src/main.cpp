@@ -31,12 +31,9 @@
 #include <QDir>
 #include <QLibraryInfo>
 #include <QLoggingCategory>
-#include <QPalette>
 #include <QSettings>
 #include <QDebug>
-#include <QIcon>
 #include <QQuickStyle>
-#include <QStyleHints>
 
 int main(int argc, char *argv[]) {
 	QGuiApplication app(argc, argv);
@@ -110,17 +107,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	// the icons drawn for the light or the dark windows
-	auto hints = app.styleHints();
-	auto scheme_changed = [=]() {
-		// a platform that does not know its scheme (offscreen): the palette tells
-		const bool dark = hints->colorScheme() == Qt::ColorScheme::Unknown
-			? QGuiApplication::palette().color(QPalette::Window).lightness() < 128
-			: hints->colorScheme() == Qt::ColorScheme::Dark;
-		QIcon::setThemeName(dark ? "ezdark" : "ezbright");
-	};
-	scheme_changed();
-	QObject::connect(hints, &QStyleHints::colorSchemeChanged, scheme_changed);
+	// the windows light or dark as chosen in the Settings (the system's by
+	// default), with the icons drawn for them, before the first one opens
+	EditorSettings::instance().applyColorScheme();
 
 	// load translations: the language chosen in the Editor, else the system's
 	QString language = parser.value(language_option);

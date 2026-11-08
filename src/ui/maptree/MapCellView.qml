@@ -356,6 +356,8 @@ FocusScope {
             property real turned: 0
 
             target: null
+            // the mice of XWayland too, which Qt takes for touchpads (Linux)
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             acceptedModifiers: Qt.ControlModifier
             onWheel: (event) => {
                 turned += event.angleDelta.y

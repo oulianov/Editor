@@ -24,6 +24,8 @@
 #define PLAYER_PATH_KEY "player_path"
 #define TESTPLAY_FULLSCREEN_KEY "testplay_fullscreen"
 #define TESTPLAY_SHOW_TITLE_KEY "testplay_show_title"
+/** The zoom of the Player's window (0: the Player's own size), see GameRunner::displayOptions */
+#define TESTPLAY_WINDOW_ZOOM_KEY "testplay_window_zoom"
 
 /**
  * Starts the EasyRPG Player on the open project: test play, from a map
@@ -32,6 +34,9 @@
  */
 class GameRunner {
 public:
+	/** The largest zoom of the Player's window offered (the game's screen 4 times larger) */
+	static constexpr int MaxWindowZoom = 4;
+
 	enum class Result {
 		Started,
 		/** No project open, or the call before the launch said no */
@@ -44,10 +49,18 @@ public:
 
 	/**
 	 * Starts the Player in test play on the open project, with the Full
-	 * Screen and Show Title settings unless use_settings is false. player:
-	 * the program, else the one findPlayer finds.
+	 * Screen, window zoom and Show Title settings unless use_settings is
+	 * false. player: the program, else the one findPlayer finds.
 	 */
 	static Result launch(const QStringList& options, bool use_settings = true, const QString& player = QString());
+
+	/**
+	 * How the Player shows the game: full screen, else in a window whose
+	 * size is the game's screen window_zoom times larger (1 to
+	 * MaxWindowZoom; 0: the size the Player remembers). The test play
+	 * settings and the Test Play Options give the same options.
+	 */
+	static QStringList displayOptions(bool fullscreen, int window_zoom);
 
 	/** The options of a test play from a map position (Start Game Here) */
 	static QStringList hereOptions(int map_id, int x, int y);

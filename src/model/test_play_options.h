@@ -26,9 +26,9 @@ class ProjectData;
 /**
  * The Test Play Options of a project (Game > Test Play Options): how the
  * EasyRPG Player starts (normal, new game, a savegame, a battle test),
- * where the party starts and who is in it, the audio, and the battle of a
- * battle test. arguments() are what the Player is given (GameRunner::launch
- * without the settings).
+ * full screen or in a window of which size, where the party starts and
+ * who is in it, the audio, and the battle of a battle test. arguments()
+ * are what the Player is given (GameRunner::launch without the settings).
  *
  * The choices are lists of texts (maps, troops...) and indexes into them.
  * The texts are in the context RunGameDialog, as RunGameWindow.qml's, so
@@ -39,6 +39,8 @@ class TestPlayOptions : public QObject
 	Q_OBJECT
 	Q_PROPERTY(Mode mode MEMBER m_mode NOTIFY changed)
 	Q_PROPERTY(bool fullscreen MEMBER m_fullscreen NOTIFY changed)
+	/** The size of the window (not full screen): an index of windowSizes, the zoom of the game's screen */
+	Q_PROPERTY(int windowZoom MEMBER m_windowZoom NOTIFY changed)
 	Q_PROPERTY(bool noSound MEMBER m_noSound NOTIFY changed)
 	Q_PROPERTY(bool noMusic MEMBER m_noMusic NOTIFY changed)
 	Q_PROPERTY(bool noRtp MEMBER m_noRtp NOTIFY changed)
@@ -71,6 +73,8 @@ class TestPlayOptions : public QObject
 	Q_PROPERTY(QStringList terrains READ terrains CONSTANT)
 	/** "<None>", then the heroes of the database */
 	Q_PROPERTY(QStringList heroes READ heroes CONSTANT)
+	/** "Default" (the size the Player remembers), then the game's screen 1 to 4 times larger: "640×480 (×2)" */
+	Q_PROPERTY(QStringList windowSizes READ windowSizes CONSTANT)
 
 public:
 	enum Mode { Normal, NewGame, LoadGame, TestBattle };
@@ -78,7 +82,7 @@ public:
 
 	static constexpr int PartySize = 4;
 
-	/** The options of the project: Full Screen of the settings, the party of the game start */
+	/** The options of the project: Full Screen and the window size of the settings, the party of the game start */
 	explicit TestPlayOptions(const ProjectData& project, QObject* parent = nullptr);
 
 	Mode mode() const {
@@ -109,6 +113,9 @@ public:
 	QStringList heroes() const {
 		return m_heroes;
 	}
+	QStringList windowSizes() const {
+		return m_windowSizes;
+	}
 
 	/** The ID of the map of mapIndex, 0 for none */
 	int mapId() const;
@@ -116,12 +123,16 @@ public:
 	/** What the EasyRPG Player is given for these options */
 	Q_INVOKABLE QStringList arguments() const;
 
+	/** Keeps the window size in the settings, for the next test plays (Test Play, Start Game Here...) */
+	Q_INVOKABLE void saveWindowZoom() const;
+
 signals:
 	void changed();
 
 private:
 	Mode m_mode = Normal;
 	bool m_fullscreen = false;
+	int m_windowZoom = 0;
 	bool m_noSound = false;
 	bool m_noMusic = false;
 	bool m_noRtp = false;
@@ -145,4 +156,5 @@ private:
 	QStringList m_terrains;
 	QStringList m_heroes;
 	QList<int> m_heroIds;
+	QStringList m_windowSizes;
 };

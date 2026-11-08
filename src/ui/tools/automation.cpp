@@ -19,6 +19,7 @@
 #include "screenshot.h"
 #include "core.h"
 #include "common/dbstring.h"
+#include "common/editor_settings.h"
 #include "common/logging.h"
 #include "controller/action_catalog.h"
 #include "controller/edit_locks.h"
@@ -55,21 +56,18 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
-#include <QIcon>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMutex>
 #include <QSet>
 #include <QMetaEnum>
-#include <QPalette>
 #include <QPointer>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QQuickWindow>
-#include <QStyleHints>
 #include <QTimer>
 #include <algorithm>
 #include <array>
@@ -200,33 +198,6 @@ lcf::rpg::Map dungeonSettings(int mode, int width, int height) {
 	map.generator_tile_ids = {4499, 5052, 5046, 4149, 5034, 4199,
 		10016, 10017, 10022, 10023, 10054, 10055, 10060, 10061, 10012, 10013, 10018, 10019};
 	return map;
-}
-
-// The colors of a dark mode (Fusion's), for the platforms that have none to
-// give (offscreen): the windows are checked in dark as the users see them
-QPalette darkPalette() {
-	const QColor window(50, 50, 50);
-	const QColor base = window.darker(140);
-	const QColor text(Qt::white);
-	const QColor disabled_text(130, 130, 130);
-	QPalette palette(text, window, window.lighter(150), window.darker(150), window.darker(130), text, text, base, window);
-	palette.setColor(QPalette::AlternateBase, window.darker(110));
-	palette.setColor(QPalette::Highlight, QColor(48, 140, 198));
-	palette.setColor(QPalette::HighlightedText, text);
-	palette.setColor(QPalette::Accent, QColor(48, 140, 198));
-	palette.setColor(QPalette::Link, QColor(80, 170, 230));
-	palette.setColor(QPalette::LinkVisited, QColor(170, 130, 220));
-	palette.setColor(QPalette::ToolTipBase, base);
-	palette.setColor(QPalette::ToolTipText, text);
-	QColor placeholder = text;
-	placeholder.setAlpha(128);
-	palette.setColor(QPalette::PlaceholderText, placeholder);
-	for (auto role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText, QPalette::HighlightedText}) {
-		palette.setColor(QPalette::Disabled, role, disabled_text);
-	}
-	palette.setColor(QPalette::Disabled, QPalette::Base, window);
-	palette.setColor(QPalette::Disabled, QPalette::Highlight, QColor(145, 145, 145));
-	return palette;
 }
 
 /** What two databases have different: an entry of a list ("actors 3"), a struct ("terms") */
@@ -893,15 +864,11 @@ bool Automation::run(const QStringList& args) {
 		}
 		return true;
 	}
-	if (cmd == "color-scheme" && args.size() == 2 && (args[1] == "dark" || args[1] == "light")) {
-		// the windows in dark (or light) where the platform cannot be asked
-		// (offscreen): its colors and the icons drawn for them
-		static const QPalette system_palette = QGuiApplication::palette();
-		const bool dark = args[1] == "dark";
-		// on a display: the windows of the platform too (its scheme asked)
-		QGuiApplication::styleHints()->setColorScheme(dark ? Qt::ColorScheme::Dark : Qt::ColorScheme::Light);
-		QGuiApplication::setPalette(dark ? darkPalette() : system_palette);
-		QIcon::setThemeName(dark ? QStringLiteral("ezdark") : QStringLiteral("ezbright"));
+	if (cmd == "color-scheme" && args.size() == 2 && (args[1] == "dark" || args[1] == "light" || args[1] == "system")) {
+		// as chosen in the Settings (the script's own): where the platform
+		// cannot show it (offscreen), Fusion's colors, with the icons drawn
+		// for them
+		EditorSettings::instance().setColorScheme(args[1]);
 		return true;
 	}
 	if (cmd == "open-project" && args.size() <= 2) {

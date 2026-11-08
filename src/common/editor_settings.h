@@ -35,6 +35,19 @@ public:
 	QString language() const;
 	void setLanguage(const QString& code);
 
+	/** Light or dark windows: "system" (the default, followed when it
+	 *  changes), "light" or "dark"; shown at once (applyColorScheme) */
+	QString colorScheme() const;
+	void setColorScheme(const QString& scheme);
+	/**
+	 * Shows every window in the color scheme chosen, with the icons drawn
+	 * for it (ezbright, ezdark): at start-up, then on its own again when the
+	 * option or the system's scheme changes
+	 */
+	void applyColorScheme();
+	/** The windows show dark colors (the scheme chosen, else the system's) */
+	bool isDark() const;
+
 	QString rtpPath() const;
 	void setRtpPath(const QString& path);
 
@@ -83,9 +96,16 @@ public:
 signals:
 	void changed();
 	void localStateReset();
+	/** The windows went from light colors to dark ones or back (isDark) */
+	void darkChanged();
 
 private:
 	EditorSettings() = default;
 	QVariant value(const char* key, const QVariant& fallback) const;
 	void setValue(const char* key, const QVariant& value);
+	/** The palette and the icons of the scheme chosen, as the platform shows it now */
+	void updateColors();
+
+	bool m_watching = false;
+	bool m_dark = false;
 };

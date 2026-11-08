@@ -36,6 +36,16 @@ std::vector<lcf::rpg::Event>& itemsClipboard()
 
 // a step of the zoom each time the fingers of a pinch spread (or close) by this
 constexpr qreal PinchStep = std::numbers::sqrt2;
+
+// The cells from one corner to the other, both included, whichever way the
+// pointer went. Not QRect(a, b).normalized(): Qt 6 swaps the corners of a
+// rectangle as if they were edges, so a drag back by one cell gave a width
+// (or height) of 0, and a longer one lost its first and last cells.
+QRect cellsBetween(QPoint a, QPoint b)
+{
+	return QRect(QPoint(std::min(a.x(), b.x()), std::min(a.y(), b.y())),
+		QPoint(std::max(a.x(), b.x()), std::max(a.y(), b.y())));
+}
 }
 
 MapEditor::MapEditor(MapDocument* document, EditorState& state, QObject* parent) :
@@ -299,9 +309,9 @@ void MapEditor::release(int x, int y, Qt::MouseButton button, Qt::MouseButtons b
 	refresh();
 }
 
-void MapEditor::doubleClick(int x, int y)
+void MapEditor::doubleClick(int x, int y, Qt::MouseButton button)
 {
-	onDoubleClick(x, y);
+	onDoubleClick(x, y, button);
 	refresh();
 }
 
@@ -506,7 +516,7 @@ void MapEditor::onMove(int x, int y, Qt::MouseButtons buttons)
 	}
 	if (m_selDragging || m_itemsSelecting)
 	{
-		m_selArea = QRect(m_first, m_cur).normalized();
+		m_selArea = cellsBetween(m_first, m_cur);
 		updateSelection();
 	}
 	if (m_dragStarted && (buttons & Qt::LeftButton))
@@ -602,7 +612,7 @@ void MapEditor::onRelease(int x, int y, Qt::MouseButton button, Qt::MouseButtons
 	if (m_picking && button == Qt::RightButton)
 	{
 		m_picking = false;
-		pickTiles(QRect(m_first, m_pickEnd).normalized());
+		pickTiles(cellsBetween(m_first, m_pickEnd));
 		updateBrush();
 		return;
 	}
@@ -673,9 +683,27 @@ void MapEditor::onRelease(int x, int y, Qt::MouseButton button, Qt::MouseButtons
 	}
 }
 
-void MapEditor::onDoubleClick(int x, int y)
+void MapEditor::onDoubleClick(int x, int y, Qt::MouseButton button)
 {
-	if (m_state.layer() != EditorState::EVENT)
+	if (button == Qt::RightButton)
+	{
+		// RPG Maker 2003 switches between the lower and the upper layer, on
+		// the map; not with the zoom tool (each click zooms out), nor from
+		// the event layer. Each click picks the tiles of its cell as a right
+		// click does, the second one on the layer switched to, once released
+		const Layer layer = m_state.layer();
+		if (!setPointer(x, y) || m_state.tool() == EditorState::ZOOM || layer == EditorState::EVENT)
+			return;
+		const bool picking = m_picking;
+		// as the layer actions: the tool bar, the palette and the status bar follow
+		m_state.setLayer(layer == EditorState::LOWER ? EditorState::UPPER : EditorState::LOWER);
+		if (picking) {
+			m_picking = true;
+			updateBrush();
+		}
+		return;
+	}
+	if (button != Qt::LeftButton || m_state.layer() != EditorState::EVENT)
 		return;
 
 	// Do not allow putting events on invalid coordinates
@@ -703,8 +731,14 @@ void MapEditor::onDoubleClick(int x, int y)
 
 bool MapEditor::wheel(int delta, Qt::KeyboardModifiers modifiers)
 {
-	// Ctrl + wheel zooms, by the steps of the zoom tool
-	if (!(modifiers & Qt::ControlModifier))
+	// Ctrl + wheel zooms, by the steps of the zoom tool. On macOS, Qt's
+	// Control is the Command key and its Meta the Control key: both zoom
+#ifdef Q_OS_MACOS
+	const Qt::KeyboardModifiers zoom = Qt::ControlModifier | Qt::MetaModifier;
+#else
+	const Qt::KeyboardModifiers zoom = Qt::ControlModifier;
+#endif
+	if (!(modifiers & zoom))
 		return false;
 	if (delta > 0)
 		zoomIn();
@@ -1195,7 +1229,7 @@ void MapEditor::updateBrush()
 {
 	if (m_picking) {
 		// the cells whose tiles the right button picks
-		setBrushRect(QRect(m_first, m_pickEnd).normalized());
+		setBrushRect(cellsBetween(m_first, m_pickEnd));
 		return;
 	}
 	const EditorState::Tool tool = m_state.tool();

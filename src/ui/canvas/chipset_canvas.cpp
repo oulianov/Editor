@@ -31,7 +31,7 @@ ChipsetCanvas::ChipsetCanvas(QQuickItem* parent) : QQuickPaintedItem(parent)
 	setAntialiasing(false);
 	setSmooth(false);
 	setAcceptedMouseButtons(Qt::LeftButton | Qt::RightButton);
-	// the side under the pointer is shown in the Directions mode
+	// the tile under the pointer is lit (in the Directions mode, its side)
 	setAcceptHoverEvents(true);
 }
 
@@ -111,6 +111,20 @@ void ChipsetCanvas::setBackground(const QColor& color)
 	}
 }
 
+QColor ChipsetCanvas::highlight() const
+{
+	return m_highlight;
+}
+
+void ChipsetCanvas::setHighlight(const QColor& color)
+{
+	if (color != m_highlight) {
+		m_highlight = color;
+		emit highlightChanged();
+		render();
+	}
+}
+
 void ChipsetCanvas::findChipset()
 {
 	const DatabaseEntry found = DatabaseEntry::of(m_entry);
@@ -152,7 +166,7 @@ void ChipsetCanvas::render()
 	m_rendered = QImage(size, QImage::Format_ARGB32_Premultiplied);
 	m_rendered.fill(m_background);
 	QPainter painter(&m_rendered);
-	ChipsetEditorPainter::paint(painter, m_editor, m_graphic);
+	ChipsetEditorPainter::paint(painter, m_editor, m_graphic, m_highlight);
 	painter.end();
 	setImplicitSize(size.width(), size.height());
 	update();
@@ -228,6 +242,8 @@ QPointF ChipsetCanvas::tilePoint(const QPointF& pos) const
 void ChipsetCanvas::mousePressEvent(QMouseEvent* event)
 {
 	forceActiveFocus(Qt::MouseFocusReason);
+	// a drag paints: the scrolled view around does not take it to scroll
+	setKeepMouseGrab(true);
 	if (m_editor.press(tilePoint(event->position()), event->button() == Qt::RightButton)) {
 		changed();
 	}
@@ -255,7 +271,14 @@ void ChipsetCanvas::mouseMoveEvent(QMouseEvent* event)
 void ChipsetCanvas::mouseReleaseEvent(QMouseEvent* event)
 {
 	m_editor.release();
+	setKeepMouseGrab(false);
 	event->accept();
+}
+
+void ChipsetCanvas::mouseUngrabEvent()
+{
+	m_editor.release();
+	setKeepMouseGrab(false);
 }
 
 void ChipsetCanvas::hoverMoveEvent(QHoverEvent* event)

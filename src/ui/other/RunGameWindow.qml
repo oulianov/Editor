@@ -11,11 +11,11 @@ import org.easyrpg.editor as Ez
 
 /**
  * Game > Test Play Options: how the EasyRPG Player starts on the project
- * (normal, new game, a savegame, a battle test), where the party starts
- * and who is in it, the audio. The values are a TestPlayOptions'; OK
- * starts the Player with them, and the window stays open when it does not
- * start. A battle test saves its party in the database first, from which
- * the Player reads it.
+ * (normal, new game, a savegame, a battle test), full screen or in a
+ * window of which size, where the party starts and who is in it, the
+ * audio. The values are a TestPlayOptions'; OK starts the Player with
+ * them, and the window stays open when it does not start. A battle test
+ * saves its party in the database first, from which the Player reads it.
  */
 Ez.DialogWindow {
     id: root
@@ -35,6 +35,10 @@ Ez.DialogWindow {
             return
         }
         check.ok = testPlay.launch(root.options.arguments(), false)
+        // the size chosen is the one of the next test plays too
+        if (check.ok) {
+            root.options.saveWindowZoom()
+        }
     }
 
     Ez.TestPlay {
@@ -85,6 +89,31 @@ Ez.DialogWindow {
                     onActivated: index => root.options.fullscreen = index === 1
                     Binding on currentIndex {
                         value: display.count > 0 ? (root.options.fullscreen ? 1 : 0) : -1
+                    }
+                }
+                // the Player takes the whole screen in full screen
+                RowLayout {
+                    spacing: Ez.Metrics.columnSpacing
+                    enabled: !root.options.fullscreen
+
+                    Ez.FormLabel {
+                        text: qsTr("Window Size")
+                    }
+                    Ez.ComboBox {
+                        id: windowSize
+                        objectName: "comboWindowSize"
+                        textRole: ""
+                        valueRole: ""
+                        // the zooms of the game's screen, 0 the Player's own size
+                        model: root.options.windowSizes
+                        Layout.fillWidth: true
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("The game's screen enlarged 1 to 4 times. Default: the size the Player remembers. "
+                                                    + "A window size saved in the Player's settings may be kept instead")
+                        onActivated: index => root.options.windowZoom = index
+                        Binding on currentIndex {
+                            value: windowSize.count > 0 ? root.options.windowZoom : -1
+                        }
                     }
                 }
             }

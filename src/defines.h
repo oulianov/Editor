@@ -41,6 +41,7 @@
 #define RTP_KEY "rtp_path"
 #define RELOAD_EXTERNAL_KEY "reload_external_changes"
 #define LANGUAGE_KEY "language"
+#define COLOR_SCHEME_KEY "color_scheme"
 
 /****************************
  *	   PROJECT SETTINGS		*
