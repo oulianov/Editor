@@ -80,7 +80,8 @@ namespace EditorUpdates {
 		QString version;
 		/** Its page on GitHub */
 		QUrl page;
-		/** The package for this computer (pickAsset), empty for none */
+		/** The package for this computer (pickAsset, among the files whose
+		 *  upload has ended), empty for none */
 		QString assetName;
 		QUrl assetUrl;
 		qint64 assetSize = 0;

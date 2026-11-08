@@ -489,8 +489,9 @@ QString AutomationQuickDriver::itemText(QQuickItem* item) {
 		return names.join(QStringLiteral(" | "));
 	}
 	if (auto* model = item->property("model").value<QAbstractItemModel*>()) {
-		return modelText(model, item->property("currentIndex").isValid() ? item->property("currentIndex").toInt() : -1,
-			item->property("textRole").toString());
+		// the current line of a list, or of a table (its row)
+		const QVariant current = item->property("currentIndex").isValid() ? item->property("currentIndex") : item->property("currentRow");
+		return modelText(model, current.isValid() ? current.toInt() : -1, item->property("textRole").toString());
 	}
 	const QVariant text = item->property("text");
 	if (text.isValid()) {

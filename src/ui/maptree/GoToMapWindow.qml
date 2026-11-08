@@ -64,11 +64,6 @@ Ez.DialogWindow {
             Keys.onEnterPressed: root.accept()
         }
     }
-    Ez.Note {
-        objectName: "labelHint"
-        text: qsTr("Type the number of a map or a part of its name, then choose it in the list.")
-        color: Ez.Metrics.mutedTextColor
-    }
     Item {
         Layout.fillHeight: true
     }

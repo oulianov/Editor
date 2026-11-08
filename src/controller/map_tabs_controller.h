@@ -106,6 +106,10 @@ public:
 	/** Closes a tab, asking first to save its changes; false when it stays
 	 *  (Cancel, or not saved) */
 	Q_INVOKABLE bool requestClose(int id);
+	/** Closes every tab but the one of keep (0: all, the right-click menu
+	 *  of a tab), each asking first; false when one stays (Cancel, or not
+	 *  saved): the tabs after it stay too */
+	Q_INVOKABLE bool requestCloseAllBut(int keep);
 	/** Closes a tab and its document, without asking */
 	void closeMap(int id);
 	/** Closes every tab, without asking (its changes were asked about) */

@@ -14,7 +14,7 @@ import org.easyrpg.editor as Ez
  * wide as its name, the temporary one (a map only looked at) in italics, a
  * close button on each; under them the map of the tab shown, edited by its
  * MapEditor in a MapCanvas. A double-click keeps a temporary tab; a tab can
- * be dragged elsewhere.
+ * be dragged elsewhere; its right-click menu closes the other tabs, or all.
  */
 FocusScope {
     id: root
@@ -111,6 +111,10 @@ FocusScope {
             // a double-click keeps a temporary tab
             onDoubleTapped: root.tabs.keepMap(tab.mapId)
         }
+        Ez.ContextMenuHandler {
+            contextMenu: tabMenu
+            onRequested: tabMenu.mapId = tab.mapId
+        }
         DragHandler {
             id: drag
             target: null
@@ -171,6 +175,29 @@ FocusScope {
             model: root.tabs
 
             delegate: MapTab {}
+        }
+    }
+
+    // the right-click menu of a tab
+    Ez.ContextMenu {
+        id: tabMenu
+
+        /** The map of the tab clicked */
+        property int mapId: 0
+
+        objectName: "menuMapTab"
+        font: Ez.Metrics.font
+
+        Controls.MenuItem {
+            objectName: "actionCloseOtherTabs"
+            text: qsTr("Close Other Tabs")
+            enabled: root.tabs !== null && root.tabs.count > 1
+            onTriggered: root.tabs.requestCloseAllBut(tabMenu.mapId)
+        }
+        Controls.MenuItem {
+            objectName: "actionCloseAllTabs"
+            text: qsTr("Close All Tabs")
+            onTriggered: root.tabs.requestCloseAllBut(0)
         }
     }
 

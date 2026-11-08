@@ -28,6 +28,7 @@ Ez.DialogWindow {
     }
 
     objectName: "ImportImageDialog"
+    stateKey: "ImportImageDialog"
     title: qsTr("Select transparent color")
     preferredWidth: 680
     preferredHeight: 520

@@ -195,6 +195,10 @@ const Info actions[] = {
 		.toolTip = QT_TRANSLATE_NOOP("MainWindow", "1/1 Ratio"),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Edit at a 1/1 view ratio"),
 		.iconText = QT_TRANSLATE_NOOP("MainWindow", "1/1"), .icon = "zoom-ratio-1", .group = Group::Zoom, .checkable = true},
+	{.name = "actionZoom3_4", .text = QT_TRANSLATE_NOOP("MainWindow", "3/4 Ratio"),
+		.toolTip = QT_TRANSLATE_NOOP("MainWindow", "3/4 Ratio"),
+		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Edit at a 3/4 view ratio"),
+		.iconText = QT_TRANSLATE_NOOP("MainWindow", "3/4"), .icon = "zoom-ratio-3-4", .group = Group::Zoom, .checkable = true},
 	{.name = "actionZoom1_2", .text = QT_TRANSLATE_NOOP("MainWindow", "1/2 Ratio"),
 		.toolTip = QT_TRANSLATE_NOOP("MainWindow", "1/2 Ratio"),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Edit at a 1/2 view ratio"),
@@ -232,8 +236,8 @@ const MenuInfo menu_infos[] = {
 		"actionFullScreenToggle", "actionTitleBackgroundToggle"}},
 	{"menuHelp", QT_TRANSLATE_NOOP("MainWindow", "Help"), {"actionContents", "", "actionAbout", "actionCheckUpdates"}},
 	// submenus
-	{"menuMapZoom", QT_TRANSLATE_NOOP("MainWindow", "Map &Zoom"), {"actionZoom1_1", "actionZoom1_2",
-		"actionZoom1_4", "actionZoom1_8"}},
+	{"menuMapZoom", QT_TRANSLATE_NOOP("MainWindow", "Map &Zoom"), {"actionZoom1_1", "actionZoom3_4",
+		"actionZoom1_2", "actionZoom1_4", "actionZoom1_8"}},
 	// the right-click menus of the map tree, as RPG Maker's: on a map, an
 	// area, the project
 	{"menuTreeMap", nullptr, {"actionMapProperties", "", "actionMapNew", "actionAreaNew", "actionMapGenerateDungeon",
@@ -253,7 +257,7 @@ const ToolBarInfo toolbar_infos[] = {
 	{"mainToolBar", nullptr, {"actionProjectNew", "actionProjectOpen", "actionProjectClose", "",
 		"actionGameDiskCreate", "", "actionMapSave", "actionMapRevert", "actionMapProperties", "",
 		"actionLayerLower", "actionLayerUpper", "actionLayerEvents", "", "actionZoomIn", "actionZoomOut",
-		"actionZoom100", "actionZoom1_1", "actionZoom1_2", "actionZoom1_4", "actionZoom1_8", "",
+		"actionZoom100", "actionZoom1_1", "actionZoom3_4", "actionZoom1_2", "actionZoom1_4", "actionZoom1_8", "",
 		"actionPaletteToggle", "actionMapTreeToggle", "actionJukebox", "", "actionDatabase", "actionScriptEditor",
 		"actionResourceManager", "actionSearch", "", "actionPlayTest", "actionFullScreenToggle",
 		"actionTitleBackgroundToggle", "", "actionContents", ""}},

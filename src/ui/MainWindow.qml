@@ -254,11 +254,23 @@ Kirigami.ApplicationWindow {
             title: windowActions.action("actionMapTreeToggle")?.text ?? ""
             options: KDDW.KDDockWidgets.DockWidgetOption_NotClosable
 
-            MapTree {
-                id: mapTree
+            ColumnLayout {
                 anchors.fill: parent
-                shell: root.shell
-                actions: windowActions
+                spacing: 0
+
+                // a map by its name or its number: Return shows it
+                MapSearchField {
+                    tree: mapTree
+                    Layout.fillWidth: true
+                    Layout.margins: Ez.Metrics.rowSpacing
+                }
+                MapTree {
+                    id: mapTree
+                    shell: root.shell
+                    actions: windowActions
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                }
             }
         }
 

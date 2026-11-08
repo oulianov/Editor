@@ -15,9 +15,12 @@ import org.easyrpg.editor as Ez
  * Edit > Search: where the events of the project use a variable, a switch,
  * an item (by number or name), the events and common events named so, the
  * texts of their commands (ProjectSearch). The entries of the database are
- * suggested while typing. A result opens its map at its event, page and
- * line (or its common event, its monster group). Not modal: the search and
- * its results stay for the next time it is opened.
+ * suggested while typing: one chosen searches at once. A search shows its
+ * first result highlighted, the arrows go through them (Up from the first
+ * one back to the search), Return opens one: its map at its event, page and
+ * line (or its common event, its monster group). Another type or scope
+ * searches again. Not modal: the search and its results stay for the next
+ * time it is opened (Ctrl+F, the search ready to type).
  */
 Ez.DialogWindow {
     id: root
@@ -26,22 +29,42 @@ Ez.DialogWindow {
     required property Ez.ProjectSearch search
 
     objectName: "SearchDialog"
+    stateKey: "SearchDialog"
     title: qsTr("Search")
     preferredWidth: 850
     preferredHeight: 560
     // its Close button is in its footer, by the count of results
     standardButtons: Controls.DialogButtonBox.NoButton
 
-    function runSearch() {
+    /** Searches the text typed; showResults: the first result highlighted,
+     *  the keys to the results (else to the control that has them) */
+    function runSearch(showResults: bool) {
         const text = searchText.text.trim()
         if (text === "") {
             return
         }
         suggestions.close()
         root.search.text = text
-        root.search.search()
+        const count = root.search.search()
         table.selectionModel.clear()
         table.positionViewAtRow(0, TableView.AlignTop)
+        if (showResults && count > 0) {
+            // the model's index: the view has not laid out the new results yet
+            table.selectionModel.setCurrentIndex(root.search.results.index(0, 0),
+                ItemSelectionModel.ClearAndSelect | ItemSelectionModel.Rows)
+            table.forceActiveFocus()
+        }
+    }
+    /** Another type or scope: searched again, the results shown at once */
+    function searchAgain() {
+        if (root.search.text !== "") {
+            runSearch(false)
+        }
+    }
+    /** The search, ready to type */
+    function focusSearch() {
+        searchText.forceActiveFocus()
+        searchText.selectAll()
     }
     /** A suggestion chosen: its text, and its type to search */
     function pick(row) {
@@ -58,6 +81,7 @@ Ez.DialogWindow {
         if (type === Ez.ProjectSearch.EventNames) {
             root.search.scope = Ez.ProjectSearch.CommonEvents
         }
+        runSearch(true)
     }
     function openRow(row) {
         if (row >= 0) {
@@ -68,6 +92,16 @@ Ez.DialogWindow {
     Component.onCompleted: {
         searchText.text = root.search.text
         searchText.forceActiveFocus()
+    }
+    // shown again (Ctrl+F in the main window): the search ready to type
+    onVisibleChanged: {
+        if (visible) {
+            focusSearch()
+        }
+    }
+    Shortcut {
+        sequences: [StandardKey.Find]
+        onActivated: root.focusSearch()
     }
     // a new search (the local state reset): the text goes too
     Connections {
@@ -116,7 +150,7 @@ Ez.DialogWindow {
                 if (suggestions.visible && suggestionList.currentIndex >= 0) {
                     root.pick(suggestionList.currentIndex)
                 } else {
-                    root.runSearch()
+                    root.runSearch(true)
                 }
             }
             Keys.onEnterPressed: event => Keys.returnPressed(event)
@@ -180,7 +214,7 @@ Ez.DialogWindow {
             objectName: "button_search"
             text: qsTr("Search")
             enabled: searchText.text.trim() !== ""
-            onClicked: root.runSearch()
+            onClicked: root.runSearch(true)
         }
     }
 
@@ -197,7 +231,10 @@ Ez.DialogWindow {
             textRole: "name"
             valueRole: "value"
             model: root.search.typeChoices()
-            onActivated: root.search.type = currentValue
+            onActivated: {
+                root.search.type = currentValue
+                root.searchAgain()
+            }
             Binding on currentIndex {
                 value: root.search.type
             }
@@ -210,7 +247,10 @@ Ez.DialogWindow {
             textRole: "name"
             valueRole: "value"
             model: root.search.scopeChoices()
-            onActivated: root.search.scope = currentValue
+            onActivated: {
+                root.search.scope = currentValue
+                root.searchAgain()
+            }
             Binding on currentIndex {
                 value: root.search.scope
             }
@@ -278,6 +318,14 @@ Ez.DialogWindow {
 
                 Keys.onReturnPressed: root.openRow(table.currentRow)
                 Keys.onEnterPressed: root.openRow(table.currentRow)
+                // Up from the first result: back to the search
+                Keys.onUpPressed: event => {
+                    if (table.currentRow <= 0) {
+                        root.focusSearch()
+                    } else {
+                        event.accepted = false
+                    }
+                }
 
                 delegate: Rectangle {
                     id: cell

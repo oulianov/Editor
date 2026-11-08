@@ -315,6 +315,19 @@ bool MapTabsController::requestClose(int id)
 	return true;
 }
 
+bool MapTabsController::requestCloseAllBut(int keep)
+{
+	// the tab kept is shown, the others go from the first
+	if (keep != 0 && isOpen(keep))
+		setCurrentMap(keep);
+	const QList<int> ids = m_ids;
+	for (int id : ids) {
+		if (id != keep && !requestClose(id))
+			return false;
+	}
+	return true;
+}
+
 void MapTabsController::removeTab(int id)
 {
 	const int row = indexOf(id);

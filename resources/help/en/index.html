@@ -118,6 +118,8 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <a name="maps"></a>
 <h3>Maps and drawing</h3>
 <p>The <b>map tree</b> on the left lists every map of the project. Double-click a map to open it, right-click to create a new map, open its properties, copy, paste or delete it. Drag a map onto another one to make it a child map: child maps can inherit the music, battle background and permissions of their parent. Areas are rectangles of a parent map that have their own list of random encounters.</p>
+<p>The search field above the map tree finds a map by its number or a part of its name: press <b>Return</b> to select and show the first map found, as a click in the tree (the map of that number first, then the names in the order of the tree), <b>Return</b> again for the next one, <b>Escape</b> to empty the field.</p>
+<p>Each open map has a tab above the map. A map clicked in the tree opens in a temporary tab (in italics), which the next map clicked replaces; double-click the tab, or edit the map, to keep it. Right-click a tab to <b>Close Other Tabs</b> or <b>Close All Tabs</b>; a map with unsaved changes asks first.</p>
 <p>In the <b>Maps</b> menu, <b>Open Start Map</b> opens the map where the party starts the game, and <b>Go to Map...</b> (Ctrl+G) opens any map by its number or its name: type <code>12</code> or a part of the name, choose the map in the list with <b>Return</b>, then click <b>Go</b> (or press <b>Return</b> again).</p>
 <p>A map has three layers. Choose the layer to edit with the toolbar or the keys:</p>
 <ul>
@@ -127,7 +129,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 </ul>
 <p>As in RPG Maker 2003, a double right-click on the map switches between the lower and the upper layer (not with the Zoom tool, nor from the event layer).</p>
 <p>Widen the palette (or zoom it out with Ctrl + wheel) until both fit, and it shows the lower tiles on the left and the upper tiles on the right. Picking tiles on a side switches to its layer, from the event layer too; the side of the other layer is faded and keeps its own tiles picked.</p>
-<p>Drawing tools: <b>Pen</b> draws tile by tile, <b>Rectangle</b> fills a rectangle, <b>Circle</b> fills an ellipse, <b>Fill</b> replaces a whole area of identical tiles. Pick tiles in the chipset palette; you can select several tiles at once to stamp a block. A right-click on the map picks the tile under the pointer, a right-drag a block of tiles. Use <b>Zoom In</b>, <b>Zoom Out</b> and <b>Zoom 100%</b> to change the view, or Ctrl + mouse wheel (on macOS, Command or Control + wheel) over the map, which zooms around the pointer. Drag with the middle mouse button to scroll the map, whatever the tool. <b>Save Map</b> (Ctrl+S) writes your changes, <b>Revert Map</b> (Ctrl+R) discards them, Ctrl+Z undoes the last change.</p>
+<p>Drawing tools: <b>Pen</b> draws tile by tile, <b>Rectangle</b> fills a rectangle, <b>Circle</b> fills an ellipse, <b>Fill</b> replaces a whole area of identical tiles. Pick tiles in the chipset palette; you can select several tiles at once to stamp a block. A right-click on the map picks the tile under the pointer, a right-drag a block of tiles. Use <b>Zoom In</b>, <b>Zoom Out</b> and <b>Zoom 100%</b>, or the ratios of the <b>Map Zoom</b> menu and the toolbar (1/1, 3/4, 1/2, 1/4, 1/8), to change the view, or Ctrl + mouse wheel (on macOS, Command or Control + wheel) over the map, which zooms around the pointer. Drag with the middle mouse button to scroll the map, whatever the tool. <b>Save Map</b> (Ctrl+S) writes your changes, <b>Revert Map</b> (Ctrl+R) discards them, Ctrl+Z undoes the last change.</p>
 
 <a name="map-properties"></a>
 <h3>Map properties</h3>
@@ -147,10 +149,10 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="search"></a>
 <h3>Search</h3>
-<p>Finds where something is used in your events.</p>
+<p>Finds where something is used in your events. <b>Search</b> in the <b>Tools</b> menu, or Ctrl+F (Cmd+F on macOS), opens it with the search field ready to type.</p>
 <ul>
-<li><b>Search bar</b>: enter an exact ID, part of a variable, switch, item or event name, or event text. Suggestions show the ID, type and name, with exact matches first across all types. Picking a suggestion also selects its type filter. Press Enter or click <b>Search</b>.</li>
-<li><b>Type</b>: narrow results to variables, switches, items, event names or event text, or search all types. Variable searches include reads, writes, ranges and event page conditions.</li>
+<li><b>Search bar</b>: enter an exact ID, part of a variable, switch, item or event name, or event text. Suggestions show the ID, type and name, with exact matches first across all types. Picking a suggestion (click it, or the arrows then Enter) selects its type filter and searches at once; otherwise press Enter or click <b>Search</b>. The first result is then highlighted: the arrow keys move through the results, Enter opens the one highlighted, and Up from the first result goes back to the search field.</li>
+<li><b>Type</b>: narrow results to variables, switches, items, event names or event text, or search all types (changing the type or the scope searches again). Variable searches include reads, writes, ranges and event page conditions.</li>
 <li><b>Scope</b>: <b>Whole project</b> searches every map and common event; <b>Current map</b> searches the open map, including unsaved edits; <b>Common events</b> searches only common events.</li>
 <li><b>Results</b>: every event page and command that matches, with its type and an event graphic when available. Click a map event to select its cell on the map. Click a common event to open it in the database; command matches are selected and scrolled into view. Press Enter to open the selected result.</li>
 </ul>
@@ -181,7 +183,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <a name="updates"></a>
 <h3>Updates</h3>
 <p>The Editor looks for a newer version a few seconds after it starts, then every hour while it runs, without interrupting you: nothing is shown when there is none or when the check fails. Turn <b>Check for updates automatically</b> off in <b>Settings</b> to stop these checks. <b>Check for Updates...</b> (in the <b>Help</b> menu, below <b>About EasyRPG Editor</b>; on macOS, in the <b>EasyRPG Editor</b> menu, below <b>Settings...</b> and <b>Test Play Options...</b>) checks at once and tells you the result.</p>
-<p>When a newer version is found, the menu item becomes <b>Install Update</b> with its version, and an <b>Update</b> button appears at the right end of the toolbar. Click either one to install it: the button shows the progress of the download, then <b>Restart to Update</b>. Restarting asks about unsaved maps as quitting does; if you cancel, or choose <b>Later</b>, the update is installed the next time you quit the Editor.</p>
+<p>A new version is announced once its download for your system is ready (it is published a little before). When a newer version is found, the menu item becomes <b>Install Update</b> with its version, and an <b>Update</b> button appears at the right end of the toolbar. Click either one to install it: the button shows the progress of the download, then <b>Restart to Update</b>. Restarting asks about unsaved maps as quitting does; if you cancel, or choose <b>Later</b>, the update is installed the next time you quit the Editor.</p>
 <ul>
 <li><b>macOS</b>: the disk image is downloaded, its application is checked (its signature, from the same developer) and copied next to the Editor, then put in its place once the Editor has quit. If the Editor cannot replace itself (its folder cannot be written, or macOS runs it from a temporary copy because it was opened where it was downloaded), the disk image is downloaded and opened instead: quit the Editor and drag the new one to its folder.</li>
 <li><b>Windows</b>: the zip is downloaded and extracted next to the Editor's folder, which is replaced once the Editor has quit. If that folder cannot be written (Program Files), the page of the release opens instead.</li>

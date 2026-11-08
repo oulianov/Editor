@@ -65,6 +65,7 @@ Ez.DialogWindow {
     }
 
     objectName: "OpenProjectDialog"
+    stateKey: "OpenProjectDialog"
     title: qsTr("Open existing Project")
     preferredWidth: 640
     preferredHeight: 480

@@ -37,4 +37,15 @@ Controls.Button {
         value: Ez.Metrics.palette.button
         when: !root.enabled && !root.flat && root.background !== null
     }
+    // held down (or checked): Breeze's face of a pressed button in Plasma,
+    // tinted with the highlight (Kirigami's theme off Plasma gives it a face
+    // barely darker: the button did not seem to react); an accent button,
+    // already in the highlight, darker
+    Binding {
+        target: root.background
+        property: "color"
+        value: root.accent ? Qt.darker(Kirigami.Theme.backgroundColor, 1.25)
+            : Kirigami.ColorUtils.tintWithAlpha(Kirigami.Theme.backgroundColor, Kirigami.Theme.highlightColor, 0.4)
+        when: root.enabled && !root.flat && (root.down || root.checked) && root.background !== null
+    }
 }

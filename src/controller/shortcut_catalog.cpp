@@ -79,6 +79,7 @@ const QHash<QString, Keys>& table()
 		keys.insert(QStringLiteral("actionQuit"), Keys{QKeySequence::keyBindings(QKeySequence::Quit), QKeySequence::Quit});
 		keys.insert(QStringLiteral("actionSettings"), Keys{first(QKeySequence::Preferences), QKeySequence::Preferences});
 		keys.insert(QStringLiteral("actionContents"), Keys{first(QKeySequence::HelpContents), QKeySequence::HelpContents});
+		keys.insert(QStringLiteral("actionSearch"), Keys{first(QKeySequence::Find), QKeySequence::Find});
 		keys.insert(QStringLiteral("actionUndo"), Keys{QKeySequence::keyBindings(QKeySequence::Undo), QKeySequence::Undo});
 		keys.insert(QStringLiteral("actionRedo"), Keys{QKeySequence::keyBindings(QKeySequence::Redo), QKeySequence::Redo});
 		return keys;

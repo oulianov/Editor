@@ -82,6 +82,7 @@ Ez.DialogWindow {
     })
 
     objectName: "EntryPicker"
+    stateKey: "EntryPicker"
     title: customTitle !== "" ? customTitle : (titles[listName] ?? qsTranslate("DatabaseDialog", "Database"))
     standardButtons: Controls.DialogButtonBox.Ok | Controls.DialogButtonBox.Cancel
                      | Controls.DialogButtonBox.Apply | Controls.DialogButtonBox.Help

@@ -107,6 +107,9 @@ public:
 	/** The zoom tool, Ctrl + wheel and a pinch stop at these scales */
 	static constexpr qreal MinScale = 0.125;
 	static constexpr qreal MaxScale = 8.0;
+	/** The ratios between which the 3/4 ratio (3) stands: 1/2 and 1/1 */
+	static constexpr qreal HalfRatio = 2.0;
+	static constexpr qreal FullRatio = 4.0;
 
 	/** The editing of document (not owned) with the layer, the tool, the
 	 *  tiles picked and the clipboards of state */
@@ -172,9 +175,12 @@ public:
 	/** Rounded by snapScale */
 	void setScale(qreal scale);
 	/** The nearest scale showing each pixel of the game on a power of two of
-	 *  screen pixels, on the view's screen */
+	 *  screen pixels, or on three times the pixels of the 1/2 ratio (the 3/4
+	 *  ratio, between 1/2 and 1/1), on the view's screen */
 	Q_INVOKABLE qreal snapScale(qreal scale) const;
 	static qreal snappedScale(qreal scale, qreal device_pixel_ratio);
+	/** The scale of a ratio of Map Zoom (ShellController::zoomRatio: 4, 3, 2...) on the view's screen */
+	qreal ratioScale(qreal ratio) const;
 	qreal devicePixelRatio() const;
 	void setDevicePixelRatio(qreal ratio);
 	/** The part of the map shown, in cells: where a paste goes and where
@@ -225,7 +231,9 @@ public:
 	Q_INVOKABLE QVariantMap actionStates(Menu menu) const;
 
 public slots:
+	/** The next scale (the 3/4 ratio between 1/2 and 1/1, else twice) */
 	void zoomIn();
+	/** The scale before (the 3/4 ratio between 1/1 and 1/2, else half) */
 	void zoomOut();
 	/** The cell under the pointer, and the selected one on the event layer */
 	void selectTile(int x, int y);
@@ -302,6 +310,9 @@ signals:
 
 private:
 	using Layer = EditorState::Layer;
+
+	/** The scale of zoomIn (in) or zoomOut */
+	qreal steppedScale(bool in) const;
 
 	void onPress(int x, int y, Qt::MouseButton button, Qt::KeyboardModifiers modifiers);
 	void onMove(int x, int y, Qt::MouseButtons buttons);

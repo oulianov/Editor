@@ -4243,6 +4243,10 @@ Les fichiers de RPG Maker 2000 sont dans :
         <source>The update cannot be installed: %1</source>
         <translation>Impossible d&apos;installer la mise à jour : %1</translation>
     </message>
+    <message>
+        <source>Version %1 is published, but its download for this system is not ready yet. Check again later.</source>
+        <translation>La version %1 est publiée, mais son téléchargement pour ce système n&apos;est pas encore prêt. Réessayez plus tard.</translation>
+    </message>
 </context>
 <context>
     <name>EnableComboWidget</name>
@@ -7479,11 +7483,6 @@ http://localhost:8000
         <source>Map</source>
         <translation>Carte</translation>
     </message>
-    <message>
-        <location line="+16"/>
-        <source>Type the number of a map or a part of its name, then choose it in the list.</source>
-        <translation>Tapez le numéro d&apos;une carte ou une partie de son nom, puis choisissez-la dans la liste.</translation>
-    </message>
 </context>
 <context>
     <name>HeroCommandWidget</name>
@@ -10250,6 +10249,30 @@ Les sauvegarder avant l&apos;export ?</translation>
     <message>
         <source>Show the folder of the game in the file manager</source>
         <translation>Affiche le dossier du jeu dans le gestionnaire de fichiers</translation>
+    </message>
+    <message>
+        <source>3/4 Ratio</source>
+        <translation>75%</translation>
+    </message>
+    <message>
+        <source>3/4</source>
+        <translation>3/4</translation>
+    </message>
+    <message>
+        <source>Edit at a 3/4 view ratio</source>
+        <translation>Zoom : 75%</translation>
+    </message>
+    <message>
+        <source>Close Other Tabs</source>
+        <translation>Fermer les autres onglets</translation>
+    </message>
+    <message>
+        <source>Close All Tabs</source>
+        <translation>Fermer tous les onglets</translation>
+    </message>
+    <message>
+        <source>Map name or ID</source>
+        <translation>Nom ou ID de carte</translation>
     </message>
 </context>
 <context>

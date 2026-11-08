@@ -169,6 +169,7 @@ Item {
     CatalogAction { name: "actionMapGoTo" }
     CatalogAction { name: "actionPlayTestOptions" }
     CatalogAction { name: "actionZoom1_1" }
+    CatalogAction { name: "actionZoom3_4" }
     CatalogAction { name: "actionZoom1_2" }
     CatalogAction { name: "actionZoom1_4" }
     CatalogAction { name: "actionZoom1_8" }

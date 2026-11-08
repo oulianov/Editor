@@ -371,7 +371,7 @@ void QmlShell::trigger(const QString& name, bool checked)
 			editor->zoomOut();
 	} else if (const double ratio = ShellController::zoomRatio(name); ratio > 0) {
 		if (editor)
-			editor->setScale(ratio);
+			editor->setScale(editor->ratioScale(ratio));
 		// a click on the checked ratio unchecks it: checked again
 		updateZoomActions();
 	}
@@ -746,7 +746,7 @@ void QmlShell::updateZoomActions()
 	if (MapEditor* editor = currentEditor()) {
 		for (const QString& action : m_actions->groupActions(ActionCatalog::Group::Zoom)) {
 			const double ratio = ShellController::zoomRatio(action);
-			if (qFuzzyCompare(editor->scale(), editor->snapScale(ratio)))
+			if (qFuzzyCompare(editor->scale(), editor->ratioScale(ratio)))
 				shown = ratio;
 		}
 	}

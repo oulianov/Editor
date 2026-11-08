@@ -169,7 +169,7 @@ public:
 	void revertMap();
 	void setLayer(EditorState::Layer layer);
 	void setTool(EditorState::Tool tool);
-	/** The ratios of Map Zoom (actionZoom1_1...) as scales: 4, 2, 1, 0.5 */
+	/** The ratios of Map Zoom (actionZoom1_1...) as scales: 4, 3, 2, 1, 0.5 */
 	static double zoomRatio(const QString& action);
 	/** The ratio the map shown is at (0: none of them): its view tells */
 	void setZoomRatio(double ratio);

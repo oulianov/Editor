@@ -30,13 +30,20 @@ number with the version of the Editor (`project(... VERSION)` of
 | Linux AppImage | `*.AppImage` for the processor (`x86_64`, `aarch64`...)
 |===
 
-A release without the file of a platform opens its page instead.
+A file still being uploaded (`state` other than `uploaded`) does not count.
+The files of a release are often attached after it is published (they take
+time to build): where the Editor installs itself (below), a newer release
+without the file of its platform is not announced, and Check for Updates says
+its download is not ready yet; the next check (hourly, or at start) finds it
+once it is attached. The builds updated by hand are told at once, and open
+its page.
 
 == Testing with another feed
 
 `EDITOR_UPDATE_FEED`, in the environment, replaces GitHub: a URL (`http://`,
 `file://`) or a local file giving JSON of the same shape (`tag_name`,
-`html_url`, `assets[].name`, `assets[].browser_download_url`, `assets[].size`;
+`html_url`, `assets[].name`, `assets[].browser_download_url`, `assets[].size`,
+`assets[].state` optional;
 a list of releases works too). It works even when the repository is empty.
 
 ----

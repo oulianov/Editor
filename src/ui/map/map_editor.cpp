@@ -255,14 +255,33 @@ qreal MapEditor::snapScale(qreal scale) const
 	return snappedScale(scale, m_devicePixelRatio);
 }
 
+namespace {
+	/** The device scale of the 3/4 ratio: halfway between the 1/2 and 1/1
+	 *  ones, three times a power of two (whole pixels, sharp too) */
+	double threeQuarterDevice(qreal dpr)
+	{
+		return 1.5 * std::exp2(std::round(std::log2(MapEditor::HalfRatio * dpr)));
+	}
+}
+
 qreal MapEditor::snappedScale(qreal scale, qreal device_pixel_ratio)
 {
 	// Pixel art stays sharp only when each of its pixels covers a power of
 	// two of screen pixels (1/4, 1/2, 1, 2, 4...): the scale is rounded to
-	// one, in device pixels (Retina, Windows scaling...)
+	// one, in device pixels (Retina, Windows scaling...), or to the 3/4
+	// ratio
 	const qreal dpr = device_pixel_ratio > 0 ? device_pixel_ratio : 1.0;
 	const double device = std::clamp(scale * dpr, 1.0 / 8, 16.0);
-	return std::exp2(std::round(std::log2(device))) / dpr;
+	const double power = std::exp2(std::round(std::log2(device)));
+	const double three = threeQuarterDevice(dpr);
+	return (std::abs(std::log2(device / three)) < std::abs(std::log2(device / power)) ? three : power) / dpr;
+}
+
+qreal MapEditor::ratioScale(qreal ratio) const
+{
+	// the 3/4 ratio: itself where the screen's scaling rounds 3 elsewhere
+	const qreal dpr = m_devicePixelRatio > 0 ? m_devicePixelRatio : 1.0;
+	return ratio > HalfRatio && ratio < FullRatio ? threeQuarterDevice(dpr) / dpr : snapScale(ratio);
 }
 
 qreal MapEditor::devicePixelRatio() const
@@ -753,10 +772,10 @@ void MapEditor::pinch(qreal factor)
 	// a step each time the fingers spread (or close) by about 1.4
 	m_pinch *= factor;
 	if (m_pinch >= PinchStep && m_scale < MaxScale) {
-		setScale(m_scale * 2);
+		setScale(steppedScale(true));
 		m_pinch /= 2;
 	} else if (m_pinch <= PinchStep / 2 && m_scale > MinScale) {
-		setScale(m_scale / 2);
+		setScale(steppedScale(false));
 		m_pinch *= 2;
 	}
 	// at a limit, the fingers going on do not pile up
@@ -768,16 +787,29 @@ void MapEditor::resetPinch()
 	m_pinch = 1;
 }
 
+qreal MapEditor::steppedScale(bool in) const
+{
+	// twice or half the scale, but the 3/4 ratio between 1/2 and 1/1
+	const qreal half = ratioScale(HalfRatio);
+	const qreal three = ratioScale(3);
+	const qreal full = ratioScale(FullRatio);
+	if (qFuzzyCompare(m_scale, three))
+		return in ? full : half;
+	if (qFuzzyCompare(m_scale, in ? half : full))
+		return three;
+	return in ? m_scale * 2 : m_scale / 2;
+}
+
 void MapEditor::zoomIn()
 {
 	if (m_scale < MaxScale)
-		setScale(m_scale * 2);
+		setScale(steppedScale(true));
 }
 
 void MapEditor::zoomOut()
 {
 	if (m_scale > MinScale)
-		setScale(m_scale / 2);
+		setScale(steppedScale(false));
 }
 
 bool MapEditor::handleKey(int key, Qt::KeyboardModifiers modifiers, bool run)

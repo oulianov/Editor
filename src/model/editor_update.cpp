@@ -322,7 +322,13 @@ std::optional<EditorUpdates::Release> EditorUpdates::parseRelease(const QByteArr
 	Release found;
 	found.version = versionOf(tag);
 	found.page = QUrl(release.value(QStringLiteral("html_url")).toString());
-	const QJsonArray assets = release.value(QStringLiteral("assets")).toArray();
+	// the files whose upload has ended (GitHub lists one being uploaded as "open")
+	QJsonArray assets;
+	for (const QJsonValue& asset : release.value(QStringLiteral("assets")).toArray()) {
+		const QString state = asset.toObject().value(QStringLiteral("state")).toString();
+		if (state.isEmpty() || state == QLatin1String("uploaded"))
+			assets.append(asset);
+	}
 	QStringList names;
 	for (const QJsonValue& asset : assets)
 		names << asset.toObject().value(QStringLiteral("name")).toString();
@@ -543,16 +549,28 @@ void EditorUpdater::checked(QNetworkReply* reply, bool interactive)
 		return;
 	}
 	const bool newer = EditorUpdates::compareVersions(release->version, currentVersion()) > 0;
+	// a release is published before its files are built and attached: where
+	// the Editor installs itself, it is announced once the file for this
+	// system is there (a later check finds it); the other builds are updated
+	// by hand, from its page
+	const bool waiting = newer && release->assetUrl.isEmpty() && EditorUpdates::method() != EditorUpdates::Method::Browser;
 	qCInfo(lcUpdate).noquote() << "latest release" << release->version << "(this one" << currentVersion() + ")"
-		<< (newer ? "newer, package: " + (release->assetName.isEmpty() ? QStringLiteral("none") : release->assetName) : "");
-	if (newer)
+		<< (newer ? "newer, package: " + (release->assetName.isEmpty() ? QStringLiteral("none") : release->assetName) : "")
+		<< (waiting ? "(not announced until it has one)" : "");
+	if (newer && !waiting)
 		m_release = release;
 	else
 		m_release.reset();
-	setState(newer ? State::Available : State::Idle);
+	setState(newer && !waiting ? State::Available : State::Idle);
 	if (!interactive)
 		return;
-	QTimer::singleShot(0, this, [this, title, newer] {
+	const QString version = release->version;
+	QTimer::singleShot(0, this, [this, title, newer, waiting, version] {
+		if (waiting) {
+			dialogs().information(title, tr("Version %1 is published, but its download for this system is not ready yet. "
+				"Check again later.").arg(version));
+			return;
+		}
 		if (!newer) {
 			dialogs().information(title, tr("EasyRPG Editor is up to date (version %1).").arg(currentVersion()));
 			return;

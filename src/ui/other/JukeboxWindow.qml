@@ -49,6 +49,7 @@ Ez.DialogWindow {
     }
 
     objectName: "JukeboxDialog"
+    stateKey: "JukeboxDialog"
     title: qsTr("Jukebox")
     standardButtons: Controls.DialogButtonBox.Close
 

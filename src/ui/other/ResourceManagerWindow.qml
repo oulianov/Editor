@@ -62,6 +62,7 @@ Ez.DialogWindow {
     }
 
     objectName: "ResourceManagerDialog"
+    stateKey: "ResourceManagerDialog"
     title: qsTr("Resource Manager")
     standardButtons: Controls.DialogButtonBox.Close | Controls.DialogButtonBox.Help
 

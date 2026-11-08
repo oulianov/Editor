@@ -691,6 +691,8 @@ double ShellController::zoomRatio(const QString& action)
 	// RPG Maker's ratios; maps open at 1/2, tiles twice their size
 	if (action == QLatin1String("actionZoom1_1"))
 		return 4.0;
+	if (action == QLatin1String("actionZoom3_4"))
+		return 3.0;
 	if (action == QLatin1String("actionZoom1_2"))
 		return 2.0;
 	if (action == QLatin1String("actionZoom1_4"))

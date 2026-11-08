@@ -96,6 +96,7 @@
         <file alias="icons/ezbright/icons/zoom-original.svg">icons/bright/zoom-original.svg</file>
         <file alias="icons/ezbright/icons/zoom-out.svg">icons/bright/zoom-out.svg</file>
         <file alias="icons/ezbright/icons/zoom-ratio-1.svg">icons/bright/zoom-ratio-1.svg</file>
+        <file alias="icons/ezbright/icons/zoom-ratio-3-4.svg">icons/bright/zoom-ratio-3-4.svg</file>
         <file alias="icons/ezbright/icons/zoom-ratio-2.svg">icons/bright/zoom-ratio-2.svg</file>
         <file alias="icons/ezbright/icons/zoom-ratio-4.svg">icons/bright/zoom-ratio-4.svg</file>
         <file alias="icons/ezbright/icons/zoom-ratio-8.svg">icons/bright/zoom-ratio-8.svg</file>
@@ -142,6 +143,7 @@
         <file alias="icons/ezdark/icons/zoom-original.svg">icons/dark/zoom-original.svg</file>
         <file alias="icons/ezdark/icons/zoom-out.svg">icons/dark/zoom-out.svg</file>
         <file alias="icons/ezdark/icons/zoom-ratio-1.svg">icons/dark/zoom-ratio-1.svg</file>
+        <file alias="icons/ezdark/icons/zoom-ratio-3-4.svg">icons/dark/zoom-ratio-3-4.svg</file>
         <file alias="icons/ezdark/icons/zoom-ratio-2.svg">icons/dark/zoom-ratio-2.svg</file>
         <file alias="icons/ezdark/icons/zoom-ratio-4.svg">icons/dark/zoom-ratio-4.svg</file>
         <file alias="icons/ezdark/icons/zoom-ratio-8.svg">icons/dark/zoom-ratio-8.svg</file>
@@ -190,6 +192,7 @@
         <file alias="zoom">icons/bright/zoom.svg</file>
         <file alias="select-area">icons/bright/select-area.svg</file>
         <file alias="zoom-ratio-1">icons/bright/zoom-ratio-1.svg</file>
+        <file alias="zoom-ratio-3-4">icons/bright/zoom-ratio-3-4.svg</file>
         <file alias="zoom-ratio-2">icons/bright/zoom-ratio-2.svg</file>
         <file alias="zoom-ratio-4">icons/bright/zoom-ratio-4.svg</file>
         <file alias="zoom-ratio-8">icons/bright/zoom-ratio-8.svg</file>
@@ -247,6 +250,7 @@
         <file alias="zoom">icons/dark/zoom.svg</file>
         <file alias="select-area">icons/dark/select-area.svg</file>
         <file alias="zoom-ratio-1">icons/dark/zoom-ratio-1.svg</file>
+        <file alias="zoom-ratio-3-4">icons/dark/zoom-ratio-3-4.svg</file>
         <file alias="zoom-ratio-2">icons/dark/zoom-ratio-2.svg</file>
         <file alias="zoom-ratio-4">icons/dark/zoom-ratio-4.svg</file>
         <file alias="zoom-ratio-8">icons/dark/zoom-ratio-8.svg</file>

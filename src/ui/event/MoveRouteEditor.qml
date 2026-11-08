@@ -208,6 +208,7 @@ Ez.DialogWindow {
     }
 
     objectName: "MoveRouteDialog"
+    stateKey: "MoveRouteDialog"
     title: moveEvent ? qsTr("Move Event") : qsTr("Move Route")
     standardButtons: Controls.DialogButtonBox.Ok | Controls.DialogButtonBox.Cancel | Controls.DialogButtonBox.Help
     // on the end line, where moves go

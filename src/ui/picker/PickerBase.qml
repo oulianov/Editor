@@ -67,6 +67,8 @@ Ez.DialogWindow {
     property bool ready: false
 
     objectName: "PickerDialog"
+    // its size and place for each folder (the previews differ)
+    stateKey: "PickerDialog/" + picker.folder
     title: customTitle !== "" ? customTitle : qsTr("Select from %1").arg(picker.folder)
     standardButtons: Controls.DialogButtonBox.Ok | Controls.DialogButtonBox.Cancel
                      | Controls.DialogButtonBox.Apply | Controls.DialogButtonBox.Help
