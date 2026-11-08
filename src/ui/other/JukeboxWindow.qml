@@ -241,7 +241,68 @@ Ez.DialogWindow {
                 font.bold: root.library.statusIsError
             }
 
-            // what plays the MIDI music: the song through each soundfont, before shipping
+            // the four settings of RPG Maker's windows, with their scales and
+            // the steps of its trackbars (11 positions), each with its default
+            GridLayout {
+                columns: 2
+                rowSpacing: Ez.Metrics.sectionSpacing
+                columnSpacing: Ez.Metrics.sectionSpacing
+
+                Setting {
+                    name: "FadeIn"
+                    tickInterval: 1
+                    defaultValue: 0
+                    title: qsTr("Fade-in Time")
+                    // RPG Maker's sound effects have no fade-in
+                    enabled: root.music
+                    from: 0
+                    to: 10
+                    value: root.library.fadeIn
+                    marks: [qsTr("None"), qsTr("5 s"), qsTr("10 s")]
+                    valueText: v => qsTr("%1 s").arg(v)
+                    onMoved: v => root.library.fadeIn = v
+                }
+                Setting {
+                    name: "Volume"
+                    tickInterval: 10
+                    defaultValue: 100
+                    title: qsTr("Volume")
+                    from: 0
+                    to: 100
+                    value: root.library.volume
+                    marks: [qsTr("0%"), qsTr("50%"), qsTr("100%")]
+                    valueText: v => qsTr("%1%").arg(v)
+                    onMoved: v => root.library.volume = v
+                }
+                Setting {
+                    name: "Tempo"
+                    tickInterval: 10
+                    defaultValue: 100
+                    title: qsTr("Tempo")
+                    from: 50
+                    to: 150
+                    value: root.library.tempo
+                    marks: [qsTr("50%"), qsTr("100%"), qsTr("150%")]
+                    valueText: v => qsTr("%1%").arg(v)
+                    onMoved: v => root.library.tempo = v
+                }
+                Setting {
+                    name: "Balance"
+                    tickInterval: 10
+                    defaultValue: 50
+                    title: qsTr("Balance")
+                    from: 0
+                    to: 100
+                    value: root.library.balance
+                    marks: [qsTr("Left"), qsTr("Center"), qsTr("Right")]
+                    valueText: v => "%1:%2".arg(100 - v).arg(v)
+                    toolTip: qsTr("Left and right volume, like RPG Maker (50:50 is the center)")
+                    onMoved: v => root.library.balance = v
+                }
+            }
+
+            // what plays the MIDI music, below the settings of the sound: the song
+            // through each soundfont, before shipping
             Ez.Section {
                 objectName: "groupSoundfont"
                 title: qsTr("MIDI Soundfont")
@@ -307,66 +368,6 @@ Ez.DialogWindow {
                     Controls.ToolTip.visible: hovered
                     Controls.ToolTip.text: qsTr("Opens Project Settings with this file chosen as easyrpg.soundfont (copied on OK)")
                     onClicked: root.useAsGameSoundfont(root.player.synthSoundfont)
-                }
-            }
-
-            // the four settings of RPG Maker's windows, with their scales and
-            // the steps of its trackbars (11 positions), each with its default
-            GridLayout {
-                columns: 2
-                rowSpacing: Ez.Metrics.sectionSpacing
-                columnSpacing: Ez.Metrics.sectionSpacing
-
-                Setting {
-                    name: "FadeIn"
-                    tickInterval: 1
-                    defaultValue: 0
-                    title: qsTr("Fade-in Time")
-                    // RPG Maker's sound effects have no fade-in
-                    enabled: root.music
-                    from: 0
-                    to: 10
-                    value: root.library.fadeIn
-                    marks: [qsTr("None"), qsTr("5 s"), qsTr("10 s")]
-                    valueText: v => qsTr("%1 s").arg(v)
-                    onMoved: v => root.library.fadeIn = v
-                }
-                Setting {
-                    name: "Volume"
-                    tickInterval: 10
-                    defaultValue: 100
-                    title: qsTr("Volume")
-                    from: 0
-                    to: 100
-                    value: root.library.volume
-                    marks: [qsTr("0%"), qsTr("50%"), qsTr("100%")]
-                    valueText: v => qsTr("%1%").arg(v)
-                    onMoved: v => root.library.volume = v
-                }
-                Setting {
-                    name: "Tempo"
-                    tickInterval: 10
-                    defaultValue: 100
-                    title: qsTr("Tempo")
-                    from: 50
-                    to: 150
-                    value: root.library.tempo
-                    marks: [qsTr("50%"), qsTr("100%"), qsTr("150%")]
-                    valueText: v => qsTr("%1%").arg(v)
-                    onMoved: v => root.library.tempo = v
-                }
-                Setting {
-                    name: "Balance"
-                    tickInterval: 10
-                    defaultValue: 50
-                    title: qsTr("Balance")
-                    from: 0
-                    to: 100
-                    value: root.library.balance
-                    marks: [qsTr("Left"), qsTr("Center"), qsTr("Right")]
-                    valueText: v => "%1:%2".arg(100 - v).arg(v)
-                    toolTip: qsTr("Left and right volume, like RPG Maker (50:50 is the center)")
-                    onMoved: v => root.library.balance = v
                 }
             }
             Item {

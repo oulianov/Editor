@@ -396,7 +396,8 @@ Ez.ComboBox {
         anchors.verticalCenter: parent.verticalCenter
         width: root.charsetWidth
         height: root.charsetHeight
-        smooth: true
+        // as the faces: its background as in the file
+        opaque: true
         projectData: Ez.ProjectData
         filename: entry ? entry.charset : ""
         cellIndex: entry ? entry.charsetIndex : 0
@@ -658,7 +659,7 @@ Ez.ComboBox {
                             anchors.verticalCenter: parent.verticalCenter
                             width: root.charsetWidth
                             height: root.charsetHeight
-                            smooth: true
+                            opaque: true
                             projectData: Ez.ProjectData
                             filename: entry ? entry.charset : ""
                             cellIndex: entry ? entry.charsetIndex : 0

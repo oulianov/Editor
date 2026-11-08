@@ -335,7 +335,10 @@ Loader {
             noneValue: root.shown.none ? root.shown.none.value : 0
             jsonData: root.session
             key: root.key
-            pickable: root.bound
+            // its "..." also on the line of a radio button not chosen (greyed): the
+            // line keeps its width when the radio button is chosen
+            pickable: true
+            pickButton.enabled: root.bound
             // the session's picker: its database is read again after it
             pickHandler: function() {
                 const id = root.session.pickEntry(root.shown.list, Number(current.value), !!root.shown.none, refBox)

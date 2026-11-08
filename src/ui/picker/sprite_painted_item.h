@@ -29,7 +29,8 @@
  * a click choosing another. In a picker the sheet is shown as in its file
  * (palette color 0 is the background, as in RPG Maker's pickers), else as
  * the game draws it (palette color 0 transparent where the folder makes it
- * so). Pixel art is scaled without blur.
+ * so). Pixel art is scaled without blur. A thumbnail of a list (opaque)
+ * keeps palette color 0 as its background, as a picker does.
  *
  * The picture: the file path, else the file of directory and filename found
  * in projectData (the game's, else the RTP's).
@@ -47,6 +48,8 @@ class SpritePaintedItem : public QQuickPaintedItem {
 	Q_PROPERTY(int cellWidth READ cellWidth WRITE setCellWidth NOTIFY cellWidthChanged)
 	Q_PROPERTY(int cellHeight READ cellHeight WRITE setCellHeight NOTIFY cellHeightChanged)
 	Q_PROPERTY(bool transparent READ transparent WRITE setTransparent NOTIFY transparentChanged)
+	/** The cell as in its file, palette color 0 its background (the events of a list, as the faces) */
+	Q_PROPERTY(bool opaque READ opaque WRITE setOpaque NOTIFY opaqueChanged)
 	Q_PROPERTY(int skipCellsX READ skipCellsX WRITE setSkipCellsX NOTIFY skipCellsXChanged)
 	Q_PROPERTY(int skipCellsY READ skipCellsY WRITE setSkipCellsY NOTIFY skipCellsYChanged)
 	Q_PROPERTY(int gridColumns READ gridColumns WRITE setGridColumns NOTIFY gridColumnsChanged)
@@ -85,6 +88,9 @@ public:
 	bool transparent() const;
 	void setTransparent(bool transparent);
 
+	bool opaque() const;
+	void setOpaque(bool opaque);
+
 	int cellOffsetX() const;
 	void setCellOffsetX(int cellOffsetX);
 
@@ -112,6 +118,7 @@ signals:
 	void cellWidthChanged();
 	void cellHeightChanged();
 	void transparentChanged();
+	void opaqueChanged();
 	void cellOffsetXChanged();
 	void cellOffsetYChanged();
 	void skipCellsXChanged();
@@ -139,6 +146,7 @@ protected:
 	ProjectDataGadget* m_projectData = nullptr;
 	bool m_pickerMode = false;
 	bool m_transparent = false;
+	bool m_opaque = false;
 	QPixmap m_image;
 	bool m_loaded = false;
 

@@ -3487,9 +3487,7 @@ void addEasyRpg(Table& table) {
 		easyNumber("x", x, 0, 0, 9999),
 		beside(easyNumber("y", y, 2, 0, 9999)),
 		section({}),
-		check("faceHero", 4, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "The event turns to the hero")).bit(0).withDefault(1).extension(),
-		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Starts the events of the cell as the hero's Action Key does: "
-			"those started by the Action Key, at the hero's level, in the order of their IDs."))
+		check("faceHero", 4, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "The event turns to the hero")).bit(0).withDefault(1).extension()
 	), Flag::EasyRpg);
 
 	// Pathfinder: the events ignored and the move frequency after parameter
@@ -3517,10 +3515,7 @@ void addEasyRpg(Table& table) {
 		easyNumber("failures", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Failed Moves Allowed (0: No Limit)"), 2, 0, int32Max),
 		beside(easyRadios("result", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Success In"), 4,
 			in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "Variable")),
-			fields(variable("result", 5).withItems({{0, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "(None)")}}).withDefault(0)))),
-		section({}),
-		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Waits for the move route of this event only: 1 in the variable once "
-			"it ends, 0 when it gave up."))
+			fields(variable("result", 5).withItems({{0, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "(None)")}}).withDefault(0))))
 	), Flag::EasyRpg);
 
 	// Set Interpreter Flag: the patch named in the string (the editor's
@@ -3532,8 +3527,7 @@ void addEasyRpg(Table& table) {
 		string("patch", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Patch")),
 		easyRadios("state", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "State"), 0,
 			in("ValueOperandWidget", QT_TRANSLATE_NOOP("ValueOperandWidget", "Constant")),
-			fields(check("state", 1, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "On")))),
-		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "For this event and the events it calls, until it ends."))
+			fields(check("state", 1, QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "On"))))
 	), Flag::EasyRpg);
 
 	// Process JSON: the path then the JSON in the string when the command
@@ -3586,18 +3580,12 @@ void addEasyRpg(Table& table) {
 		easyNumber("x", x, 4, 0, 9999),
 		beside(easyNumber("y", y, 6, 0, 9999)),
 		easyNumber("id", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "ID (0: the next free one)"), 8, 0, int32Max),
-		beside(easyText("name", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Name (empty: the source's)"), 10, fields(string("name")))),
-		section({}),
-		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "A copy of an event of this map or of another one, on this map until "
-			"it is entered again (save games keep it). An ID in use replaces its event."))
+		beside(easyText("name", QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Name (empty: the source's)"), 10, fields(string("name"))))
 	), Flag::EasyRpg);
 
 	// Destroy Map Event: 0 is This Event too
 	table.add(Code::EasyRpg_DestroyMapEvent, context, palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Destroy Map Event")), fields(
-		easyEntry("event", event, 0, Kind::Character, event, {characters.front(), {0, characters.front().text, Flag::Kept}}),
-		section({}),
-		note(QT_TRANSLATE_NOOP("EasyRpgCommandWidget", "Removes the event from the map until it is entered again "
-			"(save games keep it removed); Erase Event only hides it."))
+		easyEntry("event", event, 0, Kind::Character, event, {characters.front(), {0, characters.front().text, Flag::Kept}})
 	), Flag::EasyRpg);
 }
 

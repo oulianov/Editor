@@ -415,7 +415,8 @@ void EditorSettings::resetLocalState() {
 		QStringLiteral("dialog_sizes"), QStringLiteral("project_workspace"),
 		QStringLiteral("database_views"), QStringLiteral("event_views"), QStringLiteral("main_window_geometry"),
 		QStringLiteral("database_page"), QStringLiteral("event_dialog_geometry"), QStringLiteral("event_page_settings_width"),
-		QStringLiteral("jukebox_geometry"), QStringLiteral("jukebox_tab"), QStringLiteral("resource_manager/geometry"),
+		QStringLiteral("jukebox_geometry"), QStringLiteral("jukebox_tab"), QStringLiteral("command_palette_page"),
+		QStringLiteral("command_palette_battle_page"), QStringLiteral("resource_manager/geometry"),
 		QStringLiteral("resource_manager/folder"), QStringLiteral("resource_manager/import_dir"),
 		QStringLiteral("resource_manager/export_dir"), QStringLiteral("current_project"), QStringLiteral("default_dir")})
 		settings.remove(key);

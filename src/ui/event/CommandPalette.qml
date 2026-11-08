@@ -39,6 +39,9 @@ Ez.DialogWindow {
     property bool easyrpg: false
     /** The command chosen (0: none) */
     property int code: 0
+    /** The tab shown first (the one shown last time), and the one shown when it closes */
+    property int startPage: 0
+    readonly property int page: tabs.currentIndex
 
     /** Chooses the command of an entry; the one of the battle event commands opens them */
     function choose(entry) {
@@ -218,6 +221,8 @@ Ez.DialogWindow {
                 objectName: "tabPages"
                 Layout.fillWidth: true
                 font: Ez.Metrics.font
+                // once its tabs are made: the one of last time
+                onCountChanged: if (count === root.pages.length) currentIndex = Math.max(0, Math.min(root.startPage, count - 1))
 
                 Repeater {
                     model: root.pages

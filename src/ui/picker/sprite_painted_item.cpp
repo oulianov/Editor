@@ -92,6 +92,20 @@ void SpritePaintedItem::setPickerMode(bool pickerMode) {
 	reload();
 }
 
+bool SpritePaintedItem::opaque() const {
+	return m_opaque;
+}
+
+void SpritePaintedItem::setOpaque(bool opaque) {
+	if (m_opaque == opaque) {
+		return;
+	}
+	m_opaque = opaque;
+	m_image = {};
+	emit opaqueChanged();
+	reload();
+}
+
 int SpritePaintedItem::cellIndex() const {
 	return m_cellIndex;
 }
@@ -347,7 +361,7 @@ bool SpritePaintedItem::loaded() const {
 }
 
 QPixmap SpritePaintedItem::loadImage() const {
-	const bool transparent = !m_pickerMode && ProjectImageProvider::isTransparentFolder(m_directory);
+	const bool transparent = !m_pickerMode && !m_opaque && ProjectImageProvider::isTransparentFolder(m_directory);
 	return QPixmap::fromImage(ProjectImageProvider::load(imagePath(), transparent));
 }
 

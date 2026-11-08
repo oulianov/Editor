@@ -140,6 +140,18 @@ ColumnLayout {
             id: sectionRow
 
             required property var modelData
+            /** Sections side by side: the width of the widest for each, so that a
+             *  value shown (a longer name, another radio button chosen) does not
+             *  move the line between them */
+            readonly property real share: {
+                let widest = 0
+                for (const child of children) {
+                    if (child.visible && child.isSection) {
+                        widest = Math.max(widest, child.implicitWidth)
+                    }
+                }
+                return widest
+            }
 
             visible: root.session.revision < 0 ? false
                      : modelData.some(one => one.rows.some(row => root.session.isShown(row.field.id)))
@@ -158,10 +170,13 @@ ColumnLayout {
             readonly property bool shown: root.session.revision < 0 ? false
                                          : modelData.rows.some(row => root.session.isShown(row.field.id))
 
+            readonly property bool isSection: true
+
             visible: shown
             spacing: 0
             Layout.fillWidth: true
-            // side by side: their tops aligned
+            // side by side: the same width, their tops aligned
+            Layout.preferredWidth: sectionRow.modelData.length > 1 ? sectionRow.share : -1
             Layout.alignment: Qt.AlignTop
 
             Ez.Section {

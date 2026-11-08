@@ -26,6 +26,7 @@
 #include "qmlbinding/qml_host.h"
 #include "ui/event/command_editor_registry.h"
 #include <QQuickWindow>
+#include <QSettings>
 #include <QVariantMap>
 #include <QWindow>
 #include <memory>
@@ -115,11 +116,17 @@ std::optional<Code> CommandEditing::pickCommand(QWindow* over, ProjectData& proj
 	// commands (the palette again, over it), which are inserted as in a battle
 	const QVariantList battle_pages = battle ? QVariantList() : palettePages({&CommandCatalog::battlePage()});
 	int code = 0;
+	// it opens on the tab shown when it was closed (the battle pages': theirs)
+	const QString pageKey = battle ? QStringLiteral("command_palette_battle_page") : QStringLiteral("command_palette_page");
+	QSettings settings;
 	const int result = QmlHost::exec(QStringLiteral("CommandPalette"), over,
 		{{QStringLiteral("pages"), palettePages(CommandCatalog::pages(battle, maniac, easyrpg))}, {QStringLiteral("battlePages"), battle_pages},
 			{QStringLiteral("battle"), battle}, {QStringLiteral("rpg2k3"), rpg2k3}, {QStringLiteral("maniac"), maniac},
-			{QStringLiteral("easyrpg"), easyrpg}},
-		[&code](QQuickWindow* window) { code = window->property("code").toInt(); });
+			{QStringLiteral("easyrpg"), easyrpg}, {QStringLiteral("startPage"), settings.value(pageKey, 0).toInt()}},
+		[&code, &settings, &pageKey](QQuickWindow* window) {
+			code = window->property("code").toInt();
+			settings.setValue(pageKey, window->property("page").toInt());
+		});
 	if (result != 1 || code <= 0) {
 		return std::nullopt;
 	}

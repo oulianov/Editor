@@ -165,11 +165,6 @@ ColumnLayout {
                 root.sync()
             }
         }
-        Ez.Note {
-            visible: root.pathTyped
-            text: qsTr("A JSON Pointer: / for the whole JSON, /name for a key, /list/0 for the first entry of an array.")
-            Layout.fillWidth: true
-        }
     }
 
     // the result (its kind, its switch, variable or string) and the options

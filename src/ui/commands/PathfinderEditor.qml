@@ -93,14 +93,20 @@ ColumnLayout {
         Layout.fillHeight: false
     }
 
+    // side by side as the sections of the form: the same width each, the
+    // line between them under theirs
     RowLayout {
+        id: lastRow
+        readonly property real share: Math.max(ignoredSection.implicitWidth, frequencySection.implicitWidth)
         spacing: Ez.Metrics.sectionSpacing
         Layout.fillWidth: true
 
         // the events the route goes through as if they were not there
         Ez.Section {
+            id: ignoredSection
             title: qsTr("Events the Search Ignores")
             Layout.fillWidth: true
+            Layout.preferredWidth: lastRow.share
             Layout.alignment: Qt.AlignTop
 
             // the radio buttons of the form's values, the variable on their line
@@ -150,15 +156,6 @@ ColumnLayout {
                         Layout.preferredWidth: 200
                     }
                 }
-            }
-            Ez.Note {
-                visible: root.ignoreMode !== 0
-                // EasyRPG Player reads the value first (as for the other values), so
-                // the list starts at the variable whose number this one holds
-                text: root.ignoreMode === 1
-                      ? qsTr("This variable holds the number of the variable where the list starts: that one holds how many events, the variables after it their IDs.")
-                      : qsTr("This variable holds the number of a variable, which holds the number of the variable where the list starts: that one holds how many events, the variables after it their IDs.")
-                Layout.fillWidth: true
             }
             Repeater {
                 model: root.ignoreMode === 0 ? root.ignored : []
@@ -213,13 +210,17 @@ ColumnLayout {
 
         // the speed of the event's steps on the route (1 to 8)
         Ez.Section {
+            id: frequencySection
             title: qsTr("Move Frequency")
+            Layout.fillWidth: true
+            Layout.preferredWidth: lastRow.share
             Layout.alignment: Qt.AlignTop
 
             GridLayout {
                 columns: 2
                 rowSpacing: Ez.Metrics.rowSpacing
                 columnSpacing: Ez.Metrics.columnSpacing
+                Layout.fillWidth: true
 
                 Repeater {
                     model: root.modes
@@ -258,6 +259,7 @@ ColumnLayout {
                         key: root.frequencyMode === modelData ? "/parameters/" + (root.frequencyAt + 1) : ""
                         Layout.row: modelData
                         Layout.column: 1
+                        Layout.fillWidth: true
                         Layout.preferredWidth: 200
                     }
                 }
