@@ -39,14 +39,27 @@
 
 namespace {
 
-// the docks of the main window with title bars in the colors of the
-// Editor (DockTitleBar.qml), light or dark
+// the docks of the main window with title bars, frames, separators and
+// backgrounds in the colors of the Editor (DockTitleBar.qml, DockGroup.qml,
+// DockSeparator.qml, DockBackground.qml), light or dark
 class DockViewFactory : public KDDockWidgets::QtQuick::ViewFactory
 {
 public:
 	QUrl titleBarFilename() const override
 	{
 		return QUrl(QStringLiteral("qrc:/qt/qml/org/easyrpg/editor/kddockwidgets/DockTitleBar.qml"));
+	}
+	QUrl groupFilename() const override
+	{
+		return QUrl(QStringLiteral("qrc:/qt/qml/org/easyrpg/editor/kddockwidgets/DockGroup.qml"));
+	}
+	QUrl separatorFilename() const override
+	{
+		return QUrl(QStringLiteral("qrc:/qt/qml/org/easyrpg/editor/kddockwidgets/DockSeparator.qml"));
+	}
+	QUrl dockwidgetFilename() const override
+	{
+		return QUrl(QStringLiteral("qrc:/qt/qml/org/easyrpg/editor/kddockwidgets/DockBackground.qml"));
 	}
 };
 

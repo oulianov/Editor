@@ -880,12 +880,14 @@ ecm_add_qml_module(${EXE_NAME}
 ecm_target_qml_sources(${EXE_NAME}
 	SOURCES ${EDITOR_QML_UI}
 )
-# the title bars of the docks: loaded by their URL for KDDockWidgets
-# (qml_engine.cpp), apart from the types of the module, whose base (in
-# KDDockWidgets' resources) qmllint does not know
-set_source_files_properties(src/ui/shell/DockTitleBar.qml PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TRUE)
+# the title bars, frames, separators and backgrounds of the docks: loaded by their URL
+# for KDDockWidgets (qml_engine.cpp), apart from the types of the module,
+# whose bases (in KDDockWidgets' resources) qmllint does not know
+set(EDITOR_DOCK_QML src/ui/shell/DockTitleBar.qml src/ui/shell/DockGroup.qml src/ui/shell/DockSeparator.qml
+	src/ui/shell/DockBackground.qml)
+set_source_files_properties(${EDITOR_DOCK_QML} PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TRUE)
 ecm_target_qml_sources(${EXE_NAME}
-	SOURCES src/ui/shell/DockTitleBar.qml
+	SOURCES ${EDITOR_DOCK_QML}
 	PATH kddockwidgets
 )
 

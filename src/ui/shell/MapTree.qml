@@ -20,6 +20,12 @@ import org.easyrpg.editor as Ez
  *
  * The nodes shown expanded are the tree's own (the workspace's), given to
  * the map tree's data when it is written (expandedIds()).
+ *
+ * filter (the search above it, MapSearchField): only the maps whose names
+ * hold the text, or of its number, show, with the nodes they are in,
+ * expanded; the others are hidden (rows of no height). The nodes expanded
+ * before are put back when the filter is emptied: what the search expands
+ * is not the tree's.
  */
 FocusScope {
     id: root
@@ -39,8 +45,135 @@ FocusScope {
     property int dropTarget: -1
     property int dropPosition: -1
 
-    /** The ids of the nodes shown expanded */
+    /** The text searched (MapSearchField): only the maps found show */
+    property string filter: ""
+    readonly property bool filtering: filter.trim() !== ""
+    /** While filtering: the maps found, the nodes shown ({id: true}), how
+     *  many maps, the map of the number typed (-1: none) */
+    property var matchSet: ({})
+    property var shownSet: ({})
+    property int matchCount: 0
+    property int exactMatch: -1
+    /** The nodes expanded before the filter, put back after it (null: no filter) */
+    property var expandedBeforeFilter: null
+    /** The search expands nodes: the tree's data is not told */
+    property bool holdExpanded: false
+    /** The filter is to be emptied (another project, a node selected that it hides) */
+    signal clearFilterRequested()
+
+    onFilterChanged: applyFilter()
+
+    /** Shows only the maps of the filter, or all of them again */
+    function applyFilter() {
+        const typed = filter.trim().toLowerCase()
+        if (typed === "") {
+            matchSet = {}
+            shownSet = {}
+            matchCount = 0
+            exactMatch = -1
+            if (expandedBeforeFilter !== null) {
+                const ids = expandedBeforeFilter
+                expandedBeforeFilter = null
+                holdExpanded = true
+                applyExpanded(ids)
+                holdExpanded = false
+            }
+            view.filterChanged = true
+            view.forceLayout()
+            if (selectedId > 0) {
+                reveal(selectedId)
+            }
+            return
+        }
+        if (expandedBeforeFilter === null) {
+            expandedBeforeFilter = expandedIds()
+        }
+        const number = /^\d+$/.test(typed) ? Number(typed) : -1
+        const matches = {}
+        const shown = { 0: true }
+        let count = 0
+        let exact = -1
+        for (const id of shell.treeIds()) {
+            // the maps, not the areas
+            if (shell.treeType(id) !== 1) {
+                continue
+            }
+            if (id === number || shell.treeName(id).toLowerCase().includes(typed)) {
+                matches[id] = true
+                count++
+                if (id === number) {
+                    exact = id
+                }
+                for (let index = shell.treeIndex(id); index.valid; index = index.parent) {
+                    shown[shell.treeId(index)] = true
+                }
+            }
+        }
+        matchSet = matches
+        shownSet = shown
+        matchCount = count
+        exactMatch = exact
+        // the nodes holding the maps found expanded
+        holdExpanded = true
+        applyExpanded(Object.keys(shown).map(Number))
+        holdExpanded = false
+        view.filterChanged = true
+        view.forceLayout()
+        const row = rowOf(selectedId)
+        if (row >= 0 && shownSet[selectedId]) {
+            view.positionViewAtRow(row, TableView.Contain)
+        }
+    }
+    /** A row shown: all of them, or those of the filter */
+    function rowShown(row) {
+        return !filtering || shownSet[idAt(row)] === true
+    }
+    /** The row shown delta rows after row (before: negative), the maps found
+     *  only (onlyFound), row itself when there is none */
+    function stepRow(row, delta, onlyFound) {
+        for (let next = row + delta; next >= 0 && next < view.rows; next += delta) {
+            if (onlyFound ? matchSet[idAt(next)] === true : rowShown(next)) {
+                return next
+            }
+        }
+        return row
+    }
+    /** As an arrow key on the tree: the node shown after (delta 1) or before
+     *  (-1) the one selected, selected and shown; while filtering
+     *  (onlyFound), the next map found */
+    function step(delta, onlyFound) {
+        const row = rowOf(selectedId)
+        const next = stepRow(row, delta, onlyFound)
+        if (next >= 0 && next !== row) {
+            select(idAt(next), false)
+            view.positionViewAtRow(next, TableView.Contain)
+        }
+    }
+    /** Return in the search: the map found selected (else the map of the
+     *  number typed, else the first one found) in a kept tab */
+    function openFound() {
+        if (!filtering) {
+            if (selectedId > 0) {
+                select(selectedId, true)
+            }
+            return
+        }
+        let id = matchSet[selectedId] ? selectedId : exactMatch
+        if (id < 0) {
+            const first = stepRow(-1, 1, true)
+            id = first >= 0 ? idAt(first) : -1
+        }
+        if (id > 0) {
+            select(id, true)
+            view.positionViewAtRow(rowOf(id), TableView.Contain)
+        }
+    }
+
+    /** The ids of the nodes shown expanded (before the filter, while it is) */
     function expandedIds() {
+        if (expandedBeforeFilter !== null) {
+            return expandedBeforeFilter
+        }
         const ids = []
         for (const id of shell.treeIds()) {
             if (expandedSet[id]) {
@@ -153,6 +286,17 @@ FocusScope {
             + " | first shown: " + (first >= 0 && first < view.rows ? shell.treeName(idAt(first)) : "none")
             + " | selected: " + selectedId + " " + (selectedId >= 0 ? shell.treeName(selectedId) : "")
             + " | visible: " + (root.visible && root.height > 0) + " | lines wrong: " + wrong
+            + " | filter: " + (filtering ? matchCount + " found, " + shownRows() + " rows shown" : "none")
+    }
+    /** The rows drawn with a height (the scripts: those the filter shows) */
+    function shownRows() {
+        let shown = 0
+        for (let row = 0; row < view.rows; row++) {
+            if (view.rowHeight(row) > 0) {
+                shown++
+            }
+        }
+        return shown
     }
     /** The line of a node by its text, scrolled to (the scripts' click-item) */
     function automationItem(text) {
@@ -245,10 +389,10 @@ FocusScope {
         let next = -1
         switch (event.key) {
         case Qt.Key_Up:
-            next = Math.max(0, row - 1)
+            next = row < 0 ? stepRow(-1, 1, false) : stepRow(row, -1, false)
             break
         case Qt.Key_Down:
-            next = Math.min(view.rows - 1, row + 1)
+            next = stepRow(row, 1, false)
             break
         case Qt.Key_Right:
             if (row >= 0 && !view.isExpanded(row)) {
@@ -281,7 +425,12 @@ FocusScope {
     Connections {
         target: root.shell ? root.shell.tree : null
         function onModelReset() {
+            // another tree (another project): the search ends
+            root.expandedBeforeFilter = null
             root.applyTreeExpanded()
+            if (root.filtering) {
+                root.clearFilterRequested()
+            }
         }
         function onDataChanged(topLeft, bottomRight, roles) {
             // the expanded nodes are the tree's: only an explicit change shows
@@ -304,11 +453,19 @@ FocusScope {
         target: root.shell ? root.shell.controller : null
         function onTreeMapReloaded() {
             root.keepExpanded()
+            // the maps found again (renamed, moved)
+            if (root.filtering) {
+                root.applyFilter()
+            }
         }
     }
     Connections {
         target: root.shell
         function onTreeSelectRequested(id) {
+            // a node the filter hides (Open Start Map, a tab): all show again
+            if (root.filtering && !root.shownSet[id]) {
+                root.clearFilterRequested()
+            }
             root.reveal(id)
         }
     }
@@ -345,12 +502,29 @@ FocusScope {
         acceptedButtons: Qt.NoButton
         pointerNavigationEnabled: false
         keyNavigationEnabled: false
+        // the rows the filter hides: no height; laid out again once the
+        // rows of the nodes it expanded or collapsed are made
+        rowHeightProvider: row => root.rowShown(row) ? -1 : 0
+        /** The filter changed: laid out again once the rows are made (they
+         *  keep the heights they had otherwise) */
+        property bool filterChanged: false
+        onLayoutChanged: {
+            if (filterChanged) {
+                filterChanged = false
+                forceLayout()
+            }
+        }
         Controls.ScrollBar.vertical: Controls.ScrollBar {
             objectName: "treeMapScrollY"
         }
         Controls.ScrollBar.horizontal: Controls.ScrollBar {}
 
         onExpanded: (row, depth) => {
+            // the search's own: not the tree's
+            if (root.holdExpanded || root.filtering) {
+                root.revision++
+                return
+            }
             const id = root.idAt(row)
             root.expandedSet[id] = true
             root.shell.setExpanded(id, true)
@@ -364,6 +538,10 @@ FocusScope {
             root.revision++
         }
         onCollapsed: (row, recursively) => {
+            if (root.holdExpanded || root.filtering) {
+                root.revision++
+                return
+            }
             const id = root.idAt(row)
             root.expandedSet[id] = false
             root.shell.setExpanded(id, false)

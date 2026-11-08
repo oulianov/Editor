@@ -78,7 +78,7 @@ at once: the next commands act on the dialog, until `close`.
 | `expect-dock DOCK docked\|floating\|closed` | Fails unless the dock of the main window is in that state.
 | `edit-database-file POINTER VALUE` | Writes a value of the database file on disk, apart from the Editor, as another program (rpgsync) does: POINTER is a JSON pointer of the database (`terms/victory`, `attributes/1/name`).
 | `edit-tree-file rename ID NAME\|expanded ID on\|off\|add PARENT [NAME]\|remove ID\|move ID PARENT\|rewrite` | Changes the map tree file on disk, apart from the Editor, as another program (rpgsync) does: renames a map or area, sets the flag of a node shown expanded, adds a map (the first free id, with a blank map file) as the last child of PARENT (0: the project), removes a node with what it holds (their map files stay), moves a map with what it holds as the last child of PARENT, or writes the file again unchanged. What the Editor shows of it is read again with the files changed by other programs (Settings, `checkReloadExternal`): the map tree keeps its expanded nodes, its scroll and its selection.
-| `log-tree` | Logs what the map tree of the main window shows: its dock (`docked`, `floating`, `closed`), the nodes shown expanded, its rows, its scroll, the first node shown, the node selected, and the lines drawn that do not show their node (`lines wrong`, 0).
+| `log-tree` | Logs what the map tree of the main window shows: its dock (`docked`, `floating`, `closed`), the nodes shown expanded, its rows, its scroll, the first node shown, the node selected, the lines drawn that do not show their node (`lines wrong`, 0), and the filter of the search above it (`none`, or the maps found and the rows shown).
 | `expect-database-file POINTER VALUE` | Fails unless the database file on disk has this value (what Apply or OK saved).
 | `expect-database POINTER VALUE` | Fails unless the project's database, in memory, has this value (what it read again after `edit-database-file`, with the files changed by other programs read again: Settings, `checkReloadExternal`).
 | `expect-locks KIND...` | Fails unless the editors open hold these edit locks, in the order taken (`none`: no lock): `dialog` for a modal window (a dialog, a question, a picker), `database` for the database window, `event:MAP` for the event window of an event of map MAP. What another program changes in the project is read again only once they are given back (an event window lets the maps through).
@@ -237,9 +237,11 @@ Go to Map (Maps > Go to Map..., `actionMapGoTo`) is `GoToMapDialog`: the
 maps of the tree in `comboMap`, a list of entries whose search opens with
 the window (`type 12` then `key Return` chooses map 12) and the button
 `buttonGo`. Maps > Open Start Map is `actionMapOpenStart`. The search
-above the map tree is `treeMapSearch` (`focus treeMapSearch`, `type 12`,
-`key Return`: map 12 selected and shown; `key Return` again: the next map
-found). The tabs of the maps are `tabMap`; the right-click menu of a tab
+above the map tree is `treeMapSearch`: what is typed filters the tree
+(`log-tree` says how many maps are found and how many rows are shown), `key
+Down` and `key Up` select the maps found, `key Return` keeps the one
+selected in its tab, and `click treeMapSearchClear` (the cross) or `key
+Escape` empties it. The tabs of the maps are `tabMap`; the right-click menu of a tab
 (`view-press tabMap X Y right`) has `actionCloseOtherTabs` and
 `actionCloseAllTabs`.
 

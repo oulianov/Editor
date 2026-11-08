@@ -19,8 +19,11 @@ import org.easyrpg.editor as Ez
  * first result highlighted, the arrows go through them (Up from the first
  * one back to the search), Return opens one: its map at its event, page and
  * line (or its common event, its monster group). Another type or scope
- * searches again. Not modal: the search and its results stay for the next
- * time it is opened (Ctrl+F, the search ready to type).
+ * searches again; Reset puts both back. Tab goes from the search to the
+ * results, the filters, Reset and Close, on macOS too (where Tab only
+ * reaches the text fields and lists unless the system says otherwise). Not
+ * modal: the search and its results stay for the next time it is opened
+ * (Ctrl+F, the search ready to type).
  */
 Ez.DialogWindow {
     id: root
@@ -61,6 +64,13 @@ Ez.DialogWindow {
             runSearch(false)
         }
     }
+    /** The filters back to all types in the whole project, searched again */
+    function resetFilters() {
+        root.search.type = Ez.ProjectSearch.AllTypes
+        root.search.scope = Ez.ProjectSearch.WholeProject
+        searchAgain()
+    }
+    readonly property bool hasResults: root.search.results.count > 0
     /** The search, ready to type */
     function focusSearch() {
         searchText.forceActiveFocus()
@@ -123,6 +133,13 @@ Ez.DialogWindow {
             placeholderText: qsTr("Search by ID, name or event text…")
             Accessible.name: qsTr("Search query")
             Layout.fillWidth: true
+            KeyNavigation.tab: root.hasResults ? table : typeCombo
+            KeyNavigation.backtab: closeButton
+            onActiveFocusChanged: {
+                if (!activeFocus) {
+                    suggestions.close()
+                }
+            }
 
             onTextEdited: {
                 root.search.suggestions.setQuery(text)
@@ -210,12 +227,6 @@ Ez.DialogWindow {
                 }
             }
         }
-        Ez.Button {
-            objectName: "button_search"
-            text: qsTr("Search")
-            enabled: searchText.text.trim() !== ""
-            onClicked: root.runSearch(true)
-        }
     }
 
     RowLayout {
@@ -231,6 +242,8 @@ Ez.DialogWindow {
             textRole: "name"
             valueRole: "value"
             model: root.search.typeChoices()
+            KeyNavigation.tab: scopeCombo
+            KeyNavigation.backtab: root.hasResults ? table : searchText
             onActivated: {
                 root.search.type = currentValue
                 root.searchAgain()
@@ -243,16 +256,35 @@ Ez.DialogWindow {
             text: qsTr("Scope")
         }
         Ez.ComboBox {
+            id: scopeCombo
             objectName: "filter_scope"
             textRole: "name"
             valueRole: "value"
             model: root.search.scopeChoices()
+            KeyNavigation.tab: resetButton.enabled ? resetButton : closeButton
+            KeyNavigation.backtab: typeCombo
             onActivated: {
                 root.search.scope = currentValue
                 root.searchAgain()
             }
             Binding on currentIndex {
                 value: root.search.scope
+            }
+        }
+        Ez.Button {
+            id: resetButton
+            objectName: "button_reset"
+            text: qsTr("Reset")
+            enabled: root.search.type !== Ez.ProjectSearch.AllTypes || root.search.scope !== Ez.ProjectSearch.WholeProject
+            KeyNavigation.tab: closeButton
+            KeyNavigation.backtab: scopeCombo
+            onClicked: {
+                // greyed now: the keys go on from the filters
+                const focused = activeFocus
+                root.resetFilters()
+                if (focused) {
+                    scopeCombo.forceActiveFocus(Qt.TabFocusReason)
+                }
             }
         }
         Item {
@@ -291,6 +323,23 @@ Ez.DialogWindow {
                 selectionModel: ItemSelectionModel {}
                 keyNavigationEnabled: true
                 pointerNavigationEnabled: false
+                activeFocusOnTab: true
+                // Tab out of the results (TableView would go through its cells)
+                Keys.onTabPressed: event => {
+                    if (event.modifiers & Qt.ShiftModifier) {
+                        searchText.forceActiveFocus(Qt.BacktabFocusReason)
+                    } else {
+                        typeCombo.forceActiveFocus(Qt.TabFocusReason)
+                    }
+                }
+                Keys.onBacktabPressed: searchText.forceActiveFocus(Qt.BacktabFocusReason)
+                // reached by Tab: the first result highlighted
+                onActiveFocusChanged: {
+                    if (activeFocus && currentRow < 0 && root.hasResults) {
+                        selectionModel.setCurrentIndex(root.search.results.index(0, 0),
+                            ItemSelectionModel.ClearAndSelect | ItemSelectionModel.Rows)
+                    }
+                }
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
@@ -347,8 +396,15 @@ Ez.DialogWindow {
                         : column === 3 ? typeIcon : ""
 
                     implicitHeight: 36
-                    color: marked ? Kirigami.Theme.highlightColor
-                        : row % 2 ? Kirigami.Theme.alternateBackgroundColor : Kirigami.Theme.backgroundColor
+                    color: marked ? Kirigami.Theme.highlightColor : Kirigami.Theme.backgroundColor
+
+                    // a line between two results
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        width: parent.width
+                        height: 1
+                        color: Ez.Metrics.sectionBorderColor
+                    }
 
                     RowLayout {
                         anchors.fill: parent
@@ -410,7 +466,10 @@ Ez.DialogWindow {
             Layout.fillWidth: true
         }
         Ez.DialogButton {
+            id: closeButton
             objectName: "button_close"
+            KeyNavigation.tab: searchText
+            KeyNavigation.backtab: resetButton.enabled ? resetButton : scopeCombo
             text: qsTr("Close")
             onClicked: root.reject()
         }

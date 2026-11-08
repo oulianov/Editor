@@ -10274,6 +10274,10 @@ Les sauvegarder avant l&apos;export ?</translation>
         <source>Map name or ID</source>
         <translation>Nom ou ID de carte</translation>
     </message>
+    <message>
+        <source>Clear the search</source>
+        <translation>Effacer la recherche</translation>
+    </message>
 </context>
 <context>
     <name>ManiacCommandWidget</name>
@@ -17190,6 +17194,10 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
             <numerusform>%n résultat</numerusform>
             <numerusform>%n résultats</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Réinitialiser</translation>
     </message>
 </context>
 <context>
