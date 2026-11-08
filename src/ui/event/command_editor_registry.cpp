@@ -97,8 +97,7 @@ QVariantList eventsOf(const QMap<int, lcf::rpg::Event*>* events) {
 		return list;
 	}
 	for (auto it = events->cbegin(); it != events->cend(); ++it) {
-		list.append(QVariantMap{{QStringLiteral("value"), it.key()},
-			{QStringLiteral("text"), QStringLiteral("%1: %2").arg(it.key(), 4, 10, QChar(u'0')).arg(ToQString(it.value()->name))}});
+		list.append(CommandEditSession::eventChoice(*it.value()));
 	}
 	return list;
 }

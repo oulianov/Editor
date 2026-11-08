@@ -185,6 +185,8 @@ namespace CommandSchema {
 		/** Schema: a command of EasyRPG Player's extensions (its editor shows
 		 *  the fields of the mode chosen, as the Maniac Patch's) */
 		EasyRpg = 1 << 16,
+		/** Section: at the right of the section before it */
+		Beside = 1 << 17,
 	};
 	Q_DECLARE_FLAGS(Flags, Flag)
 	Q_FLAG_NS(Flags)

@@ -186,6 +186,7 @@ CommandSchemaView::CommandSchemaView(const Schema* schema, QObject* parent) : QO
 		if (one.kind == Kind::Section) {
 			flush();
 			section.insert(QStringLiteral("title"), label(one.label));
+			section.insert(QStringLiteral("beside"), bool(one.flags & Flag::Beside));
 			continue;
 		}
 		if (one.flags & Flag::Hidden) {
@@ -609,6 +610,35 @@ QVariantList CommandEditSession::maps() const {
 		}
 	}
 	return maps;
+}
+
+QVariantMap CommandEditSession::eventChoice(const lcf::rpg::Event& event) {
+	const lcf::rpg::EventPage* page = event.pages.empty() ? nullptr : &event.pages.front();
+	return {{QStringLiteral("value"), event.ID},
+		{QStringLiteral("text"), QStringLiteral("%1: %2").arg(event.ID, 4, 10, QChar(u'0')).arg(ToQString(event.name))},
+		{QStringLiteral("charset"), page ? ToQString(page->character_name) : QString()},
+		{QStringLiteral("charsetIndex"), page ? page->character_index : 0},
+		{QStringLiteral("facing"), page ? page->character_direction : 2},
+		{QStringLiteral("frame"), page ? page->character_pattern : 1}};
+}
+
+QVariantList CommandEditSession::eventsOf(int mapId) const {
+	if (mapId <= 0 || mapId == eventMap()) {
+		return m_events;
+	}
+	if (const auto found = m_mapEvents.constFind(mapId); found != m_mapEvents.cend()) {
+		return *found;
+	}
+	QVariantList list;
+	if (m_project) {
+		if (const auto map = m_project->project().loadMap(mapId)) {
+			for (const auto& event : map->events) {
+				list.append(eventChoice(event));
+			}
+		}
+	}
+	m_mapEvents.insert(mapId, list);
+	return list;
 }
 
 QVariantList CommandEditSession::characterSets() const {

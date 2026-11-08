@@ -29,6 +29,7 @@
 #include <memory>
 #include <optional>
 #include <lcf/rpg/database.h>
+#include <lcf/rpg/event.h>
 #include <lcf/rpg/eventcommand.h>
 
 #include "json.h"
@@ -228,6 +229,13 @@ public:
 	QVariantList events() const {
 		return m_events;
 	}
+	/** The events of a map, as events (0 or the map of the event: those;
+	 *  another map: read from its file once) */
+	Q_INVOKABLE QVariantList eventsOf(int mapId) const;
+	/** An event as the lists of events show it: {value, text} ("0001: name"),
+	 *  and the graphic of its first page, shown small (Ez.RefComboBox):
+	 *  charset (empty: none or a tile), charsetIndex, facing, frame */
+	static QVariantMap eventChoice(const lcf::rpg::Event& event);
 	QVariantList characterSets() const;
 
 	/** The lines of a message or comment ("/lines"), the first one being the string */
@@ -382,6 +390,8 @@ private:
 	mutable int m_chipsetMap = 0;
 	mutable int m_chipset = 0;
 	QVariantList m_events;
+	/** The events of the other maps read (eventsOf) */
+	mutable QHash<int, QVariantList> m_mapEvents;
 	QVariantMap m_extras;
 	Acceptor m_acceptor;
 	int m_revision = 0;

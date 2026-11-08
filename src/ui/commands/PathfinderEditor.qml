@@ -36,8 +36,9 @@ ColumnLayout {
     readonly property int frequencyMode: hasFrequency ? at(frequencyAt) : 0
     readonly property int frequency: hasFrequency ? at(frequencyAt + 1) : 3
 
-    readonly property var modes: [{ value: 0, text: qsTranslate("ManiacCommandWidget", "Constant") },
-                                  { value: 1, text: qsTranslate("ManiacCommandWidget", "Variable") },
+    /** The modes of a value, as the radio buttons of the form */
+    readonly property var modes: [{ value: 0, text: qsTranslate("ValueOperandWidget", "Constant") },
+                                  { value: 1, text: qsTranslate("ValueOperandWidget", "By Variable") },
                                   { value: 2, text: qsTranslate("ManiacCommandWidget", "Variable pointer") }]
 
     function at(index) {
@@ -102,36 +103,52 @@ ColumnLayout {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
 
-            RowLayout {
-                spacing: Ez.Metrics.columnSpacing
+            // the radio buttons of the form's values, the variable on their line
+            GridLayout {
+                columns: 2
+                rowSpacing: Ez.Metrics.rowSpacing
+                columnSpacing: Ez.Metrics.columnSpacing
                 Layout.fillWidth: true
 
-                Ez.ComboBox {
-                    id: ignoreModeBox
-                    objectName: "ignoreMode"
-                    textRole: "text"
-                    valueRole: "value"
-                    model: [{ value: 0, text: qsTr("Listed here") },
-                            { value: 1, text: qsTranslate("ManiacCommandWidget", "Variable") },
-                            { value: 2, text: qsTranslate("ManiacCommandWidget", "Variable pointer") }]
-                    Binding on currentIndex {
-                        value: Math.max(0, ignoreModeBox.indexOfValue(root.ignoreMode))
+                Ez.RadioButton {
+                    objectName: "ignoreMode0"
+                    text: qsTr("Listed here")
+                    Binding on checked { value: root.ignoreMode === 0 }
+                    onToggled: if (checked) root.setIgnoreMode(0)
+                    Layout.columnSpan: 2
+                }
+                Repeater {
+                    model: [{ mode: 1, text: qsTranslate("ValueOperandWidget", "By Variable") },
+                            { mode: 2, text: qsTranslate("ManiacCommandWidget", "Variable pointer") }]
+                    delegate: Ez.RadioButton {
+                        required property var modelData
+                        objectName: "ignoreMode" + modelData.mode
+                        text: modelData.text + ":"
+                        // the pointer: read with the Maniac Patch only
+                        visible: modelData.mode !== 2 || root.session.maniac || root.ignoreMode === 2
+                        enabled: modelData.mode !== 2 || root.session.maniac
+                        Binding on checked { value: root.ignoreMode === modelData.mode }
+                        onToggled: if (checked) root.setIgnoreMode(modelData.mode)
+                        Layout.row: modelData.mode
+                        Layout.column: 0
                     }
-                    onActivated: root.setIgnoreMode(currentValue)
                 }
-                Ez.RefComboBox {
-                    objectName: "ignoreVariable"
-                    visible: root.ignoreMode !== 0
-                    database: root.session.database
-                    listKey: "variables"
-                    jsonData: root.session
-                    key: visible ? "/parameters/12" : ""
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 200
-                }
-                Item {
-                    visible: root.ignoreMode === 0
-                    Layout.fillWidth: true
+                Repeater {
+                    model: [1, 2]
+                    delegate: Ez.RefComboBox {
+                        required property int modelData
+                        objectName: modelData === 1 ? "ignoreVariable" : "ignorePointer"
+                        visible: modelData !== 2 || root.session.maniac || root.ignoreMode === 2
+                        enabled: root.ignoreMode === modelData
+                        database: root.session.database
+                        listKey: "variables"
+                        jsonData: root.session
+                        key: root.ignoreMode === modelData ? "/parameters/12" : ""
+                        Layout.row: modelData
+                        Layout.column: 1
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 200
+                    }
                 }
             }
             Ez.Note {
@@ -153,12 +170,11 @@ ColumnLayout {
                     spacing: Ez.Metrics.columnSpacing
                     Layout.fillWidth: true
 
-                    Ez.ComboBox {
+                    // searched by number or name, as the events of the form
+                    Ez.RefComboBox {
                         id: eventBox
                         objectName: "ignored" + line.index
-                        textRole: "text"
-                        valueRole: "value"
-                        model: root.eventChoices(Number(line.modelData))
+                        choices: root.eventChoices(Number(line.modelData))
                         Binding on currentIndex {
                             value: Math.max(0, eventBox.indexOfValue(Number(line.modelData)))
                         }
@@ -200,36 +216,50 @@ ColumnLayout {
             title: qsTr("Move Frequency")
             Layout.alignment: Qt.AlignTop
 
-            RowLayout {
-                spacing: Ez.Metrics.columnSpacing
+            GridLayout {
+                columns: 2
+                rowSpacing: Ez.Metrics.rowSpacing
+                columnSpacing: Ez.Metrics.columnSpacing
 
-                Ez.ComboBox {
-                    id: frequencyModeBox
-                    objectName: "frequencyMode"
-                    textRole: "text"
-                    valueRole: "value"
+                Repeater {
                     model: root.modes
-                    Binding on currentIndex {
-                        value: Math.max(0, frequencyModeBox.indexOfValue(root.frequencyMode))
+                    delegate: Ez.RadioButton {
+                        required property var modelData
+                        objectName: "frequencyMode" + modelData.value
+                        text: modelData.text + ":"
+                        visible: modelData.value !== 2 || root.session.maniac || root.frequencyMode === 2
+                        enabled: modelData.value !== 2 || root.session.maniac
+                        Binding on checked { value: root.frequencyMode === modelData.value }
+                        onToggled: if (checked) root.setFrequency(modelData.value, modelData.value === 0 ? 3 : Math.max(1, root.frequency))
+                        Layout.row: modelData.value
+                        Layout.column: 0
                     }
-                    onActivated: root.setFrequency(currentValue, currentValue === 0 ? 3 : Math.max(1, root.frequency))
                 }
                 Ez.SpinBox {
                     objectName: "frequency"
-                    visible: root.frequencyMode === 0
+                    enabled: root.frequencyMode === 0
                     from: 1
                     to: 8
-                    value: root.frequency
+                    value: root.frequencyMode === 0 ? root.frequency : 3
                     onValueModified: root.setFrequency(0, value)
+                    Layout.row: 0
+                    Layout.column: 1
                 }
-                Ez.RefComboBox {
-                    objectName: "frequencyVariable"
-                    visible: root.frequencyMode !== 0
-                    database: root.session.database
-                    listKey: "variables"
-                    jsonData: root.session
-                    key: visible ? "/parameters/" + (root.frequencyAt + 1) : ""
-                    Layout.preferredWidth: 200
+                Repeater {
+                    model: [1, 2]
+                    delegate: Ez.RefComboBox {
+                        required property int modelData
+                        objectName: modelData === 1 ? "frequencyVariable" : "frequencyPointer"
+                        visible: modelData !== 2 || root.session.maniac || root.frequencyMode === 2
+                        enabled: root.frequencyMode === modelData
+                        database: root.session.database
+                        listKey: "variables"
+                        jsonData: root.session
+                        key: root.frequencyMode === modelData ? "/parameters/" + (root.frequencyAt + 1) : ""
+                        Layout.row: modelData
+                        Layout.column: 1
+                        Layout.preferredWidth: 200
+                    }
                 }
             }
         }

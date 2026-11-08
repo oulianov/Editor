@@ -119,9 +119,35 @@ ColumnLayout {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
+    /** The sections shown, in rows: one marked beside goes at the right of the one before it */
+    readonly property var sectionRows: {
+        const shown = only ? session.schema.sections.filter((section, index) => only.includes(index)) : session.schema.sections
+        const rows = []
+        for (const section of shown) {
+            if (section.beside && rows.length > 0) {
+                rows[rows.length - 1].push(section)
+            } else {
+                rows.push([section])
+            }
+        }
+        return rows
+    }
+
     Repeater {
-        model: root.only ? root.session.schema.sections.filter((section, index) => root.only.includes(index))
-                         : root.session.schema.sections
+        model: root.sectionRows
+
+        delegate: RowLayout {
+            id: sectionRow
+
+            required property var modelData
+
+            visible: root.session.revision < 0 ? false
+                     : modelData.some(one => one.rows.some(row => root.session.isShown(row.field.id)))
+            spacing: Ez.Metrics.sectionSpacing
+            Layout.fillWidth: true
+
+        Repeater {
+            model: sectionRow.modelData
 
         delegate: ColumnLayout {
             id: section
@@ -135,6 +161,8 @@ ColumnLayout {
             visible: shown
             spacing: 0
             Layout.fillWidth: true
+            // side by side: their tops aligned
+            Layout.alignment: Qt.AlignTop
 
             Ez.Section {
                 id: box
@@ -285,8 +313,13 @@ ColumnLayout {
                                         // the first is the row's (its cell shows and greys it); the
                                         // next ones: the value of a mode, hidden when another mode
                                         // shows its own in its place, greyed on the line of its radio
-                                        // button not chosen
-                                        visible: (index === 0 && !cell.modelData.option) || cell.modelData.option || fieldVisible
+                                        // button not chosen. In the editors that hide what does not
+                                        // apply (Maniac Patch, EasyRPG Player), the values of a radio
+                                        // button's line that depend on other fields too show when those hold
+                                        visible: (index === 0 && !cell.modelData.option)
+                                                 || (cell.modelData.option && (!root.session.schema.hides || cell.revision < 0
+                                                                               || root.session.holdsExcept(modelData.id, cell.field.id)))
+                                                 || fieldVisible
                                         enabled: cell.revision < 0 ? false : fieldVisible && root.session.isEnabled(modelData.id)
                                     }
                                 }
@@ -300,6 +333,8 @@ ColumnLayout {
                 }
             }
             }
+        }
+        }
         }
     }
 

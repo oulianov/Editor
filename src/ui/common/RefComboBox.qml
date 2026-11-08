@@ -41,7 +41,10 @@ import org.easyrpg.editor as Ez
  * Elsewhere typing opens the search with what is typed.
  *
  * A list of heroes shows each hero's face before their name, small, in the
- * box and in its drop-down (objectName + "Face": the one of the box).
+ * box and in its drop-down (objectName + "Face": the one of the box). The
+ * same for the choices that have a graphic of a CharSet, the events of a map
+ * (charset, charsetIndex, facing, frame: CommandEditSession::eventChoice;
+ * objectName + "Charset").
  */
 Ez.ComboBox {
     id: root
@@ -89,7 +92,21 @@ Ez.ComboBox {
     /** The side of a face, as an icon of a list */
     readonly property int faceSize: 16
     /** The room of a face before a name */
-    readonly property real facePart: showsFaces ? faceSize + spacing : 0
+    readonly property real facePart: showsFaces ? faceSize + spacing : showsCharsets ? charsetWidth + spacing : 0
+    /** The choices with a graphic of a CharSet, by value (the events of a map) */
+    readonly property var charsets: {
+        const found = {}
+        for (const one of choices ?? []) {
+            if (one.charset !== undefined) {
+                found[one.value] = one
+            }
+        }
+        return found
+    }
+    readonly property bool showsCharsets: Object.keys(charsets).length > 0
+    /** A cell of a CharSet (24 x 32) made small, as an icon of a list */
+    readonly property int charsetWidth: 15
+    readonly property int charsetHeight: 20
     /** Changes when a hero changes (their face read again) */
     property int faceRevision: 0
     Connections {
@@ -369,6 +386,23 @@ Ez.ComboBox {
         filename: face.name
         cellIndex: face.index
     }
+    // the graphic of the event shown, before its name
+    Ez.CharSetPaintedItem {
+        objectName: root.objectName + "Charset"
+        readonly property var entry: root.charsets[root.shownId] ?? null
+        visible: entry !== null && entry.charset !== ""
+        z: 1
+        x: root.horizontalPadding
+        anchors.verticalCenter: parent.verticalCenter
+        width: root.charsetWidth
+        height: root.charsetHeight
+        smooth: true
+        projectData: Ez.ProjectData
+        filename: entry ? entry.charset : ""
+        cellIndex: entry ? entry.charsetIndex : 0
+        facing: entry ? entry.facing : 2
+        frame: entry ? entry.frame : 1
+    }
 
     /** The entries of the list, "(None)" first */
     readonly property var entries: !database || listKey === "" ? null
@@ -419,7 +453,7 @@ Ez.ComboBox {
         property string seed: ""
         /** The height of a line of the list (a face fits in it) */
         readonly property real rowHeight: Math.max(lineMetrics.height + 2 * Ez.Metrics.listRowPadding,
-                                                   root.showsFaces ? root.faceSize + 2 : 0)
+                                                   root.showsFaces ? root.faceSize + 2 : root.showsCharsets ? root.charsetHeight + 2 : 0)
         /** The lines shown at most: a long list keeps a tall window, scrolled */
         readonly property int maximumRows: 20
         /** The window's height and the top of the box in it, measured when it opens */
@@ -616,6 +650,20 @@ Ez.ComboBox {
                             projectData: Ez.ProjectData
                             filename: face.name
                             cellIndex: face.index
+                        }
+                        Ez.CharSetPaintedItem {
+                            readonly property var entry: root.charsets[Number(line.value)] ?? null
+                            visible: entry !== null && entry.charset !== ""
+                            x: Ez.Metrics.listTextPadding
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: root.charsetWidth
+                            height: root.charsetHeight
+                            smooth: true
+                            projectData: Ez.ProjectData
+                            filename: entry ? entry.charset : ""
+                            cellIndex: entry ? entry.charsetIndex : 0
+                            facing: entry ? entry.facing : 2
+                            frame: entry ? entry.frame : 1
                         }
                         Ez.Label {
                             x: Ez.Metrics.listTextPadding + root.facePart

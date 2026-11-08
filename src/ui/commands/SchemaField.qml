@@ -47,6 +47,15 @@ Loader {
     /** The range of a number, the Maniac Patch's in its games */
     readonly property int minimum: (session.maniac ? shown.maniacMinimum : shown.minimum) ?? 0
     readonly property int maximum: (session.maniac ? shown.maniacMaximum : shown.maximum) ?? 0
+    /** The map whose events an event field lists: 0 the map of the event; the
+     *  map of its link (Clone Map Event's source map, 0: the current one); -1
+     *  when a variable gives that map (an ID then) */
+    readonly property int eventsMap: {
+        if (shown.kind !== "Character" || !shown.link || session.revision < 0) {
+            return 0
+        }
+        return Number(session.read(shown.link + "Mode")) === 0 ? Number(session.read(shown.link)) : -1
+    }
     /** Its control takes the width of its row (the lists, the texts) */
     readonly property bool wide: (shown.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Expression", "Location"].includes(shown.kind))
                                  && !(shown.preview && shown.kind === "Tile") || (shown.kind === "Sample" && shown.link === "tint")
@@ -91,7 +100,7 @@ Loader {
         case "Location":
             return location
         case "Character":
-            return character
+            return eventsMap < 0 ? number : character
         case "Tile":
             return shown.preview ? tilePreview : tile
         case "Expression":
@@ -352,14 +361,15 @@ Loader {
 
     Component {
         id: character
-        Ez.ComboBox {
+        // searched by number or name, as Move Event's target
+        Ez.RefComboBox {
             objectName: root.name
             jsonData: root.session
             key: root.key
             // the items kept only while the command has them
-            model: root.withUnknown(root.shown.items.filter(item => !item.kept || item.value === Number(current.value))
+            choices: root.withUnknown(root.shown.items.filter(item => !item.kept || item.value === Number(current.value))
                                     .map(item => ({ value: item.value, text: root.tr(item.text) }))
-                                    .concat(root.session.events),
+                                    .concat(root.eventsMap === 0 ? root.session.events : root.session.eventsOf(root.eventsMap)),
                                     qsTranslate("LocationCommandWidget", "Unknown Event (%1)"))
         }
     }

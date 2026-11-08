@@ -172,9 +172,10 @@ ColumnLayout {
         }
     }
 
+    // the result (its kind, its switch, variable or string) and the options
     SchemaForm {
         session: root.session
-        only: [3]
+        only: [3, 4, 5]
         Layout.fillHeight: !root.jsonTyped
     }
 }

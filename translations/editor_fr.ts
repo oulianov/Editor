@@ -3963,6 +3963,42 @@ Les fichiers de RPG Maker 2000 sont dans :
         <source>Removes the event from the map until it is entered again (save games keep it removed); Erase Event only hides it.</source>
         <translation>Retire l&apos;évènement de la carte jusqu&apos;à ce qu&apos;on y entre de nouveau (les sauvegardes le gardent retiré) ; Effacer cet évènement ne fait que le cacher.</translation>
     </message>
+    <message>
+        <source>Source Map</source>
+        <translation>Carte source</translation>
+    </message>
+    <message>
+        <source>Source Event</source>
+        <translation>Évènement source</translation>
+    </message>
+    <message>
+        <source>Destination X</source>
+        <translation>X de la destination</translation>
+    </message>
+    <message>
+        <source>Destination Y</source>
+        <translation>Y de la destination</translation>
+    </message>
+    <message>
+        <source>Search Limit</source>
+        <translation>Limite de recherche</translation>
+    </message>
+    <message>
+        <source>Steps (-1: All)</source>
+        <translation>Pas (-1 : tous)</translation>
+    </message>
+    <message>
+        <source>Failed Moves Allowed (0: No Limit)</source>
+        <translation>Déplacements bloqués permis (0 : sans limite)</translation>
+    </message>
+    <message>
+        <source>Success In</source>
+        <translation>Réussite dans</translation>
+    </message>
+    <message>
+        <source>Result Kind</source>
+        <translation>Type du résultat</translation>
+    </message>
 </context>
 <context>
     <name>EditActions</name>
