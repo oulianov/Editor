@@ -19,8 +19,9 @@ import org.easyrpg.editor as Ez
  * first result highlighted, the arrows go through them (Up from the first
  * one back to the search), Return opens one: its map at its event, page and
  * line (or its common event, its monster group). Another type or scope
- * searches again; Reset puts both back. Tab goes from the search to the
- * results, the filters, Reset and Close, on macOS too (where Tab only
+ * searches again; Reset puts both back. The Search button searches as
+ * Return does. Tab goes from the search to the Search button, the results,
+ * the filters, Reset and Close, on macOS too (where Tab only
  * reaches the text fields and lists unless the system says otherwise). Not
  * modal: the search and its results stay for the next time it is opened
  * (Ctrl+F, the search ready to type).
@@ -133,7 +134,7 @@ Ez.DialogWindow {
             placeholderText: qsTr("Search by ID, name or event text…")
             Accessible.name: qsTr("Search query")
             Layout.fillWidth: true
-            KeyNavigation.tab: root.hasResults ? table : typeCombo
+            KeyNavigation.tab: searchButton
             KeyNavigation.backtab: closeButton
             onActiveFocusChanged: {
                 if (!activeFocus) {
@@ -227,6 +228,16 @@ Ez.DialogWindow {
                 }
             }
         }
+        // as Return in the field
+        Ez.Button {
+            id: searchButton
+            objectName: "button_search"
+            text: qsTr("Search")
+            enabled: searchText.text.trim() !== ""
+            KeyNavigation.tab: root.hasResults ? table : typeCombo
+            KeyNavigation.backtab: searchText
+            onClicked: root.runSearch(true)
+        }
     }
 
     RowLayout {
@@ -243,7 +254,7 @@ Ez.DialogWindow {
             valueRole: "value"
             model: root.search.typeChoices()
             KeyNavigation.tab: scopeCombo
-            KeyNavigation.backtab: root.hasResults ? table : searchText
+            KeyNavigation.backtab: root.hasResults ? table : searchButton
             onActivated: {
                 root.search.type = currentValue
                 root.searchAgain()
@@ -327,12 +338,12 @@ Ez.DialogWindow {
                 // Tab out of the results (TableView would go through its cells)
                 Keys.onTabPressed: event => {
                     if (event.modifiers & Qt.ShiftModifier) {
-                        searchText.forceActiveFocus(Qt.BacktabFocusReason)
+                        searchButton.forceActiveFocus(Qt.BacktabFocusReason)
                     } else {
                         typeCombo.forceActiveFocus(Qt.TabFocusReason)
                     }
                 }
-                Keys.onBacktabPressed: searchText.forceActiveFocus(Qt.BacktabFocusReason)
+                Keys.onBacktabPressed: searchButton.forceActiveFocus(Qt.BacktabFocusReason)
                 // reached by Tab: the first result highlighted
                 onActiveFocusChanged: {
                     if (activeFocus && currentRow < 0 && root.hasResults) {

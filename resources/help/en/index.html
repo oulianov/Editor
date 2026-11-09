@@ -79,6 +79,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <h2>Project and maps</h2>
 
 <p>The Editor remembers window sizes and positions, docked panel sizes and placement, splitter widths, table columns, database and event pages, selections, scroll positions and each project's open maps, tile brushes, layers and zoom. In <b>Settings</b>, choose <b>Reset local state</b> to restore these defaults immediately. Game files, unsaved edits, the Player path and RTP folders, language and other preferences are kept.</p>
+<p><b>Keyboard</b>: as in RPG Maker 2003, <b>Tab</b> moves through every control of a window (fields, buttons, check boxes, drop-down lists, lists), and <b>Shift+Tab</b> goes back. In a group of radio buttons, Tab stops on the one checked and the arrow keys choose another; <b>Space</b> presses the button or check box in focus.</p>
 
 <a name="new-project"></a>
 <h3>New project</h3>
@@ -151,7 +152,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <h3>Search</h3>
 <p>Finds where something is used in your events. <b>Search</b> in the <b>Tools</b> menu, or Ctrl+F (Cmd+F on macOS), opens it with the search field ready to type.</p>
 <ul>
-<li><b>Search bar</b>: enter an exact ID, part of a variable, switch, item or event name, or event text. Suggestions show the ID, type and name, with exact matches first across all types. Picking a suggestion (click it, or the arrows then Enter) selects its type filter and searches at once; otherwise press Enter. The first result is then highlighted: the arrow keys move through the results, Enter opens the one highlighted, and Up from the first result goes back to the search field. Tab goes from the search field to the results, the filters, <b>Reset</b> and <b>Close</b>.</li>
+<li><b>Search bar</b>: enter an exact ID, part of a variable, switch, item or event name, or event text. Suggestions show the ID, type and name, with exact matches first across all types. Picking a suggestion (click it, or the arrows then Enter) selects its type filter and searches at once; otherwise press Enter or click <b>Search</b>. The first result is then highlighted: the arrow keys move through the results, Enter opens the one highlighted, and Up from the first result goes back to the search field. Tab goes from the search field to <b>Search</b>, the results, the filters, <b>Reset</b> and <b>Close</b>.</li>
 <li><b>Type</b>: narrow results to variables, switches, items, event names or event text, or search all types (changing the type or the scope searches again; <b>Reset</b> puts back all types in the whole project). Variable searches include reads, writes, ranges and event page conditions.</li>
 <li><b>Scope</b>: <b>Whole project</b> searches every map and common event; <b>Current map</b> searches the open map, including unsaved edits; <b>Common events</b> searches only common events.</li>
 <li><b>Results</b>: every event page and command that matches, with its type and an event graphic when available. Click a map event to select its cell on the map. Click a common event to open it in the database; command matches are selected and scrolled into view. Press Enter to open the selected result.</li>
@@ -233,7 +234,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="command-palette"></a>
 <h3>Event Commands window</h3>
-<p>Lists every event command, grouped in tabs (messages, game progression, map, screen, sound, flow control...), opening on the tab shown last. Click a command to add it. Type in the <b>search field</b> to filter the list by name in all tabs at once; <b>Enter</b> picks the best match. Commands that do not exist in the current game type (RPG Maker 2000 or 2003), or need the <a href="#commands-easyrpg">EasyRPG Extensions</a> or the <a href="#commands-maniac">Maniac Patch</a>, are greyed out; point at one to see why.</p>
+<p>Lists every event command, grouped in tabs (messages, game progression, map, screen, sound, flow control...), opening on the tab shown last. Click a command to add it. Type in the <b>search field</b> to filter the list by name in all tabs at once; <b>Enter</b> picks the best match, or <b>Tab</b> (or <b>Down</b>) goes to the results: the arrow keys move through them (Up from the first one goes back to the search) and <b>Enter</b> chooses the one in focus. Commands that do not exist in the current game type (RPG Maker 2000 or 2003), or need the <a href="#commands-easyrpg">EasyRPG Extensions</a> or the <a href="#commands-maniac">Maniac Patch</a>, are greyed out; point at one to see why.</p>
 <p>The battle pages of a monster group list the <b>Battle Event Commands</b> instead (the enemies' HP, MP and conditions, the battle background, Force Flee, End Battle...). RPG Maker offers them in battle pages only; here a map event or a common event can have them too (a common event called from a battle page, for example): <b>Battle Event Commands...</b>, at the bottom of the <b>Flow &amp; System</b> tab, opens them in a window of their own. Click one to add it as in a battle page, or <b>Cancel</b> to go back to the event commands. The search finds them through that button (point at it to see which ones); clicked, it opens them with the same search.</p>
 
 <a name="move-route"></a>
@@ -382,7 +383,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="resource-picker"></a>
 <h3>Choose a graphic or sound</h3>
-<p>Select a file in the list to preview it. The picker includes files from your project and the configured RTP; a project file takes priority when both have the same name. For a charset or faceset, click the character or face in the preview to choose it. For music or sound effects, use the preview controls to listen and adjust volume, tempo or balance.</p>
+<p>Select a file in the list to preview it. The picker includes files from your project and the configured RTP, your project's files first, then the RTP's, each by name, as in RPG Maker 2003; a project file takes priority when both have the same name. For a charset or faceset, click the character or face in the preview to choose it. For music or sound effects, use the preview controls to listen and adjust volume, tempo or balance.</p>
 <p><b>OK</b> applies the selected file and closes the picker. <b>Apply</b> applies it while keeping the picker open. <b>Cancel</b> closes it without applying the current selection. Use the <a href="#resource-manager">Resource Manager</a> to import or export files.</p>
 
 <!-- ============================================================ -->
@@ -1017,7 +1018,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="resource-manager"></a>
 <h2>Resource Manager</h2>
-<p>Tools &gt; Resource Manager lists the files of the game, folder by folder (CharSet, ChipSet, Music...), with the files of the RTP marked <i>(RTP)</i>: a file of the game hides the RTP file of the same name, as in the games. A folder the game does not have is shown in italics. The filter field narrows the list; the preview shows a picture with its transparent color, or plays a music or sound.</p>
+<p>Tools &gt; Resource Manager lists the files of the game, folder by folder (CharSet, ChipSet, Music...), with the files of the RTP marked <i>(RTP)</i>: a file of the game hides the RTP file of the same name, as in the games. A folder the game does not have is shown in italics. The game's own files are listed first, then the RTP's, each by name, as in RPG Maker 2003. Click a column title (<b>File</b>, <b>Format</b>, <b>Source</b>) to sort by that column, and click it again to reverse the order; the arrow after the title shows which column sorts and in which direction, and the Editor remembers the choice. The lists of the Jukebox sort the same way (the music and sounds of the database, in its <b>System</b> section, stay in the order of the System tab). The filter field narrows the list; the preview shows a picture with its transparent color, or plays a music or sound.</p>
 <p><b>Import</b> copies files into the selected folder (created if needed). A picture is checked against RPG Maker's sizes and kept with 256 colors (reduced if it has more, or kept in true color, which only EasyRPG Player shows); for the folders whose pictures have a transparent color, click that color in the picture. Pictures are saved as PNG or as XYZ. <b>Export</b> copies a file, of the game or of the RTP, elsewhere. <b>Delete</b> moves a file of the game to the trash (RTP files cannot be deleted).</p>
 
 <p><a href="#top">Back to top</a></p>

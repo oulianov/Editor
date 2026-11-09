@@ -25,6 +25,11 @@ import org.easyrpg.editor as Ez
  *   alignment: Text.AlignLeft (default) or Text.AlignRight
  *   dimmed, italic: functions of the line's model (a file of the RTP...)
  *   icon: the name of an icon of the Editor (resources/icons) before the text
+ *   sort: the column's key for sortColumn
+ *
+ * Sorted by the model, on request: with a sortColumn, a click on the title
+ * of a column that has a sort key asks for it (sortClicked); the title of
+ * the column sorted shows its direction (▲ ▼).
  */
 Rectangle {
     id: root
@@ -40,9 +45,14 @@ Rectangle {
     property int currentRow: -1
     /** Lines shown without scrolling, for the size of the list */
     property int visibleLines: 8
+    /** The sort key of the column the model sorts the lines by; "": the titles are not clicked */
+    property string sortColumn: ""
+    property bool sortAscending: true
 
     signal picked(int row)
     signal activated(int row)
+    /** A click on the title of a column with a sort key (another one, or the one sorted to reverse it) */
+    signal sortClicked(string column)
     /** Delete or Backspace on the list */
     signal deletePressed()
 
@@ -51,7 +61,8 @@ Rectangle {
     readonly property bool hasTitles: columns.some(column => (column.title ?? "") !== "")
     /** The width of each column, -1 for the one that fills */
     readonly property var columnWidths: columns.map(column => column.sample === undefined ? -1
-        : Math.ceil(Math.max(metrics.advanceWidth(column.title ?? ""), metrics.advanceWidth(column.sample))
+        : Math.ceil(Math.max(metrics.advanceWidth((column.title ?? "") + (sortKey(column) !== "" ? " ▼" : "")),
+            metrics.advanceWidth(column.sample))
             + (column.icon ? iconSize + Ez.Metrics.columnSpacing : 0)) + 2 * cellPadding + 2)
     readonly property int fixedWidth: columnWidths.reduce((sum, width) => sum + Math.max(0, width), 0)
     readonly property int iconSize: Kirigami.Units.iconSizes.small
@@ -62,6 +73,15 @@ Rectangle {
         const width = columnWidths[column]
         return width >= 0 ? width
             : Math.max(0, Math.floor((list.width - (bar.visible ? bar.width : 0) - fixedWidth) / fillColumns))
+    }
+    /** The sort key of a column, "" when its title is not clicked */
+    function sortKey(column) {
+        return sortColumn !== "" ? column.sort ?? "" : ""
+    }
+    /** The title of a column, with the direction of the sort when it is the column sorted */
+    function titleText(column) {
+        const title = column.title ?? ""
+        return sortKey(column) !== "" && column.sort === sortColumn ? title + (sortAscending ? " ▲" : " ▼") : title
     }
     function cellText(column, line) {
         if (column.text) {
@@ -175,18 +195,38 @@ Rectangle {
                 Repeater {
                     model: root.columns
                     delegate: Text {
+                        id: title
                         required property var modelData
                         required property int index
+                        readonly property string sortKey: root.sortKey(modelData)
+                        // for the scripts: listFilesSortName...
+                        objectName: sortKey !== "" ? root.listName + "Sort" + sortKey.charAt(0).toUpperCase() + sortKey.slice(1) : ""
                         width: root.cellWidth(index)
                         height: parent.height
                         leftPadding: root.cellPadding
                         rightPadding: root.cellPadding
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: modelData.alignment ?? Text.AlignLeft
-                        text: modelData.title ?? ""
+                        text: root.titleText(modelData)
                         font: Ez.Metrics.font
                         color: Kirigami.Theme.textColor
                         elide: Text.ElideRight
+
+                        // a title clicked sorts by its column: lit under the pointer
+                        Rectangle {
+                            z: -1
+                            anchors.fill: parent
+                            visible: sortArea.containsMouse
+                            color: Kirigami.Theme.hoverColor
+                            opacity: sortArea.pressed ? 0.6 : 0.3
+                        }
+                        MouseArea {
+                            id: sortArea
+                            anchors.fill: parent
+                            enabled: title.sortKey !== ""
+                            hoverEnabled: enabled
+                            onClicked: root.sortClicked(title.sortKey)
+                        }
 
                         // the line between the titles
                         Rectangle {

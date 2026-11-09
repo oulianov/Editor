@@ -34,9 +34,14 @@
 #include <QSettings>
 #include <QDebug>
 #include <QQuickStyle>
+#include <QStyleHints>
 
 int main(int argc, char *argv[]) {
 	QGuiApplication app(argc, argv);
+	// Tab goes through every control (buttons, check boxes, lists...), as in
+	// RPG Maker 2003's windows, on macOS too (where it only reaches the
+	// fields and lists unless the system's keyboard navigation is on)
+	QGuiApplication::styleHints()->setTabFocusBehavior(Qt::TabFocusAllControls);
 	// The QML interface: KDE's Breeze style, as upstream (Qt's Fusion when it
 	// is missing). Kirigami.Theme follows the system palette through
 	// Kirigami's own styles/org.kde.desktop/Theme.qml, static Kirigami (vcpkg)

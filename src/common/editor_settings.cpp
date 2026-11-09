@@ -418,7 +418,8 @@ void EditorSettings::resetLocalState() {
 		QStringLiteral("jukebox_geometry"), QStringLiteral("jukebox_tab"), QStringLiteral("command_palette_page"),
 		QStringLiteral("command_palette_battle_page"), QStringLiteral("resource_manager/geometry"),
 		QStringLiteral("resource_manager/folder"), QStringLiteral("resource_manager/import_dir"),
-		QStringLiteral("resource_manager/export_dir"), QStringLiteral("current_project"), QStringLiteral("default_dir")})
+		QStringLiteral("resource_manager/export_dir"), QStringLiteral("resource_manager/sort"), QStringLiteral("jukebox_sort"),
+		QStringLiteral("current_project"), QStringLiteral("default_dir")})
 		settings.remove(key);
 	settings.sync();
 	emit localStateReset();

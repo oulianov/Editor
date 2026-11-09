@@ -13,7 +13,8 @@ import org.easyrpg.editor as Ez
 
 /**
  * Tools > Resource Manager, as in RPG Maker: the files of each folder of the
- * game and of the RTP, with a preview, Import (images get their transparent
+ * game and of the RTP (the game's first; a click on a column's title sorts
+ * by it), with a preview, Import (images get their transparent
  * color chosen and their size checked), Export, Rename and Delete (the
  * game's files only), and the folder in the file manager. The files and
  * their operations are an Ez.ResourceLibraryModel's.
@@ -141,10 +142,13 @@ Ez.DialogWindow {
                     listName: "listFiles"
                     model: library
                     currentRow: library.currentRow
+                    sortColumn: library.sortColumn
+                    sortAscending: library.sortAscending
                     columns: [
-                        { title: qsTr("File"), role: "name", dimmed: line => line.origin === Ez.ResourceLibraryModel.Rtp },
-                        { title: qsTranslate("JukeboxDialog", "Format"), role: "format", sample: "MIDI" },
-                        { title: qsTranslate("JukeboxDialog", "Source"), sample: qsTranslate("JukeboxDialog", "Game"),
+                        { title: qsTr("File"), role: "name", sort: "name",
+                          dimmed: line => line.origin === Ez.ResourceLibraryModel.Rtp },
+                        { title: qsTranslate("JukeboxDialog", "Format"), role: "format", sample: "MIDI", sort: "format" },
+                        { title: qsTranslate("JukeboxDialog", "Source"), sample: qsTranslate("JukeboxDialog", "Game"), sort: "source",
                           text: line => line.origin === Ez.ResourceLibraryModel.Rtp ? qsTranslate("JukeboxDialog", "RTP")
                               : qsTranslate("JukeboxDialog", "Game"),
                           dimmed: line => line.origin === Ez.ResourceLibraryModel.Rtp },
@@ -152,6 +156,7 @@ Ez.DialogWindow {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onPicked: row => library.currentRow = row
+                    onSortClicked: column => library.sortBy(column)
                     onActivated: row => {
                         if (root.audio) {
                             root.play()

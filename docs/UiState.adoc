@@ -24,7 +24,11 @@ of each event in `event_views/<SHA-256>/<map>/<event>` (`EventWindow`), its
 size and the width of the page settings. The Event Commands window opens on
 the tab shown when it was last closed (`command_palette_page`, and
 `command_palette_battle_page` for the battle pages). An explicit navigation target (Search
-opening an entry, an event at a page) overrides what was kept.
+opening an entry, an event at a page) overrides what was kept. The Resource
+Manager and the Jukebox keep the column their files are sorted by, chosen
+by a click on its title, and its direction: `resource_manager/sort` and
+`jukebox_sort` (`source`, `name descending`...; `source`, the game's files
+before the RTP's as RPG Maker lists them, when none).
 
 Presentation state must never serialize edited game values, undo history or
 clipboard contents. `Reset local state` (`EditorSettings::resetLocalState()`)

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 cmake_policy(SET CMP0091 NEW) # Support MSVC_RUNTIME_LIBRARY
 
-project(EasyRPG_Editor VERSION 0.2.13
+project(EasyRPG_Editor VERSION 0.2.14
 	DESCRIPTION "Editor for RPG Maker 2000/2003 games (fork of the EasyRPG Editor)"
 	HOMEPAGE_URL "https://github.com/oulianov/Editor"
 	LANGUAGES CXX)
@@ -193,6 +193,8 @@ set(EDITOR_SOURCES
 	src/model/export_controller.h
 	src/model/file_picker_model.cpp
 	src/model/file_picker_model.h
+	src/model/file_sort.cpp
+	src/model/file_sort.h
 	src/model/launcher_download.cpp
 	src/model/launcher_download.h
 	src/model/player_download.cpp

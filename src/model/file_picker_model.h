@@ -29,7 +29,8 @@ class AudioPlayer;
  * A resource picker without its window (the "..." of a graphic, a music, a
  * movie): the files of a folder of the game and of the RTP, one per name
  * (the game's hide the RTP's, the extension the Player tries first wins),
- * sorted as the file windows of the systems (natural, any case).
+ * the game's first, then the RTP's, as RPG Maker lists them, each sorted
+ * as the file windows of the systems (natural, any case).
  *
  * A file of the list is always selected: the current one, else the first
  * of the list (no file yet, or a missing one).

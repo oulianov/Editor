@@ -16,7 +16,6 @@
  */
 
 #include "file_picker_model.h"
-#include <QCollator>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
@@ -24,6 +23,7 @@
 #include <algorithm>
 #include "common/audio_player.h"
 #include "common/image_import.h"
+#include "model/file_sort.h"
 #include "model/resource_library.h"
 
 FilePickerModel::FilePickerModel(Preview preview, QObject* parent) :
@@ -118,12 +118,11 @@ void FilePickerModel::open(const QString& folder, const QString& gamePath, const
 		scan(rtpPaths[i], i + 1);
 	}
 
-	QCollator collator;
-	collator.setNumericMode(true);
-	collator.setCaseSensitivity(Qt::CaseInsensitive);
-	std::sort(m_entries.begin(), m_entries.end(), [&](const Entry& a, const Entry& b) {
-		return collator.compare(a.name, b.name) < 0;
-	});
+	// as RPG Maker lists them: the game's files, then the RTP's
+	FileSort().sort(m_entries.begin(), m_entries.end(),
+		[](const Entry& entry) { return entry.name; },
+		[](const Entry& entry) { return QFileInfo(entry.path).suffix(); },
+		[](const Entry& entry) { return entry.rtp ? 1 : 0; });
 	// a file is always selected: the current one, else the first
 	m_current = rowOf(current);
 	if (m_current < 0 && !m_entries.isEmpty()) {

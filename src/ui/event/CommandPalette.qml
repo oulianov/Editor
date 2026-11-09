@@ -104,6 +104,18 @@ Ez.DialogWindow {
         }
         return [groups.slice(0, split), groups.slice(split)]
     }
+    /** Puts the focus on the result at index that can be chosen, else the
+     *  next one that can (step 1) or the one before (-1); false: none */
+    function focusResult(index: int, step: int): bool {
+        for (let at = index; at >= 0 && at < resultRepeater.count; at += step) {
+            const result = resultRepeater.itemAt(at)
+            if (result && result.button.enabled) {
+                result.button.forceActiveFocus(Qt.TabFocusReason)
+                return true
+            }
+        }
+        return false
+    }
     /** A text to search in: lower case, without accents ("téléporter": "teleporter") */
     function folded(text) {
         return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
@@ -186,6 +198,12 @@ Ez.DialogWindow {
         Layout.fillWidth: true
         focus: true
         Component.onCompleted: forceActiveFocus()
+        // Down (or Tab) goes to the results: the arrows go through them
+        Keys.onDownPressed: event => {
+            if (!root.focusResult(0, 1)) {
+                event.accepted = false
+            }
+        }
         onAccepted: {
             // the command of that name, else the first result that can be chosen
             const search = root.folded(text.trim())
@@ -329,6 +347,7 @@ Ez.DialogWindow {
                 spacing: 2
 
                 Repeater {
+                    id: resultRepeater
                     model: root.matches
 
                     // the button in an item: it has its parent as soon as it
@@ -338,7 +357,9 @@ Ez.DialogWindow {
                         id: result
 
                         required property var modelData
+                        required property int index
                         readonly property string why: root.whyNot(modelData.entry)
+                        readonly property alias button: resultButton
 
                         implicitWidth: resultButton.implicitWidth
                         implicitHeight: resultButton.implicitHeight
@@ -354,6 +375,17 @@ Ez.DialogWindow {
                             Controls.ToolTip.text: result.why !== "" ? result.why
                                 : result.modelData.battle.length > 0 ? result.modelData.battle.join(", ") : result.modelData.page
                             onClicked: root.choose(result.modelData.entry)
+                            // the arrows go through the results (Up from
+                            // the first one: back to the search), Return
+                            // chooses the one in focus
+                            Keys.onUpPressed: {
+                                if (!root.focusResult(result.index - 1, -1)) {
+                                    searchField.forceActiveFocus(Qt.BacktabFocusReason)
+                                }
+                            }
+                            Keys.onDownPressed: root.focusResult(result.index + 1, 1)
+                            Keys.onReturnPressed: click()
+                            Keys.onEnterPressed: click()
                             HoverHandler {
                                 id: resultHover
                             }

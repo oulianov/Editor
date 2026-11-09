@@ -380,7 +380,8 @@ Ez.DialogWindow {
     /** Project Settings, on the game soundfont, with this file chosen (the shell opens it) */
     signal useAsGameSoundfont(string file)
 
-    /** A list of the library (music or sounds): its files, then the database's */
+    /** A list of the library (music or sounds): its files, sorted as the
+     *  library says (a click on a column's title), then the database's */
     component AudioList: Ez.ColumnList {
         id: list
 
@@ -390,13 +391,16 @@ Ez.DialogWindow {
         model: lines
         currentRow: lines ? lines.currentRow : -1
         sectionRole: "sectionTitle"
+        sortColumn: root.library ? root.library.sortColumn : ""
+        sortAscending: root.library ? root.library.sortAscending : true
         columns: [
-            { title: qsTr("Name"), role: "name" },
-            { title: qsTr("Format"), role: "format", sample: "MIDI" },
-            { title: qsTr("Source"), role: "source", sample: qsTr("Not found"),
+            { title: qsTr("Name"), role: "name", sort: "name" },
+            { title: qsTr("Format"), role: "format", sample: "MIDI", sort: "format" },
+            { title: qsTr("Source"), role: "source", sample: qsTr("Not found"), sort: "source",
               dimmed: line => line.origin !== Ez.AudioListModel.Game },
         ]
         onPicked: row => lines.currentRow = row
+        onSortClicked: column => root.library.sortBy(column)
         onActivated: row => root.library.playRow(list.kind, row)
     }
 

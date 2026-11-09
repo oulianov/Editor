@@ -21,6 +21,7 @@
 #include <QList>
 #include <QString>
 #include "common/audio_player.h"
+#include "model/file_sort.h"
 
 namespace lcf::rpg {
 class System;
@@ -28,8 +29,9 @@ class System;
 
 /**
  * The music or the sound effects of a game, as filtered: its files and the
- * RTP's it does not replace (section Files), then the music and sounds of
- * the System tab of the database with their settings (section System).
+ * RTP's it does not replace (section Files, in the library's order: the
+ * game's first by default), then the music and sounds of the System tab of
+ * the database with their settings (section System, in the tab's order).
  */
 class AudioListModel : public QAbstractListModel
 {
@@ -104,6 +106,10 @@ private:
 	explicit AudioListModel(QObject* parent);
 	/** The lines listed again: the same line as before, else the first */
 	void setEntries(const QList<Entry>& entries, int game_files, int rtp_files);
+	/** The files sorted again: the same line selected */
+	void setSort(const FileSort& sort);
+	/** The lines of the section Files in m_sort's order */
+	void sortFiles();
 	/** The selection follows the filter: the first line shown */
 	void setFilter(const QString& text);
 	void applyFilter();
@@ -114,6 +120,7 @@ private:
 	QList<int> m_rows;
 	int m_current = -1;
 	QString m_filter;
+	FileSort m_sort;
 	int m_gameFiles = 0;
 	int m_rtpFiles = 0;
 };
@@ -122,7 +129,8 @@ private:
  * Tools > Jukebox, without its window: the music and the sound effects of
  * the game and of the RTP, the file selected in each list, and the player
  * with RPG Maker's settings (fade-in, volume, tempo, balance) and the loop
- * of each list. A file of the database selected brings its settings.
+ * of each list. A file of the database selected brings its settings. Both
+ * lists sort their files the same way (remembered for the next time).
  */
 class AudioLibraryModel : public QObject
 {
@@ -134,6 +142,9 @@ class AudioLibraryModel : public QObject
 	Q_PROPERTY(QStringList rtpPaths READ rtpPaths WRITE setRtpPaths NOTIFY rtpPathsChanged)
 	Q_PROPERTY(Kind kind READ kind WRITE setKind NOTIFY kindChanged)
 	Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY filterChanged)
+	/** The column the files are sorted by ("name", "format", "source"), then by name */
+	Q_PROPERTY(QString sortColumn READ sortColumn NOTIFY sortChanged)
+	Q_PROPERTY(bool sortAscending READ sortAscending NOTIFY sortChanged)
 	Q_PROPERTY(int fadeIn READ fadeIn WRITE setFadeIn NOTIFY fadeInChanged)
 	Q_PROPERTY(int volume READ volume WRITE setVolume NOTIFY volumeChanged)
 	Q_PROPERTY(int tempo READ tempo WRITE setTempo NOTIFY tempoChanged)
@@ -179,6 +190,11 @@ public:
 	/** Only the lines whose name has it, in both lists */
 	QString filter() const;
 	void setFilter(const QString& text);
+	QString sortColumn() const;
+	bool sortAscending() const;
+	/** A click on the title of a column: both lists sorted by it, the same
+	 *  one again reversed; the lines selected stay */
+	Q_INVOKABLE void sortBy(const QString& column);
 
 	/** Seconds of fade-in of the music, 0 to 10 (sound effects have none) */
 	int fadeIn() const;
@@ -221,6 +237,7 @@ signals:
 	void rtpPathsChanged();
 	void kindChanged();
 	void filterChanged();
+	void sortChanged();
 	void fadeInChanged();
 	void volumeChanged();
 	void tempoChanged();
@@ -257,6 +274,7 @@ private:
 	QList<SystemFile> m_systemMusic;
 	QList<SystemFile> m_systemSound;
 	QString m_filter;
+	FileSort m_sort;
 	Kind m_kind = Kind::Music;
 	// the file shown as playing, for the status, and its list
 	QString m_playingName;

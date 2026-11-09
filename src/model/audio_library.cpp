@@ -17,7 +17,6 @@
 
 #include "audio_library.h"
 
-#include <QCollator>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
@@ -34,6 +33,7 @@
 namespace {
 
 const char TAB_KEY[] = "jukebox_tab";
+const char SORT_KEY[] = "jukebox_sort";
 
 using Origin = AudioListModel::Origin;
 using Section = AudioListModel::Section;
@@ -207,6 +207,7 @@ void AudioListModel::setEntries(const QList<Entry>& entries, int game_files, int
 
 	beginResetModel();
 	m_entries = entries;
+	sortFiles();
 	m_gameFiles = game_files;
 	m_rtpFiles = rtp_files;
 	int found = -1;
@@ -227,6 +228,41 @@ void AudioListModel::setEntries(const QList<Entry>& entries, int game_files, int
 		emit filesTitleChanged();
 	}
 	emit currentRowChanged();
+}
+
+void AudioListModel::setSort(const FileSort& sort) {
+	if (sort == m_sort) {
+		return;
+	}
+	// the same line selected, where it is now (the database's do not move)
+	const int before = currentRow();
+	const Entry* line = current();
+	const QString path = line && line->section == Section::Files ? line->path : QString();
+	beginResetModel();
+	m_sort = sort;
+	sortFiles();
+	for (int i = 0; i < m_entries.size() && !path.isEmpty(); ++i) {
+		if (m_entries[i].section == Section::Files && m_entries[i].path == path) {
+			m_current = i;
+			break;
+		}
+	}
+	applyFilter();
+	endResetModel();
+	if (currentRow() != before) {
+		emit currentRowChanged();
+	}
+}
+
+void AudioListModel::sortFiles() {
+	// the files come first; the database's lines stay in the order of its System tab
+	const auto files_end = std::find_if(m_entries.begin(), m_entries.end(), [](const Entry& line) {
+		return line.section != Section::Files;
+	});
+	m_sort.sort(m_entries.begin(), files_end,
+		[](const Entry& line) { return line.name; },
+		[](const Entry& line) { return formatOf(line.path); },
+		[](const Entry& line) { return static_cast<int>(line.origin); });
 }
 
 void AudioListModel::setFilter(const QString& text) {
@@ -288,6 +324,9 @@ AudioLibraryModel::AudioLibraryModel(QObject* parent) : QObject(parent) {
 
 	// the list of last time
 	m_kind = QSettings().value(QLatin1String(TAB_KEY), 0).toInt() == 1 ? Kind::Sound : Kind::Music;
+	m_sort = FileSort::load(QLatin1String(SORT_KEY));
+	m_music->setSort(m_sort);
+	m_sound->setSort(m_sort);
 	m_player->setVolume(m_volume);
 	m_player->setTempo(m_tempo);
 	m_player->setBalance(m_balance);
@@ -391,22 +430,13 @@ void AudioLibraryModel::fill(Kind kind) {
 		}
 	}
 
-	std::vector<std::pair<QString, QString>> sorted;
-	for (const auto& [key, path] : files) {
-		sorted.emplace_back(QFileInfo(path).completeBaseName(), path);
-	}
-	QCollator collator;
-	collator.setNumericMode(true);
-	collator.setCaseSensitivity(Qt::CaseInsensitive);
-	std::sort(sorted.begin(), sorted.end(), [&](const auto& a, const auto& b) {
-		return collator.compare(a.first, b.first) < 0;
-	});
+	// sorted by the list (setEntries)
 	QList<AudioListModel::Entry> entries;
-	for (const auto& [name, path] : sorted) {
+	for (const auto& [key, path] : files) {
 		AudioListModel::Entry line;
-		line.name = name;
+		line.name = QFileInfo(path).completeBaseName();
 		line.path = path;
-		line.origin = fromRtp.count(name.toLower()) > 0 ? Origin::Rtp : Origin::Game;
+		line.origin = fromRtp.count(key) > 0 ? Origin::Rtp : Origin::Game;
 		entries.append(line);
 	}
 
@@ -458,6 +488,26 @@ void AudioLibraryModel::setKind(Kind kind) {
 
 QString AudioLibraryModel::filter() const {
 	return m_filter;
+}
+
+QString AudioLibraryModel::sortColumn() const {
+	return m_sort.columnName();
+}
+
+bool AudioLibraryModel::sortAscending() const {
+	return m_sort.ascending();
+}
+
+void AudioLibraryModel::sortBy(const QString& column) {
+	const FileSort sort = m_sort.clicked(column);
+	if (sort == m_sort) {
+		return;
+	}
+	m_sort = sort;
+	m_sort.save(QLatin1String(SORT_KEY));
+	m_music->setSort(sort);
+	m_sound->setSort(sort);
+	emit sortChanged();
 }
 
 void AudioLibraryModel::setFilter(const QString& text) {

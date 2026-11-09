@@ -25,6 +25,7 @@
 #include <QStringList>
 #include <QVariantList>
 #include "common/filefinder.h"
+#include "model/file_sort.h"
 
 class ResourceLibraryModel;
 
@@ -117,8 +118,10 @@ private:
  * the game and of the RTP (one row per file, as filtered), the file shown
  * and what it is, and the file operations (Import, Export, Rename, Delete).
  *
- * The game's files hide the RTP's of the same name. The questions go
- * through DialogService (No is the safe answer); the errors come back as
+ * The game's files hide the RTP's of the same name; they come first, as
+ * RPG Maker lists them, unless the list is sorted by another column (Name,
+ * Format: remembered for the next time). The questions go through
+ * DialogService (No is the safe answer); the errors come back as
  * a ResourceResult, for the window to show.
  */
 class ResourceLibraryModel : public QAbstractListModel
@@ -132,6 +135,9 @@ class ResourceLibraryModel : public QAbstractListModel
 	Q_PROPERTY(Kind kind READ kind NOTIFY folderChanged)
 	Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY filterChanged)
 	Q_PROPERTY(QString countText READ countText NOTIFY filesChanged)
+	/** The column the files are sorted by ("name", "format", "source"), then by name */
+	Q_PROPERTY(QString sortColumn READ sortColumn NOTIFY sortChanged)
+	Q_PROPERTY(bool sortAscending READ sortAscending NOTIFY sortChanged)
 	Q_PROPERTY(int currentRow READ currentRow WRITE setCurrentRow NOTIFY currentChanged)
 	Q_PROPERTY(QString currentName READ currentName NOTIFY currentChanged)
 	Q_PROPERTY(QString currentPath READ currentPath NOTIFY currentChanged)
@@ -220,6 +226,12 @@ public:
 	Q_INVOKABLE void refresh();
 	Q_INVOKABLE void refresh(const QString& select);
 
+	QString sortColumn() const;
+	bool sortAscending() const;
+	/** A click on the title of a column: sorted by it, the same one again
+	 *  reversed (remembered for the next time); the file shown stays */
+	Q_INVOKABLE void sortBy(const QString& column);
+
 	/** The row of the file shown, -1 when none or filtered out */
 	int currentRow() const;
 	void setCurrentRow(int row);
@@ -295,6 +307,7 @@ signals:
 	void rtpPathsChanged();
 	void folderChanged();
 	void filterChanged();
+	void sortChanged();
 	/** The files were listed again (countText) */
 	void filesChanged();
 	/** Another file is shown, or the same one again after a change */
@@ -317,6 +330,7 @@ private:
 	};
 
 	void reload(const QString& select, bool keep);
+	void sortEntries();
 	void applyFilter();
 	void updateCurrent();
 	/** Asks before replacing a game file of the same name; removes the old ones */
@@ -330,10 +344,11 @@ private:
 	QStringList m_rtpPaths;
 	int m_folder = 0;
 	QString m_filter;
+	FileSort m_sort;
 	bool m_useTrash = true;
 	bool m_importXyz = false;
 
-	/** Every file of the folder, sorted; the rows: those the filter shows */
+	/** Every file of the folder, in m_sort's order; the rows: those the filter shows */
 	QList<Entry> m_entries;
 	QList<int> m_rows;
 	/** The file shown (in m_entries), -1 when none */

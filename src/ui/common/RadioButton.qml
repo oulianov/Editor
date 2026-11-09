@@ -6,9 +6,57 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.easyrpg.editor as Ez
 
-/** One of several choices of a number of the project's data: checked when it is value */
+/**
+ * One of several choices of a number of the project's data: checked when it
+ * is value. As the radio buttons of RPG Maker 2003 (Windows' groups): Tab
+ * stops on the one checked of its group (the first one when none is), the
+ * arrow keys check the one before or after it in the group.
+ */
 Controls.RadioButton {
     id: root
+
+    /** The radio buttons of its group: its ButtonGroup's, else those beside it */
+    readonly property var groupButtons: {
+        const group = Controls.ButtonGroup.group
+        if (group) {
+            return group.buttons
+        }
+        if (!autoExclusive || !parent) {
+            return [root]
+        }
+        return Array.from(parent.children).filter(item => item instanceof Controls.RadioButton && item.autoExclusive)
+    }
+    /** The buttons of the group that can be checked now */
+    function usable(): var {
+        return groupButtons.filter(button => button.enabled && button.visible)
+    }
+    /** Checks the button delta places after it in its group (before: negative) */
+    function moveInGroup(delta: int) {
+        const buttons = usable()
+        const at = buttons.indexOf(root)
+        const next = at < 0 ? -1 : at + delta
+        if (next >= 0 && next < buttons.length) {
+            buttons[next].forceActiveFocus(Qt.TabFocusReason)
+            if (!buttons[next].checked) {
+                // as a click: the data is written
+                buttons[next].click()
+            }
+        }
+    }
+
+    activeFocusOnTab: {
+        const buttons = groupButtons
+        const checked = buttons.find(button => button.checked && button.enabled && button.visible)
+        if (checked) {
+            return checked === root
+        }
+        const first = buttons.find(button => button.enabled && button.visible)
+        return first === root || first === undefined
+    }
+    Keys.onUpPressed: moveInGroup(-1)
+    Keys.onLeftPressed: moveInGroup(-1)
+    Keys.onDownPressed: moveInGroup(1)
+    Keys.onRightPressed: moveInGroup(1)
 
     property var jsonData: null
     property string key: ""

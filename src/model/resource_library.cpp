@@ -17,7 +17,6 @@
 
 #include "resource_library.h"
 #include <QBrush>
-#include <QCollator>
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
@@ -43,6 +42,7 @@ namespace {
 	const char IMPORT_AS_KEY[] = "resource_manager/import_as";
 	const char IMPORT_DIR_KEY[] = "resource_manager/import_dir";
 	const char EXPORT_DIR_KEY[] = "resource_manager/export_dir";
+	const char SORT_KEY[] = "resource_manager/sort";
 
 	using FileType = FileFinder::FileType;
 	using Kind = ResourceLibraryModel::Kind;
@@ -219,6 +219,7 @@ ResourceLibraryModel::ResourceLibraryModel(QObject* parent) :
 	m_importXyz = settings.value(QLatin1String(IMPORT_AS_KEY)).toString() == QLatin1String("xyz");
 	// the folder of last time
 	m_folder = std::max(0, folderOf(settings.value(QLatin1String(FOLDER_KEY)).toString()));
+	m_sort = FileSort::load(QLatin1String(SORT_KEY));
 }
 
 ResourceLibraryModel::~ResourceLibraryModel() = default;
@@ -498,12 +499,7 @@ void ResourceLibraryModel::reload(const QString& select, bool keep)
 		scan(rtp_dirs[i], i + 1);
 	}
 
-	QCollator collator;
-	collator.setNumericMode(true);
-	collator.setCaseSensitivity(Qt::CaseInsensitive);
-	std::sort(m_entries.begin(), m_entries.end(), [&](const Entry& a, const Entry& b) {
-		return collator.compare(a.name, b.name) < 0;
-	});
+	sortEntries();
 	if (!shown.isEmpty()) {
 		for (int i = 0; i < m_entries.size(); ++i) {
 			if (m_entries[i].name.compare(shown, Qt::CaseInsensitive) == 0) {
@@ -516,6 +512,49 @@ void ResourceLibraryModel::reload(const QString& select, bool keep)
 	endResetModel();
 	emit filesChanged();
 	updateCurrent();
+}
+
+QString ResourceLibraryModel::sortColumn() const
+{
+	return m_sort.columnName();
+}
+
+bool ResourceLibraryModel::sortAscending() const
+{
+	return m_sort.ascending();
+}
+
+void ResourceLibraryModel::sortBy(const QString& column)
+{
+	const FileSort sort = m_sort.clicked(column);
+	if (sort == m_sort) {
+		return;
+	}
+	m_sort = sort;
+	m_sort.save(QLatin1String(SORT_KEY));
+	// the same file shown, where it is now
+	const QString shown = m_current >= 0 ? m_entries[m_current].path : QString();
+	beginResetModel();
+	sortEntries();
+	m_current = -1;
+	for (int i = 0; i < m_entries.size() && !shown.isEmpty(); ++i) {
+		if (m_entries[i].path == shown) {
+			m_current = i;
+			break;
+		}
+	}
+	applyFilter();
+	endResetModel();
+	emit sortChanged();
+	emit currentChanged();
+}
+
+void ResourceLibraryModel::sortEntries()
+{
+	m_sort.sort(m_entries.begin(), m_entries.end(),
+		[](const Entry& entry) { return entry.name; },
+		[](const Entry& entry) { return QFileInfo(entry.path).suffix(); },
+		[](const Entry& entry) { return entry.rtp ? 1 : 0; });
 }
 
 void ResourceLibraryModel::applyFilter()
