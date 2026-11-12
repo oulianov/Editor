@@ -146,6 +146,13 @@ EventCommandListModel::~EventCommandListModel() = default;
 
 void EventCommandListModel::setCommands(Commands* commands)
 {
+	// the same list shown again as it was (Apply, the database read again
+	// for another change): the view keeps its place, its selection and the
+	// undo steps; only the names its lines show may differ
+	if (commands && commands == m_commands && m_recorded && *m_recorded == *commands) {
+		refreshNames();
+		return;
+	}
 	beginResetModel();
 	m_commands = commands;
 	m_undoStack->clear();
@@ -179,6 +186,7 @@ QVariant EventCommandListModel::data(const QModelIndex& index, int role) const
 	if (!index.isValid() || !checkIndex(index, CheckIndexOption::ParentIsInvalid)) {
 		return {};
 	}
+	const Stringizer::DatabaseScope names(m_database);
 	const int row = index.row();
 	const bool page_end = row == lineCount();
 	const lcf::rpg::EventCommand* cmd = page_end ? nullptr : &(*m_commands)[static_cast<size_t>(row)];
@@ -253,6 +261,7 @@ QString EventCommandListModel::lineText(int index) const
 	if (index == lineCount()) {
 		return QStringLiteral("<>");
 	}
+	const Stringizer::DatabaseScope names(m_database);
 	const auto& cmd = (*m_commands)[static_cast<size_t>(index)];
 	if (isNextLine(codeOf(cmd))) {
 		// a view puts it under the text of the first line
@@ -361,11 +370,19 @@ EventCommandListModel::Range EventCommandListModel::wholeCommands(int first, int
 	return {first, last};
 }
 
+void EventCommandListModel::setDatabase(const lcf::rpg::Database* database)
+{
+	if (m_database != database) {
+		m_database = database;
+		refreshNames();
+	}
+}
+
 void EventCommandListModel::refreshNames()
 {
 	// Whichever list changed (the project's, a window's copy): the lines are
-	// read from the project's database, and a view reads again only the
-	// lines it shows
+	// read from their database (setDatabase), and a view reads again only
+	// the lines it shows
 	if (rowCount() > 0) {
 		emit dataChanged(index(0), index(rowCount() - 1), {Qt::DisplayRole, TextRole});
 	}
@@ -545,6 +562,7 @@ void EventCommandListModel::copyLines(Range range, bool cut)
 	clipboard().assign(m_commands->begin() + range.first, m_commands->begin() + range.second);
 	// as text too, for text editors (the command lists paste the commands themselves)
 	if (qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
+		const Stringizer::DatabaseScope names(m_database);
 		QGuiApplication::clipboard()->setText(commandsText(clipboard()));
 	}
 	if (cut) {

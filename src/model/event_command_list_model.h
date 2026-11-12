@@ -24,6 +24,10 @@
 #include <vector>
 #include <lcf/rpg/eventcommand.h>
 
+namespace lcf::rpg {
+	class Database;
+}
+
 class QUndoStack;
 
 /**
@@ -106,6 +110,9 @@ public:
 	 *  the views read the lines again. The commands stay as they are: no
 	 *  undo step, no commandsChanged */
 	void refreshNames();
+	/** The database the lines name entries from (a database window's copy);
+	 *  null: the project's */
+	void setDatabase(const lcf::rpg::Database* database);
 
 	/*
 	 * The changes: each is one undo step
@@ -160,6 +167,7 @@ private:
 	void restore(const Commands& commands);
 
 	Commands* m_commands = nullptr;
+	const lcf::rpg::Database* m_database = nullptr;
 	QUndoStack* m_undoStack = nullptr;
 	/** The list as last recorded, to know what a change replaced */
 	std::optional<Commands> m_recorded;

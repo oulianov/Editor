@@ -24,6 +24,7 @@
 #include "model/move_route_codec.h"
 #include "common/dbstring.h"
 #include <lcf/rpg/eventcommand.h>
+#include <lcf/rpg/database.h>
 #include "core.h"
 
 /*
@@ -33,6 +34,15 @@
 
 namespace
 {
+	/** The database of Stringizer::DatabaseScope, null for the project's */
+	const lcf::rpg::Database* scoped_database = nullptr;
+
+	/** The database the names are read from */
+	const lcf::rpg::Database& database()
+	{
+		return scoped_database ? *scoped_database : core().project()->database();
+	}
+
 	// Helper functions
 	QString variable(int id, bool show_name = false)
 	{
@@ -1373,7 +1383,7 @@ namespace
 	QString stringizeKeyInputProc(const lcf::rpg::EventCommand& com)
 	{
 		const auto parameter = [&](size_t index) { return index < com.parameters.size() ? com.parameters[index] : 0; };
-		const bool rpg2003 = core().project()->database().system.ldb_id == 2003;
+		const bool rpg2003 = database().system.ldb_id == 2003;
 		const bool modern2000 = com.parameters.size() == 10 || (!rpg2003 && com.parameters.size() >= 6);
 		const bool modern2003 = rpg2003 && com.parameters.size() > 10;
 		QStringList keys;
@@ -1414,7 +1424,7 @@ namespace
 			return Stringizer::tr("Change Map Tileset") + ": " + modeValue(mode, com.parameters[0]);
 		}
 		const int id = com.parameters[0];
-		const auto& chipsets = core().project()->database().chipsets;
+		const auto& chipsets = database().chipsets;
 		const auto found = std::find_if(chipsets.begin(), chipsets.end(), [id](const auto& chipset) { return chipset.ID == id; });
 		return Stringizer::tr("Change Map Tileset") + ": " + QString::number(id)
 			+ (found == chipsets.end() ? QString() : ": " + ToQString(found->name));
@@ -2635,16 +2645,27 @@ namespace
 
 namespace Stringizer
 {
+	DatabaseScope::DatabaseScope(const lcf::rpg::Database* database) :
+		m_previous(scoped_database)
+	{
+		scoped_database = database;
+	}
+
+	DatabaseScope::~DatabaseScope()
+	{
+		scoped_database = m_previous;
+	}
+
 	QString varName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().variables.size()))
+		if (id < 1 || id > static_cast<int>(database().variables.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().variables[static_cast<size_t>(id)-1].name);
+		return ToQString(database().variables[static_cast<size_t>(id)-1].name);
 	}
 
 	QString stringVarName(int id)
 	{
-		const auto& strings = core().project()->database().maniac_string_variables;
+		const auto& strings = database().maniac_string_variables;
 		if (id < 1 || id > static_cast<int>(strings.size()))
 			return QString("<%1?>").arg(id);
 		return ToQString(strings[static_cast<size_t>(id) - 1].name);
@@ -2652,65 +2673,65 @@ namespace Stringizer
 
 	QString switchName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().switches.size()))
+		if (id < 1 || id > static_cast<int>(database().switches.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().switches[static_cast<size_t>(id) - 1].name);
+		return ToQString(database().switches[static_cast<size_t>(id) - 1].name);
 	}
 
 	QString itemName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().items.size()))
+		if (id < 1 || id > static_cast<int>(database().items.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().items[static_cast<size_t>(id)-1].name);
+		return ToQString(database().items[static_cast<size_t>(id)-1].name);
 	}
 
 	QString heroName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().actors.size()))
+		if (id < 1 || id > static_cast<int>(database().actors.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().actors[static_cast<size_t>(id)-1].name);
+		return ToQString(database().actors[static_cast<size_t>(id)-1].name);
 	}
 
 	QString className(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().classes.size()))
+		if (id < 1 || id > static_cast<int>(database().classes.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().classes[static_cast<size_t>(id)-1].name);
+		return ToQString(database().classes[static_cast<size_t>(id)-1].name);
 	}
 
 	QString stateName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().states.size()))
+		if (id < 1 || id > static_cast<int>(database().states.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().states[static_cast<size_t>(id)-1].name);
+		return ToQString(database().states[static_cast<size_t>(id)-1].name);
 	}
 
 	QString skillName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().skills.size()))
+		if (id < 1 || id > static_cast<int>(database().skills.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().skills[static_cast<size_t>(id)-1].name);
+		return ToQString(database().skills[static_cast<size_t>(id)-1].name);
 	}
 
 	QString battleCommandName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().battlecommands.commands.size()))
+		if (id < 1 || id > static_cast<int>(database().battlecommands.commands.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().battlecommands.commands[static_cast<size_t>(id)-1].name);
+		return ToQString(database().battlecommands.commands[static_cast<size_t>(id)-1].name);
 	}
 
 
 	QString animationName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().animations.size()))
+		if (id < 1 || id > static_cast<int>(database().animations.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().animations[static_cast<size_t>(id)-1].name);
+		return ToQString(database().animations[static_cast<size_t>(id)-1].name);
 	}
 	QString conditionName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().states.size()))
+		if (id < 1 || id > static_cast<int>(database().states.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().states[static_cast<size_t>(id)-1].name);
+		return ToQString(database().states[static_cast<size_t>(id)-1].name);
 	}
 
 	QString eventName(int id)
@@ -2722,23 +2743,23 @@ namespace Stringizer
 
 	QString commonEventName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().commonevents.size()))
+		if (id < 1 || id > static_cast<int>(database().commonevents.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().commonevents[static_cast<size_t>(id)-1].name);
+		return ToQString(database().commonevents[static_cast<size_t>(id)-1].name);
 	}
 
 	QString troopName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().troops.size()))
+		if (id < 1 || id > static_cast<int>(database().troops.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().troops[static_cast<size_t>(id)-1].name);
+		return ToQString(database().troops[static_cast<size_t>(id)-1].name);
 	}
 
 	QString terrainName(int id)
 	{
-		if (id < 1 || id > static_cast<int>(core().project()->database().terrains.size()))
+		if (id < 1 || id > static_cast<int>(database().terrains.size()))
 			return QString("<%1?>").arg(id);
-		return ToQString(core().project()->database().terrains[static_cast<size_t>(id)-1].name);
+		return ToQString(database().terrains[static_cast<size_t>(id)-1].name);
 	}
 
 	QString mapName(int id)

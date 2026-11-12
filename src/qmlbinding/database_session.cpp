@@ -95,10 +95,15 @@ DatabaseSession::Status DatabaseSession::apply() {
 	}
 	DialogService& dialogs = m_dialogs ? *m_dialogs : own ? *own : DialogService::instance();
 	const DatabaseApply::File file = m_file ? m_file() : ProjectController::databaseFile();
+	// changed on disk: what is merged from the file comes into the copy
+	const bool stale = file.isStale && file.isStale();
 	m_quiet = true;
 	const auto result = DatabaseApply::apply(*m_live, m_copy, m_base, file, dialogs, this);
-	// what was merged from the file is in the copy
-	m_json.notifyChanged(QString());
+	// the views read the copy again only when the file changed it: else
+	// they stay as they are (their lists keep their place)
+	if (stale) {
+		m_json.notifyChanged(QString());
+	}
 	m_quiet = false;
 	setMessage(result.message);
 	switch (result.status) {

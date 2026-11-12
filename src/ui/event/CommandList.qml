@@ -526,14 +526,20 @@ FocusScope {
 
         /** The line clicked */
         property int line: -1
-        readonly property var range: line >= 0 ? root.rangeFor(line) : [-1, -1]
+        /** The lines it acts on: asked at each opening, as canEdit */
+        property var range: [-1, -1]
         readonly property bool removable: range[0] >= 0 && range[0] < range[1]
         property bool canPaste: false
+        /** The line clicked has an editor (Space opens it): asked at each
+         *  opening, the line may hold another command since (a paste) */
+        property bool canEdit: false
         property string scriptReason: ""
 
         font: Ez.Metrics.font
         onAboutToShow: {
             canPaste = root.editor.canPaste()
+            range = line >= 0 ? root.rangeFor(line) : [-1, -1]
+            canEdit = line >= 0 && root.editor.hasEditor(line)
             scriptReason = root.editor.scriptUnavailableReason()
         }
 
@@ -559,7 +565,7 @@ FocusScope {
             // Space, as in RPG Maker: Enter inserts
             text: qsTranslate("EditActions", "Edit...")
             icon.source: root.iconFolder + "properties"
-            visible: menu.line >= 0 && root.editor.hasEditor(menu.line)
+            visible: menu.canEdit
             onTriggered: root.edit(menu.line)
         }
         Controls.MenuSeparator {}

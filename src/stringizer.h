@@ -21,6 +21,10 @@
 
 #include <QString>
 #include <lcf/rpg/eventcommand.h>
+
+namespace lcf::rpg {
+	class Database;
+}
 #include <qcoreapplication.h>
 
 namespace Stringizer {
@@ -38,6 +42,22 @@ namespace Stringizer {
 	}
 #endif
 	QString stringize(const lcf::rpg::EventCommand& com);
+
+	/**
+	 * While it lives, the names of the lines are read from this database (a
+	 * database window's copy: the entries made or renamed there, before
+	 * Apply), not from the project's; null: the project's
+	 */
+	class DatabaseScope
+	{
+	public:
+		explicit DatabaseScope(const lcf::rpg::Database* database);
+		~DatabaseScope();
+		DatabaseScope(const DatabaseScope&) = delete;
+		DatabaseScope& operator=(const DatabaseScope&) = delete;
+	private:
+		const lcf::rpg::Database* m_previous;
+	};
 
 	// Common stringize operations
 	QString varName(int id);

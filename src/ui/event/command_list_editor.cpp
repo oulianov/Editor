@@ -82,7 +82,20 @@ DatabaseSession* CommandListEditor::session() const
 void CommandListEditor::setSession(DatabaseSession* session)
 {
 	if (m_session != session) {
+		disconnect(m_namesConnection);
+		disconnect(m_sessionGone);
 		m_session = session;
+		// the lines name the entries of the window's copy, as it has them
+		// before Apply (a variable added or renamed there), again at each
+		// change of it
+		m_model->setDatabase(session ? &session->copy().database() : nullptr);
+		if (session) {
+			m_namesConnection = connect(&session->json(), &Json::valueChanged, m_model, &EventCommandListModel::refreshNames);
+			m_sessionGone = connect(session, &QObject::destroyed, this, [this] {
+				m_session = nullptr;
+				m_model->setDatabase(nullptr);
+			});
+		}
 		emit projectChanged();
 	}
 }

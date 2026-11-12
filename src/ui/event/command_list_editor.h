@@ -186,4 +186,7 @@ private:
 	/** The troop of the battle page shown (its index), -1 for none */
 	int m_troop = -1;
 	QMetaObject::Connection m_pagesConnection;
+	/** The changes of the session's copy (the names the lines show), its end */
+	QMetaObject::Connection m_namesConnection;
+	QMetaObject::Connection m_sessionGone;
 };
