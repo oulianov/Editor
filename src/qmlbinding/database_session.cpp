@@ -48,7 +48,9 @@ DatabaseSession::DatabaseSession(QObject* parent) : QObject(parent) {
 	connect(&EditorSettings::instance(), &EditorSettings::localStateReset, this, &DatabaseSession::viewStateReset);
 }
 
-DatabaseSession::~DatabaseSession() = default;
+DatabaseSession::~DatabaseSession() {
+	emit closing();
+}
 
 void DatabaseSession::setProjectData(ProjectDataGadget* gadget) {
 	if (m_gadget == gadget) {

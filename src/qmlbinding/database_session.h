@@ -158,6 +158,10 @@ signals:
 	void windowChanged();
 	/** The settings forgot the windows' state (Settings, Reset local state): show the first page */
 	void viewStateReset();
+	/** The session ends (its window closed), its copy still there: what
+	 *  shows a part of the copy lets it go now, without reading it again
+	 *  (destroyed() comes once the copy is gone) */
+	void closing();
 
 private:
 	void setModified(bool modified);

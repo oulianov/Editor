@@ -91,8 +91,14 @@ void CommandListEditor::setSession(DatabaseSession* session)
 		m_model->setDatabase(session ? &session->copy().database() : nullptr);
 		if (session) {
 			m_namesConnection = connect(&session->json(), &Json::valueChanged, m_model, &EventCommandListModel::refreshNames);
-			m_sessionGone = connect(session, &QObject::destroyed, this, [this] {
+			// the window closes: its copy goes with the session, the lines
+			// shown from it first (destroyed() would come once the copy is
+			// gone: its lines could not be read any more)
+			m_sessionGone = connect(session, &DatabaseSession::closing, this, [this] {
+				disconnect(m_namesConnection);
+				disconnect(m_sessionGone);
 				m_session = nullptr;
+				setCommands(nullptr);
 				m_model->setDatabase(nullptr);
 			});
 		}
