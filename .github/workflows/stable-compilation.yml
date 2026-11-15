@@ -100,6 +100,12 @@ jobs:
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
       options: --privileged
+      # the runtimes of the image (the KDE SDK) in a volume, which Docker
+      # fills with them: flatpak-builder updates them when Flathub has newer
+      # ones, and in the image's own layers it could not replace their
+      # folders ("Invalid cross-device link", then a crash)
+      volumes:
+        - flatpak:/var/lib/flatpak
     steps:
       # with liblcf (the submodule lib/liblcf), which the Editor builds
       - uses: actions/checkout@v7
