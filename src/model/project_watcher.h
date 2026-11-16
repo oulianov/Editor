@@ -52,7 +52,8 @@ public:
 	static Stamp stampOf(const QString& path);
 
 	/** Watch the project in dir, or nothing when dir is empty. Watching the
-	 *  same project again keeps the changes not reported yet. */
+	 *  same project again keeps the changes not reported yet. The Editor
+	 *  calls it for each project opened or closed (projectSet) */
 	void setProject(const QString& dir, bool easyrpg);
 
 	/** The Editor read (loaded) or wrote this version of path: it is the
@@ -76,6 +77,9 @@ public:
 	static constexpr int TreeMap = -1;
 
 signals:
+	/** setProject() was called: a project was opened or closed (or the
+	 *  settings changed). What follows the project open reads it again */
+	void projectSet();
 	void databaseChanged();
 	void treeMapChanged();
 	void mapChanged(int id);

@@ -30,6 +30,12 @@ import org.easyrpg.editor as Ez
  * command (the lines of a message, a whole branch...) are selected with
  * it, and with Shift the commands up to the line where the selection
  * started (anchor).
+ *
+ * A command using an add-on the game tags (the Maniac Patch, EasyRPG
+ * Player, a patch: Ez.Origins) has its tag in a gutter at the left of its
+ * first line (objectName "originTag" and the line, its text the letter),
+ * a warning one while the game does not run it; the tooltip of the gutter
+ * says what each tag means. The gutter is there while a line has a tag.
  */
 FocusScope {
     id: root
@@ -260,6 +266,22 @@ FocusScope {
     // the widest line shown: lines are as wide (wider ones scroll sideways, as RPG Maker)
     property real widest: 0
     onWidestChanged: Qt.callLater(view.updateContentWidth)
+    // the gutter of the tags, while a line has one (the badges hidden in the
+    // Editor Settings: the warning ones): as wide as the widest tag, "M!"
+    // (the letter of Ez.OriginTag and its margins)
+    readonly property real gutterWidth: editor.model.tagged ? widestTag.advanceWidth + 6 + 2 * Ez.Metrics.listTextPadding : 0
+    /** The tooltip of the tags of a line: what each means, one per line */
+    function tagsTip(origins) {
+        return origins.map(one => one.warning ? Ez.Origins.warning(one.origin) : Ez.Origins.tip(one.origin)).join("\n")
+    }
+
+    TextMetrics {
+        id: widestTag
+        text: "M!"
+        font.family: Ez.Metrics.font.family
+        font.pointSize: Ez.Metrics.font.pointSize * 0.85
+        font.bold: true
+    }
 
     FontMetrics {
         id: metrics
@@ -339,7 +361,11 @@ FocusScope {
             required property int code
             required property int colorKind
             required property string lineLabel
+            required property var origins
             readonly property bool selected: index >= root.highlightFirst && index < root.highlightEnd
+            /** The tag shown: the first one the game does not run, else the first one */
+            readonly property var tag: origins.find(one => one.warning) ?? origins[0] ?? null
+            readonly property string tagsTip: root.tagsTip(origins)
 
             width: view.contentWidth
             height: view.rowHeight
@@ -353,9 +379,22 @@ FocusScope {
                 visible: line.selected || (root.stripes && line.index % 2 === 1)
                 color: line.selected ? Kirigami.Theme.highlightColor : root.stripeColor
             }
+            Ez.OriginTag {
+                id: tag
+                // the letter for the scripts: "M", "M!"
+                readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+                objectName: "originTag" + line.index
+                origin: line.tag ? line.tag.origin : ""
+                warning: line.tag ? line.tag.warning : false
+                // the list's tooltip says what the tags mean (the mouse is its)
+                toolTip: ""
+                visible: shown && line.tag !== null
+                x: Math.round((root.gutterWidth - width) / 2)
+                anchors.verticalCenter: parent.verticalCenter
+            }
             Text {
                 id: label
-                x: Ez.Metrics.listTextPadding + Math.max(0, line.indent) * root.indentWidth
+                x: root.gutterWidth + Ez.Metrics.listTextPadding + Math.max(0, line.indent) * root.indentWidth
                    + root.nextLineOffset(line.lineLabel)
                 anchors.verticalCenter: parent.verticalCenter
                 text: line.display
@@ -383,6 +422,22 @@ FocusScope {
         property int hovered: -1
         // pressed on the line already selected, alone: released there, it is edited
         property bool pressOnCurrent: false
+        /** The tooltip of the tags of the line pointed at in the gutter */
+        readonly property string tagsTip: {
+            if (hovered < 0 || !containsMouse || mouseX + view.contentX - view.originX >= root.gutterWidth) {
+                return ""
+            }
+            const item = view.itemAtIndex(hovered)
+            return item ? item.tagsTip : ""
+        }
+
+        Ez.ToolTip {
+            visible: mouse.tagsTip !== ""
+            text: mouse.tagsTip
+            delay: Kirigami.Units.toolTipDelay
+            x: mouse.mouseX + Kirigami.Units.gridUnit
+            y: mouse.mouseY + Kirigami.Units.gridUnit
+        }
 
         anchors.fill: view
         anchors.rightMargin: vbar.visible ? vbar.width : 0

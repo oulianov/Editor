@@ -16,6 +16,7 @@
  */
 
 #include "project_windows.h"
+#include "model/game_patches.h"
 #include "model/project.h"
 #include "model/project_list.h"
 #include "model/project_settings.h"
@@ -41,8 +42,14 @@ QString withSlash(QString folder) {
 
 std::optional<ProjectWindows::NewProject> ProjectWindows::newProject(QWindow* over, const QString& def_dir)
 {
+	// what each add-on does, as Project Settings says it
+	QVariantMap texts;
+	for (const auto& patch : GamePatches::list()) {
+		texts.insert(QString::fromLatin1(patch.key), QCoreApplication::translate("GamePatches", patch.text));
+	}
 	std::optional<NewProject> chosen;
-	QmlHost::exec(QStringLiteral("NewProjectWindow"), over, {{QStringLiteral("defDir"), withSlash(def_dir)}},
+	QmlHost::exec(QStringLiteral("NewProjectWindow"), over,
+			{{QStringLiteral("defDir"), withSlash(def_dir)}, {QStringLiteral("addOnTexts"), texts}},
 			[&chosen](QQuickWindow* window) {
 		if (window->property("result").toInt() != 1) {
 			return;
@@ -56,6 +63,7 @@ std::optional<ProjectWindows::NewProject> ProjectWindows::newProject(QWindow* ov
 		project.format = window->property("format").toInt();
 		project.tileSize = window->property("tileSize").toInt();
 		project.defDir = window->property("defDir").toString();
+		project.patches = window->property("patches").toStringList();
 		chosen = project;
 	});
 	return chosen;

@@ -24,8 +24,8 @@ then open RPG Maker and keep editing there.
 
 ## With this Editor
 
-Turn on **Settings > rpgsync mode** and keep `rpgsync` running in the game
-folder. Both can then edit the game at the same time:
+Turn on **Editor Settings > Files > Reload the files other programs change
+(rpgsync)** and keep `rpgsync` running in the game folder. Both can then edit the game at the same time:
 
 - **What rpgsync writes appears in the Editor**: the database, the map tree
   and the open maps are read again when their files change. Windows editing
@@ -61,7 +61,7 @@ with hertepay:
         cellar = Area(id=26, name="Cellar", area_rect=[2, 3, 9, 8])
 ```
 
-What you change there reaches the game and, in rpgsync mode, the Editor's map
+What you change there reaches the game and, with that option on, the Editor's map
 tree:
 
 - **Rename** a map (`name=`): the tree and the tab of the open map show the
@@ -95,8 +95,8 @@ In the map tree (right-click), a map has **Open in Script Editor** (its
 `map_tree.py`), an area the second one, and the project **Open Map Tree in
 Script Editor** (`map_tree.py` at its `start`).
 
-The script editor is set in **Settings > Script editor**: a URL or a command,
-with `{file}` and `{line}`:
+The script editor is set in **Editor Settings > Programs > Script editor**: a
+URL or a command, with `{file}` and `{line}`:
 
 | Editor | Setting |
 |---|---|

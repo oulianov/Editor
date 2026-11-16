@@ -16,7 +16,6 @@
  */
 
 #include "game_patches.h"
-#include "common/editor_settings.h"
 #include "common/ini_file.h"
 #include "model/project.h"
 
@@ -74,6 +73,10 @@ QString GamePatches::explain(const Patch& patch) {
 }
 
 QMap<QString, int> GamePatches::detect(const Project& project) {
+	return detect(project, engineSet(project) != RpgRtExe::EngineNone);
+}
+
+QMap<QString, int> GamePatches::detect(const Project& project, bool engineSet) {
 	QMap<QString, int> values;
 	for (const auto& patch : list()) {
 		values[QString::fromLatin1(patch.key)] = 0;
@@ -81,7 +84,7 @@ QMap<QString, int> GamePatches::detect(const Project& project) {
 	auto has = [&](const char* file) { return !project.findFile(QString::fromLatin1(file)).isEmpty(); };
 	// its version, from the program when the engine is not set (Player::CreateGameObjects)
 	const QString exe = engineExe(project);
-	if (!exe.isEmpty() && engineSetting(project).isEmpty()) {
+	if (!exe.isEmpty() && !engineSet) {
 		values[QStringLiteral("Maniac")] = exeInfo(exe).maniac;
 	}
 	if (!values[QStringLiteral("Maniac")] && has("accord.dll")) {
@@ -95,6 +98,52 @@ QMap<QString, int> GamePatches::detect(const Project& project) {
 
 QString GamePatches::engineSetting(const Project& project) {
 	return iniValue(project, "Game", "Engine");
+}
+
+int GamePatches::engineSet(const Project& project) {
+	return RpgRtExe::engineFromSetting(engineSetting(project));
+}
+
+int GamePatches::detectEngine(const Project& project, int ldbId, int databaseVersion) {
+	using namespace RpgRtExe;
+	// the program, when it tells
+	const QString exe = engineExe(project);
+	if (!exe.isEmpty()) {
+		if (const int engine = exeInfo(exe).engine; engine != EngineNone) {
+			return engine;
+		}
+	}
+	// the database
+	int engine = ldbId == 2003 ? EngineRpg2k3 : EngineRpg2k;
+	if (ldbId == 2003 ? !project.findFile(QStringLiteral("ultimate_rt_eb.dll")).isEmpty() : databaseVersion >= 1) {
+		return engine | EngineMajorUpdated | EngineEnglish;
+	}
+	// FileFinder::IsMajorUpdatedTree: an MP3 music file, unless harmony.dll
+	// is not the official one
+	const QString harmony = project.findFile(QStringLiteral("Harmony.dll"));
+	if (harmony.isEmpty() || QFileInfo(harmony).size() == 473600) {
+		QDir music = project.projectDir();
+		for (const QString& sub : music.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+			if (sub.compare(QLatin1String("Music"), Qt::CaseInsensitive) == 0 && music.cd(sub)) {
+				for (const QFileInfo& file : music.entryInfoList(QDir::Files)) {
+					if (file.suffix().compare(QLatin1String("mp3"), Qt::CaseInsensitive) == 0) {
+						return engine | EngineMajorUpdated;
+					}
+				}
+				break;
+			}
+		}
+	}
+	// the size of RPG_RT.exe
+	const QString rpg_rt = project.findFile(QStringLiteral("RPG_RT.exe"));
+	if (!rpg_rt.isEmpty()) {
+		return QFileInfo(rpg_rt).size() > (engine == EngineRpg2k ? 735000 : 927000) ? engine | EngineMajorUpdated : engine;
+	}
+	// the most common: Japanese and RPG Maker 2003 games the newer engine
+	const QString encoding = project.encoding();
+	const bool japanese = encoding == QLatin1String("932") || encoding.startsWith(QLatin1String("ibm-943"))
+		|| encoding == QLatin1String("windows-932") || encoding.compare(QLatin1String("Shift_JIS"), Qt::CaseInsensitive) == 0;
+	return japanese || engine == EngineRpg2k3 ? engine | EngineMajorUpdated : engine;
 }
 
 QString GamePatches::enginePathSetting(const Project& project) {
@@ -173,16 +222,12 @@ bool GamePatches::write(const Project& project, const std::optional<QMap<QString
 			changes.push_back({list().front().key, QByteArray("0")});
 		}
 		const bool saved = IniFile::write(iniPath(project), "Patch", changes, false, false);
-		emit GamePatchesWatch::instance().maniacChanged();
+		emit GamePatchesWatch::instance().written();
 		return saved;
 	}
 	const bool saved = IniFile::write(iniPath(project), "Patch", changes, true, false);
-	emit GamePatchesWatch::instance().maniacChanged();
+	emit GamePatchesWatch::instance().written();
 	return saved;
-}
-
-bool GamePatches::usesManiac(const Project& project) {
-	return EditorSettings::instance().maniacMode() || hasManiac(project);
 }
 
 bool GamePatches::hasManiac(const Project& project) {
@@ -191,17 +236,6 @@ bool GamePatches::hasManiac(const Project& project) {
 
 bool GamePatches::hasEasyRpg(const Project& project) {
 	return read(project).values.value(QStringLiteral("EasyRPG")) > 0;
-}
-
-GamePatchesWatch::GamePatchesWatch() : m_mode(EditorSettings::instance().maniacMode()) {
-	// the settings tell of every option: only a switch of the mode counts
-	connect(&EditorSettings::instance(), &EditorSettings::changed, this, [this] {
-		const bool mode = EditorSettings::instance().maniacMode();
-		if (mode != m_mode) {
-			m_mode = mode;
-			emit maniacChanged();
-		}
-	});
 }
 
 GamePatchesWatch& GamePatchesWatch::instance() {

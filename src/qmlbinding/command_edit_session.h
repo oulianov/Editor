@@ -49,10 +49,13 @@ class QWindow;
  *
  * A field: {id, kind ("Number", "Switch"...), label, index, shift, bits,
  * path (its pointer in the session), minimum, maximum, step, defaultValue,
- * suffix, items [{value, text, rpg2003, maniac, kept}], radio, slider,
- * inline, inverted, hidden, extension, rpg2003, maniac, equipment, off,
- * folder, link, limit, list (the database list of an ID: "switches"...),
- * none (the items before the list's entries: {text, value}, or null)}.
+ * suffix, items [{value, text, rpg2003, maniac, kept, origin}], radio,
+ * slider, inline, inverted, hidden, extension, rpg2003, maniac, equipment,
+ * off, folder, link, limit, list (the database list of an ID: "switches"...),
+ * none (the items before the list's entries: {text, value}, or null),
+ * origin}. The origin of a field or an item is the add-on it comes from
+ * (CommandOrigin::ofFlags: "maniac", "rpg2003"...; "" for none): the
+ * editors grey it while the game does not run it, and tag it (Ez.Origins).
  *
  * sections: [{title (a text or null), rows}], a row: {field, inline: [the
  * fields after it on its row], options: [{item, inline}] for radio buttons,
@@ -68,6 +71,8 @@ class CommandSchemaView : public QObject {
 	Q_PROPERTY(bool custom READ custom CONSTANT)
 	/** Its fields hide when their rules fail (as the Maniac Patch editors); else they are greyed */
 	Q_PROPERTY(bool hides READ hides CONSTANT)
+	/** The add-on the command comes from (CommandOrigin::ofCode), "" for none */
+	Q_PROPERTY(QString origin READ origin CONSTANT)
 	Q_PROPERTY(QVariantMap title READ title CONSTANT)
 	Q_PROPERTY(QVariantList fields READ fields CONSTANT)
 	Q_PROPERTY(QVariantList sections READ sections CONSTANT)
@@ -80,6 +85,7 @@ public:
 	}
 	bool custom() const;
 	bool hides() const;
+	QString origin() const;
 	QVariantMap title() const;
 	QVariantList fields() const {
 		return m_fields;
@@ -129,8 +135,9 @@ private:
  * suggest values too (a hero's name when the hero changes...).
  *
  * The context of the editor comes with it: the database of the project
- * (database, its lists for the Ez.RefComboBox), the engine (rpg2k3,
- * maniac), the maps and the events of the map of the event.
+ * (database, its lists for the Ez.RefComboBox), the engine and the patches
+ * of the game (rpg2k3, commands2k3, maniac: GameSetup's, followed while the
+ * editor is open), the maps and the events of the map of the event.
  */
 class CommandEditSession : public Json {
 	Q_OBJECT
@@ -142,9 +149,12 @@ class CommandEditSession : public Json {
 	Q_PROPERTY(CommandSchemaView* schema READ schema CONSTANT)
 	/** The database of the project (null without a project) */
 	Q_PROPERTY(JsonView* database READ database NOTIFY projectChanged)
-	Q_PROPERTY(bool rpg2k3 READ isRpg2k3 NOTIFY projectChanged)
-	/** The game uses the Maniac Patch */
-	Q_PROPERTY(bool maniac READ maniac NOTIFY maniacChanged)
+	/** The database is RPG Maker 2003's (GameSetup::rpg2k3) */
+	Q_PROPERTY(bool rpg2k3 READ isRpg2k3 NOTIFY gameChanged)
+	/** RPG Maker 2003's commands and options run (GameSetup::commands2k3) */
+	Q_PROPERTY(bool commands2k3 READ commands2k3 NOTIFY gameChanged)
+	/** The game uses the Maniac Patch (GameSetup::maniac) */
+	Q_PROPERTY(bool maniac READ maniac NOTIFY gameChanged)
 	/** A command of a troop's battle page */
 	Q_PROPERTY(bool battle READ battle NOTIFY contextChanged)
 	/** The command was just added (cancel removes it) */
@@ -224,6 +234,7 @@ public:
 		return m_mapId;
 	}
 	int eventMap() const;
+	bool commands2k3() const;
 	bool maniac() const;
 	QVariantList maps() const;
 	QVariantList events() const {
@@ -259,11 +270,24 @@ public:
 	 * with the same label: the transitions of erasing or showing)
 	 */
 	Q_INVOKABLE bool isShown(const QString& fieldId) const;
-	/** Its rules let it be changed, in this engine (RPG Maker 2003, the Maniac Patch) */
+	/** Its rules let it be changed, in this engine (RPG Maker 2003, its commands, the Maniac Patch) */
 	Q_INVOKABLE bool isEnabled(const QString& fieldId) const;
+	/**
+	 * The command has a value of its own in the field (what CommandOrigin
+	 * counts as used): a number other than its default, a text not empty.
+	 * A field of an add-on the game does not run, set so, has a warning tag
+	 */
+	Q_INVOKABLE bool isSet(const QString& fieldId) const;
+	/**
+	 * The field is offered for its add-on (CommandOrigin::shown): the game
+	 * runs it, or what it does not run is shown greyed (Editor Settings), or
+	 * the command has a value of it (its rules show it and isSet()): that
+	 * one stays as it is. isShown() follows it
+	 */
+	Q_INVOKABLE bool originShown(const QString& fieldId) const;
 	/** The rules of a field showing it, except the ones on another field */
 	Q_INVOKABLE bool holdsExcept(const QString& fieldId, const QString& otherId) const;
-	/** The engine has what the field needs (RPG Maker 2003, the Maniac Patch) */
+	/** The engine has what the field needs (RPG Maker 2003, its commands, the Maniac Patch) */
 	Q_INVOKABLE bool engineHas(const QString& fieldId) const;
 	/** The engine has what the command needs */
 	Q_INVOKABLE bool engineHasCommand() const;
@@ -353,8 +377,8 @@ public:
 signals:
 	void revisionChanged();
 	void projectChanged();
-	/** The project, or the Maniac mode of the Editor (GamePatchesWatch) */
-	void maniacChanged();
+	/** The project, or its engine or patches (GameSetup) */
+	void gameChanged();
 	void contextChanged();
 
 private:
@@ -380,8 +404,6 @@ private:
 	QStringList m_lines;
 	CommandSchemaView* m_schemaView = nullptr;
 	ProjectData* m_project = nullptr;
-	/** maniac() read once (-1: not yet): the game's files are searched for it */
-	mutable int m_maniac = -1;
 	JsonT<lcf::rpg::Database> m_database;
 	bool m_battle = false;
 	bool m_isNew = true;

@@ -163,6 +163,8 @@ MapPanoramaView::MapPanoramaView(QQuickItem* parent) :
 	m_scrollTimer.setSingleShot(true);
 	m_scrollTimer.setTimerType(Qt::PreciseTimer);
 	connect(&m_scrollTimer, &QTimer::timeout, this, &MapPanoramaView::scroll);
+	// the game's RTP in another folder: the panorama read again
+	connect(&core(), &Core::rtpChanged, this, &MapPanoramaView::reload);
 }
 
 MapPanoramaView::~MapPanoramaView() = default;

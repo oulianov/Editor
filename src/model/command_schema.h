@@ -156,7 +156,8 @@ namespace CommandSchema {
 		/** A parameter after the ones of the new command (EventCommandDefaults):
 		 *  of a newer engine or a patch. A missing one reads defaultValue */
 		Extension = 1 << 5,
-		/** RPG Maker 2003: disabled in RPG Maker 2000 games */
+		/** RPG Maker 2003's commands and options: disabled in RPG Maker 2000
+		 *  games without the patch RPG2k3Commands (GameSetup::commands2k3) */
 		Rpg2003 = 1 << 6,
 		/** Maniac Patch: disabled in other games */
 		Maniac = 1 << 7,
@@ -175,9 +176,9 @@ namespace CommandSchema {
 		 *  name; Tile: the tile beside its Set button (RPG Maker's previews) */
 		Preview = 1 << 13,
 		/** Maniac Patch (with Maniac): its option in a command of RPG Maker,
-		 *  hidden in the other games unless the command uses it: a value
-		 *  other than its default (a choice: one of its Maniac items, a text:
-		 *  not empty) */
+		 *  greyed with its tag in the other games; its notes hidden there, and
+		 *  a choice whose RPG Maker values another field shows unless the
+		 *  command has one of its Maniac items */
 		ManiacOnly = 1 << 14,
 		/** RPG Maker's control of a value that a field of the Maniac Patch
 		 *  edits in its games (on the same bits, with more choices): hidden there */
@@ -187,6 +188,10 @@ namespace CommandSchema {
 		EasyRpg = 1 << 16,
 		/** Section: at the right of the section before it */
 		Beside = 1 << 17,
+		/** RPG Maker 2003's engine itself (its battles, its pictures): disabled
+		 *  in RPG Maker 2000 games, even with the patch RPG2k3Commands
+		 *  (GameSetup::rpg2k3) */
+		Engine2003 = 1 << 18,
 	};
 	Q_DECLARE_FLAGS(Flags, Flag)
 	Q_FLAG_NS(Flags)
@@ -272,8 +277,8 @@ namespace CommandSchema {
 		Code code = Code::END;
 		Label title;
 		std::vector<Field> fields;
-		/** Rpg2003: the command needs RPG Maker 2003; Maniac: Maniac Patch;
-		 *  EasyRpg: EasyRPG Player's extensions */
+		/** Rpg2003: the command needs RPG Maker 2003's commands; Maniac:
+		 *  Maniac Patch; EasyRpg: EasyRPG Player's extensions */
 		Flags flags;
 		/** The QML hand-writes the editor: the fields describe it */
 		bool custom = false;

@@ -58,8 +58,8 @@ rewrite of an editor for EasyRPG games that can import RPG Maker projects.
 
 [rpgsync](https://github.com/oulianov/rpgsync) keeps a game and a folder of
 Python scripts in sync: events become code you can edit, test and diff. With
-this Editor, turn on the **rpgsync mode** in Settings and keep `rpgsync`
-running: both sides can edit the game at the same time. Details in
+this Editor, turn on **Reload the files other programs change (rpgsync)** in
+the Editor Settings (Files) and keep `rpgsync` running: both sides can edit the game at the same time. Details in
 [Working with rpgsync](docs/rpgsync.md).
 
 

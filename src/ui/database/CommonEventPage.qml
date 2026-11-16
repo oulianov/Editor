@@ -10,9 +10,9 @@ import org.easyrpg.editor as Ez
 /**
  * A common event: its name, what starts it (called from Call Event, or
  * automatically while its switch is on; with the Maniac Patch also at the
- * start of a battle, or in parallel during battles) and its commands,
- * edited in the window's copy of the database. The command list fills the
- * page.
+ * start of a battle, or in parallel during battles: greyed without it, or
+ * left out as the Editor Settings say) and its commands, edited in the
+ * window's copy of the database. The command list fills the page.
  */
 DatabaseEntryPage {
     id: root
@@ -83,25 +83,42 @@ DatabaseEntryPage {
                 Ez.FormLabel {
                     text: qsTr("Trigger:")
                 }
-                Ez.ComboBox {
-                    id: trigger
-                    objectName: "comboTrigger"
-                    jsonData: root.entry
-                    key: "trigger"
-                    // RPG Maker's names: a called event runs only from Call Event.
-                    // The Maniac Patch's two (also shown when the event has one)
-                    // start it once before the battle events of turn 0, or run it
-                    // in parallel during battles
-                    readonly property bool battleTriggers: root.maniac || (!!root.entry && root.entry.num("trigger") >= 6)
-                    model: [
-                        { text: qsTr("Call"), value: 5 },
-                        { text: qsTr("Auto Start"), value: 3 },
-                        { text: qsTr("Parallel Process"), value: 4 },
-                    ].concat(battleTriggers ? [
-                        { text: qsTr("Battle Start"), value: 6 },
-                        { text: qsTr("Parallel Process in Battle"), value: 7 },
-                    ] : [])
+                RowLayout {
+                    spacing: Ez.Metrics.columnSpacing
                     Layout.fillWidth: true
+
+                    Ez.ComboBox {
+                        id: trigger
+                        objectName: "comboTrigger"
+                        jsonData: root.entry
+                        key: "trigger"
+                        // RPG Maker's names: a called event runs only from Call Event.
+                        // The Maniac Patch's two start it once before the battle
+                        // events of turn 0, or run it in parallel during battles:
+                        // without it greyed, or left out as the Editor Settings say
+                        // (shown when the event has one)
+                        readonly property bool battleTrigger: currentValue >= 6
+                        readonly property bool battleTriggers: Ez.Origins.shown("maniac")
+                                                               || (!!root.entry && root.entry.num("trigger") >= 6)
+                        enabledRole: "enabled"
+                        toolTipRole: "toolTip"
+                        model: [
+                            { text: qsTr("Call"), value: 5 },
+                            { text: qsTr("Auto Start"), value: 3 },
+                            { text: qsTr("Parallel Process"), value: 4 },
+                        ].concat(battleTriggers ? [
+                            { text: qsTr("Battle Start"), value: 6, enabled: root.maniac, toolTip: Ez.Origins.need("maniac") },
+                            { text: qsTr("Parallel Process in Battle"), value: 7, enabled: root.maniac, toolTip: Ez.Origins.need("maniac") },
+                        ] : [])
+                        Layout.fillWidth: true
+                    }
+                    // the Maniac Patch's trigger chosen
+                    Ez.OriginTag {
+                        objectName: "tagTrigger"
+                        origin: "maniac"
+                        warning: !root.maniac
+                        visible: shown && trigger.battleTrigger
+                    }
                 }
             }
 

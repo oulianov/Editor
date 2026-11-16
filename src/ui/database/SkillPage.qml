@@ -17,7 +17,8 @@ import org.easyrpg.editor as Ez
  * or switch skill its sound (and switch); the messages of RPG Maker 2000's
  * battles. The texts follow the target: a skill on allies increases and
  * removes, on enemies it decreases and inflicts. With the Maniac Patch, a
- * normal skill's hit rate can count the target's evasion.
+ * normal skill's hit rate can count the target's evasion (greyed without
+ * it, or hidden as the Editor Settings say).
  */
 DatabaseEntryPage {
     id: root
@@ -286,22 +287,33 @@ DatabaseEntryPage {
                         suffix: "%"
                     }
                     // the Maniac Patch: the hit rate counts the target's evasion, as
-                    // a physical attack (RPG Maker 2000's failure message 3, "dodge")
-                    Ez.CheckBox {
-                        objectName: "checkHitRateCalc"
-                        text: qsTr("Calculate Hit Rate")
-                        visible: root.maniac
-                        // a skill on allies always hits
-                        enabled: !root.allies
-                        Binding on checked {
-                            value: failureField.valid && Number(failureField.value) === 3
-                            restoreMode: Binding.RestoreNone
-                        }
-                        onToggled: failureField.value = checked ? 3 : 0
+                    // a physical attack (RPG Maker 2000's failure message 3, "dodge");
+                    // without it greyed, or hidden as the Editor Settings say (the
+                    // failure message 3 is RPG Maker's too)
+                    RowLayout {
+                        spacing: Ez.Metrics.columnSpacing
+                        visible: Ez.Origins.shown("maniac")
                         Layout.columnSpan: 2
-                        Controls.ToolTip.visible: hovered
-                        Controls.ToolTip.delay: 700
-                        Controls.ToolTip.text: qsTr("The target's evasion and conditions lower the success rate, as for an attack")
+                        Ez.CheckBox {
+                            objectName: "checkHitRateCalc"
+                            text: qsTr("Calculate Hit Rate")
+                            // a skill on allies always hits
+                            enabled: root.maniac && !root.allies
+                            Binding on checked {
+                                value: failureField.valid && Number(failureField.value) === 3
+                                restoreMode: Binding.RestoreNone
+                            }
+                            onToggled: failureField.value = checked ? 3 : 0
+                            Controls.ToolTip.visible: hovered
+                            Controls.ToolTip.delay: 700
+                            Controls.ToolTip.text: qsTr("The target's evasion and conditions lower the success rate, as for an attack")
+                            Ez.OriginTip {
+                                origin: "maniac"
+                            }
+                        }
+                        Ez.OriginTag {
+                            origin: "maniac"
+                        }
                     }
                 }
             }

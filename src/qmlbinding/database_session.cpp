@@ -20,7 +20,7 @@
 #include "controller/dialog_service.h"
 #include "controller/project_controller.h"
 #include "json_view.h"
-#include "model/game_patches.h"
+#include "model/game_setup.h"
 #include "model/project.h"
 #include "project_data_gadget.h"
 
@@ -46,6 +46,8 @@ DatabaseSession::DatabaseSession(QObject* parent) : QObject(parent) {
 		}
 	});
 	connect(&EditorSettings::instance(), &EditorSettings::localStateReset, this, &DatabaseSession::viewStateReset);
+	// the patches of the game changed: the pages show the fields of the Maniac Patch or not
+	connect(&GameSetup::instance(), &GameSetup::maniacChanged, this, &DatabaseSession::maniacChanged);
 }
 
 DatabaseSession::~DatabaseSession() {
@@ -62,9 +64,9 @@ void DatabaseSession::setProjectData(ProjectDataGadget* gadget) {
 
 void DatabaseSession::open(ProjectData* live) {
 	m_live = live;
-	m_maniac = live && GamePatches::usesManiac(live->project());
 	discard();
 	emit projectDataChanged();
+	emit maniacChanged();
 }
 
 JsonView* DatabaseSession::database() {
@@ -110,12 +112,11 @@ DatabaseSession::Status DatabaseSession::apply() {
 	setMessage(result.message);
 	switch (result.status) {
 		case DatabaseApply::Status::Applied:
-			setModified(false);
-			emit applied();
-			break;
 		case DatabaseApply::Status::SaveFailed:
-			// in the project: the window shows the message
+			// in the project (a save that failed: the window shows the
+			// message); what the game's options change follows it
 			setModified(false);
+			GameSetup::instance().reload();
 			emit applied();
 			break;
 		case DatabaseApply::Status::Reload: {
@@ -147,6 +148,10 @@ void DatabaseSession::setDialogs(DialogService* dialogs) {
 
 bool DatabaseSession::isRpg2k3() const {
 	return m_json.isRpg2k3();
+}
+
+bool DatabaseSession::isManiac() const {
+	return m_live && GameSetup::instance().maniac();
 }
 
 void DatabaseSession::setEditing(bool editing) {

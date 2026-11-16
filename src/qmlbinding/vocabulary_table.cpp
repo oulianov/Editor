@@ -18,6 +18,7 @@
 #include "vocabulary_table.h"
 #include "model/vocabulary_fields.h"
 
+#include <QStringList>
 #include <QVariantMap>
 #include <string_view>
 
@@ -45,7 +46,7 @@ QVariantList VocabularyTable::pages() const {
 	// own: RPG Maker's (or EasyRPG Player's) term of the row, not a part the Maniac Patch adds
 	auto termPart = [&](const char* term, const Row* main, bool own = true) {
 		QVariantMap part{{QStringLiteral("term"), text(term)}, {QStringLiteral("limit"), limit(term)},
-			{QStringLiteral("own"), own}};
+			{QStringLiteral("own"), own}, {QStringLiteral("origin"), own ? QString() : QStringLiteral("maniac")}};
 		// the term of the row itself, left to EasyRPG Player's text
 		if (main && main->fallback) {
 			part.insert(QStringLiteral("fallback"), text(main->fallback));
@@ -56,11 +57,12 @@ QVariantList VocabularyTable::pages() const {
 	auto hintPart = [&](const char* hint) {
 		return QVariantMap{{QStringLiteral("hint"), text(hint)}};
 	};
-	// the fields of a row and the texts between them, in the order of the message
-	auto lines = [&](const Row& row) {
+	// the fields of a row and the texts between them, in the order of the
+	// message: RPG Maker's, or the Maniac Patch's (maniac)
+	auto lines = [&](const Row& row, bool maniac) {
 		QVariantList lines;
 		QVariantList parts;
-		if (m_maniac && !row.maniac.empty()) {
+		if (maniac) {
 			for (const Part& part : row.maniac) {
 				if (part.term) {
 					const bool own = part.term == std::string_view(row.term);
@@ -91,19 +93,39 @@ QVariantList VocabularyTable::pages() const {
 				if (!shown(row, m_rpg2k3)) {
 					continue;
 				}
-				rows.append(QVariantMap{
+				QVariantMap shownRow{
 					{QStringLiteral("label"), text(row.label)},
-					{QStringLiteral("lines"), lines(row)},
-				});
+					{QStringLiteral("lines"), lines(row, false)},
+				};
+				// the Maniac Patch's message, and the terms it adds
+				if (!row.maniac.empty()) {
+					QStringList added;
+					for (const Part& part : row.maniac) {
+						if (part.term && part.term != std::string_view(row.term)) {
+							added << text(part.term);
+						}
+					}
+					shownRow.insert(QStringLiteral("maniacLines"), lines(row, true));
+					shownRow.insert(QStringLiteral("maniacTerms"), added);
+				}
+				rows.append(shownRow);
 			}
 			// the groups of the other engine only are not shown
 			if (!rows.isEmpty()) {
+				// who reads the group's terms besides RPG Maker: EasyRPG Player
+				// in every game, the Maniac Patch too in its games
+				QString origin;
+				if (group.extension == Extension::EasyRpg
+						|| (group.extension == Extension::EasyRpgManiac && !m_maniac)) {
+					origin = QStringLiteral("player");
+				} else if (group.extension == Extension::EasyRpgManiac) {
+					origin = QStringLiteral("maniac");
+				}
 				groups.append(QVariantMap{
 					{QStringLiteral("title"), text(group.title)},
 					{QStringLiteral("column"), group.column},
 					{QStringLiteral("pairs"), group.pairs},
-					{QStringLiteral("easyrpg"), group.extension == Extension::EasyRpg
-						|| (group.extension == Extension::EasyRpgManiac && !m_maniac)},
+					{QStringLiteral("origin"), origin},
 					{QStringLiteral("rows"), rows},
 				});
 			}

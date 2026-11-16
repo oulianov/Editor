@@ -69,6 +69,26 @@ bool ManiacCheckWindow::ask(QWindow* over, const ManiacCompat::Report& report, c
 	return result == 1 && report.convertible() > 0;
 }
 
+bool ManiacCheckWindow::askTurnedOff(QWindow* over, const ManiacCompat::Report& report)
+{
+	// one line per finding, under its add-on (the window names it)
+	QVariantList findings;
+	for (const auto& finding : report.findings) {
+		findings.append(QVariantMap{
+			{QStringLiteral("origin"), finding.origin},
+			{QStringLiteral("what"), finding.what},
+			{QStringLiteral("count"), finding.places.size()},
+			{QStringLiteral("becomes"), QString()},
+			{QStringLiteral("places"), finding.places},
+		});
+	}
+	return QmlHost::exec(QStringLiteral("ManiacCheckWindow"), over, {
+		{QStringLiteral("turnedOff"), true},
+		{QStringLiteral("findings"), findings},
+		{QStringLiteral("remaining"), report.remaining()},
+	}) == 1;
+}
+
 void ManiacCheckWindow::result(QWindow* over, const QString& error, int converted, int remaining, const QString& backup,
 	const QString& backup2000)
 {

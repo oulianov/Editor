@@ -15,8 +15,15 @@ import org.easyrpg.editor as Ez
  * RPG Maker does.
  *
  * The rules of the fields grey what does not apply (its default shown, not
- * written), or hide it in the editors of the Maniac Patch; a field the
- * engine lacks (RPG Maker 2003, the Maniac Patch) is greyed.
+ * written), or hide it in the editors of the Maniac Patch.
+ *
+ * A field or an option of an add-on (its origin: the Maniac Patch, RPG
+ * Maker 2003's commands in a 2000 game, Ez.Origins) has its tag after its
+ * label or text; while the game does not run it, it is greyed, its tooltip
+ * saying what the game needs, or hidden (Editor Settings: Ez.Origins.shown,
+ * the session's originShown). One the command already uses stays as it
+ * is, its tag a warning one. The tags are named after their field ("idTag", an
+ * option's "id" and value and "Tag"), their text the letter ("M", "M!").
  *
  * The controls are named after the fields (objectName: the id), a radio
  * button after its field and its value ("target1").
@@ -31,8 +38,8 @@ ColumnLayout {
     /** The objectNames of the controls of fields, by id (those a hand-written editor gives); else the id */
     property var names: ({})
 
-    /** The items of the Maniac Patch: hidden in other games unless the command has them (as RPG Maker's windows) */
-    property bool hideManiacItems: true
+    /** The items of the Maniac Patch: hidden in other games unless the command has them (else greyed, with their tag) */
+    property bool hideManiacItems: false
     /** The fields not shown, by id (a hand-written editor shows them its way) */
     property var hides: []
 
@@ -45,11 +52,34 @@ ColumnLayout {
     }
     /** An item hidden: of the Maniac Patch in another game, not the command's */
     function itemHidden(field, item) {
-        return hideManiacItems && !!item && item.maniac && !session.maniac && session.read(field.id) !== item.value
+        if (!item || session.read(field.id) === item.value) {
+            return false
+        }
+        // of an add-on the game does not run, not offered (Editor Settings)
+        return (hideManiacItems && item.maniac && !session.maniac) || !Ez.Origins.shown(item.origin ?? "")
     }
     /** An item of a row of radio buttons shown: of the engine, or the command's */
     function itemShown(field, item) {
         return (!item.kept || session.read(field.id) === item.value) && !itemHidden(field, item)
+    }
+    /** The origin a field shows the tag of: its own, else the one of its item chosen (a list) */
+    function originOf(field) {
+        if (field.origin) {
+            return field.origin
+        }
+        if (!field.radio && (field.items ?? []).length > 0 && session.revision >= 0) {
+            const value = session.read(field.id)
+            const item = field.items.find(one => one.value === value)
+            return item ? item.origin ?? "" : ""
+        }
+        return ""
+    }
+    /** The command uses what comes from origin in the field, and the game does not run it */
+    function warns(field, origin) {
+        if (!origin || Ez.Origins.available(origin) || session.revision < 0) {
+            return false
+        }
+        return field.origin ? session.isSet(field.id) : true
     }
 
     /** A text of the schema in the language of the interface */
@@ -91,7 +121,8 @@ ColumnLayout {
             const options = row.options ?? []
             const labelled = !!(field.label && field.label.text) && field.kind !== "Check" && field.kind !== "Note"
             // (the options of the Maniac Patch only in its games)
-            if (field.radio && options.some(option => option.inline.length > 0 && (!option.item.maniac || !hideManiacItems || session.maniac))) {
+            if (field.radio && options.some(option => option.inline.length > 0 && (!option.item.maniac || !hideManiacItems || session.maniac)
+                                                && Ez.Origins.shown(option.item.origin ?? ""))) {
                 // a radio button per line, the values of its mode after it
                 for (const option of options) {
                     cells.push({ type: "radio", field: field, item: option.item, fields: option.inline, option: true, span: 1 })
@@ -239,21 +270,53 @@ ColumnLayout {
                         Component {
                             id: label
                             Ez.FormLabel {
+                                id: fieldLabel
+                                readonly property string origin: cell.revision < 0 ? "" : root.originOf(cell.field)
                                 text: root.tr(cell.field.label)
+                                // its tag after the text
+                                rightPadding: labelTag.width > 0 ? labelTag.width + Ez.Metrics.columnSpacing : 0
+                                Ez.OriginTag {
+                                    id: labelTag
+                                    readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+                                    objectName: root.nameOf(cell.field.id) + "Tag"
+                                    origin: fieldLabel.origin
+                                    warning: root.warns(cell.field, fieldLabel.origin)
+                                    x: fieldLabel.leftPadding + fieldLabel.contentWidth + Ez.Metrics.columnSpacing
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Ez.OriginTip {
+                                    origin: fieldLabel.origin
+                                }
                             }
                         }
 
                         Component {
                             id: radio
                             Ez.RadioButton {
+                                id: optionRadio
                                 readonly property var item: cell.modelData.item
+                                readonly property string origin: item.origin ?? ""
                                 objectName: root.radioName(cell.field, item)
                                 // "Constant:", the value after it
                                 text: root.itemText(cell.field, item) + (cell.modelData.fields.length > 0 ? ":" : "")
-                                enabled: (!item.rpg2003 || root.session.rpg2k3) && (!item.maniac || root.session.maniac)
+                                enabled: Ez.Origins.available(origin)
                                 jsonData: root.session
                                 key: cell.fieldVisible ? cell.field.path : "/defaults/" + cell.field.id
                                 value: item.value
+                                // its tag after the text
+                                rightPadding: horizontalPadding + (optionTag.width > 0 ? optionTag.width + Ez.Metrics.columnSpacing : 0)
+                                Ez.OriginTag {
+                                    id: optionTag
+                                    readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+                                    objectName: optionRadio.objectName + "Tag"
+                                    origin: optionRadio.origin
+                                    warning: optionRadio.checked && !Ez.Origins.available(origin)
+                                    x: optionRadio.leftPadding + optionRadio.contentItem.implicitWidth + Ez.Metrics.columnSpacing
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Ez.OriginTip {
+                                    origin: optionRadio.origin
+                                }
                             }
                         }
 
@@ -267,8 +330,9 @@ ColumnLayout {
                                     // the values of the items shown: their places follow
                                     readonly property var shownValues: cell.revision < 0 ? []
                                         : cell.field.items.filter(item => root.itemShown(cell.field, item)).map(item => item.value)
-                                    // in the games of the Maniac Patch, its columns (its items shown)
-                                    readonly property int columnCount: root.session.maniac && cell.field.maniacColumns > 0
+                                    // the items of the Maniac Patch shown: its columns
+                                    readonly property int columnCount: cell.field.maniacColumns > 0
+                                                                       && cell.field.items.some(item => item.maniac && shownValues.includes(item.value))
                                                                        ? cell.field.maniacColumns : cell.field.columns
                                     readonly property int lines: columnCount > 0 ? Math.ceil(shownValues.length / columnCount) : 1
                                     rowSpacing: cell.field.cross ? 0 : Ez.Metrics.rowSpacing
@@ -276,8 +340,10 @@ ColumnLayout {
                                 Repeater {
                                     model: cell.field.items
                                     Ez.RadioButton {
+                                        id: itemRadio
                                         required property var modelData
                                         required property int index
+                                        readonly property string origin: modelData.origin ?? ""
                                         readonly property int place: Math.max(0, radioGrid.shownValues.indexOf(modelData.value))
                                         // the cross: Up, Left, Right, Down
                                         Layout.row: cell.field.cross ? [0, 1, 1, 2][index] ?? 0 : place % radioGrid.lines
@@ -285,10 +351,24 @@ ColumnLayout {
                                         objectName: root.radioName(cell.field, modelData)
                                         text: root.itemText(cell.field, modelData)
                                         visible: cell.revision < 0 ? false : root.itemShown(cell.field, modelData)
-                                        enabled: (!modelData.rpg2003 || root.session.rpg2k3) && (!modelData.maniac || root.session.maniac)
+                                        enabled: Ez.Origins.available(origin)
                                         jsonData: root.session
                                         key: cell.fieldVisible ? cell.field.path : "/defaults/" + cell.field.id
                                         value: modelData.value
+                                        // its tag after the text
+                                        rightPadding: horizontalPadding + (itemTag.width > 0 ? itemTag.width + Ez.Metrics.columnSpacing : 0)
+                                        Ez.OriginTag {
+                                            id: itemTag
+                                            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+                                            objectName: itemRadio.objectName + "Tag"
+                                            origin: itemRadio.origin
+                                            warning: itemRadio.checked && !Ez.Origins.available(origin)
+                                            x: itemRadio.leftPadding + itemRadio.contentItem.implicitWidth + Ez.Metrics.columnSpacing
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Ez.OriginTip {
+                                            origin: itemRadio.origin
+                                        }
                                     }
                                 }
                                 }
@@ -301,7 +381,7 @@ ColumnLayout {
                                         field: modelData
                                         name: root.nameOf(modelData.id)
                                         bound: fieldVisible
-                                        visible: fieldVisible
+                                        visible: fieldVisible && root.session.originShown(modelData.id)
                                         enabled: cell.revision < 0 ? false : fieldVisible && root.session.isEnabled(modelData.id)
                                     }
                                 }
@@ -331,10 +411,11 @@ ColumnLayout {
                                         // button not chosen. In the editors that hide what does not
                                         // apply (Maniac Patch, EasyRPG Player), the values of a radio
                                         // button's line that depend on other fields too show when those hold
-                                        visible: (index === 0 && !cell.modelData.option)
-                                                 || (cell.modelData.option && (!root.session.schema.hides || cell.revision < 0
-                                                                               || root.session.holdsExcept(modelData.id, cell.field.id)))
-                                                 || fieldVisible
+                                        visible: ((index === 0 && !cell.modelData.option)
+                                                  || (cell.modelData.option && (!root.session.schema.hides || cell.revision < 0
+                                                                                || root.session.holdsExcept(modelData.id, cell.field.id)))
+                                                  || fieldVisible)
+                                                 && (cell.revision < 0 || root.session.originShown(modelData.id))
                                         enabled: cell.revision < 0 ? false : fieldVisible && root.session.isEnabled(modelData.id)
                                     }
                                 }
@@ -353,10 +434,20 @@ ColumnLayout {
         }
     }
 
-    Ez.Note {
-        // RPG Maker 2000 has neither classes nor battle commands: kept, not editable
-        visible: !root.only && !root.session.engineHasCommand()
-        text: qsTranslate("HeroCommandWidget", "This command requires RPG Maker 2003.")
+    // a command of an add-on the game does not run: what the game does with
+    // it (RPG Maker 2003's in a 2000 game: kept, not editable)
+    RowLayout {
+        visible: !root.only && !Ez.Origins.available(root.session.schema.origin)
+        spacing: Ez.Metrics.columnSpacing
+        Ez.OriginTag {
+            origin: root.session.schema.origin
+            warning: true
+        }
+        Ez.Note {
+            objectName: "commandWarning"
+            text: Ez.Origins.warning(root.session.schema.origin)
+            Layout.fillWidth: true
+        }
     }
 
     // the sections at the top, the buttons at the bottom

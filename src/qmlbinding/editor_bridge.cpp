@@ -17,7 +17,6 @@
 
 #include "editor_bridge.h"
 #include "common/editor_settings.h"
-#include "core.h"
 #include "model/game_runner.h"
 #include "qml_host.h"
 
@@ -50,7 +49,6 @@ QStringList EditorBridge::rtpFolders() const { return EditorSettings::instance()
 void EditorBridge::setRtpFolders(const QStringList& folders) { EditorSettings::instance().setRtpFolders(folders); }
 QString EditorBridge::rtpDefault(int engine) const { return EditorSettings::instance().rtpDefault(engine); }
 void EditorBridge::setRtpDefault(int engine, const QString& folder) { EditorSettings::instance().setRtpDefault(engine, folder); }
-void EditorBridge::setRtpActive(const QString& project, const QString& folder) { EditorSettings::instance().setRtpActive(project, folder); }
 
 QVariantMap EditorBridge::rtpFolderInfo(const QString& folder) const {
 	const int engine = EditorSettings::rtpEngine(folder);
@@ -62,27 +60,12 @@ QVariantMap EditorBridge::rtpFolderInfo(const QString& folder) const {
 	};
 }
 
-QVariantMap EditorBridge::rtpProject() const {
-	const auto& project = core().project();
-	if (!project) {
-		return {};
-	}
-	const QString folder = project->projectDir().absolutePath();
-	return {
-		{QStringLiteral("folder"), folder},
-		{QStringLiteral("name"), project->projectDir().dirName()},
-		{QStringLiteral("engine"), project->database().system.ldb_id == 2003 ? 2003 : 2000},
-		{QStringLiteral("active"), EditorSettings::instance().rtpActive(folder)},
-	};
-}
 QString EditorBridge::playerPath() const { return EditorSettings::instance().playerPath(); }
 void EditorBridge::setPlayerPath(const QString& path) { EditorSettings::instance().setPlayerPath(path); }
 QString EditorBridge::scriptEditor() const { return EditorSettings::instance().scriptEditor(); }
 void EditorBridge::setScriptEditor(const QString& editor) { EditorSettings::instance().setScriptEditor(editor); }
 bool EditorBridge::reloadExternalChanges() const { return EditorSettings::instance().reloadExternalChanges(); }
 void EditorBridge::setReloadExternalChanges(bool on) { EditorSettings::instance().setReloadExternalChanges(on); }
-bool EditorBridge::maniacMode() const { return EditorSettings::instance().maniacMode(); }
-void EditorBridge::setManiacMode(bool on) { EditorSettings::instance().setManiacMode(on); }
 bool EditorBridge::searchCache() const { return EditorSettings::instance().searchCache(); }
 void EditorBridge::setSearchCache(bool on) { EditorSettings::instance().setSearchCache(on); }
 bool EditorBridge::checkForUpdates() const { return EditorSettings::instance().checkForUpdates(); }
@@ -93,6 +76,10 @@ bool EditorBridge::commandColors() const { return EditorSettings::instance().com
 void EditorBridge::setCommandColors(bool on) { EditorSettings::instance().setCommandColors(on); }
 bool EditorBridge::commandStripes() const { return EditorSettings::instance().commandStripes(); }
 void EditorBridge::setCommandStripes(bool on) { EditorSettings::instance().setCommandStripes(on); }
+bool EditorBridge::originBadges() const { return EditorSettings::instance().originBadges(); }
+void EditorBridge::setOriginBadges(bool on) { EditorSettings::instance().setOriginBadges(on); }
+bool EditorBridge::unavailableShown() const { return EditorSettings::instance().unavailableShown(); }
+void EditorBridge::setUnavailableShown(bool on) { EditorSettings::instance().setUnavailableShown(on); }
 QString EditorBridge::colorScheme() const { return EditorSettings::instance().colorScheme(); }
 void EditorBridge::setColorScheme(const QString& scheme) { EditorSettings::instance().setColorScheme(scheme); }
 QString EditorBridge::defaultScriptEditor() const { return EditorSettings::defaultScriptEditor(); }

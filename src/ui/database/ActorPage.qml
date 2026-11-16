@@ -501,24 +501,19 @@ DatabaseEntryPage {
                 Layout.fillHeight: true
             }
         }
+        // settings only EasyRPG Player reads, in every game (its tag says so)
         Ez.Section {
             objectName: "groupBox_379"
             title: qsTr("EasyRPG Properties")
+            origin: "player"
             Layout.row: 7
             Layout.column: 0
             Layout.columnSpan: 3
-            RowLayout {
-                spacing: Ez.Metrics.columnSpacing
-                Ez.Note {
-                    objectName: "labelEasyRpg"
-                    text: qsTr("Settings only EasyRPG Player reads")
-                }
-                Ez.Button {
-                    id: editCustom
-                    objectName: "pushEditCustom"
-                    text: qsTr("Edit...")
-                    onClicked: Ez.Editor.exec("ActorEasyRpgDialog", { entry: root.entry }, editCustom)
-                }
+            Ez.Button {
+                id: editCustom
+                objectName: "pushEditCustom"
+                text: qsTr("Edit...")
+                onClicked: Ez.Editor.exec("ActorEasyRpgDialog", { entry: root.entry }, editCustom)
             }
         }
 

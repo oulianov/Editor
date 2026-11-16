@@ -11,9 +11,10 @@ import org.easyrpg.editor as Ez
 
 /**
  * Game Project > Open Project: the projects of the folder of the games
- * (an Ez.ProjectListModel), their settings and their deletion, and Import
- * for a game of RPG Maker. Its result: 1 to open the project selected,
- * 2 for Import.
+ * (an Ez.ProjectListModel) with the profile of each (its engine and its
+ * add-ons, as the status bar shows the game open), their settings and their
+ * deletion, and Import for a game of RPG Maker. Its result: 1 to open the
+ * project selected, 2 for Import.
  */
 Ez.DialogWindow {
     id: root
@@ -67,7 +68,7 @@ Ez.DialogWindow {
     objectName: "OpenProjectDialog"
     stateKey: "OpenProjectDialog"
     title: qsTr("Open existing Project")
-    preferredWidth: 640
+    preferredWidth: 720
     preferredHeight: 480
     // a project selected, listed
     acceptable: projects !== null && !projects.busy && projects.currentRow >= 0
@@ -105,6 +106,7 @@ Ez.DialogWindow {
         columns: [
             { title: qsTr("Folder"), role: "folder", icon: "folder" },
             { title: qsTr("Game Title"), role: "title" },
+            { title: qsTr("Engine"), role: "profileText", cell: profileCell }
         ]
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -145,6 +147,17 @@ Ez.DialogWindow {
             // Return lists the folder typed: it does not open a project (OK)
             Keys.onReturnPressed: (event) => event.accepted = true
             Keys.onEnterPressed: (event) => event.accepted = true
+        }
+    }
+
+    // the profile of a game in its line: the tags of its add-ons alone when the column is narrow
+    Component {
+        id: profileCell
+        Ez.ProfileChips {
+            /** The line of the list (ColumnList) */
+            property var line: null
+            chips: line ? line.profile : []
+            room: parent ? parent.width : 0
         }
     }
 

@@ -20,6 +20,7 @@
 #include "common/dbstring.h"
 #include "common/editor_settings.h"
 #include "common/image_loader.h"
+#include "model/game_setup.h"
 #include <QCoreApplication>
 #include <QDir>
 
@@ -52,8 +53,22 @@ Core::Core() :
 	connect(&m_editorState, &EditorState::toolChanged, this, &Core::toolChanged);
 	connect(&m_editorState, &EditorState::layerChanged, this, &Core::layerChanged);
 	connect(&m_editorState, &EditorState::selectionChanged, this, &Core::selectionChanged);
-	// the RTP folders chosen again (rtpDirs)
-	connect(&EditorSettings::instance(), &EditorSettings::changed, this, [this] { m_rtpStale = true; });
+	// the RTP folders chosen again (rtpDirs); another folder for the game
+	// open (Project Settings, On This Computer): the images found there are
+	// read again, the chipset at once, then the maps shown (rtpChanged)
+	connect(&EditorSettings::instance(), &EditorSettings::changed, this, [this] {
+		const QStringList before = m_rtpDirs;
+		m_rtpStale = true;
+		if (!m_project || rtpDirs() == before)
+			return;
+		m_charsetCache.clear();
+		if (m_chipsetProject == m_project.get()) {
+			m_chipsetTiles = ChipsetTiles::load(*m_project, m_chipsetTiles->chipset(), tileSize());
+			m_tilePainter.setTiles(m_chipsetTiles);
+			emit chipsetChanged();
+		}
+		emit rtpChanged();
+	});
 }
 
 Core *Core::getCore()
@@ -145,7 +160,7 @@ const QStringList& Core::rtpDirs() const
 {
 	// the game's folder and engine (2003 in a database of RPG Maker 2003)
 	const Project* project = m_project.get();
-	const int engine = project && project->database().system.ldb_id == 2003 ? 2003 : 2000;
+	const int engine = project ? GameSetup::instance().engine() : 2000;
 	const QString key = project ? project->projectDir().absolutePath() + QLatin1Char('|') + QString::number(engine) : QString();
 	if (m_rtpStale || key != m_rtpProject) {
 		m_rtpDirs = EditorSettings::instance().rtpSearchPath(project ? project->projectDir().absolutePath() : QString(), engine);

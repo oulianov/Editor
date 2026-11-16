@@ -20,6 +20,8 @@
 #include "common/filefinder.h"
 #include "common/ini_file.h"
 #include "defines.h"
+#include "model/command_catalog.h"
+#include "model/command_origin.h"
 #include "model/game_patches.h"
 #include "model/maniac_expression.h"
 #include "model/project.h"
@@ -240,6 +242,9 @@ class Scan {
 	Q_DECLARE_TR_FUNCTIONS(ManiacCompat)
 public:
 	Scan(const Project& project, bool apply);
+	/** Lists what uses the add-ons of origins instead (ManiacCompat::uses),
+	 *  converting nothing; dyn_rpg: DynRPG stays on */
+	void turnOff(const QStringList& origins, bool dyn_rpg);
 
 	std::vector<Finding> findings;
 	/** The places converted */
@@ -271,8 +276,24 @@ private:
 
 	void found(Group group, const QString& what, const QString& becomes, const QString& place);
 
+	/** The commands of a page that use the add-ons turned off */
+	void offCommands(const Commands& list, const QString& where);
+	/** What a command uses from an add-on: its name, with its options when
+	 *  the command itself is RPG Maker's */
+	QString commandWhat(const EventCommand& com, const QString& origin) const;
+	/** The values of the database the Maniac Patch adds, set */
+	void maniacValues(const lcf::rpg::Database& db);
+	/** A charset of the EasyRPG Extensions (a large one: its name starts with $) */
+	void largeCharset(const lcf::DBString& name, const QString& what, const QString& place);
+	/** A use of an add-on turned off */
+	void use(const QString& origin, const QString& what, const QString& place);
+
 	const Project& m_project;
 	const bool m_apply;
+	/** The add-ons turned off whose uses are listed (turnOff), none in the
+	 *  Maniac Patch check */
+	QStringList m_origins;
+	bool m_keepDynRpg = false;
 	bool m_powerMode = false;
 	bool m_dynRpg = false;
 	/** The id enableMouseSupport gives the mouse position (none: no script, or several ids) */
@@ -310,7 +331,24 @@ Scan::Scan(const Project& project, bool apply) : m_project(project), m_apply(app
 	}
 }
 
+void Scan::turnOff(const QStringList& origins, bool dyn_rpg) {
+	m_origins = origins;
+	m_keepDynRpg = dyn_rpg;
+	// the registers of Power Mode, read while it is on
+	m_powerMode = origins.contains(QStringLiteral("powermode"));
+}
+
 void Scan::found(Group group, const QString& what, const QString& becomes, const QString& place) {
+	if (!m_origins.isEmpty()) {
+		// add-ons turned off: Power Mode's registers and the Key Patch's
+		// links as they are, the other findings of the check are not theirs
+		const QString origin = group == Group::PowerMode ? QStringLiteral("powermode")
+			: group == Group::KeyPatch ? QStringLiteral("keypatch") : QString();
+		if (!origin.isEmpty() && m_origins.contains(origin)) {
+			use(origin, what, place);
+		}
+		return;
+	}
 	const QString key = QStringLiteral("%1\n%2\n%3").arg(static_cast<int>(group)).arg(what, becomes);
 	auto it = m_index.find(key);
 	if (it == m_index.end()) {
@@ -379,7 +417,132 @@ std::vector<ScriptAction> Scan::script(const QString& name, bool* found) {
 	return actions;
 }
 
+void Scan::use(const QString& origin, const QString& what, const QString& place) {
+	const QString key = origin + u'\n' + what;
+	auto it = m_index.find(key);
+	if (it == m_index.end()) {
+		it = m_index.insert(key, static_cast<int>(findings.size()));
+		Finding finding;
+		finding.origin = origin;
+		finding.what = what;
+		findings.push_back(finding);
+	}
+	findings[*it].places << place;
+}
+
+QString Scan::commandWhat(const EventCommand& com, const QString& origin) const {
+	const Cmd code = static_cast<Cmd>(com.code);
+	if (code == Cmd::Comment || code == Cmd::Comment_2) {
+		return tr("Comment %1").arg(ToQString(com.string).section(u' ', 0, 0));
+	}
+	QString name = CommandCatalog::commandName(code);
+	if (name.isEmpty()) {
+		name = com.code >= 2000 && com.code < 3000 ? easyRpgCommandName(com.code) : tr("Command %1").arg(com.code);
+	}
+	// the script it plays
+	if (code == Cmd::PlaySound && origin == QLatin1String("keypatch")) {
+		return QStringLiteral("%1 %2").arg(name, ToQString(com.string));
+	}
+	return CommandOrigin::ofCode(code) == origin ? name : tr("%1 (options)").arg(name);
+}
+
+void Scan::largeCharset(const lcf::DBString& name, const QString& what, const QString& place) {
+	if (m_origins.contains(QStringLiteral("easyrpg")) && ToQString(name).startsWith(u'$')) {
+		use(QStringLiteral("easyrpg"), tr("%1: large charset %2").arg(what, ToQString(name)), place);
+	}
+}
+
+void Scan::offCommands(const Commands& list, const QString& where) {
+	const bool power = m_origins.contains(QStringLiteral("powermode"));
+	const bool keys = m_origins.contains(QStringLiteral("keypatch"));
+	// the line Power Mode's registers are read from next: after the lines
+	// its conversion made, as the check reads them
+	size_t next = 0;
+	for (size_t i = 0; i < list.size(); ++i) {
+		const EventCommand& com = list[i];
+		const Cmd code = static_cast<Cmd>(com.code);
+		const QString place = tr("%1, line %2").arg(where).arg(i + 1);
+		// the next lines of a script of the Maniac Patch: counted with its first
+		if (code == Cmd::Maniac_Script_2) {
+			continue;
+		}
+		for (const QString& origin : CommandOrigin::uses(com)) {
+			// a call of EasyRPG Player's plugin, which DynRPG staying on runs
+			const bool plugin = origin == QLatin1String("easyrpg") && code == Cmd::Comment && m_keepDynRpg
+				&& ToQString(com.string).startsWith(QLatin1String("@easyrpg_"));
+			if (m_origins.contains(origin) && !plugin) {
+				use(origin, commandWhat(com, origin), place);
+			}
+		}
+		// a large charset given to a hero or a vehicle
+		if (code == Cmd::ChangeSpriteAssociation || code == Cmd::ChangeVehicleGraphic) {
+			largeCharset(com.string, commandWhat(com, QString()), place);
+		}
+		// a sound or music the Key Patch plays through a link
+		if (keys && (code == Cmd::PlaySound || code == Cmd::PlayBGM || code == Cmd::ChangeSystemBGM || code == Cmd::ChangeSystemSFX)
+				&& ToQString(com.string).endsWith(QLatin1String(".link"), Qt::CaseInsensitive)) {
+			QString target = ToQString(com.string);
+			link(target, code == Cmd::PlayBGM || code == Cmd::ChangeSystemBGM ? MUSIC : SOUND, place);
+		}
+		// Power Mode's registers, and the pictures it turns
+		if (power && i >= next && (code == Cmd::ControlVars || code == Cmd::ConditionalBranch || code == Cmd::ConditionalBranch_B
+				|| code == Cmd::Maniac_KeyInputProcEx || code == Cmd::ShowPicture || code == Cmd::MovePicture)) {
+			Commands out;
+			size_t taken = 1;
+			command(list, i, place, out, taken);
+			next = i + std::max<size_t>(taken, 1);
+		}
+	}
+}
+
+void Scan::maniacValues(const lcf::rpg::Database& db) {
+	const QString maniac = QStringLiteral("maniac");
+	// its triggers of common events, in battles
+	for (const auto& event : db.commonevents) {
+		if (event.trigger == lcf::rpg::CommonEvent::Trigger_maniac_battle_start
+				|| event.trigger == lcf::rpg::CommonEvent::Trigger_maniac_battle_parallel) {
+			use(maniac, event.trigger == lcf::rpg::CommonEvent::Trigger_maniac_battle_start ? tr("Trigger: Battle Start")
+					: tr("Trigger: Parallel Process in Battle"),
+				tr("Common event %1: %2").arg(event.ID, 4, 10, QLatin1Char('0')).arg(ToQString(event.name)));
+		}
+	}
+	// the common events of the title and save scenes, the message window
+	const QString system = tr("Database: System");
+	const auto& s = db.system;
+	if (s.maniac_title_scene_common_event_id > 0) {
+		use(maniac, tr("Title Scene Control"), system);
+	}
+	if (s.maniac_save_scene_common_event_id > 0) {
+		use(maniac, tr("Save/Load Scene Control"), system);
+	}
+	const lcf::rpg::System none;
+	if (s.maniac_message_font_name != none.maniac_message_font_name || s.maniac_message_font_size != none.maniac_message_font_size
+			|| s.maniac_message_window_width != none.maniac_message_window_width
+			|| s.maniac_message_window_height != none.maniac_message_window_height
+			|| s.maniac_message_spacing_char != none.maniac_message_spacing_char
+			|| s.maniac_message_spacing_line != none.maniac_message_spacing_line
+			|| s.maniac_message_face_x != none.maniac_message_face_x || s.maniac_message_face_y != none.maniac_message_face_y
+			|| s.maniac_message_text_x != none.maniac_message_text_x || s.maniac_message_text_y != none.maniac_message_text_y
+			|| s.maniac_message_text_face_x != none.maniac_message_text_face_x
+			|| s.maniac_message_text_face_y != none.maniac_message_text_face_y
+			|| s.maniac_message_face_width != none.maniac_message_face_width
+			|| s.maniac_message_face_height != none.maniac_message_face_height) {
+		use(maniac, tr("Message Window"), system);
+	}
+	// the animation of the monsters' attacks
+	const lcf::rpg::Enemy plain;
+	for (const auto& enemy : db.enemies) {
+		if (enemy.maniac_unarmed_animation != plain.maniac_unarmed_animation) {
+			use(maniac, tr("Attack Animation"), tr("Monster %1: %2").arg(enemy.ID, 4, 10, QLatin1Char('0')).arg(ToQString(enemy.name)));
+		}
+	}
+}
+
 bool Scan::commands(Commands& list, const QString& where) {
+	if (!m_origins.isEmpty()) {
+		offCommands(list, where);
+		return false;
+	}
 	Commands result;
 	bool changed = false;
 	for (size_t i = 0; i < list.size();) {
@@ -639,8 +802,10 @@ bool Scan::powerVariables(const Commands& list, size_t i, const QString& place, 
 			QT_TRANSLATE_NOOP("ManiacCompat", "%1 divided by %2"),
 		};
 		if (known && value >= 1 && value <= 4) {
-			note(tr("%1 = %2: %3").arg(variable(kFloatCode)).arg(value)
-				.arg(tr(operations[value - 1]).arg(variable(kFloat1), variable(kFloat2))),
+			// the division names both registers, the others V5 alone
+			const QString operation = value == 4 ? tr(operations[value - 1]).arg(variable(kFloat1), variable(kFloat2))
+				: tr(operations[value - 1]).arg(variable(kFloat1));
+			note(tr("%1 = %2: %3").arg(variable(kFloatCode)).arg(value).arg(operation),
 				tr("Control Variables (Maniac Patch functions)"));
 			floatMath(value, indent, added);
 			converts = true;
@@ -920,6 +1085,16 @@ bool Scan::database(lcf::rpg::Database& db) {
 	if (!options.isEmpty()) {
 		found(Group::EasyRpg, tr("Database options: %1").arg(options.join(QStringLiteral(", "))), {}, system);
 	}
+	if (m_origins.contains(QStringLiteral("maniac"))) {
+		maniacValues(db);
+	}
+	// the large charsets of the heroes and the vehicles
+	for (const auto& actor : db.actors) {
+		largeCharset(actor.character_name, tr("Graphic"), tr("Hero %1: %2").arg(actor.ID, 4, 10, QLatin1Char('0')).arg(ToQString(actor.name)));
+	}
+	for (const lcf::DBString* vehicle : {&s.boat_name, &s.ship_name, &s.airship_name}) {
+		largeCharset(*vehicle, tr("Vehicle graphic"), system);
+	}
 	return changed;
 }
 
@@ -927,9 +1102,15 @@ bool Scan::map(std::vector<lcf::rpg::Event>& events, int id, const QString& name
 	bool changed = false;
 	for (auto& event : events) {
 		for (size_t page = 0; page < event.pages.size(); ++page) {
-			changed = commands(event.pages[page].event_commands, tr("Map %1: %2, event %3: %4, page %5")
+			const QString where = tr("Map %1: %2, event %3: %4, page %5")
 				.arg(id, 4, 10, QLatin1Char('0')).arg(name).arg(event.ID, 4, 10, QLatin1Char('0'))
-				.arg(ToQString(event.name)).arg(page + 1)) || changed;
+				.arg(ToQString(event.name)).arg(page + 1);
+			// the second timer of RPG Maker 2003 as a condition of the page
+			if (m_origins.contains(QStringLiteral("rpg2003")) && event.pages[page].condition.flags.timer2) {
+				use(QStringLiteral("rpg2003"), tr("Page condition: Timer 2"), where);
+			}
+			largeCharset(event.pages[page].character_name, tr("Graphic of the page"), where);
+			changed = commands(event.pages[page].event_commands, where) || changed;
 		}
 	}
 	return changed;
@@ -976,18 +1157,10 @@ QString ManiacCompat::backupFolderName() {
 	return QStringLiteral("Backup (Maniac Patch)");
 }
 
-ManiacCompat::Report ManiacCompat::check(const Project& project, const OpenMap& open_map) {
-	Report report;
-	Scan scan(project, false);
-	if (project.database().system.ldb_id != 2003) {
-		// ProjectConvert converts RPG Maker's files, not the EasyRPG format
-		report.rpg2000 = project.projectType() == FileFinder::ProjectType::Legacy;
-		scan.findings.push_back({Group::Engine, tr("An RPG Maker 2000 game: the Maniac Patch runs RPG Maker 2003 games"),
-			report.rpg2000 ? tr("An RPG Maker 2003 game (Convert to RPG Maker 2003)") : QString(),
-			{tr("The database, the map tree and the maps")}});
-	}
-	lcf::rpg::Database db = project.database();
-	scan.database(db);
+namespace {
+
+/** The maps of the project, where they are open as they are edited: their events scanned */
+void scanMaps(Scan& scan, const Project& project, const ManiacCompat::OpenMap& open_map) {
 	for (const auto& info : project.treeMap().maps) {
 		if (info.ID <= 0 || info.type != lcf::rpg::TreeMap::MapType_map) {
 			continue;
@@ -1004,6 +1177,23 @@ ManiacCompat::Report ManiacCompat::check(const Project& project, const OpenMap& 
 		std::vector<lcf::rpg::Event> events = open ? open->events : read->events;
 		scan.map(events, info.ID, ToQString(info.name));
 	}
+}
+
+} // namespace
+
+ManiacCompat::Report ManiacCompat::check(const Project& project, const OpenMap& open_map) {
+	Report report;
+	Scan scan(project, false);
+	if (project.database().system.ldb_id != 2003) {
+		// ProjectConvert converts RPG Maker's files, not the EasyRPG format
+		report.rpg2000 = project.projectType() == FileFinder::ProjectType::Legacy;
+		scan.findings.push_back({Group::Engine, tr("An RPG Maker 2000 game: the Maniac Patch runs RPG Maker 2003 games"),
+			report.rpg2000 ? tr("An RPG Maker 2003 game (Convert to RPG Maker 2003)") : QString(),
+			{tr("The database, the map tree and the maps")}});
+	}
+	lcf::rpg::Database db = project.database();
+	scan.database(db);
+	scanMaps(scan, project, open_map);
 	// an RPG Maker 2000 game that stays one (the EasyRPG format): nothing converts
 	if (project.database().system.ldb_id != 2003 && !report.rpg2000) {
 		for (auto& finding : scan.findings) {
@@ -1013,6 +1203,24 @@ ManiacCompat::Report ManiacCompat::check(const Project& project, const OpenMap& 
 	// by group: the engine, EasyRPG Player, the patches
 	std::stable_sort(scan.findings.begin(), scan.findings.end(), [](const Finding& a, const Finding& b) {
 		return a.group < b.group;
+	});
+	report.findings = std::move(scan.findings);
+	return report;
+}
+
+ManiacCompat::Report ManiacCompat::uses(const Project& project, const QStringList& origins, bool dynRpg, const OpenMap& open_map) {
+	Report report;
+	if (origins.isEmpty()) {
+		return report;
+	}
+	Scan scan(project, false);
+	scan.turnOff(origins, dynRpg);
+	lcf::rpg::Database db = project.database();
+	scan.database(db);
+	scanMaps(scan, project, open_map);
+	// by add-on, in the order given
+	std::stable_sort(scan.findings.begin(), scan.findings.end(), [&origins](const Finding& a, const Finding& b) {
+		return origins.indexOf(a.origin) < origins.indexOf(b.origin);
 	});
 	report.findings = std::move(scan.findings);
 	return report;

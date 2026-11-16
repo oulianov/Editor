@@ -38,7 +38,7 @@ Controls.SplitView {
     /** The root of the database edited (a JsonView) */
     property var database: null
     property bool rpg2k3: true
-    /** The game uses the Maniac Patch (the pages show its fields) */
+    /** The game uses the Maniac Patch (the pages enable its fields) */
     property bool maniac: false
     /** The pointer of the list in the database ("attributes") */
     property string key

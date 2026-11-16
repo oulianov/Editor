@@ -12,7 +12,9 @@ import org.easyrpg.editor as Ez
  * The status bar of the main window, as RPG Maker's: the hint of the action
  * hovered (else a note of the project, a file another program changed...),
  * then the edit mode and the tool, the map shown and the cell under the
- * pointer, each named for the scripts.
+ * pointer, each named for the scripts. At its end, the profile of the game
+ * (Ez.GameProfile: its engine and its add-ons, profileChips): a click on a
+ * chip opens Project Settings where it changes.
  */
 Controls.ToolBar {
     id: root
@@ -53,6 +55,15 @@ Controls.ToolBar {
             objectName: "labelCell"
             text: root.shell && root.shell.currentEditor ? root.cellText : ""
             visible: text !== ""
+        }
+        // the add-ons by their tag alone when their names take too much room
+        Ez.ProfileChips {
+            objectName: "profileChips"
+            visible: chips.length > 0
+            chips: Ez.GameProfile.chips
+            room: root.availableWidth * 0.4
+            clickable: root.shell !== null
+            onClicked: page => root.shell.showProjectSettings(page)
         }
     }
 }

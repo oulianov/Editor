@@ -24932,7 +24932,7 @@
   },
   {
    "context": "SettingsDialog",
-   "source": "Color the event commands by kind, as RPG Maker 2003",
+   "source": "Color the event commands by kind",
    "editor_only": true,
    "why": "Editor wording or feature without an equivalent text in the RPG Maker 2003 reference"
   },

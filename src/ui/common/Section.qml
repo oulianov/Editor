@@ -16,6 +16,9 @@ import org.easyrpg.editor as Ez
  * Ez.CheckBox). Automation finds the check box by its objectName, set with
  * checkName: only a checkable one makes its check box, after the section is
  * made, so checkBox is null while it is (checkBox.objectName cannot be set).
+ *
+ * A section of what comes from an add-on (origin: the Maniac Patch...) has
+ * its tag after the title (Ez.OriginTag).
  */
 ColumnLayout {
     id: root
@@ -29,6 +32,15 @@ ColumnLayout {
     property var jsonData: null
     property string key: ""
     property string checkName: ""
+    /**
+     * Where its content comes from when it is not the game's engine
+     * (Ez.Origins: "maniac"...): its tag after the title, and over the
+     * content what the game needs while it does not run it. The page greys
+     * it (enabled).
+     */
+    property string origin: ""
+    /** What is set in it is not run by the game: the tag says so (Ez.OriginTag.warning) */
+    property bool originWarning: false
     /** The check box of a checkable one (made only for it), else null */
     readonly property Ez.CheckBox checkBox: check.item as Ez.CheckBox
     /** checked changed by the user (not by the data) */
@@ -51,39 +63,54 @@ ColumnLayout {
     // as high as its content, as a group box: Layout.fillHeight makes it take the room left
     Layout.fillHeight: false
 
-    Ez.Label {
-        text: root.title
-        visible: text !== "" && !root.checkable
-        color: Ez.Metrics.mutedTextColor
-        font: Ez.Metrics.sectionTitleFont
-        opacity: enabled ? 1 : Ez.Metrics.disabledTitleOpacity
-    }
-    Loader {
-        id: check
-        active: root.checkable
-        visible: root.checkable
-        sourceComponent: Ez.CheckBox {
-            id: box
-            objectName: root.checkName
+    // the title (or its check box), then the tag of its origin
+    RowLayout {
+        spacing: Ez.Metrics.columnSpacing
+        visible: root.title !== "" || root.checkable
+
+        Ez.Label {
             text: root.title
-            padding: 0
+            visible: text !== "" && !root.checkable
+            color: Ez.Metrics.mutedTextColor
             font: Ez.Metrics.sectionTitleFont
-            jsonData: root.jsonData
-            key: root.key
-            onToggled: {
-                root.checked = checked
-                root.toggled()
-            }
-            // without data: the box shows the section's state; with data: the
-            // section follows the box
-            Binding on checked {
-                value: root.checked
-                when: !box.jsonData
-            }
-            onCheckedChanged: {
-                if (box.jsonData) {
+            opacity: enabled ? 1 : Ez.Metrics.disabledTitleOpacity
+        }
+        Loader {
+            id: check
+            active: root.checkable
+            visible: root.checkable
+            sourceComponent: Ez.CheckBox {
+                id: box
+                objectName: root.checkName
+                text: root.title
+                padding: 0
+                font: Ez.Metrics.sectionTitleFont
+                jsonData: root.jsonData
+                key: root.key
+                onToggled: {
                     root.checked = checked
+                    root.toggled()
                 }
+                // without data: the box shows the section's state; with data: the
+                // section follows the box
+                Binding on checked {
+                    value: root.checked
+                    when: !box.jsonData
+                }
+                onCheckedChanged: {
+                    if (box.jsonData) {
+                        root.checked = checked
+                    }
+                }
+            }
+        }
+        // made only for a section of an origin
+        Loader {
+            active: root.origin !== ""
+            visible: active
+            sourceComponent: Ez.OriginTag {
+                origin: root.origin
+                warning: root.originWarning
             }
         }
     }
@@ -110,6 +137,14 @@ ColumnLayout {
             height: filled ? parent.height - 2 * Ez.Metrics.sectionPadding : implicitHeight
             spacing: Ez.Metrics.rowSpacing
             enabled: !root.checkable || root.checked
+        }
+        // what the game needs, over the content greyed
+        Loader {
+            anchors.fill: parent
+            active: root.origin !== ""
+            sourceComponent: Ez.OriginTip {
+                origin: root.origin
+            }
         }
     }
 }

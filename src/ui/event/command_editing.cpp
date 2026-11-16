@@ -18,9 +18,9 @@
 #include "command_editing.h"
 #include "core.h"
 #include "model/command_catalog.h"
+#include "model/command_origin.h"
 #include "model/event_command_list_model.h"
 #include "model/event_editor_controller.h"
-#include "model/game_patches.h"
 #include "model/move_route_model.h"
 #include "model/project_data.h"
 #include "qmlbinding/qml_host.h"
@@ -30,6 +30,7 @@
 #include <QVariantMap>
 #include <QWindow>
 #include <memory>
+#include <optional>
 
 namespace {
 using Code = CommandEditing::Code;
@@ -51,31 +52,35 @@ CommandEditorRegistry::Context registryContext(bool battle, bool is_new, int tro
 	return context;
 }
 
-/** The buttons of the palette, page by page: {title, entries: {code, name, source, rpg2k3Only, maniacOnly, easyrpgOnly}},
- *  a gap: code 0, the entry of the battle event commands: -1 */
+/** The buttons of the palette, page by page: {title, origin, entries: {code, name, source, origin}},
+ *  a gap: code 0, the entry of the battle event commands: -1. The origin of
+ *  a command (CommandOrigin: "maniac"...), the one of all the commands of
+ *  a page ("" for several or none): the palette greys those the game does
+ *  not run, tags them (Ez.Origins) */
 QVariantList palettePages(const std::vector<const CommandCatalog::Page*>& shown)
 {
 	QVariantList pages;
-	int number = 1;
 	for (const auto* page : shown) {
 		QVariantList entries;
+		std::optional<QString> page_origin;
 		for (const auto& entry : page->entries) {
 			if (entry.code == Code::END) {
 				entries.append(QVariantMap{{QStringLiteral("code"), 0}});
 				continue;
 			}
+			const QString origin = entry.code == CommandCatalog::battleCommands ? QString() : CommandOrigin::ofCode(entry.code);
+			page_origin = !page_origin || *page_origin == origin ? origin : QString();
 			entries.append(QVariantMap{
 				{QStringLiteral("code"), static_cast<int>(entry.code)},
 				{QStringLiteral("name"), CommandCatalog::translate(entry.name)},
 				// the English name: the search finds a command by it too
 				{QStringLiteral("source"), QString::fromUtf8(entry.name)},
-				{QStringLiteral("rpg2k3Only"), entry.rpg2k3_only},
-				{QStringLiteral("maniacOnly"), entry.maniac_only},
-				{QStringLiteral("easyrpgOnly"), entry.easyrpg_only},
+				{QStringLiteral("origin"), origin},
 			});
 		}
 		pages.append(QVariantMap{
-			{QStringLiteral("title"), QStringLiteral("%1 %2").arg(number++).arg(CommandCatalog::translate(page->title))},
+			{QStringLiteral("title"), CommandCatalog::translate(page->title)},
+			{QStringLiteral("origin"), page_origin.value_or(QString())},
 			{QStringLiteral("entries"), entries},
 		});
 	}
@@ -107,22 +112,22 @@ bool CommandEditing::editRaw(QWindow* over, ProjectData& project, lcf::rpg::Even
 	return CommandEditorRegistry::editRaw(over, project, command, show_warning);
 }
 
-std::optional<Code> CommandEditing::pickCommand(QWindow* over, ProjectData& project, bool battle)
+std::optional<Code> CommandEditing::pickCommand(QWindow* over, ProjectData& /* project */, bool battle)
 {
-	const bool rpg2k3 = project.database().system.ldb_id == 2003;
-	const bool maniac = GamePatches::usesManiac(project.project());
-	const bool easyrpg = GamePatches::hasEasyRpg(project.project());
-	// a map event, a common event: their last entry opens the battle event
-	// commands (the palette again, over it), which are inserted as in a battle
+	// every command: those the game does not run (RPG Maker 2003's, the
+	// Maniac Patch's, EasyRPG Player's) greyed, the palette following
+	// Ez.Game while it is open. A map event, a common event: their last
+	// entry opens the battle event commands (the palette again, over it),
+	// which are inserted as in a battle
 	const QVariantList battle_pages = battle ? QVariantList() : palettePages({&CommandCatalog::battlePage()});
 	int code = 0;
 	// it opens on the tab shown when it was closed (the battle pages': theirs)
 	const QString pageKey = battle ? QStringLiteral("command_palette_battle_page") : QStringLiteral("command_palette_page");
 	QSettings settings;
 	const int result = QmlHost::exec(QStringLiteral("CommandPalette"), over,
-		{{QStringLiteral("pages"), palettePages(CommandCatalog::pages(battle, maniac, easyrpg))}, {QStringLiteral("battlePages"), battle_pages},
-			{QStringLiteral("battle"), battle}, {QStringLiteral("rpg2k3"), rpg2k3}, {QStringLiteral("maniac"), maniac},
-			{QStringLiteral("easyrpg"), easyrpg}, {QStringLiteral("startPage"), settings.value(pageKey, 0).toInt()}},
+		{{QStringLiteral("pages"), palettePages(CommandCatalog::pages(battle, true, true))},
+			{QStringLiteral("battlePages"), battle_pages}, {QStringLiteral("battle"), battle},
+			{QStringLiteral("startPage"), settings.value(pageKey, 0).toInt()}},
 		[&code, &settings, &pageKey](QQuickWindow* window) {
 			code = window->property("code").toInt();
 			settings.setValue(pageKey, window->property("page").toInt());
@@ -153,8 +158,8 @@ bool CommandEditing::editMoveEvent(QWindow* over, ProjectData& project, lcf::rpg
 bool CommandEditing::editBattleTrigger(QWindow* over, ProjectData& project, const lcf::rpg::Troop& troop,
 		lcf::rpg::TroopPageCondition& condition)
 {
-	// a copy, with the rules of the window: the page changes on OK only
-	BattlePageConditions conditions(condition, project.database().system.ldb_id == 2003);
+	// a copy, with the rules of the window (the game's, GameSetup): the page changes on OK only
+	BattlePageConditions conditions(condition);
 	conditions.setChoices(project.database(), troop);
 	if (QmlHost::exec(QStringLiteral("BattleConditionDialog"), over,
 			{{QStringLiteral("conditions"), QVariant::fromValue(&conditions)}}) != 1) {

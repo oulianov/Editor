@@ -128,17 +128,32 @@ ColumnLayout {
         Layout.fillHeight: true
         Layout.fillWidth: true
 
-        Ez.ComboBox {
-            objectName: "shopGoodsMode"
+        // the mode of the Maniac Patch, in its games or while the command has
+        // one (then a warning tag in the other games)
+        RowLayout {
+            spacing: Ez.Metrics.columnSpacing
             visible: root.session.maniac || root.goodsMode !== 0
-            enabled: root.session.maniac
-            model: [{ value: 0, text: qsTranslate("ManiacCommandWidget", "Item list") },
-                    { value: 1, text: qsTranslate("ManiacCommandWidget", "Item IDs in variables") },
-                    { value: 2, text: qsTranslate("ManiacCommandWidget", "Item IDs in variables from a variable pointer") }]
-            textRole: "text"
-            valueRole: "value"
-            currentIndex: Math.max(0, indexOfValue(root.goodsMode))
-            onActivated: if (currentValue !== root.goodsMode) root.setGoodsMode(currentValue)
+            Ez.ComboBox {
+                objectName: "shopGoodsMode"
+                enabled: Ez.Origins.available("maniac")
+                model: [{ value: 0, text: qsTranslate("ManiacCommandWidget", "Item list") },
+                        { value: 1, text: qsTranslate("ManiacCommandWidget", "Item IDs in variables") },
+                        { value: 2, text: qsTranslate("ManiacCommandWidget", "Item IDs in variables from a variable pointer") }]
+                textRole: "text"
+                valueRole: "value"
+                currentIndex: Math.max(0, indexOfValue(root.goodsMode))
+                onActivated: if (currentValue !== root.goodsMode) root.setGoodsMode(currentValue)
+                Ez.OriginTip {
+                    origin: "maniac"
+                }
+            }
+            Ez.OriginTag {
+                readonly property string text: shown ? Ez.Origins.letter(origin) + "!" : ""
+                objectName: "shopGoodsModeTag"
+                origin: "maniac"
+                warning: true
+                visible: root.goodsMode !== 0 && !Ez.Origins.available(origin)
+            }
         }
         SchemaRows {
             visible: root.goodsMode !== 0

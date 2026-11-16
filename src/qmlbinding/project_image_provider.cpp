@@ -68,6 +68,12 @@ QPixmap ProjectImageProvider::requestPixmap(const QString& id, QSize* size, cons
 		transparent = query.queryItemValue(QStringLiteral("transparent")) != QLatin1String("0");
 	}
 	QImage image = load(m_finder(folder, name), transparent);
+	if (image.isNull()) {
+		// a picture the game does not have (or that cannot be read): nothing
+		// shown, as in RPG Maker's previews, without a warning of the QML engine
+		image = QImage(1, 1, QImage::Format_ARGB32);
+		image.fill(Qt::transparent);
+	}
 	if (size) {
 		*size = image.size();
 	}

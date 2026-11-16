@@ -21,6 +21,7 @@
 #include <QList>
 #include <QSettings>
 #include <QString>
+#include <QStringList>
 #include <QCoreApplication>
 #include <memory>
 
@@ -44,10 +45,13 @@ public:
 	/**
 	 * Writes a new game in dir from the template bundled with the Editor
 	 * (database using the RTP, a first map). The RPG Maker formats can be
-	 * opened by RPG Maker 2000/2003 too. Returns an error message, or an
-	 * empty string.
+	 * opened by RPG Maker 2000/2003 too. patches: the add-ons turned on,
+	 * their keys in [Patch] of its EasyRPG.ini ("Maniac", "EasyRPG",
+	 * "RPG2k3Commands"), written as Project Settings writes them (none: the
+	 * Player finds them from the game's files). Returns an error message,
+	 * or an empty string.
 	 */
-	static QString create(const QDir& dir, const QString& title, Format format);
+	static QString create(const QDir& dir, const QString& title, Format format, const QStringList& patches = {});
 	static std::shared_ptr<Project> load(const QDir& path);
 
 	bool loadDatabaseAndMapTree();

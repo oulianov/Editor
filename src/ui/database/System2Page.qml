@@ -17,7 +17,9 @@ import org.easyrpg.editor as Ez
  * background. With the Maniac Patch: Quit Game can be hidden from the menu,
  * the title and save scenes call a common event (Title Scene Control,
  * Save/Load Scene Control), and the message window has settings of its own
- * (ManiacMessageDialog.qml).
+ * (ManiacMessageDialog.qml). Without it, they are greyed with their tag M,
+ * as set (the tag warns when they are not RPG Maker's), or hidden unless set
+ * when the Editor Settings hide what the game does not run.
  */
 DatabaseEntryPage {
     id: root
@@ -51,6 +53,43 @@ DatabaseEntryPage {
     /** Shows or hides Quit Game, as the Maniac Patch's editor: -9 hidden, 9 shown (left out when it was) */
     function setQuitGame(shown) {
         menuField.value = menuCommands.concat(shown ? (quitGame.length > 0 ? [9] : []) : [-9])
+    }
+    /**
+     * The defaults of the Maniac Patch's message window (liblcf's), by
+     * field: one of them changed is a setting the game runs only with it
+     */
+    readonly property var messageDefaults: ({
+        maniac_message_font_name: "", maniac_message_font_size: 12, maniac_message_window_width: 320,
+        maniac_message_window_height: 80, maniac_message_spacing_char: 0, maniac_message_spacing_line: 4,
+        maniac_message_face_x: 16, maniac_message_face_y: 16, maniac_message_face_width: 48,
+        maniac_message_face_height: 48, maniac_message_text_x: 8, maniac_message_text_y: 10,
+        maniac_message_text_face_x: 80, maniac_message_text_face_y: 10,
+    })
+    // read again when the system changes (the message window's OK)
+    property int systemRevision: 0
+    Connections {
+        target: root.system
+        ignoreUnknownSignals: true
+        function onValueChanged() { root.systemRevision++ }
+    }
+    /** The Maniac Patch's Quit Game check box is shown: greyed without it, or hidden unless hidden from the menu */
+    readonly property bool quitGameShown: Ez.Origins.shown("maniac") || quitGame.includes(-9)
+    /** A scene (prefix "maniac_title_scene"...) calls a common event */
+    function sceneSet(prefix) {
+        return !!system && systemRevision >= 0 && system.num(prefix + "_common_event_id") > 0
+    }
+    /** The message window has settings of the Maniac Patch */
+    readonly property bool messageWindowSet: {
+        if (!system || systemRevision < 0) {
+            return false
+        }
+        for (const key in messageDefaults) {
+            const value = key === "maniac_message_font_name" ? system.str(key) : system.num(key)
+            if (value !== messageDefaults[key]) {
+                return true
+            }
+        }
+        return false
     }
     Ez.JsonField {
         id: menuField
@@ -148,6 +187,11 @@ DatabaseEntryPage {
         required property string names
         /** The title scene's New Game */
         required property bool newGame
+        origin: "maniac"
+        enabled: root.maniac
+        // a common event set in a game without the Maniac Patch: not called
+        originWarning: !root.maniac && root.sceneSet(prefix)
+        visible: Ez.Origins.shown("maniac") || originWarning
         Layout.alignment: Qt.AlignTop
         Layout.fillHeight: true
         Layout.preferredWidth: Math.max(implicitWidth, (root.column.room - scenes.spacing) / 2)
@@ -256,26 +300,39 @@ DatabaseEntryPage {
                         Layout.fillWidth: true
                     }
                 }
+                // without the Maniac Patch, RPG Maker's Quit Game, always there
+                // (when the Editor Settings hide what the game does not run)
                 Ez.Label {
                     text: qsTr("Quit Game")
                     font: Ez.Metrics.font
                     leftPadding: Ez.Metrics.columnSpacing
-                    visible: !root.maniac
+                    visible: !root.quitGameShown
                     Layout.row: 4
                     Layout.column: 1
                 }
-                // the Maniac Patch can hide it
-                Ez.CheckBox {
-                    objectName: "checkQuitGame"
-                    text: qsTr("Quit Game")
-                    visible: root.maniac
-                    Binding on checked {
-                        value: !root.quitGame.includes(-9)
-                        restoreMode: Binding.RestoreNone
-                    }
-                    onToggled: root.setQuitGame(checked)
+                // the Maniac Patch can hide it (greyed without it, hidden stays hidden)
+                RowLayout {
+                    spacing: Ez.Metrics.columnSpacing
+                    visible: root.quitGameShown
                     Layout.row: 4
                     Layout.column: 1
+                    Ez.CheckBox {
+                        objectName: "checkQuitGame"
+                        text: qsTr("Quit Game")
+                        enabled: root.maniac
+                        Binding on checked {
+                            value: !root.quitGame.includes(-9)
+                            restoreMode: Binding.RestoreNone
+                        }
+                        onToggled: root.setQuitGame(checked)
+                        Ez.OriginTip {
+                            origin: "maniac"
+                        }
+                    }
+                    Ez.OriginTag {
+                        origin: "maniac"
+                        warning: !root.maniac && root.quitGame.includes(-9)
+                    }
                 }
             }
         }
@@ -329,27 +386,41 @@ DatabaseEntryPage {
                     key: "show_title"
                     Layout.columnSpan: 2
                 }
-                // the Maniac Patch's Extra Settings: the message window
-                Ez.Button {
-                    id: messageWindow
-                    objectName: "pushMessageWindow"
-                    text: qsTr("Message Window...")
-                    visible: root.maniac
+                // the Maniac Patch's Extra Settings: the message window (greyed
+                // without it, or hidden unless set; its settings kept)
+                RowLayout {
+                    spacing: Ez.Metrics.columnSpacing
+                    visible: Ez.Origins.shown("maniac") || root.messageWindowSet
                     Layout.columnSpan: 2
-                    Controls.ToolTip.visible: hovered
-                    Controls.ToolTip.delay: 700
-                    Controls.ToolTip.text: qsTr("The font, size and layout of the message window (Maniac Patch)")
-                    onClicked: Ez.Editor.exec("ManiacMessageDialog", { system: root.system }, messageWindow)
+                    Ez.Button {
+                        id: messageWindow
+                        objectName: "pushMessageWindow"
+                        text: qsTr("Message Window...")
+                        enabled: root.maniac
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.delay: 700
+                        Controls.ToolTip.text: qsTr("The font, size and layout of the message window (Maniac Patch)")
+                        onClicked: Ez.Editor.exec("ManiacMessageDialog", { system: root.system }, messageWindow)
+                        Ez.OriginTip {
+                            origin: "maniac"
+                        }
+                    }
+                    Ez.OriginTag {
+                        origin: "maniac"
+                        warning: !root.maniac && root.messageWindowSet
+                    }
                 }
             }
         }
     }
 
     // the Maniac Patch: the common event the title and save scenes call
+    // (greyed without it, as set; or hidden unless set)
     RowLayout {
         id: scenes
         spacing: Ez.Metrics.sectionSpacing
-        visible: root.maniac
+        visible: Ez.Origins.shown("maniac")
+                 || (!root.maniac && (root.sceneSet("maniac_title_scene") || root.sceneSet("maniac_save_scene")))
         Layout.fillWidth: true
 
         SceneControl {

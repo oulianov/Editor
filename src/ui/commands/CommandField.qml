@@ -7,7 +7,9 @@ import QtQuick
  * The control of one field of the command's schema in a hand-written
  * editor (SchemaField), by its id, following the rules of the field: greyed
  * with its default value when they fail (or hidden: hides), greyed when it
- * cannot be changed.
+ * cannot be changed. One of an add-on the game does not run is hidden when
+ * the Editor Settings say so, unless the command has a value of it
+ * (the session's originShown).
  *
  *   CommandField { session: root.session; fieldId: "troop"; name: "encounterTroop" }
  */
@@ -22,6 +24,6 @@ SchemaField {
 
     field: session.schema.field(fieldId)
     bound: ruleVisible
-    visible: !hides || ruleVisible
+    visible: (!hides || ruleVisible) && (revision < 0 || session.originShown(fieldId))
     enabled: revision < 0 ? false : ruleVisible && session.isEnabled(fieldId)
 }

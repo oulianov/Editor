@@ -133,6 +133,8 @@ MapLayerView::MapLayerView(QQuickItem* parent) :
 	// clipRect() is then the part of the item in its Flickable (or window)
 	setFlag(ItemObservesViewport);
 	loadTiles();
+	// the game's RTP in another folder: its tiles read again
+	connect(&core(), &Core::rtpChanged, this, &MapLayerView::reloadTiles);
 }
 
 MapLayerView::~MapLayerView() = default;

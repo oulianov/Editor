@@ -16571,8 +16571,8 @@ Legen Sie ihn neben den Editor oder in den PATH, oder geben Sie sein Programm an
     </message>
     <message>
         <location line="+5"/>
-        <source>Color the event commands by kind, as RPG Maker 2003</source>
-        <translation>Ereignisbefehle nach Art einfärben, wie in RPG Maker 2003</translation>
+        <source>Color the event commands by kind</source>
+        <translation>Ereignisbefehle nach Art einfärben</translation>
     </message>
     <message>
         <location line="+5"/>

@@ -29,7 +29,11 @@
  *
  * Palette color 0 is transparent, as the Player shows them, in the folders
  * where the game makes it so; "?transparent=0" or "=1" decides it. The
- * size asked (sourceSize) scales the picture, without smoothing.
+ * size asked (sourceSize) scales the picture, without smoothing. A picture
+ * the game does not have is an empty one (one transparent pixel).
+ *
+ * The pictures are read on the thread of the windows (the finder reads the
+ * project): an Image of the project is not asynchronous.
  */
 class ProjectImageProvider : public QQuickImageProvider {
 public:

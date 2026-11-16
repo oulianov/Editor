@@ -67,6 +67,7 @@ public:
 	void convertResult(const QString& error, const QString& backup) override;
 	bool maniacCheck(const ManiacCompat::Report& report, const QString& backup) override;
 	void maniacResult(const ManiacResult& result) override;
+	bool turnedOffCheck(const ManiacCompat::Report& report) override;
 	bool mapProperties(lcf::rpg::MapInfo& info, lcf::rpg::Map& map) override;
 	bool areaProperties(lcf::rpg::MapInfo& info, const QSize& map_size) override;
 	std::optional<Dungeon> generateDungeon(const lcf::rpg::Map& source, const QString& name) override;

@@ -19,6 +19,7 @@
 #include <algorithm>
 #include "stringizer.h"
 #include "model/event_command_defaults.h"
+#include "model/game_setup.h"
 #include "model/maniac_expression.h"
 #include "model/maniac_expression_list.h"
 #include "model/move_route_codec.h"
@@ -1383,7 +1384,8 @@ namespace
 	QString stringizeKeyInputProc(const lcf::rpg::EventCommand& com)
 	{
 		const auto parameter = [&](size_t index) { return index < com.parameters.size() ? com.parameters[index] : 0; };
-		const bool rpg2003 = database().system.ldb_id == 2003;
+		// the layout of the parameters is the engine's (Player::IsRPG2k)
+		const bool rpg2003 = GameSetup::instance().rpg2k3();
 		const bool modern2000 = com.parameters.size() == 10 || (!rpg2003 && com.parameters.size() >= 6);
 		const bool modern2003 = rpg2003 && com.parameters.size() > 10;
 		QStringList keys;

@@ -33,13 +33,18 @@ ColumnLayout {
     /** The monsters before Entire Party in RPG Maker 2003's list: those of the troop */
     readonly property int monsters: session.extra("troopMembers") ?? 8
 
-    /** The targets: the monsters, then (RPG Maker 2003) the party and its heroes; the command's when unknown */
+    /** The targets: the monsters, then (RPG Maker 2003) the party and its heroes, the party greyed in a
+     *  2000 game (with what it needs) unless the Editor Settings hide it; the command's when unknown */
     readonly property var targets: {
         const list = [{ text: qsTr("All Enemies"), target: -1, side: 0 }]
         for (let i = 0; i < 8; ++i) {
             list.push({ text: qsTr("Monster %1").arg(i + 1), target: i, side: 0 })
         }
-        if (session.rpg2k3) {
+        if (!session.rpg2k3) {
+            if (Ez.Origins.shown("engine2003")) {
+                list.push({ text: qsTr("Entire Party"), target: -1, side: 1, enabled: false, why: Ez.Origins.need("engine2003") })
+            }
+        } else {
             list.push({ text: qsTr("Entire Party"), target: -1, side: 1 })
             const heroes = session.database ? session.database.size("actors") : 0
             for (let id = 1; id <= heroes; ++id) {
@@ -91,10 +96,12 @@ ColumnLayout {
             spacing: Ez.Metrics.rowSpacing
             Layout.fillWidth: true
 
+            // the mode of the Maniac Patch, in its games or while the command has
+            // one (then a warning tag in the other games)
             Ez.ComboBox {
                 objectName: "battleAnimationTargetMode"
                 visible: root.session.maniac || root.targetMode !== 0
-                enabled: root.session.maniac
+                enabled: Ez.Origins.available("maniac")
                 model: [{ value: 0, text: qsTranslate("ManiacCommandWidget", "Constant") },
                         { value: 1, text: qsTranslate("ManiacCommandWidget", "Variable") },
                         { value: 2, text: qsTranslate("ManiacCommandWidget", "Variable pointer") }]
@@ -111,10 +118,22 @@ ColumnLayout {
                     }
                     root.session.set("/parameters/5@4:4", currentValue)
                 }
+                Ez.OriginTip {
+                    origin: "maniac"
+                }
+            }
+            Ez.OriginTag {
+                readonly property string text: shown ? Ez.Origins.letter(origin) + "!" : ""
+                objectName: "battleAnimationTargetModeTag"
+                origin: "maniac"
+                warning: true
+                visible: root.targetMode !== 0 && !Ez.Origins.available(origin)
             }
             Ez.ComboBox {
                 objectName: "battleAnimationTarget"
                 visible: root.targetMode === 0
+                enabledRole: "enabled"
+                toolTipRole: "why"
                 model: root.targets
                 textRole: "text"
                 valueRole: ""

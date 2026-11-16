@@ -9,9 +9,10 @@ import org.easyrpg.editor as Ez
 
 /**
  * The EasyRPG Properties of a hero (Edit... on the Characters page): the
- * settings of liblcf's easyrpg_* fields that only EasyRPG Player reads, as
- * check boxes (checkPreventCritical...) and the hit rate of its unarmed
- * attacks (spinUnarmedHit, -1: RPG Maker's 90%). OK writes them.
+ * settings of liblcf's easyrpg_* fields that only EasyRPG Player reads (the
+ * tag E of its sections), editable in every game, as check boxes
+ * (checkPreventCritical...) and the hit rate of its unarmed attacks
+ * (spinUnarmedHit, -1: RPG Maker's 90%). OK writes them.
  *
  *   Ez.Editor.exec("ActorEasyRpgDialog", { entry: page.entry }, button)
  */
@@ -72,11 +73,9 @@ Ez.DialogWindow {
         }
     }
 
-    Ez.Note {
-        text: qsTr("EasyRPG Player reads these settings; RPG Maker ignores them.")
-    }
     Ez.Section {
         title: qsTr("Defense")
+        origin: "player"
         Repeater {
             model: root.options.slice(0, 3)
             Flag {}
@@ -84,6 +83,7 @@ Ez.DialogWindow {
     }
     Ez.Section {
         title: qsTr("Unarmed Attacks")
+        origin: "player"
         Repeater {
             model: root.options.slice(3)
             Flag {}

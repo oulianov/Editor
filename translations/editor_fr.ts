@@ -5967,8 +5967,8 @@ Les fichiers de RPG Maker 2000 sont dans :
         <translation>Activer un patch pour l&apos;évènement</translation>
     </message>
     <message>
-        <source>Only with the EasyRPG Extensions (Project Settings &gt; EasyRPG Player &gt; Patches)</source>
-        <translation>Uniquement avec les Extensions EasyRPG (Paramètres du projet &gt; EasyRPG Player &gt; Patchs)</translation>
+        <source>Only with the EasyRPG Extensions (Project Settings &gt; EasyRPG Player &gt; Game)</source>
+        <translation>Uniquement avec les Extensions EasyRPG (Paramètres du projet &gt; EasyRPG Player &gt; Jeu)</translation>
     </message>
     <message>
         <source>EasyRPG Player</source>
@@ -6629,6 +6629,10 @@ Afficher la nouvelle version et abandonner vos modifications ?</translation>
         <location line="+35"/>
         <source>EasyRPG Player for %1 downloaded: %2</source>
         <translation>EasyRPG Player pour %1 téléchargé : %2</translation>
+    </message>
+    <message>
+        <source>RPG_RT.exe does not run this game as it is set up (%1): choose EasyRPG Player for Windows.</source>
+        <translation>RPG_RT.exe n&apos;exécute pas ce jeu tel qu&apos;il est configuré (%1) : choisissez EasyRPG Player pour Windows.</translation>
     </message>
 </context>
 <context>
@@ -7303,6 +7307,101 @@ http://localhost:8000
         <location line="+1"/>
         <source>Allows true-color images, large charsets and the event commands only EasyRPG Player has. A game that uses them no longer runs with RPG_RT.exe.</source>
         <translation>Permet les images en couleurs vraies, les grands CharSets et les commandes d&apos;évènement que seul EasyRPG Player possède. Un jeu qui les utilise ne fonctionne plus avec RPG_RT.exe.</translation>
+    </message>
+</context>
+<context>
+    <name>GameProfile</name>
+    <message>
+        <source>RPG_RT.exe</source>
+        <translation>RPG_RT.exe</translation>
+    </message>
+    <message>
+        <source>the RPG_RT.exe of the Maniac Patch</source>
+        <translation>le RPG_RT.exe du Maniac Patch</translation>
+    </message>
+    <message>
+        <source>EasyRPG Player</source>
+        <translation>EasyRPG Player</translation>
+    </message>
+    <message>
+        <source>Runs with: %1</source>
+        <translation>Tourne avec : %1</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2003</source>
+        <translation>RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2000</source>
+        <translation>RPG Maker 2000</translation>
+    </message>
+    <message>
+        <source>The format of the game: %1</source>
+        <translation>Le format du jeu : %1</translation>
+    </message>
+    <message>
+        <source>Maniac Patch</source>
+        <translation>Maniac Patch</translation>
+    </message>
+    <message>
+        <source>Maniac Patch: runs with its RPG_RT.exe and with EasyRPG Player</source>
+        <translation>Maniac Patch : fonctionne avec son RPG_RT.exe et avec EasyRPG Player</translation>
+    </message>
+    <message>
+        <source>EasyRPG Extensions</source>
+        <translation>Extensions EasyRPG</translation>
+    </message>
+    <message>
+        <source>EasyRPG Extensions: the commands of EasyRPG Player, true color images...; EasyRPG Player only</source>
+        <translation>Extensions EasyRPG : les commandes d&apos;EasyRPG Player, les images en couleurs vraies... ; EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2003 commands</source>
+        <translation>Commandes de RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2003&apos;s commands and options in this RPG Maker 2000 game: EasyRPG Player only</source>
+        <translation>Les commandes et options de RPG Maker 2003 dans ce jeu RPG Maker 2000 : EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2000 battles</source>
+        <translation>Combats de RPG Maker 2000</translation>
+    </message>
+    <message>
+        <source>The battle system of RPG Maker 2000 in this RPG Maker 2003 game: EasyRPG Player only</source>
+        <translation>Le système de combat de RPG Maker 2000 dans ce jeu RPG Maker 2003 : EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2000 experience</source>
+        <translation>Expérience de RPG Maker 2000</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2003 experience</source>
+        <translation>Expérience de RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>The experience curve of RPG Maker 2000: EasyRPG Player only</source>
+        <translation>La courbe d&apos;expérience de RPG Maker 2000 : EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>The experience curve of RPG Maker 2003: EasyRPG Player only</source>
+        <translation>La courbe d&apos;expérience de RPG Maker 2003 : EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>Played as %1</source>
+        <translation>Joué comme %1</translation>
+    </message>
+    <message>
+        <source>EasyRPG Player runs the game as %1 ([Game] Engine of EasyRPG.ini): EasyRPG Player only</source>
+        <translation>EasyRPG Player exécute le jeu comme %1 ([Game] Engine d&apos;EasyRPG.ini) : EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>DynRPG: EasyRPG Player runs only some of its plugins</source>
+        <translation>DynRPG : EasyRPG Player n&apos;exécute que certains de ses plugins</translation>
+    </message>
+    <message>
+        <source>%1: a patch of RPG_RT.exe, which EasyRPG Player runs too</source>
+        <translation>%1 : un patch de RPG_RT.exe, qu&apos;EasyRPG Player exécute aussi</translation>
     </message>
 </context>
 <context>
@@ -9653,8 +9752,8 @@ http://localhost:8000
     </message>
     <message>
         <location line="+1"/>
-        <source>Language, paths, reloading of changed files and appearance of the Editor</source>
-        <translation>Langue, chemins, rechargement des fichiers modifiés et apparence de l&apos;éditeur</translation>
+        <source>The Editor&apos;s preferences on this computer: language, files, RTP folders, programs and appearance</source>
+        <translation>Les préférences de l&apos;éditeur sur cet ordinateur : langue, fichiers, répertoires des RTP, programmes et apparence</translation>
     </message>
     <message>
         <location filename="../src/ui/map/MapCanvasWindow.qml" line="-63"/>
@@ -10277,6 +10376,69 @@ Les sauvegarder avant l&apos;export ?</translation>
     <message>
         <source>Clear the search</source>
         <translation>Effacer la recherche</translation>
+    </message>
+    <message>
+        <source>the battle system of RPG Maker 2000</source>
+        <translation>le système de combat de RPG Maker 2000</translation>
+    </message>
+    <message>
+        <source>the experience curve of RPG Maker 2000</source>
+        <translation>la courbe d&apos;expérience de RPG Maker 2000</translation>
+    </message>
+    <message>
+        <source>the experience curve of RPG Maker 2003</source>
+        <translation>la courbe d&apos;expérience de RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>Options Removed by RPG Maker</source>
+        <translation>Options retirées par RPG Maker</translation>
+    </message>
+    <message>
+        <source>RPG Maker saved the database of this game and removed an option only EasyRPG Player reads: %1.
+
+Write it back into the database?</source>
+        <translation>RPG Maker a sauvegardé la base de données de ce jeu et en a retiré une option que seul EasyRPG Player lit : %1.
+
+La réécrire dans la base de données ?</translation>
+    </message>
+    <message>
+        <source>RPG Maker saved the database of this game and removed options only EasyRPG Player reads: %1.
+
+Write them back into the database?</source>
+        <translation>RPG Maker a sauvegardé la base de données de ce jeu et en a retiré des options que seul EasyRPG Player lit : %1.
+
+Les réécrire dans la base de données ?</translation>
+    </message>
+    <message>
+        <source>The database could not be saved.</source>
+        <translation>La base de données n&apos;a pas pu être sauvegardée.</translation>
+    </message>
+</context>
+<context>
+    <name>ManiacCheckDialog</name>
+    <message>
+        <source>Add-ons Turned Off</source>
+        <translation>Compléments désactivés</translation>
+    </message>
+    <message>
+        <source>Keep Them Off</source>
+        <translation>Les laisser désactivés</translation>
+    </message>
+    <message>
+        <source>Keep It Off</source>
+        <translation>Le laisser désactivé</translation>
+    </message>
+    <message>
+        <source>Go Back</source>
+        <translation>Revenir</translation>
+    </message>
+    <message>
+        <source>This game uses %1 in one place. Turned off, it stays in the game as it is but is not run.</source>
+        <translation>Ce jeu se sert de ce qui est désactivé (%1) à un endroit. Désactivé, il reste dans le jeu tel quel mais n&apos;est pas exécuté.</translation>
+    </message>
+    <message>
+        <source>This game uses %1 in %2 places. Turned off, they stay in the game as they are but are not run.</source>
+        <translation>Ce jeu se sert de ce qui est désactivé (%1) à %2 endroits. Désactivés, ils restent dans le jeu tels quels mais ne sont pas exécutés.</translation>
     </message>
 </context>
 <context>
@@ -11496,6 +11658,65 @@ Les sauvegarder avant l&apos;export ?</translation>
         <location line="+2"/>
         <source>Wait for completion</source>
         <translation>Attendre la fin</translation>
+    </message>
+</context>
+<context>
+    <name>ManiacCompat</name>
+    <message>
+        <source>%1 (options)</source>
+        <translation>%1 (options)</translation>
+    </message>
+    <message>
+        <source>Trigger: Battle Start</source>
+        <translation>Déclencheur : début du combat</translation>
+    </message>
+    <message>
+        <source>Trigger: Parallel Process in Battle</source>
+        <translation>Déclencheur : processus parallèle en combat</translation>
+    </message>
+    <message>
+        <source>Title Scene Control</source>
+        <translation>Contrôle de l&apos;écran titre</translation>
+    </message>
+    <message>
+        <source>Save/Load Scene Control</source>
+        <translation>Contrôle de l&apos;écran de sauvegarde/chargement</translation>
+    </message>
+    <message>
+        <source>Message Window</source>
+        <translation>Fenêtre de message</translation>
+    </message>
+    <message>
+        <source>Attack Animation</source>
+        <translation>Animation d&apos;attaque</translation>
+    </message>
+    <message>
+        <source>Monster %1: %2</source>
+        <translation>Monstre %1 : %2</translation>
+    </message>
+    <message>
+        <source>Page condition: Timer 2</source>
+        <translation>Condition de la page : Chrono 2</translation>
+    </message>
+    <message>
+        <source>%1: large charset %2</source>
+        <translation>%1 : grand CharSet %2</translation>
+    </message>
+    <message>
+        <source>Graphic of the page</source>
+        <translation>Graphisme de la page</translation>
+    </message>
+    <message>
+        <source>Graphic</source>
+        <translation>Graphisme</translation>
+    </message>
+    <message>
+        <source>Hero %1: %2</source>
+        <translation>Héros %1 : %2</translation>
+    </message>
+    <message>
+        <source>Vehicle graphic</source>
+        <translation>Graphisme du véhicule</translation>
     </message>
 </context>
 <context>
@@ -13401,6 +13622,18 @@ Les sauvegarder avant l&apos;export ?</translation>
         <translation>Taille des carreaux</translation>
     </message>
     <message>
+        <source>RPG Maker and EasyRPG Player only run tiles of 16 pixels</source>
+        <translation>RPG Maker et EasyRPG Player n&apos;utilisent que des carreaux de 16 pixels</translation>
+    </message>
+    <message>
+        <source>Add-ons</source>
+        <translation>Compléments</translation>
+    </message>
+    <message>
+        <source>Part of RPG Maker 2003: for a game of RPG Maker 2000</source>
+        <translation>Déjà dans RPG Maker 2003 : pour un jeu RPG Maker 2000</translation>
+    </message>
+    <message>
         <location line="+12"/>
         <source>Format</source>
         <translation>Format</translation>
@@ -13516,6 +13749,10 @@ Les sauvegarder avant l&apos;export ?</translation>
         <source>The folder could not be renamed.</source>
         <translation>Impossible de renommer le répertoire.</translation>
     </message>
+    <message>
+        <source>Engine</source>
+        <translation>Moteur</translation>
+    </message>
 </context>
 <context>
     <name>OpenShopWidget</name>
@@ -13598,6 +13835,126 @@ Les sauvegarder avant l&apos;export ?</translation>
         <location line="+18"/>
         <source>Unknown</source>
         <translation>Inconnu</translation>
+    </message>
+</context>
+<context>
+    <name>Origins</name>
+    <message>
+        <location filename="../src/ui/common/Origins.qml" line="+1"/>
+        <source>RPG Maker 2003 commands</source>
+        <translation>Commandes de RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2003</source>
+        <translation>RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>Maniac Patch</source>
+        <translation>Maniac Patch</translation>
+    </message>
+    <message>
+        <source>EasyRPG Extensions</source>
+        <translation>Extensions EasyRPG</translation>
+    </message>
+    <message>
+        <source>EasyRPG Player</source>
+        <translation>EasyRPG Player</translation>
+    </message>
+    <message>
+        <source>DynRPG</source>
+        <translation>DynRPG</translation>
+    </message>
+    <message>
+        <source>Ineluki Key Patch</source>
+        <translation>Ineluki Key Patch</translation>
+    </message>
+    <message>
+        <source>Power Mode 2003</source>
+        <translation>Power Mode 2003</translation>
+    </message>
+    <message>
+        <source>Project Settings › EasyRPG Player › RPG Maker 2003 commands</source>
+        <translation>Paramètres du projet › EasyRPG Player › Commandes de RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>Project Settings › Engine › Convert to RPG Maker 2003</source>
+        <translation>Paramètres du projet › Moteur › Convertir en RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>Project Settings › Engine › Maniac Patch</source>
+        <translation>Paramètres du projet › Moteur › Maniac Patch</translation>
+    </message>
+    <message>
+        <source>Project Settings › EasyRPG Player › EasyRPG Extensions</source>
+        <translation>Paramètres du projet › EasyRPG Player › Extensions EasyRPG</translation>
+    </message>
+    <message>
+        <source>Project Settings › EasyRPG Player › Patches</source>
+        <translation>Paramètres du projet › EasyRPG Player › Patchs</translation>
+    </message>
+    <message>
+        <source>An option of RPG Maker 2003: in this RPG Maker 2000 game, only EasyRPG Player runs it</source>
+        <translation>Une option de RPG Maker 2003 : dans ce jeu RPG Maker 2000, seul EasyRPG Player l&apos;exécute</translation>
+    </message>
+    <message>
+        <source>Maniac Patch: runs with its RPG_RT.exe and with EasyRPG Player</source>
+        <translation>Maniac Patch : fonctionne avec son RPG_RT.exe et avec EasyRPG Player</translation>
+    </message>
+    <message>
+        <source>EasyRPG Extensions: runs with EasyRPG Player only</source>
+        <translation>Extensions EasyRPG : fonctionne avec EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>EasyRPG Player only: RPG_RT.exe ignores it</source>
+        <translation>EasyRPG Player seulement : RPG_RT.exe l&apos;ignore</translation>
+    </message>
+    <message>
+        <source>DynRPG: EasyRPG Player runs only some of its plugins</source>
+        <translation>DynRPG : EasyRPG Player n&apos;exécute que certains de ses plugins</translation>
+    </message>
+    <message>
+        <source>%1: runs with its RPG_RT.exe and with EasyRPG Player</source>
+        <translation>%1 : fonctionne avec son RPG_RT.exe et avec EasyRPG Player</translation>
+    </message>
+    <message>
+        <source>Needs RPG Maker 2003&apos;s commands in this RPG Maker 2000 game: %1</source>
+        <translation>Demande les commandes de RPG Maker 2003 dans ce jeu RPG Maker 2000 : %1</translation>
+    </message>
+    <message>
+        <source>Needs an RPG Maker 2003 game: %1</source>
+        <translation>Demande un jeu RPG Maker 2003 : %1</translation>
+    </message>
+    <message>
+        <source>Needs the Maniac Patch: %1</source>
+        <translation>Demande le Maniac Patch : %1</translation>
+    </message>
+    <message>
+        <source>Needs the EasyRPG Extensions: %1</source>
+        <translation>Demande les Extensions EasyRPG : %1</translation>
+    </message>
+    <message>
+        <source>Needs %1: %2</source>
+        <translation>Demande %1 : %2</translation>
+    </message>
+    <message>
+        <source>Not run in this RPG Maker 2000 game without RPG Maker 2003&apos;s commands: %1</source>
+        <translation>Pas exécuté dans ce jeu RPG Maker 2000 sans les commandes de RPG Maker 2003 : %1</translation>
+    </message>
+    <message>
+        <source>Not run in an RPG Maker 2000 game: %1</source>
+        <translation>Pas exécuté dans un jeu RPG Maker 2000 : %1</translation>
+    </message>
+    <message>
+        <source>Not run without the Maniac Patch: %1</source>
+        <translation>Pas exécuté sans le Maniac Patch : %1</translation>
+    </message>
+    <message>
+        <source>Not run without the EasyRPG Extensions: %1</source>
+        <translation>Pas exécuté sans les Extensions EasyRPG : %1</translation>
+    </message>
+    <message>
+        <source>Not run without %1: %2</source>
+        <translation>Pas exécuté sans %1 : %2</translation>
     </message>
 </context>
 <context>
@@ -14046,6 +14403,10 @@ Les sauvegarder avant l&apos;export ?</translation>
         <location line="+1"/>
         <source>Additional Attributes</source>
         <translation>Attributs additionnels</translation>
+    </message>
+    <message>
+        <source>More Options</source>
+        <translation>Autres options</translation>
     </message>
     <message>
         <location line="+189"/>
@@ -15788,8 +16149,8 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
         <translation>Personnalisée</translation>
     </message>
     <message>
-        <source>Read by EasyRPG Player (EasyRPG.ini, Font folder; the screen size in RPG_RT.ini, which the Maniac Patch reads too). RPG_RT.exe is not changed.</source>
-        <translation>Lu par EasyRPG Player (EasyRPG.ini, répertoire Font ; la taille de l&apos;écran dans RPG_RT.ini, que le Maniac Patch lit aussi). RPG_RT.exe n&apos;est pas modifié.</translation>
+        <source>Read by EasyRPG Player (EasyRPG.ini, options of the database, Font folder; the screen size in RPG_RT.ini, which the Maniac Patch reads too). RPG_RT.exe is not changed.</source>
+        <translation>Lu par EasyRPG Player (EasyRPG.ini, options de la base de données, répertoire Font ; la taille de l&apos;écran dans RPG_RT.ini, que le Maniac Patch lit aussi). RPG_RT.exe n&apos;est pas modifié.</translation>
     </message>
     <message>
         <source>Screen</source>
@@ -15826,6 +16187,134 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
     <message>
         <source>FakeResolution could not be written in EasyRPG.ini.</source>
         <translation>FakeResolution n&apos;a pas pu être écrit dans EasyRPG.ini.</translation>
+    </message>
+    <message>
+        <source>On This Computer</source>
+        <translation>Sur cet ordinateur</translation>
+    </message>
+    <message>
+        <source>RTP</source>
+        <translation>RTP</translation>
+    </message>
+    <message>
+        <source>RTP folder</source>
+        <translation>Répertoire des RTP</translation>
+    </message>
+    <message>
+        <source>The files the game lacks are looked for in this folder first, then in the other RTP folders of the Editor Settings, from top to bottom. Engine&apos;s default: the folder marked there for the engine of the game. Kept in the Editor&apos;s settings on this computer, not in the game.</source>
+        <translation>Les fichiers qui manquent au jeu sont cherchés d&apos;abord dans ce répertoire, puis dans les autres répertoires des RTP des paramètres de l&apos;éditeur, de haut en bas. Par défaut : le répertoire coché là-bas pour le moteur du jeu. Conservé dans les paramètres de l&apos;éditeur sur cet ordinateur, pas dans le jeu.</translation>
+    </message>
+    <message>
+        <source>Missing folder %1</source>
+        <translation>Répertoire absent : %1</translation>
+    </message>
+    <message>
+        <source>Other files in %1</source>
+        <translation>Autres fichiers dans %1</translation>
+    </message>
+    <message>
+        <source>EasyRPG RTP in %1</source>
+        <translation>RTP d&apos;EasyRPG dans %1</translation>
+    </message>
+    <message>
+        <source>RTP of RPG Maker %1 in %2</source>
+        <translation>RTP de RPG Maker %1 dans %2</translation>
+    </message>
+    <message>
+        <source>Engine&apos;s default (RPG Maker %1): none</source>
+        <translation>Par défaut (RPG Maker %1) : aucun</translation>
+    </message>
+    <message>
+        <source>Engine&apos;s default (RPG Maker %1): %2</source>
+        <translation>Par défaut (RPG Maker %1) : %2</translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation>Jeu</translation>
+    </message>
+    <message>
+        <source>The version of RPG Maker the game runs as: its commands, battles and menus behave as in it ([Game] Engine of EasyRPG.ini). Detect: from RPG_RT.exe, else from the database and the files of the game.</source>
+        <translation>La version de RPG Maker sous laquelle le jeu tourne : ses commandes, ses combats et ses menus se comportent comme dans celle-ci ([Game] Engine d&apos;EasyRPG.ini). Détecter : d&apos;après RPG_RT.exe, sinon d&apos;après la base de données et les fichiers du jeu.</translation>
+    </message>
+    <message>
+        <source>Battle system</source>
+        <translation>Système de combat</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2000: front view battles, with the Fight, Auto and Escape commands of the party, instead of the side view battles of RPG Maker 2003. Saved in the database.</source>
+        <translation>RPG Maker 2000 : combats vus de face, avec les commandes Attaquer, Auto et Fuite du groupe, au lieu des combats vus de côté de RPG Maker 2003. Enregistré dans la base de données.</translation>
+    </message>
+    <message>
+        <source>Experience curve</source>
+        <translation>Courbe d&apos;expérience</translation>
+    </message>
+    <message>
+        <source>Engine&apos;s (%1)</source>
+        <translation>Celle du moteur (%1)</translation>
+    </message>
+    <message>
+        <source>The formula of the experience the heroes need for each level, from the values of their class or their own. Engine&apos;s: the one of the engine above. Saved in the database.</source>
+        <translation>La formule de l&apos;expérience dont les héros ont besoin pour chaque niveau, d&apos;après les valeurs de leur classe ou les leurs. Celle du moteur : celle du moteur ci-dessus. Enregistrée dans la base de données.</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2003 commands</source>
+        <translation>Commandes de RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>EasyRPG Extensions</source>
+        <translation>Extensions EasyRPG</translation>
+    </message>
+    <message>
+        <source>Detect: %1</source>
+        <translation>Détecter : %1</translation>
+    </message>
+    <message>
+        <source>%1: unknown, detected instead</source>
+        <translation>%1 : inconnu, détecté à la place</translation>
+    </message>
+    <message>
+        <source>The copy of the options of the database could not be written in EasyRPG.ini.</source>
+        <translation>La copie des options de la base de données n&apos;a pas pu être écrite dans EasyRPG.ini.</translation>
+    </message>
+    <message>
+        <source>The engine could not be written in EasyRPG.ini.</source>
+        <translation>Le moteur n&apos;a pas pu être écrit dans EasyRPG.ini.</translation>
+    </message>
+    <message>
+        <source>Runs with</source>
+        <translation>Tourne avec</translation>
+    </message>
+    <message>
+        <source>Runs the game as it is set up in this window</source>
+        <translation>Fait tourner le jeu tel qu&apos;il est réglé dans cette fenêtre</translation>
+    </message>
+    <message>
+        <source>The RPG Maker 2003 commands in an RPG Maker 2000 game: EasyRPG Player only</source>
+        <translation>Les commandes de RPG Maker 2003 dans un jeu RPG Maker 2000 : EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>The battle system of RPG Maker 2000 in an RPG Maker 2003 game: EasyRPG Player only</source>
+        <translation>Le système de combat de RPG Maker 2000 dans un jeu RPG Maker 2003 : EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>An experience curve chosen: EasyRPG Player only</source>
+        <translation>Une courbe d&apos;expérience choisie : EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>The EasyRPG Extensions: EasyRPG Player only</source>
+        <translation>Les Extensions EasyRPG : EasyRPG Player seulement</translation>
+    </message>
+    <message>
+        <source>The patches are as written in EasyRPG.ini: choose “Choose” in Project Settings › EasyRPG Player › Patches to set them here</source>
+        <translation>Les patchs sont tels qu&apos;écrits dans EasyRPG.ini : choisissez « Choisir » dans Paramètres du projet › EasyRPG Player › Patchs pour les régler ici</translation>
+    </message>
+    <message>
+        <source>The Maniac Patch: the RPG_RT.exe of the Maniac Patch</source>
+        <translation>Le Maniac Patch : le RPG_RT.exe du Maniac Patch</translation>
+    </message>
+    <message>
+        <source>An RPG Maker 2000 game: the RPG_RT.exe of the Maniac Patch is RPG Maker 2003&apos;s</source>
+        <translation>Un jeu RPG Maker 2000 : le RPG_RT.exe du Maniac Patch est celui de RPG Maker 2003</translation>
     </message>
 </context>
 <context>
@@ -16212,8 +16701,16 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
     </message>
     <message>
         <location line="+91"/>
-        <source>True color image: the game needs the EasyRPG extensions (RPG Maker only uses 256 color images).</source>
-        <translation>Image en couleurs vraies : le jeu nécessite les extensions EasyRPG (RPG Maker utilise uniquement des images à 256 couleurs).</translation>
+        <source>True color image (RPG Maker only uses images of 256 colors)</source>
+        <translation>Image en couleurs vraies (RPG Maker utilise uniquement des images à 256 couleurs)</translation>
+    </message>
+    <message>
+        <source>Needs the EasyRPG Extensions (Project Settings › EasyRPG Player) or the Maniac Patch (Project Settings › Engine)</source>
+        <translation>Nécessite les Extensions EasyRPG (Paramètres du projet › EasyRPG Player) ou le Maniac Patch (Paramètres du projet › Moteur)</translation>
+    </message>
+    <message>
+        <source>Not shown in this game without the EasyRPG Extensions (Project Settings › EasyRPG Player) or the Maniac Patch (Project Settings › Engine)</source>
+        <translation>Non affichée dans ce jeu sans les Extensions EasyRPG (Paramètres du projet › EasyRPG Player) ou le Maniac Patch (Paramètres du projet › Moteur)</translation>
     </message>
     <message>
         <location line="-83"/>
@@ -16311,8 +16808,12 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
     </message>
     <message>
         <location line="+10"/>
-        <source>%1 has more than 256 colors. RPG Maker, and the EasyRPG Player without its extensions, only use images of 256 colors.</source>
-        <translation>%1 contient plus de 256 couleurs. RPG Maker et EasyRPG Player sans ses extensions utilisent uniquement des images à 256 couleurs.</translation>
+        <source>%1 has more than 256 colors. RPG Maker only uses images of 256 colors; EasyRPG Player shows the others with its EasyRPG Extensions or the Maniac Patch.</source>
+        <translation>%1 contient plus de 256 couleurs. RPG Maker utilise uniquement des images à 256 couleurs ; EasyRPG Player affiche les autres avec ses Extensions EasyRPG ou le Maniac Patch.</translation>
+    </message>
+    <message>
+        <source>This game has neither: it would show a checkerboard instead. Reduce the image to 256 colors, or turn one of them on first.</source>
+        <translation>Ce jeu n&apos;a ni l&apos;un ni l&apos;autre : il afficherait un damier à la place. Réduisez l&apos;image à 256 couleurs, ou activez d&apos;abord l&apos;un des deux.</translation>
     </message>
     <message>
         <location filename="../src/qmlbinding/resource_windows.cpp" line="+131"/>
@@ -17224,8 +17725,8 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
     </message>
     <message>
         <location line="-181"/>
-        <source>Settings</source>
-        <translation>Paramètres</translation>
+        <source>Editor Settings</source>
+        <translation>Paramètres de l&apos;éditeur</translation>
     </message>
     <message>
         <location line="+47"/>
@@ -17254,8 +17755,8 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
     </message>
     <message>
         <location line="+5"/>
-        <source>Project</source>
-        <translation>Projet</translation>
+        <source>Files</source>
+        <translation>Fichiers</translation>
     </message>
     <message>
         <location line="+12"/>
@@ -17264,8 +17765,8 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
     </message>
     <message>
         <location line="+5"/>
-        <source>Paths</source>
-        <translation>Chemins</translation>
+        <source>Programs</source>
+        <translation>Programmes</translation>
     </message>
     <message>
         <location line="+115"/>
@@ -17288,14 +17789,42 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <translation>Apparence</translation>
     </message>
     <message>
+        <source>Display</source>
+        <translation>Affichage</translation>
+    </message>
+    <message>
+        <source>RTP and Programs</source>
+        <translation>RTP et programmes</translation>
+    </message>
+    <message>
+        <source>Add-ons</source>
+        <translation>Compléments</translation>
+    </message>
+    <message>
+        <source>Show the badges of the add-ons (M, E, P)</source>
+        <translation>Afficher les badges des compléments (M, E, P)</translation>
+    </message>
+    <message>
+        <source>M: the Maniac Patch, E: EasyRPG Player, P: another patch, beside the commands and options that need them. What the game has and does not run keeps its badge (M!...).</source>
+        <translation>M : le Maniac Patch, E : EasyRPG Player, P : un autre patch, à côté des commandes et options qui en ont besoin. Ce que le jeu contient et n&apos;exécute pas garde son badge (M!...).</translation>
+    </message>
+    <message>
+        <source>Show add-on commands even when the game does not use the add-on</source>
+        <translation>Afficher les commandes des compléments même quand le jeu ne les utilise pas</translation>
+    </message>
+    <message>
+        <source>Shown greyed, their tooltip saying what they need. Off: hidden, except those the game already has.</source>
+        <translation>Affichées grisées, leur infobulle disant ce qu&apos;il leur faut. Décoché : masquées, sauf celles que le jeu contient déjà.</translation>
+    </message>
+    <message>
         <location line="+4"/>
         <source>Animate water and animated tiles in the map</source>
         <translation>Animer l&apos;eau et les carreaux animés sur la carte</translation>
     </message>
     <message>
         <location line="+5"/>
-        <source>Color the event commands by kind, as RPG Maker 2003</source>
-        <translation>Colorer les commandes d&apos;évènement par type, comme dans RPG Maker 2003</translation>
+        <source>Color the event commands by kind</source>
+        <translation>Colorer les commandes d&apos;évènement par type</translation>
     </message>
     <message>
         <location line="+5"/>
@@ -17304,8 +17833,8 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
     </message>
     <message>
         <location line="-92"/>
-        <source>rpgsync mode: reload the files other programs change</source>
-        <translation>Mode rpgsync : recharger les fichiers modifiés par d&apos;autres programmes</translation>
+        <source>Reload the files other programs change (rpgsync)</source>
+        <translation>Recharger les fichiers modifiés par d&apos;autres programmes (rpgsync)</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -17369,24 +17898,16 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <translation>Autre</translation>
     </message>
     <message>
-        <source>This Game</source>
-        <translation>Ce jeu</translation>
-    </message>
-    <message>
         <source>A game looks for the files it lacks in its RTP folder, then in the other folders from top to bottom.</source>
         <translation>Un jeu cherche les fichiers qui lui manquent dans son répertoire des RTP, puis dans les autres répertoires, de haut en bas.</translation>
     </message>
     <message>
-        <source>The folder of the games of RPG Maker 2000</source>
-        <translation>Le répertoire des jeux RPG Maker 2000</translation>
+        <source>The folder of the games of RPG Maker 2000, unless one chose another in its Project Settings</source>
+        <translation>Le répertoire des jeux RPG Maker 2000, sauf si l&apos;un d&apos;eux en a choisi un autre dans ses paramètres du projet</translation>
     </message>
     <message>
-        <source>The folder of the games of RPG Maker 2003</source>
-        <translation>Le répertoire des jeux RPG Maker 2003</translation>
-    </message>
-    <message>
-        <source>The folder %1 uses: the one marked for its engine, or one of its own.</source>
-        <translation>Le répertoire qu&apos;utilise %1 : celui coché pour son moteur, ou un répertoire à lui.</translation>
+        <source>The folder of the games of RPG Maker 2003, unless one chose another in its Project Settings</source>
+        <translation>Le répertoire des jeux RPG Maker 2003, sauf si l&apos;un d&apos;eux en a choisi un autre dans ses paramètres du projet</translation>
     </message>
     <message>
         <source>Add</source>
@@ -17407,14 +17928,6 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
     <message>
         <source>Move Down</source>
         <translation>Descendre</translation>
-    </message>
-    <message>
-        <source>Engine&apos;s Default</source>
-        <translation>Celui du moteur</translation>
-    </message>
-    <message>
-        <source>%1 uses the folder marked for RPG Maker %2 again.</source>
-        <translation>%1 utilise de nouveau le répertoire coché pour RPG Maker %2.</translation>
     </message>
     <message>
         <source>Download EasyRPG RTP...</source>
@@ -17485,20 +17998,20 @@ Placez-le à côté de l&apos;éditeur ou dans le PATH, ou indiquez l&apos;empla
         <translation>%1 : RTP d&apos;EasyRPG, pour les jeux RPG Maker 2000 et 2003.</translation>
     </message>
     <message>
-        <source>MIDI soundfont</source>
-        <translation>Soundfont MIDI</translation>
+        <source>Soundfont for previews</source>
+        <translation>Soundfont des aperçus</translation>
     </message>
     <message>
         <source>None</source>
         <translation>Aucune</translation>
     </message>
     <message>
-        <source>An SF2 file: the Editor plays MIDI music with it when the game has no soundfont, and test play gives it to the Player. None: a soundfont of the system, else its synthesizer.</source>
-        <translation>Un fichier SF2 : l&apos;éditeur joue la musique MIDI avec lui quand le jeu n&apos;a pas de soundfont, et le test du jeu le donne au Player. Aucune : une soundfont du système, sinon son synthétiseur.</translation>
+        <source>An SF2 file the Editor plays MIDI music with when the game has no soundfont of its own (the game&apos;s soundfont is in Project Settings), and that test play then gives to the Player. None: a soundfont of the system, else its synthesizer.</source>
+        <translation>Un fichier SF2 avec lequel l&apos;éditeur joue la musique MIDI quand le jeu n&apos;a pas de soundfont à lui (la soundfont du jeu est dans les paramètres du projet), et que le test du jeu donne alors au Player. Aucune : une soundfont du système, sinon son synthétiseur.</translation>
     </message>
     <message>
-        <source>MIDI Soundfont</source>
-        <translation>Soundfont MIDI</translation>
+        <source>Soundfont for Previews</source>
+        <translation>Soundfont des aperçus</translation>
     </message>
 </context>
 <context>

@@ -37,13 +37,15 @@
  * editor); every change emits changed().
  *
  * The field of a condition is enabled while its condition is on (switchA
- * enables switchAId...); the other rules are the *Enabled properties.
+ * enables switchAId...); the other rules are the *Enabled properties. The
+ * rules of the engine follow the game (GameSetup) while the page is shown.
  */
 class EventPageSettings : public QObject
 {
 	Q_OBJECT
 	Q_PROPERTY(bool valid READ hasPage NOTIFY changed)
-	Q_PROPERTY(bool rpg2k3 READ rpg2k3 WRITE setRpg2k3 NOTIFY changed)
+	Q_PROPERTY(bool rpg2k3 READ rpg2k3 NOTIFY changed)
+	Q_PROPERTY(bool commands2k3 READ commands2k3 NOTIFY changed)
 
 	// the conditions
 	Q_PROPERTY(bool switchA READ switchA WRITE setSwitchA NOTIFY changed)
@@ -103,10 +105,12 @@ public:
 	lcf::rpg::EventPage* page() const;
 	bool hasPage() const;
 
-	/** RPG Maker 2003: the comparison of the variable, the second timer
-	 *  and the larger values */
+	/** RPG Maker 2003's database (GameSetup::rpg2k3): the comparison of
+	 *  the variable and its larger values */
 	bool rpg2k3() const;
-	void setRpg2k3(bool rpg2k3);
+	/** RPG Maker 2003's commands (GameSetup::commands2k3, also a 2000 game
+	 *  with the patch RPG2k3Commands): the second timer */
+	bool commands2k3() const;
 
 	bool switchA() const;
 	void setSwitchA(bool on);
@@ -195,7 +199,7 @@ public:
 	int variableMaximum() const;
 	/** The comparison is RPG Maker 2003's (2000 compares with >=) */
 	bool compareOperatorEnabled() const;
-	/** The second timer is RPG Maker 2003's (its seconds: timer2) */
+	/** The second timer is RPG Maker 2003's commands' (its seconds: timer2) */
 	bool timer2Allowed() const;
 	/** Not for an event standing still */
 	bool moveFrequencyEnabled() const;
@@ -223,7 +227,6 @@ private:
 	void set(T& field, V value);
 
 	lcf::rpg::EventPage* m_page = nullptr;
-	bool m_rpg2k3 = true;
 };
 
 /**
@@ -249,7 +252,8 @@ class EventEditorController : public QObject
 {
 	Q_OBJECT
 	Q_PROPERTY(int mapId READ mapId WRITE setMapId NOTIFY mapIdChanged)
-	Q_PROPERTY(bool rpg2k3 READ rpg2k3 WRITE setRpg2k3 NOTIFY rpg2k3Changed)
+	/** The game's database is RPG Maker 2003's (GameSetup::rpg2k3) */
+	Q_PROPERTY(bool rpg2k3 READ rpg2k3 NOTIFY rpg2k3Changed)
 	Q_PROPERTY(int eventId READ eventId NOTIFY eventChanged)
 	Q_PROPERTY(bool newEvent READ isNewEvent NOTIFY eventChanged)
 	Q_PROPERTY(QString title READ title NOTIFY eventChanged)
@@ -292,8 +296,6 @@ public:
 	int mapId() const;
 	void setMapId(int map_id);
 	bool rpg2k3() const;
-	void setRpg2k3(bool rpg2k3);
-
 	/** The event edited: a copy, its pages numbered from 1 in order (as
 	 *  RPG Maker saves them); the result starts over. is_new: not on the
 	 *  map yet (New Event) */
@@ -412,7 +414,6 @@ private:
 	void updatePageSettings();
 
 	int m_mapId = 0;
-	bool m_rpg2k3 = true;
 	lcf::rpg::Event m_event;
 	/** What modified() compares to: as shown, or as last applied */
 	lcf::rpg::Event m_reference;
@@ -432,19 +433,24 @@ private:
  * The trigger conditions of a battle event page (TroopPageCondition) as
  * RPG Maker's "Define Battle Event Triggers" window shows them: a row per
  * condition, whose check box enables its fields. The conditions of RPG
- * Maker 2003 stay visible (and keep their data) in 2000 games, locked.
- * A copy is edited: condition() is written back on OK.
+ * Maker 2003 stay visible (and keep their data) in 2000 games, locked
+ * unless the game runs RPG Maker 2003's commands (GameSetup::commands2k3,
+ * followed while the window is open). A copy is edited: condition() is
+ * written back on OK.
  */
 class BattlePageConditions : public QObject
 {
 	Q_OBJECT
-	Q_PROPERTY(bool rpg2k3 READ rpg2k3 CONSTANT)
-	Q_PROPERTY(int variableMaximum READ variableMaximum CONSTANT)
+	/** The game's database is RPG Maker 2003's (GameSetup::rpg2k3): the larger values */
+	Q_PROPERTY(bool rpg2k3 READ rpg2k3 NOTIFY changed)
+	/** RPG Maker 2003's commands run (GameSetup::commands2k3): its conditions */
+	Q_PROPERTY(bool commands2k3 READ commands2k3 NOTIFY changed)
+	Q_PROPERTY(int variableMaximum READ variableMaximum NOTIFY changed)
 
 	// the rows checked (isChecked) and whose fields can be changed (fieldsEnabled), by Row
 	Q_PROPERTY(QVariantList checkedRows READ checkedRows NOTIFY changed)
 	Q_PROPERTY(QVariantList enabledRows READ enabledRows NOTIFY changed)
-	Q_PROPERTY(QVariantList allowedRows READ allowedRows CONSTANT)
+	Q_PROPERTY(QVariantList allowedRows READ allowedRows NOTIFY changed)
 
 	// the fields of the rows
 	Q_PROPERTY(int switchAId READ switchAId WRITE setSwitchAId NOTIFY changed)
@@ -481,21 +487,23 @@ public:
 	enum Row { SwitchA, SwitchB, Variable, Turn, Fatigue, EnemyHp, ActorHp, TurnEnemy, TurnActor, Command, RowCount };
 	Q_ENUM(Row)
 
-	BattlePageConditions(const lcf::rpg::TroopPageCondition& condition, bool rpg2k3, QObject* parent = nullptr);
+	explicit BattlePageConditions(const lcf::rpg::TroopPageCondition& condition, QObject* parent = nullptr);
 
 	lcf::rpg::TroopPageCondition& condition();
 	const lcf::rpg::TroopPageCondition& condition() const;
 	bool rpg2k3() const;
+	bool commands2k3() const;
 	/** The value of the variable is between -max and max */
 	int variableMaximum() const;
 
 	Q_INVOKABLE bool isChecked(int row) const;
 	Q_INVOKABLE void setChecked(int row, bool checked);
-	/** The check box can be used: RPG Maker 2003's rows only in its games */
+	/** The check box can be used: RPG Maker 2003's rows only when its
+	 *  commands run (Player::IsRPG2k3Commands) */
 	Q_INVOKABLE bool isAllowed(int row) const;
 	/** The fields of the row: allowed and checked */
 	Q_INVOKABLE bool fieldsEnabled(int row) const;
-	static bool allowed(int row, bool rpg2k3);
+	static bool allowed(int row, bool commands2k3);
 	QVariantList checkedRows() const;
 	QVariantList enabledRows() const;
 	QVariantList allowedRows() const;
@@ -569,7 +577,6 @@ private:
 	void set(int32_t& field, int value);
 
 	lcf::rpg::TroopPageCondition m_condition;
-	bool m_rpg2k3;
 	QVariantList m_members;
 	QVariantList m_battleCommands;
 };

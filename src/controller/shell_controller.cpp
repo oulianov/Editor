@@ -34,10 +34,13 @@
 #include "common/editor_settings.h"
 #include "common/logging.h"
 #include "common/translations.h"
+#include "model/game_patches.h"
 #include "model/game_runner.h"
+#include "model/game_setup.h"
 #include "model/maniac_compat.h"
 #include "model/map_document.h"
 #include "model/map_tools.h"
+#include "model/player_options.h"
 #include "model/project.h"
 #include "model/project_convert.h"
 
@@ -50,7 +53,7 @@ DialogService& dialogs()
 	return DialogService::instance();
 }
 
-/** Where the Maniac mode's check of a project keeps the findings it showed */
+/** Where the Maniac Patch check of a project keeps the findings it showed */
 QString maniacCheckKey(const QString& folder)
 {
 	return QStringLiteral("maniac_checks/%1")
@@ -188,9 +191,14 @@ bool ShellController::openProject(const QString& folder)
 		<< "maps:" << (core().project()->treeMap().maps.size() - 1)
 		<< "reload changed files:" << EditorSettings::instance().reloadExternalChanges();
 	updateActions();
-	// in Maniac mode: what the game uses that the Maniac Patch does not
-	// run, once the window shows the project
-	if (check_maniac && EditorSettings::instance().maniacMode())
+	// what RPG Maker removed from the database that the Editor kept a copy
+	// of, once the window shows the project (before the Maniac Patch's
+	// check, which reads it)
+	if (PlayerOptions::dropped(*core().project()))
+		QTimer::singleShot(0, this, [this] { restorePlayerOptions(); });
+	// a game of the Maniac Patch (its own patches): what it uses that the
+	// Maniac Patch does not run, once the window shows the project
+	if (check_maniac && GamePatches::hasManiac(*core().project()))
 		QTimer::singleShot(0, this, [this] { checkManiac(ManiacCheck::Opened); });
 	return true;
 }
@@ -239,7 +247,7 @@ void ShellController::newProject()
 		folder.mkpath(dir);
 	QSettings().setValue(DEFAULT_DIR_KEY, chosen->defDir);
 
-	const QString error = Project::create(folder, chosen->title, static_cast<Project::Format>(chosen->format));
+	const QString error = Project::create(folder, chosen->title, static_cast<Project::Format>(chosen->format), chosen->patches);
 	if (!error.isEmpty()) {
 		dialogs().error(QCoreApplication::translate("MainWindow", "Creating new project failed"), error);
 		return;
@@ -360,6 +368,52 @@ void ShellController::checkManiac(ManiacCheck why)
 	settings.setValue(maniacCheckKey(path), report.fingerprint());
 	if (m_dialogs->maniacCheck(report, QDir(path).filePath(ManiacCompat::backupFolderName())))
 		convertManiac(report.rpg2000);
+}
+
+bool ShellController::checkTurnedOff(const QStringList& origins, bool dynRpg)
+{
+	auto project = core().project();
+	if (!m_dialogs || !project || origins.isEmpty())
+		return true;
+	// the open maps as they are edited
+	const auto report = ManiacCompat::uses(*project, origins, dynRpg, [this](int id) -> const lcf::rpg::Map* {
+		const MapDocument* doc = m_project->document(id);
+		return doc && doc->hasMap() ? &doc->map() : nullptr;
+	});
+	project.reset();
+	qCInfo(lcProject).noquote() << "add-ons turned off:" << origins.join(QStringLiteral(", ")) << "used:" << report.remaining();
+	for (const auto& finding : report.findings)
+		qCInfo(lcProject).noquote() << "  " << finding.origin << "|" << finding.what << "|" << finding.places.size()
+			<< "|" << finding.places.value(0);
+	return report.empty() || m_dialogs->turnedOffCheck(report);
+}
+
+void ShellController::restorePlayerOptions()
+{
+	auto project = core().project();
+	if (!project)
+		return;
+	const int dropped = PlayerOptions::dropped(*project);
+	if (!dropped)
+		return;
+	const PlayerOptions::Kept copy = PlayerOptions::kept(*project);
+	const QStringList what = PlayerOptions::describe(copy.values, dropped);
+	qCInfo(lcProject).noquote() << "options removed by RPG Maker:" << what.join(QStringLiteral(", "));
+	const QString title = QCoreApplication::translate("MainWindow", "Options Removed by RPG Maker");
+	const QString text = what.size() == 1
+		? QCoreApplication::translate("MainWindow", "RPG Maker saved the database of this game and removed an option "
+			"only EasyRPG Player reads: %1.\n\nWrite it back into the database?").arg(what.join(QString()))
+		: QCoreApplication::translate("MainWindow", "RPG Maker saved the database of this game and removed options "
+			"only EasyRPG Player reads: %1.\n\nWrite them back into the database?").arg(what.join(QStringLiteral(", ")));
+	if (dialogs().question(title, text) != DialogService::Answer::Yes) {
+		// not asked again
+		PlayerOptions::keep(*project, PlayerOptions::Values(), dropped);
+		return;
+	}
+	PlayerOptions::set(project->database(), copy.values, dropped);
+	if (!project->saveDatabase())
+		dialogs().warning(title, project->withWriteError(QCoreApplication::translate("MainWindow", "The database could not be saved.")));
+	GameSetup::instance().reload();
 }
 
 void ShellController::convertManiac(bool rpg2000)

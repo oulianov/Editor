@@ -23,9 +23,10 @@
 class QWindow;
 
 /**
- * The windows of the Maniac mode's check (ManiacCheckWindow.qml), over a
+ * The windows of the Maniac Patch check (ManiacCheckWindow.qml), over a
  * window: what a game uses that the Maniac Patch does not run, and what the
- * conversion did. The conversion itself is the caller's.
+ * conversion did. The conversion itself is the caller's. The same window
+ * lists what a game uses from the add-ons Project Settings turns off.
  */
 namespace ManiacCheckWindow {
 	/** The findings of a check, with Yes and No (OK alone when nothing
@@ -35,4 +36,7 @@ namespace ManiacCheckWindow {
 	 *  converted, those that stay; the folders of the files as they were */
 	void result(QWindow* over, const QString& error, int converted, int remaining, const QString& backup,
 		const QString& backup2000);
+	/** The findings of a check of add-ons turned off (ManiacCompat::uses),
+	 *  with Keep It Off and Go Back: true keeps them off */
+	bool askTurnedOff(QWindow* over, const ManiacCompat::Report& report);
 }

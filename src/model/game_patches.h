@@ -56,12 +56,25 @@ namespace GamePatches {
 	State read(const Project& project);
 	/** What the files of the game tell, without EasyRPG.ini */
 	QMap<QString, int> detect(const Project& project);
+	/** The same, the engine told to the Player (engineSet) or not: when it
+	 *  is, the program is not read for the Maniac Patch */
+	QMap<QString, int> detect(const Project& project, bool engineSet);
 
 	/** Writes the patches in EasyRPG.ini, or (none) removes its [Patch] section to detect them */
 	bool write(const Project& project, const std::optional<QMap<QString, int>>& values);
 
 	/** [Game] Engine of EasyRPG.ini: the engine the Player is told (2003v105...), else empty */
 	QString engineSetting(const Project& project);
+	/** The engine of [Game] Engine as the Player reads it (RpgRtExe::Engine
+	 *  flags), EngineNone when none or one it does not know */
+	int engineSet(const Project& project);
+	/**
+	 * The engine EasyRPG Player finds without [Game] Engine
+	 * (Player::CreateGameObjects): the program's, else the database's
+	 * (ldbId, its version), RPG Maker 2000 1.50 and later or 2003 1.05 and
+	 * later told by the music and the size of RPG_RT.exe
+	 */
+	int detectEngine(const Project& project, int ldbId, int databaseVersion);
 	/** [Game] EnginePath of EasyRPG.ini: the program read instead of RPG_RT.exe */
 	QString enginePathSetting(const Project& project);
 	/** The program the Player reads to know the engine and the Maniac Patch: empty when none */
@@ -69,11 +82,8 @@ namespace GamePatches {
 	/** What a program is, read once per version of the file */
 	RpgRtExe::Info exeInfo(const QString& exe);
 
-	/** Whether the game is edited as a game of the Maniac Patch: its commands
-	 *  are offered. Its own patch (hasManiac), or the Maniac mode of the
-	 *  Editor (EditorSettings::maniacMode) for any game. */
-	bool usesManiac(const Project& project);
-	/** The game's own Maniac Patch: its [Patch], else detected */
+	/** The game's Maniac Patch: its [Patch], else detected. The editors read
+	 *  it from GameSetup::maniac */
 	bool hasManiac(const Project& project);
 	/** The game turns on EasyRPG Player's extensions ([Patch] EasyRPG=1):
 	 *  its own event commands run */
@@ -81,10 +91,8 @@ namespace GamePatches {
 }
 
 /**
- * Tells when GamePatches::usesManiac() can answer otherwise: the Maniac mode
- * of the Editor switched, or the patches of a game written. What shows the
- * Maniac Patch's commands and fields (the command editors, the database)
- * reads it again.
+ * Tells when the patches of a game were written (GamePatches::write):
+ * GameSetup reads them again, and the editors follow it.
  */
 class GamePatchesWatch : public QObject {
 	Q_OBJECT
@@ -92,9 +100,9 @@ public:
 	static GamePatchesWatch& instance();
 
 signals:
-	void maniacChanged();
+	/** The [Patch] section of the EasyRPG.ini of a game was written or removed */
+	void written();
 
 private:
-	GamePatchesWatch();
-	bool m_mode = false;
+	GamePatchesWatch() = default;
 };

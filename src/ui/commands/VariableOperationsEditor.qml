@@ -13,7 +13,9 @@ import org.easyrpg.editor as Ez
  * the operation (p3) and the operand (p4, values from p5).
  *
  * In other games it is RPG Maker's window: radio buttons, the values of the
- * one checked enabled. With the Maniac Patch (in its games, or for a command
+ * one checked enabled, the targets of the Maniac Patch greyed with their
+ * tag (its operations and operands, too many for radio buttons, are not
+ * offered there). With the Maniac Patch (in its games, or for a command
  * using it): ranges through variables and expressions as targets, bit
  * operations, and more operands (party members, switches, functions,
  * expressions) chosen in lists, whose values can come from variables (their
@@ -241,7 +243,6 @@ ColumnLayout {
         session: root.session
         only: [0]
         names: root.names
-        hideManiacItems: !root.showManiac
         Layout.fillHeight: false
     }
     ExpressionField {

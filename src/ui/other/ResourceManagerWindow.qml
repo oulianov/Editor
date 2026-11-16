@@ -304,6 +304,16 @@ Ez.DialogWindow {
                         Layout.preferredWidth: 1
                         Layout.alignment: Qt.AlignTop
                     }
+                    // a true color image: what shows it (the tag warns when the game does not)
+                    Ez.OriginTag {
+                        objectName: "tagTrueColor"
+                        readonly property bool shownInGame: Ez.Game.easyrpg || Ez.Game.maniac
+                        origin: Ez.Game.maniac && !Ez.Game.easyrpg ? "maniac" : "easyrpg"
+                        warning: !shownInGame
+                        toolTip: shownInGame ? Ez.Origins.about(origin) : qsTr("Not shown in this game without the EasyRPG Extensions (Project Settings › EasyRPG Player) or the Maniac Patch (Project Settings › Engine)")
+                        visible: shown && library.currentTrueColor
+                        Layout.alignment: Qt.AlignTop
+                    }
                     Ez.ZoomButtons {
                         view: preview
                         visible: root.image

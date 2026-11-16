@@ -80,7 +80,7 @@ std::optional<ShellDialogs::NewProject> QmlShellDialogs::newProject(const QStrin
 	const auto chosen = ProjectWindows::newProject(m_window(), def_dir);
 	if (!chosen)
 		return std::nullopt;
-	return NewProject{chosen->folder, chosen->title, chosen->format, chosen->tileSize, chosen->defDir};
+	return NewProject{chosen->folder, chosen->title, chosen->format, chosen->tileSize, chosen->defDir, chosen->patches};
 }
 
 ShellDialogs::OpenProject QmlShellDialogs::openProject(const QString& def_dir)
@@ -175,6 +175,13 @@ bool QmlShellDialogs::maniacCheck(const ManiacCompat::Report& report, const QStr
 void QmlShellDialogs::maniacResult(const ManiacResult& result)
 {
 	ManiacCheckWindow::result(m_window(), result.error, result.converted, result.remaining, result.backup, result.backup2000);
+}
+
+bool QmlShellDialogs::turnedOffCheck(const ManiacCompat::Report& report)
+{
+	// over Project Settings
+	QWindow* over = QmlHost::frontWindow();
+	return ManiacCheckWindow::askTurnedOff(over ? over : m_window(), report);
 }
 
 bool QmlShellDialogs::mapProperties(lcf::rpg::MapInfo& info, lcf::rpg::Map& map)

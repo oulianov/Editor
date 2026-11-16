@@ -15,9 +15,12 @@ import org.easyrpg.editor as Ez
  * engine (2000 or 2003), each field named after its term (battle_start...),
  * in the font and with the length mark of the game's windows. A message is
  * shown in its order: its terms and what the game puts between them (with
- * the Maniac Patch, its own texts around RPG Maker's). The groups of EasyRPG
- * Player's terms say so in their title; such a term left empty is EasyRPG
- * Player's text, shown greyed.
+ * the Maniac Patch, its own texts around RPG Maker's: greyed in a game
+ * without it, each with its tag M; when the Editor Settings hide what the
+ * game does not run, RPG Maker's message unless one has a text). The groups of EasyRPG Player's terms
+ * have its tag E after their title (M for those the Maniac Patch reads too,
+ * in its games); such a term left empty is EasyRPG Player's text, shown
+ * greyed.
  */
 Item {
     id: root
@@ -25,7 +28,7 @@ Item {
     /** The database edited (a JsonView) */
     property var database: null
     property bool rpg2k3: true
-    /** The game uses the Maniac Patch: the parts it adds to the messages */
+    /** The game uses the Maniac Patch: the parts it adds to the messages are enabled */
     property bool maniac: false
     readonly property var terms: database ? database.subtree("terms") : null
     /** The widest label of a term (longer ones wrap) */
@@ -34,6 +37,24 @@ Item {
     readonly property int hintWidth: 140
     /** The page of terms shown */
     property alias currentIndex: tabs.currentIndex
+    /** The parts the Maniac Patch adds are shown: the game runs it, else
+     *  greyed (or hidden, as the Editor Settings say) */
+    readonly property bool maniacShown: Ez.Origins.shown("maniac")
+    // read again when a term changes (one the Maniac Patch adds, set by another program)
+    property int termsRevision: 0
+    Connections {
+        target: root.terms
+        ignoreUnknownSignals: true
+        function onValueChanged() { root.termsRevision++ }
+    }
+    /** A row shows the Maniac Patch's message: its parts are shown, or one of
+     *  them has a text the game has (kept, greyed) */
+    function maniacLayout(row) {
+        if (!row || !row.maniacLines) {
+            return false
+        }
+        return maniacShown || (termsRevision >= 0 && !!terms && row.maniacTerms.some(term => terms.str(term) !== ""))
+    }
 
     Ez.VocabularyTable {
         id: table
@@ -121,8 +142,9 @@ Item {
 
         required property var modelData
 
-        title: modelData.easyrpg ? qsTr("%1 (EasyRPG)").arg(qsTranslate("VocabularyWidget", modelData.title))
-                                 : qsTranslate("VocabularyWidget", modelData.title)
+        title: qsTranslate("VocabularyWidget", modelData.title)
+        // the terms EasyRPG Player reads (and the Maniac Patch, in its games): their tag
+        origin: modelData.origin
         // as high as its terms: the column keeps the rest below
         Layout.fillHeight: false
 
@@ -141,6 +163,8 @@ Item {
 
                     required property int index
                     readonly property var row: group.modelData.rows[Math.floor(index / 2)]
+                    /** The row shows the Maniac Patch's message (only changes of it lay it out again) */
+                    readonly property bool maniacLayout: root.maniacLayout(row)
 
                     Layout.fillWidth: index % 2 === 1
                     // a long label goes on two lines (French...): the page fits the window
@@ -162,7 +186,7 @@ Item {
                             spacing: Ez.Metrics.rowSpacing
 
                             Repeater {
-                                model: cell.row.lines
+                                model: cell.maniacLayout ? cell.row.maniacLines : cell.row.lines
 
                                 RowLayout {
                                     id: line
@@ -191,6 +215,7 @@ Item {
                                                 id: termPart
                                                 TermField {
                                                     term: part.modelData.term
+                                                    origin: part.modelData.origin
                                                     limit: part.modelData.limit
                                                     fallback: part.modelData.fallback === undefined ? ""
                                                               : part.modelData.fallbackHint ? qsTranslate("VocabularyWidget", part.modelData.fallback)
@@ -220,20 +245,54 @@ Item {
     /**
      * The field of a term. A term of EasyRPG Player (defaulted) shows the
      * Player's text greyed while it is left to it ("default_term"), and goes
-     * back to it once emptied
+     * back to it once emptied. A part the Maniac Patch adds (origin) has
+     * its tag inside, on the right; it is greyed in a game without it, its
+     * text kept (the tag then warns that the game does not show it)
      */
     component TermField: Ez.TextField {
         id: termField
         property string term
+        /** Ez.Origins: "maniac" for a part the Maniac Patch adds, else empty */
+        property string origin: ""
         property bool defaulted: false
         /** What the game shows while it is left to EasyRPG Player's text */
         property string fallback
         objectName: term
         jsonData: term !== "" && !defaulted ? root.terms : null
         key: term
+        enabled: origin === "" || Ez.Origins.available(origin)
         // the game's text, whatever its length
         font: Ez.Metrics.monospaceFont
         placeholderText: defaulted && defaultValue.value === "default_term" ? fallback : ""
+
+        // the tag of a part the Maniac Patch adds, inside on the right (the
+        // columns have no room beside the fields); the text stops before it.
+        // Made only for such a part
+        Binding {
+            target: termField
+            property: "rightPadding"
+            value: termField.leftPadding + tag.width + Ez.Metrics.fieldPadding
+            when: termField.origin !== "" && tag.width > 0
+        }
+        Loader {
+            id: tag
+            active: termField.origin !== ""
+            anchors.right: parent.right
+            anchors.rightMargin: Ez.Metrics.fieldPadding
+            anchors.verticalCenter: parent.verticalCenter
+            sourceComponent: Ez.OriginTag {
+                origin: termField.origin
+                // a text the game does not show
+                warning: !termField.enabled && termField.text !== ""
+            }
+        }
+        Loader {
+            anchors.fill: parent
+            active: termField.origin !== ""
+            sourceComponent: Ez.OriginTip {
+                origin: termField.origin
+            }
+        }
 
         Ez.JsonField {
             id: defaultValue

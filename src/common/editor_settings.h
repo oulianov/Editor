@@ -22,8 +22,10 @@
 #include <QStringList>
 
 /**
- * The options of the Editor (the Settings window), saved with QSettings.
- * Windows that depend on an option connect to changed() and read it again.
+ * The options of the Editor (the Editor Settings window), saved with
+ * QSettings on this computer, for every game; the RTP folder a game
+ * chooses is kept here too (Project Settings, On This Computer). Windows
+ * that depend on an option connect to changed() and read it again.
  */
 class EditorSettings : public QObject
 {
@@ -102,11 +104,6 @@ public:
 	bool reloadExternalChanges() const;
 	void setReloadExternalChanges(bool on);
 
-	/** Maniac mode (off by default): every game is edited as a game of the
-	 *  Maniac Patch (GamePatches::usesManiac), its commands and options offered */
-	bool maniacMode() const;
-	void setManiacMode(bool on);
-
 	/** Water and animated tiles move in the map view */
 	bool animateTiles() const;
 	void setAnimateTiles(bool on);
@@ -118,6 +115,16 @@ public:
 	/** Every other line of the event commands on a tinted background */
 	bool commandStripes() const;
 	void setCommandStripes(bool on);
+
+	/** The badges of what comes from an add-on (M, E, P: Ez.Origins): the
+	 *  badges of what the game has and does not run (M!...) are shown anyway */
+	bool originBadges() const;
+	void setOriginBadges(bool on);
+
+	/** The commands and options of an add-on the game does not use, shown
+	 *  greyed; else hidden, but those the game already has */
+	bool unavailableShown() const;
+	void setUnavailableShown(bool on);
 
 	/** Search results kept between searches */
 	bool searchCache() const;
@@ -137,7 +144,7 @@ signals:
 	void darkChanged();
 
 private:
-	EditorSettings() = default;
+	EditorSettings();
 	QVariant value(const char* key, const QVariant& fallback) const;
 	void setValue(const char* key, const QVariant& value);
 	/** The palette and the icons of the scheme chosen, as the platform shows it now */

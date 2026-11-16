@@ -202,6 +202,10 @@ signals:
 	/** The water or the animated tiles show another frame */
 	void animationFrameChanged();
 
+	/** The game open finds its RTP files in other folders: what shows
+	 *  them reads them again */
+	void rtpChanged();
+
 private:
 	lcf::rpg::Map *m_map;
 	const Project* m_chipsetProject = nullptr;

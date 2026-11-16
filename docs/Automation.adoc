@@ -19,8 +19,9 @@ code is the number of failed commands and checks (0 when all pass).
 
 Scripts keep their settings apart from yours (last project, window sizes),
 and nothing is saved unless the script does it; they start with your RTP
-folders (Settings, RTP folders: the table, its marks for 2000 and 2003, the
-folder each game chose). Each run has a folder of its
+folders (Editor Settings, RTP folders: the table, its marks for 2000 and
+2003; and the folder each game chose in its Project Settings, On This
+Computer). Each run has a folder of its
 own, removed when the Editor quits: `$SCRIPT_DIR` in the arguments of the
 commands. The EasyRPG Player downloaded by a script goes there too. They run in English, so that
 `click` and `type` find the same texts on every system; `--language fr` runs
@@ -80,7 +81,7 @@ at once: the next commands act on the dialog, until `close`.
 | `edit-tree-file rename ID NAME\|expanded ID on\|off\|add PARENT [NAME]\|remove ID\|move ID PARENT\|rewrite` | Changes the map tree file on disk, apart from the Editor, as another program (rpgsync) does: renames a map or area, sets the flag of a node shown expanded, adds a map (the first free id, with a blank map file) as the last child of PARENT (0: the project), removes a node with what it holds (their map files stay), moves a map with what it holds as the last child of PARENT, or writes the file again unchanged. What the Editor shows of it is read again with the files changed by other programs (Settings, `checkReloadExternal`): the map tree keeps its expanded nodes, its scroll and its selection.
 | `log-tree` | Logs what the map tree of the main window shows: its dock (`docked`, `floating`, `closed`), the nodes shown expanded, its rows, its scroll, the first node shown, the node selected, the lines drawn that do not show their node (`lines wrong`, 0), and the filter of the search above it (`none`, or the maps found and the rows shown).
 | `expect-database-file POINTER VALUE` | Fails unless the database file on disk has this value (what Apply or OK saved).
-| `expect-database POINTER VALUE` | Fails unless the project's database, in memory, has this value (what it read again after `edit-database-file`, with the files changed by other programs read again: Settings, `checkReloadExternal`).
+| `expect-database POINTER VALUE` | Fails unless the project's database, in memory, has this value (what it read again after `edit-database-file`, with the files changed by other programs read again: Editor Settings, Files, `checkReloadExternal`).
 | `expect-locks KIND...` | Fails unless the editors open hold these edit locks, in the order taken (`none`: no lock): `dialog` for a modal window (a dialog, a question, a picker), `database` for the database window, `event:MAP` for the event window of an event of map MAP. What another program changes in the project is read again only once they are given back (an event window lets the maps through).
 | `open-copy` | Copies the project into `$SCRIPT_DIR` and opens the copy: what the script saves (a battle test's party, the export settings) stays there.
 | `open-map ID` | Opens a map in a tab.
@@ -149,12 +150,18 @@ at once: the next commands act on the dialog, until `close`.
 | `pick-entry LIST ID [none]` | Opens the entry picker (`Pickers::pickEntry`) on a list of the database as JSON names it (`switches`, `items`...), starting on the entry ID, with "(None)" first when `none`. Returns at once; its answer: the ID chosen (0: "(None)") or `cancel`.
 | `expect-answer VALUE` | Fails unless the last `dialog-service` question was answered VALUE: `reload`, `overwrite` or `cancel` for a file changed on disk; `yes`, `no` or `cancel` for a question; `ok` once a message is closed; `(waiting)` while it is shown. The same for the last `pick-file` or `pick-entry`.
 | `expect-player TEXT\|none` | Fails unless the EasyRPG Player that test play runs (found next to the Editor, in the PATH... else downloaded) has the text in its path, or there is none (`none`). Scripts download Players into their own folder; `EASYRPG_EDITOR_LAUNCHER_BASE` (a folder URL) replaces easyrpg.org, as the tests' fake archives do. Scripts check for updates of the Editor automatically only with `EDITOR_UPDATE_FEED`, a release feed of their own (see link:Updates.adoc[Updates]).
-| `expect-rtp FOLDER...\|none` | Fails unless the RTP folders of the project open are these, in this order (`Core::rtpDirs`): the one the game uses (its own, else the one marked for its engine), then the other ones of the Settings in their order, the missing ones left out. Test play passes them in this order with `--rtp-path`.
+| `expect-rtp FOLDER...\|none` | Fails unless the RTP folders of the project open are these, in this order (`Core::rtpDirs`): the one the game uses (its own, chosen in Project Settings > On This Computer, else the one marked for its engine), then the other ones of the Editor Settings in their order, the missing ones left out. Test play passes them in this order with `--rtp-path`.
 | `expect-rtp-file FOLDER NAME PATH\|none` | Fails unless the project open finds the file NAME (no extension) of a folder (`CharSet`...) at PATH: the game's own, else the one of the first RTP folder having it; `none`: in none.
+| `log-game` | Logs how EasyRPG Player runs the game open, as the editors read it (`GameSetup`, `Ez.Game` in QML): `open`; `rpg2k3`, a database of RPG Maker 2003, and its `engine` (2000, 2003); `commands2k3`, RPG Maker 2003's commands and options (a 2003 game, or the patch RPG2k3Commands); the game's patches `maniac` and `easyrpg`; `battle2k`, RPG Maker 2000's battles (a 2000 game, or `system/easyrpg_use_rpg2k_battle_system`); `alternativeExp` (`system/easyrpg_alternative_exp`); `playerEngine`, the engine the Player is told (`[Game] Engine` of EasyRPG.ini as it reads it: `rpg2k3e`...; `detect` when none or one it does not know); `playerOnly`, the choices only EasyRPG Player runs, RPG_RT.exe ignoring them, in this order: `commands2k3` (a 2000 game with RPG2k3Commands), `battle2k` (a 2003 game with the battles of 2000), `alternativeExp` (not 0), `easyrpg` (the EasyRPG Extensions), `engine` (`[Game] Engine` set); `patches`, every patch of Project Settings with its value as the Player takes it (`Maniac=1,DynRPG=0,...`, by name); `runsWith`, the programs the game runs with as set up: `rpgrt` (the RPG_RT.exe of its engine: no Maniac Patch, nothing in `playerOnly` but `engine`, which RPG_RT.exe ignores), `maniac` (the Maniac Patch's RPG_RT.exe: a 2003 game or the patch on, nothing in `playerOnly` but `engine`), `easyrpg` (always). Each is `on`, `off`, a number, a text, or a list joined by commas (`none` when empty). They follow the project opened, the patches written, the database applied or read again, and the files of the game changed on disk (EasyRPG.ini, RPG_RT.ini, RPG_RT.exe, accord.dll...); the windows open follow them.
+| `expect-game KEY VALUE` | Fails unless the value KEY of `log-game` is VALUE (`on`, `off`, a number, a text, a list as logged: `expect-game playerOnly battle2k,engine`).
+| `game-patch KEY VALUE\|detect` | Chooses a patch of the game as Project Settings does on OK: `[Patch] KEY=VALUE` written in its EasyRPG.ini (`Maniac`, `RPG2k3Commands`, `EasyRPG`...), the other patches as they are read; `detect`: the section removed, the patches found from the game's files again.
+| `create-project FOLDER 2003\|2000\|xml [PATCH]...` | Writes a new game in FOLDER (which must not exist yet) as New Project does (`Project::create`): its format, and the add-ons turned on in the `[Patch]` section of its EasyRPG.ini as Project Settings writes them (`Maniac`, `EasyRPG`, `RPG2k3Commands`). `open-project FOLDER` opens it: `create-project $SCRIPT_DIR/Game 2000 Maniac` then `expect-ini-file EasyRPG.ini Patch Maniac 1`.
+| `edit-ini-file FILE SECTION KEY VALUE` | Writes a value of an ini file of the game (`EasyRPG.ini`, `RPG_RT.ini`) on disk, apart from the Editor, as another program does; an empty VALUE (`""`) removes the key. What the Editor reads from it follows a moment later (`wait 1000`).
+| `expect-ini-file FILE SECTION KEY VALUE\|none` | Fails unless a key of an ini file of the game on disk has this value (`none`: the key is not there), as Project Settings wrote it on OK: `expect-ini-file EasyRPG.ini Game Engine rpg2k3e`, `expect-ini-file EasyRPG.ini "EasyRPG Editor" AlternativeExp 1`.
 | `project-soundfont set FILE\|remove` | Gives the project open its game soundfont as Project Settings does on OK (FILE copied into the game folder as `easyrpg.soundfont`, the copy waited for), or puts it in the trash; fails for a file refused (not an SF2). Logs what Project Settings shows of it.
 | `expect-project-soundfont NAME\|none` | Fails unless the game soundfont of the project open has this name (as Project Settings shows it, or the name of the file it was copied from), or there is none (`none`).
-| `expect-midi-soundfont game\|editor\|system\|builtin\|platform [FILE]` | Fails unless the Editor plays MIDI music (Automatic: the Jukebox, the pickers) with the game soundfont, the Editor default (Settings, `lineSoundfont`), a soundfont of the system, FmMidi or the synthesizer of the system (Apple DLS, Microsoft GS Wavetable Synth), and with FILE when given.
-| `color-scheme dark\|light\|system` | Chooses the color scheme as the Settings do (General, Color scheme; in the script's own settings): every window in dark or light colors with the icons drawn for them, on any platform (offscreen, which has no dark mode, in Fusion's colors); `system` goes back to the system's. The windows opened after it are drawn in it from the start.
+| `expect-midi-soundfont game\|editor\|system\|builtin\|platform [FILE]` | Fails unless the Editor plays MIDI music (Automatic: the Jukebox, the pickers) with the game soundfont, the Editor's (Editor Settings, Programs, Soundfont for previews: `lineSoundfont`), a soundfont of the system, FmMidi or the synthesizer of the system (Apple DLS, Microsoft GS Wavetable Synth), and with FILE when given.
+| `color-scheme dark\|light\|system` | Chooses the color scheme as the Editor Settings do (General, Color scheme; in the script's own settings): every window in dark or light colors with the icons drawn for them, on any platform (offscreen, which has no dark mode, in Fusion's colors); `system` goes back to the system's. The windows opened after it are drawn in it from the start.
 | `check-layout` | Fails for every control smaller than it needs to be (clipped text...) and for overlapping radio options.
 | `set-enabled NAME on\|off` | Enables or disables a control (or a section, with its controls) of a QML window, by its object name or button text: to see how the windows draw what cannot be changed.
 | `check-disabled` | Fails for every disabled button, check box, radio button, combo box, spin box, slider, field or label of a QML window drawn as an enabled one (not faded, as the Ez controls draw them).
@@ -171,7 +178,7 @@ at once: the next commands act on the dialog, until `close`.
 == The windows
 
 The interface is made with QML (Qt Quick, with KDE's Kirigami and Breeze).
-The commands act on the window in front (a modal one, such as the Settings,
+The commands act on the window in front (a modal one, such as the Editor Settings,
 or one opened by `qml-open`, else the main window): `click`, `double-click`,
 `press`, `release`, `hover`, `expect-menu`, `click-item`, `double-click-item`, `context-menu`, `type`, `key`, `focus`,
 `set-control`, `tab`, `expect-tab`, `menu`, `action` (its
@@ -200,22 +207,77 @@ of a button box from left to right (`buttonBox`: `Save Mine | Cancel`).
 drawing its cells (`Ez.ArrayTable`) shows its lines as `cell | cell`, a
 check box as `[x]` or `[ ]`, a radio button as `(x)` or `( )`.
 
-The RTP folders of the Settings (`SettingsDialog`, `action actionSettings`,
-written on OK): `tableRtp` (the folder, the RTP it looks like, its marks
-for 2000, 2003 and the game open), the marks `radioRtp2000_N`,
-`radioRtp2003_N` and `radioRtpGame_N` of line N (from 0: `set-control
-radioRtp2000_1 on`), `buttonRtpAdd` (its menu: `addRtpFolder`, a folder
+The Editor Settings (`SettingsDialog`, `action actionSettings`, written
+on OK) have two pages (`tabs`: 0 General, 1 RTP and Programs). On General,
+the badges of the add-ons `checkOriginBadges` and the add-on commands the
+game does not use, greyed or hidden, `checkUnavailableShown`
+(`Ez.Origins`); the windows open follow them on OK.
+
+Its RTP folders (`tab tabs 1`): `tableRtp` (the folder, the RTP it looks
+like, its marks for 2000 and 2003), the marks `radioRtp2000_N` and
+`radioRtp2003_N` of line N (from 0: `set-control radioRtp2000_1 on`), `buttonRtpAdd` (its menu: `addRtpFolder`, a folder
 dialog, scripts add a folder with `call SettingsDialog addRtpFolder PATH`;
 `downloadRtp`, see below), `buttonRtpRemove`,
 `buttonRtpUp`, `buttonRtpDown` (the line selected: `focus tableRtp` and
-the arrow keys), `buttonRtpEngineDefault` (the game open uses the folder
-marked for its engine again; `hover tableRtp` shows what a folder holds),
+the arrow keys; `hover tableRtp` shows what a folder holds),
 `downloadRtp` (the EasyRPG RTP downloaded and added: `downloadText`,
 `downloadProgress` and `cancelDownload` while it runs; already there,
 `rtpThereDialog` asks: `Download Again`, `Add Folder` or `Cancel`). With
 `EASYRPG_EDITOR_LAUNCHER_BASE`, the RTP is that folder's `easyrpg-rtp.zip`
 (an archive of an RTP, in a folder or not), and a script extracts it into
 its own folder (`$SCRIPT_DIR/rtp/easyrpg`).
+
+The RTP folder of the game open is in its Project Settings
+(`ProjectSettingsDialog`, `action actionProjectSettings`, `tab tabs 3`: On
+This Computer; written on OK, `expect-rtp` follows at once):
+`comboRtpFolder` (0: Engine's default, then the folders of the Editor
+Settings in their order).
+
+Its other pages (`tabs`: 0 General, 1 Engine, 2 EasyRPG Player), written on
+OK, `log-game` following at once: on Engine, `labelRunsWith` (what the game
+runs with as chosen in the window, before OK: `runsWithRpgRt`,
+`runsWithManiac`, `runsWithPlayer`, enabled when it runs the game; why not
+in their tooltips), `labelEngine`, `pushConvert`, `labelRuntime` and
+`patchManiac`; on EasyRPG Player, the section `groupGame` with
+`comboPlayerEngine` (0: Detect, which shows the engine found, then
+`rpg2k`, `rpg2kv150`, `rpg2ke`, `rpg2k3`, `rpg2k3v105`, `rpg2k3e`; written
+in `[Game] Engine` of EasyRPG.ini, Detect removes it),
+`patchRPG2k3Commands` (2000 games), `comboBattleSystem` (2003 games: 0
+RPG Maker 2003, 1 RPG Maker 2000), `comboExperienceCurve` (0 the
+engine's, 1 RPG Maker 2000's, 2 RPG Maker 2003's), `patchEasyRPG`; then
+`comboPatchMode` (0 Detect, 1 Choose, 2 As written) and a box per other
+patch (`patchDynRPG`...). The patch boxes share the mode: one checked
+while detected chooses them all, from what is detected; as written, they
+are disabled. The battle system and the experience curve are saved in the
+database with a copy in the `[EasyRPG Editor]` section of EasyRPG.ini
+(`UseRpg2kBattleSystem`, `AlternativeExp`); a project opened whose
+database lost them (`edit-database-file system/easyrpg_alternative_exp 0`,
+as RPG Maker saves it) asks to write them back (`messageText`, `click Yes`
+or `click No`, which removes them from the copy).
+
+OK with an add-on turned off that the game uses (`patchManiac off`,
+`patchEasyRPG`, `patchRPG2k3Commands`, `patchDynRPG`, `patchKeyPatch`,
+`patchPowerMode2003`) first opens `TurnedOffDialog` over Project Settings,
+before anything is written: `labelQuestion`, the uses by add-on in
+`listFindings` (`Found`, `Times`), the one selected in `labelFinding` and
+its places in `listPlaces`; `click Keep It Off` (`Keep Them Off` for
+several) writes the settings, `click Go Back` returns to Project Settings
+as it was. The log lists the uses (`add-ons turned off:`).
+
+The profile of the game open is at the end of the status bar
+(`profileChips`, its text all the chips joined by commas: `RPG Maker 2003,
+Maniac Patch`), following `log-game`: a chip per part, `chipEngine` (the
+format), then `chipManiac`, `chipEasyrpg`, `chipCommands2k3`,
+`chipBattle2k`, `chipAlternativeExp`, `chipPlayerEngine` (`[Game] Engine`)
+and a chip per patch on (`chipDynRPG`, `chipKeyPatch`,
+`chipPowerMode2003`, `chipCommonThisEvent`, `chipPicUnlock`); `click
+chipManiac` opens Project Settings on its page (Engine for the format and
+the Maniac Patch, EasyRPG Player for the others). Open Project
+(`OpenProjectDialog`: `tableProjects`, `lineProjectPath`) shows the same
+for each game in its third column (`Folder | Game Title | RPG Maker 2003,
+Maniac Patch`). Export Game warns in `labelRuntimeWarning` when the
+Windows platform keeps the game's RPG_RT.exe while the game uses what
+only EasyRPG Player runs.
 
 The database window (`DatabaseDialog`, Game > Database; Search opens it at
 a common event or a monster group) has these names: `tabOld_Pages` (its pages), `buttonBox` (OK, Cancel, Apply, Help), and
@@ -233,6 +295,32 @@ typed, except on a box with "..." (its `NAME` + `Pick`): there it renames
 the entry shown, in the field `NAME` + `Name` (`F2`: the name alone),
 written by `Return`.
 
+What the Maniac Patch adds to the database is greyed in a game without it
+(`expect-enabled NAME off`), and follows `game-patch Maniac 1` at once:
+`checkHitRateCalc` (Skills), `comboUnarmedAnimation` (Monsters), the
+triggers 3 and 4 of `comboTrigger` (Common events,
+`expect-option-enabled`), `checkQuitGame`, `pushMessageWindow` and the
+sections `groupTitleScene`, `groupSaveScene` (`comboTitleSceneEvent`...)
+of System 2, the `maniac_*` fields of the Vocabulary. With the Editor
+Settings' `checkUnavailableShown` off they are hidden instead (the
+triggers left out of the list, the Vocabulary's messages as RPG Maker's),
+except a value the game has, shown greyed (`inspect-controls` tells
+`visible`; `hover NAME` fails for a hidden one). The EasyRPG
+Properties of a hero (`pushEditCustom`, `ActorEasyRpgDialog`:
+`checkPreventCritical`..., `spinUnarmedHit`) are enabled in every game.
+
+New Project (`actionProjectNew`, with no project open) is
+`NewProjectDialog`: `lineGameFolder`, `lineGameTitle`, `comboFormat` (0
+RPG Maker 2003, 1 RPG Maker 2000, 2 EasyRPG XML), the add-ons
+`checkManiac`, `checkEasyRpg` and `checkRpg2k3Commands` (greyed for RPG
+Maker 2003), `comboTileSize` (greyed: 16 only); scripts choose the folder
+of the games with `call NewProjectDialog chooseFolder PATH`. Importing a
+picture of more than 256 colors asks (`messageWindow`) `answer_reduce` or
+`answer_keep`, greyed unless the game has the EasyRPG Extensions or the
+Maniac Patch (left out with `checkUnavailableShown` off; in the Resource
+Manager: `click-item listFolders Picture`, then `call
+ResourceManagerDialog importFiles PATH`).
+
 Go to Map (Maps > Go to Map..., `actionMapGoTo`) is `GoToMapDialog`: the
 maps of the tree in `comboMap`, a list of entries whose search opens with
 the window (`type 12` then `key Return` chooses map 12) and the button
@@ -249,7 +337,7 @@ The pages with pictures and command lists, and the windows they open:
 
 * Monsters: `graphicsMonster`, `pushSetGraphic`, `spinMaxHp`...
   `comboDropItem`, `checkCritical`, `checkMiss`, `comboUnarmedAnimation`
-  (with the Maniac Patch), the actions `treeActions`
+  (the Maniac Patch's: greyed without it), the actions `treeActions`
   (its menu: `actionEdit`, `actionCut`, `actionCopy`, `actionPaste`,
   `actionDelete`), `listAttributeRanks`, `listStateRanks`. An action is
   edited in `EnemyActionDialog` (`comboCondition`, `spinParam1`,
@@ -327,10 +415,18 @@ The event window is a QML window (`EventDialog`, its title the event's):
 choosing another one; `pushSetSprite` and its menu: `Character...`,
 `Tile...`, `No Graphic`), `comboCondition`, `comboLayer`, `comboMoveType`,
 `comboMoveFrequency`, `pushMovePattern`, `comboAnimationType`,
-`comboMoveSpeed` and its command list `commands`. A tile is chosen in
+`comboMoveSpeed` and its command list `commands` (the tag of the add-on
+a command uses, at the left of its line N: `originTagN`, its text the
+letter, `M!` when the game does not run it: `expect originTag3 M!`). A tile is chosen in
 `tileDialog` (`tileView`, 32 pixels a tile: `view-click tileView 40 8`
 picks the second one). The command palette is `EventCommandPalette` (its
-`search` field), the move route window `MoveRouteDialog` (`listMoves`, a
+`search` field, its tabs `tabPages`, a button per command `commandCODE`,
+a result of the search `resultCODE`: `expect-enabled command3001 off` in a
+game without the Maniac Patch). In the window of a command (`CommandEditor`),
+the tag of a field or an option of an add-on is named after its control
+with `Tag` (`erasePictureModeTag`, `conditionType12Tag`, its text `M`,
+`E`, `M!`...), and `commandWarning` says what the game does with a command
+of an add-on it does not run. The move route window `MoveRouteDialog` (`listMoves`, a
 button per move by its text, `pushDelete`, `pushClear`, `checkRepeat`,
 `checkSkippable`; for Move Event `moveTarget`, searched as the lists of the
 database, and `moveFrequency`), the window of the triggers of a battle page

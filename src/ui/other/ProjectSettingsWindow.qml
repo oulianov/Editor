@@ -13,18 +13,25 @@ import org.easyrpg.editor as Ez
 
 /**
  * Game Project > Project Settings: the folder and title of the game (RPG
- * Maker's Rename Project), the code page of its texts, the engine and the
- * fonts it runs with, and what only EasyRPG Player reads (the patches of
- * EasyRPG.ini, its fonts, the game soundfont). The values are a
+ * Maker's Rename Project), the code page of its texts, what it is for RPG
+ * Maker and its RPG_RT.exe (the format, the programs, the Maniac Patch, the
+ * fonts), what only EasyRPG Player reads (the engine it runs the game as,
+ * the options of the database RPG_RT.exe ignores, the patches of
+ * EasyRPG.ini, its fonts, the game soundfont), and the choices of this game
+ * kept on this computer only (its RTP folder). The values are a
  * ProjectSettings'; checked on OK, then written by the window that opened
  * this one (it closes and reloads the project when the folder or the code
- * page change). The soundfont chosen or removed is done on OK first, here:
- * a large copy keeps the window open with its progress, Cancel stops it.
+ * page change). An add-on turned off that the game uses is listed on OK
+ * first (ProjectSettings::confirmTurnOff): Go Back keeps the window open.
+ * The soundfont chosen or removed is done on OK first, here: a large copy
+ * keeps the window open with its progress, Cancel stops it.
  */
 Ez.DialogWindow {
     id: root
 
     required property Ez.ProjectSettings settings
+    /** The page shown first: "engine", "player" (a chip of the status bar), else General */
+    property string page: ""
     /** Read again when EasyRPG.ini changes, the patches, the fonts */
     property int iniRevision: 0
     property int patchRevision: 0
@@ -102,6 +109,12 @@ Ez.DialogWindow {
             invalid.open()
             return
         }
+        // what the game uses from an add-on turned off: kept off, or back here
+        if (!root.settings.confirmTurnOff()) {
+            check.ok = false
+            root.settings.convertRequested = false
+            return
+        }
         // the soundfont first: the window closes once it is copied (finished)
         if (root.soundfont.busy) {
             check.ok = false
@@ -123,6 +136,7 @@ Ez.DialogWindow {
         }
     }
     Component.onCompleted: {
+        tabs.currentIndex = ({ engine: 1, player: 2 })[root.page] ?? 0
         // opened to use a soundfont (the Jukebox): where it shows, confirmed as when chosen here
         if (root.soundfont.pending) {
             tabs.currentIndex = 2
@@ -181,6 +195,10 @@ Ez.DialogWindow {
         }
         Controls.TabButton {
             text: qsTr("EasyRPG Player")
+            width: implicitWidth
+        }
+        Controls.TabButton {
+            text: qsTr("On This Computer")
             width: implicitWidth
         }
     }
@@ -258,13 +276,51 @@ Ez.DialogWindow {
             }
         }
 
-        // Engine: what runs the game, and the fonts it draws with
+        // Engine: what the game is for RPG Maker and RPG_RT.exe, and the fonts it draws with
         ColumnLayout {
             spacing: Ez.Metrics.sectionSpacing
 
             Ez.Section {
                 title: qsTr("Engine")
                 Ez.Form {
+                    // the programs the choices of the window let run the game:
+                    // each marked, why not in its tooltip
+                    Ez.FormLabel {
+                        text: qsTr("Runs with")
+                    }
+                    RowLayout {
+                        objectName: "labelRunsWith"
+                        spacing: Ez.Metrics.columnSpacing * 2
+                        Layout.fillWidth: true
+                        Repeater {
+                            model: root.settings.runtimes
+                            delegate: RowLayout {
+                                id: runtime
+                                required property var modelData
+                                spacing: Ez.Metrics.columnSpacing / 2
+                                Ez.Label {
+                                    text: runtime.modelData.available ? "✓" : "✗"
+                                    font: Ez.Metrics.font
+                                    color: runtime.modelData.available ? Kirigami.Theme.positiveTextColor : Ez.Metrics.mutedTextColor
+                                }
+                                Ez.Label {
+                                    objectName: ({ rpgrt: "runsWithRpgRt", maniac: "runsWithManiac", easyrpg: "runsWithPlayer" })[runtime.modelData.key]
+                                    text: runtime.modelData.name
+                                    font: Ez.Metrics.font
+                                    enabled: runtime.modelData.available
+                                }
+                                HoverHandler {
+                                    id: runtimeWhy
+                                }
+                                Controls.ToolTip.visible: runtimeWhy.hovered
+                                Controls.ToolTip.text: runtime.modelData.available
+                                    ? qsTr("Runs the game as it is set up in this window") : runtime.modelData.why
+                            }
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                        }
+                    }
                     Ez.FormLabel {
                         visible: root.settings.open
                         text: qsTr("Project")
@@ -308,6 +364,11 @@ Ez.DialogWindow {
                         Controls.ToolTip.visible: runtimeHover.hovered && text !== "" && root.settings.runtimeExe !== ""
                         Controls.ToolTip.text: root.settings.runtimeExe
                     }
+                }
+                // another RPG_RT.exe, which EasyRPG Player runs too: a patch of [Patch]
+                PatchBox {
+                    patchKey: "Maniac"
+                    text: qsTr("Maniac Patch")
                 }
             }
             // the font of the database, and those RPG_RT.exe draws them with
@@ -394,16 +455,95 @@ Ez.DialogWindow {
             }
         }
 
-        // EasyRPG Player: what it alone reads, the patches and the fonts
+        // EasyRPG Player: what it alone reads, the game, the patches and the fonts
         ColumnLayout {
             spacing: Ez.Metrics.sectionSpacing
 
             // settings, not patches applied
             Ez.Note {
                 objectName: "labelPlayerAbout"
-                text: qsTr("Read by EasyRPG Player (EasyRPG.ini, Font folder; the screen size in RPG_RT.ini, "
-                    + "which the Maniac Patch reads too). RPG_RT.exe is not changed.")
+                text: qsTr("Read by EasyRPG Player (EasyRPG.ini, options of the database, Font folder; the screen size "
+                    + "in RPG_RT.ini, which the Maniac Patch reads too). RPG_RT.exe is not changed.")
                 color: Ez.Metrics.mutedTextColor
+            }
+            // how it runs the game: the engine, the options of the database
+            // RPG_RT.exe ignores, the patches of EasyRPG Player alone
+            Ez.Section {
+                objectName: "groupGame"
+                title: qsTr("Game")
+                Ez.Form {
+                    Ez.FormLabel {
+                        text: qsTr("Engine")
+                    }
+                    Ez.ComboBox {
+                        id: playerEngine
+                        objectName: "comboPlayerEngine"
+                        textRole: "name"
+                        valueRole: "value"
+                        model: { root.iniRevision; return root.settings.playerEngineChoices() }
+                        Layout.fillWidth: true
+                        Controls.ToolTip.visible: hovered && !popup.visible
+                        Controls.ToolTip.text: qsTr("The version of RPG Maker the game runs as: its commands, battles and "
+                            + "menus behave as in it ([Game] Engine of EasyRPG.ini). Detect: from RPG_RT.exe, else from "
+                            + "the database and the files of the game.")
+                        onActivated: root.settings.playerEngine = currentValue
+                        Binding on currentIndex {
+                            value: { playerEngine.count; return Math.max(0, playerEngine.indexOfValue(root.settings.playerEngine)) }
+                        }
+                    }
+                    Ez.FormLabel {
+                        visible: root.settings.open && root.settings.rpg2k3
+                        text: qsTr("Battle system")
+                    }
+                    Ez.ComboBox {
+                        objectName: "comboBattleSystem"
+                        visible: root.settings.open && root.settings.rpg2k3
+                        textRole: ""
+                        model: [qsTr("RPG Maker 2003"), qsTr("RPG Maker 2000")]
+                        Layout.fillWidth: true
+                        Controls.ToolTip.visible: hovered && !popup.visible
+                        Controls.ToolTip.text: qsTr("RPG Maker 2000: front view battles, with the Fight, Auto and Escape "
+                            + "commands of the party, instead of the side view battles of RPG Maker 2003. Saved in the database.")
+                        onActivated: index => root.settings.battle2k = index === 1
+                        Binding on currentIndex {
+                            value: root.settings.battle2k ? 1 : 0
+                        }
+                    }
+                    Ez.FormLabel {
+                        visible: root.settings.open
+                        text: qsTr("Experience curve")
+                    }
+                    Ez.ComboBox {
+                        id: experienceCurve
+                        objectName: "comboExperienceCurve"
+                        visible: root.settings.open
+                        textRole: "name"
+                        valueRole: "value"
+                        model: [
+                            { value: 0, name: qsTr("Engine's (%1)").arg(root.settings.playerEngine2k3 ? qsTr("RPG Maker 2003") : qsTr("RPG Maker 2000")) },
+                            { value: 1, name: qsTr("RPG Maker 2000") },
+                            { value: 2, name: qsTr("RPG Maker 2003") }
+                        ]
+                        Layout.fillWidth: true
+                        Controls.ToolTip.visible: hovered && !popup.visible
+                        Controls.ToolTip.text: qsTr("The formula of the experience the heroes need for each level, from the "
+                            + "values of their class or their own. Engine's: the one of the engine above. Saved in the database.")
+                        onActivated: root.settings.alternativeExp = currentValue
+                        Binding on currentIndex {
+                            // the Player takes any other value for 2003's
+                            value: { experienceCurve.count; return Math.min(root.settings.alternativeExp, 2) }
+                        }
+                    }
+                }
+                PatchBox {
+                    visible: !root.settings.rpg2k3
+                    patchKey: "RPG2k3Commands"
+                    text: qsTr("RPG Maker 2003 commands")
+                }
+                PatchBox {
+                    patchKey: "EasyRPG"
+                    text: qsTr("EasyRPG Extensions")
+                }
             }
             Ez.Section {
                 title: qsTr("Patches")
@@ -770,6 +910,66 @@ Ez.DialogWindow {
             Item {
                 Layout.fillHeight: true
             }
+        }
+
+        // On This Computer: the choices of this game kept in the Editor's
+        // settings, never in its folder
+        ColumnLayout {
+            spacing: Ez.Metrics.sectionSpacing
+
+            // the folders are those of the Editor Settings
+            Ez.Section {
+                title: qsTr("RTP")
+                Ez.Form {
+                    Ez.FormLabel {
+                        text: qsTr("RTP folder")
+                    }
+                    Ez.ComboBox {
+                        id: rtpFolder
+                        objectName: "comboRtpFolder"
+                        textRole: "name"
+                        valueRole: "value"
+                        model: root.settings.rtpChoices()
+                        // as wide as the window, its paths elided
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        Controls.ToolTip.visible: hovered && !popup.visible
+                        Controls.ToolTip.text: qsTr("The files the game lacks are looked for in this folder first, then in "
+                            + "the other RTP folders of the Editor Settings, from top to bottom. Engine's default: the "
+                            + "folder marked there for the engine of the game. Kept in the Editor's settings on this "
+                            + "computer, not in the game.")
+                        onActivated: root.settings.rtpFolder = currentValue
+                        Binding on currentIndex {
+                            value: { rtpFolder.count; return Math.max(0, rtpFolder.indexOfValue(root.settings.rtpFolder)) }
+                        }
+                    }
+                }
+            }
+            Item {
+                Layout.fillHeight: true
+            }
+        }
+    }
+
+    /**
+     * A patch of [Patch] shown on its own (Maniac, EasyRPG, RPG2k3Commands):
+     * the same mode as the grid; checked while they are detected, all of
+     * them are chosen from then on; greyed as written in EasyRPG.ini
+     */
+    component PatchBox: Ez.CheckBox {
+        id: box
+        required property string patchKey
+        objectName: "patch" + patchKey
+        enabled: root.settings.patchMode !== Ez.ProjectSettings.Refer
+        Controls.ToolTip.visible: hovered
+        Controls.ToolTip.text: root.settings.patchText(patchKey)
+        onToggled: root.settings.setPatchOn(patchKey, checked)
+        // greyed as written: how to set it here (a greyed box shows no tooltip of its own)
+        Ez.OriginTip {
+            toolTip: box.enabled ? "" : qsTr("The patches are as written in EasyRPG.ini: choose “Choose” in Project Settings › EasyRPG Player › Patches to set them here")
+        }
+        Binding on checked {
+            value: { root.patchRevision; return root.settings.patchOn(box.patchKey) }
         }
     }
 

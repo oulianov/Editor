@@ -16,6 +16,7 @@
  */
 
 #include "project.h"
+#include "project_settings.h"
 #include "common/editor_settings.h"
 #include "common/ini_file.h"
 #include "defines.h"
@@ -181,7 +182,7 @@ std::shared_ptr<Project> Project::load(const QDir& dir) {
 	return p;
 }
 
-QString Project::create(const QDir& dir, const QString& title, Format format) {
+QString Project::create(const QDir& dir, const QString& title, Format format, const QStringList& patches) {
 	auto read = [](const QString& resource) {
 		QFile file(resource);
 		if (!file.open(QIODevice::ReadOnly)) {
@@ -245,7 +246,22 @@ QString Project::create(const QDir& dir, const QString& title, Format format) {
 		}
 		saved = saved && save(RM_INI, [&](std::ostream& out) { return bool(out << ini); });
 	}
-	return saved ? QString() : tr("The files of the new project cannot be written in %1.").arg(dir.absolutePath());
+	if (!saved) {
+		return tr("The files of the new project cannot be written in %1.").arg(dir.absolutePath());
+	}
+	if (patches.isEmpty()) {
+		return QString();
+	}
+	// the add-ons, as Project Settings chooses and writes them
+	const auto project = load(dir);
+	if (!project) {
+		return tr("The files of the new project cannot be written in %1.").arg(dir.absolutePath());
+	}
+	ProjectSettings settings(*project, false);
+	for (const QString& patch : patches) {
+		settings.setPatchOn(patch, true);
+	}
+	return settings.write(*project);
 }
 
 bool Project::loadDatabaseAndMapTree() {

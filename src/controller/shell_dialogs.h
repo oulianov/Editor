@@ -20,6 +20,7 @@
 #include <QPoint>
 #include <QSize>
 #include <QString>
+#include <QStringList>
 #include <functional>
 #include <optional>
 #include <lcf/rpg/map.h>
@@ -52,6 +53,9 @@ public:
 		int tileSize = 16;
 		/** The folder of the projects chosen */
 		QString defDir;
+		/** The add-ons chosen: their keys in [Patch] of its EasyRPG.ini
+		 *  ("Maniac", "EasyRPG", "RPG2k3Commands"), for Project::create */
+		QStringList patches;
 	};
 	virtual std::optional<NewProject> newProject(const QString& def_dir) = 0;
 
@@ -83,7 +87,7 @@ public:
 	/** What the conversion did: error empty when it worked */
 	virtual void convertResult(const QString& error, const QString& backup) = 0;
 
-	/** The Maniac mode's check of the project (ManiacCompat): what it uses
+	/** The Maniac Patch check of the project (ManiacCompat): what it uses
 	 *  that the Maniac Patch does not run; true: convert what can be.
 	 *  backup: the folder the files go to first */
 	virtual bool maniacCheck(const ManiacCompat::Report& report, const QString& backup) = 0;
@@ -100,6 +104,10 @@ public:
 		QString backup2000;
 	};
 	virtual void maniacResult(const ManiacResult& result) = 0;
+	/** What the project uses from the add-ons Project Settings turns off
+	 *  (ManiacCompat::uses), over the window in front: true keeps them off
+	 *  (what is there stays, not run), false goes back */
+	virtual bool turnedOffCheck(const ManiacCompat::Report& report) = 0;
 
 	/** Map Properties (of a new map too): false when cancelled */
 	virtual bool mapProperties(lcf::rpg::MapInfo& info, lcf::rpg::Map& map) = 0;

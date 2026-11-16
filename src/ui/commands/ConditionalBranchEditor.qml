@@ -15,10 +15,13 @@ import org.easyrpg.editor as Ez
  * greyed with their defaults until it is chosen (the fields of the schema).
  * The map version spreads them on two pages, "1" and "2" as RPG Maker; a
  * third holds the conditions RPG Maker's window lacks (Other of RPG Maker
- * 2003, those of the Maniac Patch: offered in its games, shown greyed in
- * others when the command has them). The option: whether the block has an
- * else branch (the session's extra "else": CommandEditorRegistry adds or
- * removes the branch on OK).
+ * 2003, those of the Maniac Patch). A condition or an option of an add-on
+ * (its origin, Ez.Origins) has its tag; while the game does not run it, it
+ * is greyed, its tooltip saying what the game needs, or hidden (Editor
+ * Settings) unless it is the command's (the third page then too when it
+ * has none left). The option: whether the block
+ * has an else branch (the session's extra "else": CommandEditorRegistry
+ * adds or removes the branch on OK).
  */
 ColumnLayout {
     id: root
@@ -32,10 +35,6 @@ ColumnLayout {
     readonly property int revision: session.revision
     readonly property int type: revision < 0 ? 0 : session.read("type")
     readonly property var typeField: session.schema.field("type")
-    /** The third page: RPG Maker 2003's Other, the Maniac Patch's */
-    readonly property bool extraPage: !battle && (session.rpg2k3 || session.maniac || type >= 11)
-    /** The conditions of the Maniac Patch: in its games, or the command's */
-    readonly property bool maniacShown: session.maniac || (type >= 12 && type <= 16)
 
     /** The objectNames of the controls of fields (the scripts use them) */
     readonly property var names: ({
@@ -64,6 +63,15 @@ ColumnLayout {
         expression: "conditionExpression"
     })
 
+    /** A type of condition is offered: the game runs its add-on, or what it
+     *  does not run is shown greyed (Editor Settings), or it is the command's */
+    function typeShown(value) {
+        const item = (typeField.items ?? []).find(one => one.value === value)
+        return Ez.Origins.shown(item ? item.origin ?? "" : "") || type === value
+    }
+    /** The third page has a type offered */
+    readonly property bool extraPage: !battle && [11, 12, 13, 14, 15, 16].some(value => typeShown(value))
+
     /** The page of a type of condition */
     function pageOf(value) {
         if (battle || [0, 1, 2, 3, 10].includes(value)) {
@@ -86,16 +94,31 @@ ColumnLayout {
     spacing: Ez.Metrics.sectionSpacing
     Layout.fillWidth: true
 
-    /** The radio button of a type of condition */
+    /** The radio button of a type of condition: an add-on's greyed while the game does not run it, its tag after it */
     component TypeRadio: Ez.RadioButton {
+        id: typeRadio
         readonly property var item: (root.typeField.items ?? []).find(one => one.value === value) ?? null
+        readonly property string origin: item ? item.origin ?? "" : ""
         objectName: "conditionType" + value
         text: item ? qsTranslate(item.text.context, item.text.text) : ""
-        // another engine's: greyed unless it is the command's
-        enabled: !item || ((!item.rpg2003 || root.session.rpg2k3) && (!item.maniac || root.session.maniac)) || checked
+        enabled: Ez.Origins.available(origin)
+        visible: root.typeShown(value)
         jsonData: root.session
         key: "/parameters/0"
         Layout.alignment: Qt.AlignLeft | Qt.AlignTop
+        rightPadding: horizontalPadding + (typeTag.width > 0 ? typeTag.width + Ez.Metrics.columnSpacing : 0)
+        Ez.OriginTag {
+            id: typeTag
+            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+            objectName: typeRadio.objectName + "Tag"
+            origin: typeRadio.origin
+            warning: typeRadio.checked && !Ez.Origins.available(origin)
+            x: typeRadio.leftPadding + typeRadio.contentItem.implicitWidth + Ez.Metrics.columnSpacing
+            anchors.verticalCenter: parent.verticalCenter
+        }
+        Ez.OriginTip {
+            origin: typeRadio.origin
+        }
     }
 
     /** The control of a field, greyed with its default unless its type is chosen */
@@ -110,17 +133,34 @@ ColumnLayout {
         enabled: revision < 0 ? false : bound && session.isEnabled(fieldId)
     }
 
-    /** A radio button of a choice of a type's settings, greyed with its default */
+    /** A radio button of a choice of a type's settings, greyed with its default; an add-on's tagged */
     component OptionRadio: Ez.RadioButton {
+        id: optionRadio
         required property string fieldId
         readonly property var field: root.session.schema.field(fieldId)
         readonly property var item: (field.items ?? []).find(one => one.value === value) ?? null
+        readonly property string origin: item ? item.origin ?? "" : ""
         readonly property bool bound: root.revision < 0 ? false : root.session.isVisible(fieldId)
         objectName: (root.names[fieldId] ?? fieldId) + value
         text: item ? qsTranslate(item.text.context, item.text.text) : ""
-        enabled: bound && root.session.isEnabled(fieldId) && (!item || !item.maniac || root.session.maniac || checked)
+        enabled: bound && root.session.isEnabled(fieldId) && Ez.Origins.available(origin)
+        // not offered (Editor Settings) unless it is the command's
+        visible: Ez.Origins.shown(origin) || checked
         jsonData: root.session
         key: bound ? field.path : "/defaults/" + fieldId
+        rightPadding: horizontalPadding + (optionTag.width > 0 ? optionTag.width + Ez.Metrics.columnSpacing : 0)
+        Ez.OriginTag {
+            id: optionTag
+            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+            objectName: optionRadio.objectName + "Tag"
+            origin: optionRadio.origin
+            warning: optionRadio.checked && optionRadio.bound && !Ez.Origins.available(origin)
+            x: optionRadio.leftPadding + optionRadio.contentItem.implicitWidth + Ez.Metrics.columnSpacing
+            anchors.verticalCenter: parent.verticalCenter
+        }
+        Ez.OriginTip {
+            origin: optionRadio.origin
+        }
     }
 
     /** The words between the settings of a type ("is"), greyed with them */
@@ -152,8 +192,10 @@ ColumnLayout {
             Controls.TabButton {
                 text: qsTr("3")
                 width: root.extraPage ? implicitWidth : 0
-                visible: root.extraPage
+                opacity: root.extraPage ? 1 : 0
+                enabled: root.extraPage
                 font: Ez.Metrics.font
+                onEnabledChanged: if (!enabled && pages.currentIndex === 2) pages.currentIndex = 0
             }
             // the page of the condition of the command
             Component.onCompleted: currentIndex = root.pageOf(root.type)
@@ -221,7 +263,6 @@ ColumnLayout {
                             OptionRadio {
                                 fieldId: "operandType"
                                 value: 2
-                                visible: root.session.maniac || checked
                             }
                         }
                         Field {
@@ -257,10 +298,10 @@ ColumnLayout {
                 }
                 TypeRadio {
                     value: 10
-                    visible: !root.battle
+                    visible: !root.battle && root.typeShown(10)
                 }
                 RowLayout {
-                    visible: !root.battle
+                    visible: !root.battle && root.typeShown(10)
                     spacing: Ez.Metrics.columnSpacing
                     Field {
                         fieldId: "timer"
@@ -330,11 +371,11 @@ ColumnLayout {
                 }
                 TypeRadio {
                     value: 4
-                    visible: root.battle
+                    visible: root.battle && root.typeShown(4)
                     text: qsTr("Monster")
                 }
                 RowLayout {
-                    visible: root.battle
+                    visible: root.battle && root.typeShown(4)
                     spacing: Ez.Metrics.columnSpacing
                     Field {
                         fieldId: "target"
@@ -347,11 +388,11 @@ ColumnLayout {
                 }
                 TypeRadio {
                     value: 5
-                    visible: root.battle
+                    visible: root.battle && root.typeShown(5)
                     text: qsTr("Hero")
                 }
                 GridLayout {
-                    visible: root.battle
+                    visible: root.battle && root.typeShown(5)
                     columns: 2
                     rowSpacing: Ez.Metrics.rowSpacing
                     columnSpacing: Ez.Metrics.columnSpacing
@@ -477,7 +518,6 @@ ColumnLayout {
                     }
                     Field {
                         fieldId: "characterExists"
-                        visible: root.modeShown("characterExists", 6)
                     }
                 }
 
@@ -511,7 +551,7 @@ ColumnLayout {
                 Layout.alignment: Qt.AlignTop
 
                 RowLayout {
-                    visible: !root.battle
+                    visible: !root.battle && root.typeShown(11)
                     spacing: Ez.Metrics.columnSpacing
                     TypeRadio {
                         value: 11
@@ -533,7 +573,7 @@ ColumnLayout {
                     ColumnLayout {
                         id: maniacType
                         required property var modelData
-                        visible: root.maniacShown
+                        visible: root.typeShown(modelData.value)
                         spacing: Ez.Metrics.rowSpacing
                         Layout.fillWidth: true
                         TypeRadio {

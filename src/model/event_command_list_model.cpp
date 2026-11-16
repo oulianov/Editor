@@ -27,10 +27,13 @@
 #include <functional>
 #include <limits>
 #include "common/dbstring.h"
+#include "common/editor_settings.h"
 #include "model/command_colors.h"
+#include "model/command_origin.h"
 #include "model/command_schema.h"
 #include "model/database_list_data.h"
 #include "model/event_command_defaults.h"
+#include "model/game_setup.h"
 #include "stringizer.h"
 
 namespace {
@@ -140,6 +143,16 @@ EventCommandListModel::EventCommandListModel(QObject* parent) :
 	// renamed in a picker, a list's box or the database window, they show
 	// the new name at once, not once their command is edited again
 	connect(&DatabaseListNotifier::instance(), &DatabaseListNotifier::listChanged, this, &EventCommandListModel::refreshNames);
+	// The tags of the lines follow the add-ons the game runs, and the
+	// badges shown or not (Editor Settings)
+	const auto retag = [this] {
+		updateTagged();
+		if (rowCount() > 0) {
+			emit dataChanged(index(0), index(rowCount() - 1), {OriginsRole});
+		}
+	};
+	connect(&GameSetup::instance(), &GameSetup::changed, this, retag);
+	connect(&EditorSettings::instance(), &EditorSettings::changed, this, retag);
 }
 
 EventCommandListModel::~EventCommandListModel() = default;
@@ -159,6 +172,7 @@ void EventCommandListModel::setCommands(Commands* commands)
 	m_recorded.reset();
 	endResetModel();
 	if (!m_commands) {
+		updateTagged();
 		emit commandsChanged();
 		return;
 	}
@@ -217,6 +231,8 @@ QVariant EventCommandListModel::data(const QModelIndex& index, int role) const
 		case LineLabelRole:
 			return page_end || !isNextLine(codeOf(*cmd)) ? QString()
 				: firstLineLabel((*m_commands)[static_cast<size_t>(commandStart(row))]);
+		case OriginsRole:
+			return origins(row);
 		default:
 			return {};
 	}
@@ -245,6 +261,7 @@ QHash<int, QByteArray> EventCommandListModel::roleNames() const
 	names.insert(StructuralRole, "structural");
 	names.insert(PageEndRole, "pageEnd");
 	names.insert(LineLabelRole, "lineLabel");
+	names.insert(OriginsRole, "origins");
 	return names;
 }
 
@@ -375,6 +392,56 @@ void EventCommandListModel::setDatabase(const lcf::rpg::Database* database)
 	if (m_database != database) {
 		m_database = database;
 		refreshNames();
+	}
+}
+
+QVariantList EventCommandListModel::origins(int index) const
+{
+	if (!m_commands || index < 0 || index >= lineCount() || !isCommandLine(index)) {
+		return {};
+	}
+	// the command and its next lines (those of a comment can call plugins),
+	// each origin once: not run when one of its lines is not
+	const auto& commands = *m_commands;
+	QStringList used;
+	QStringList not_run;
+	for (int i = index; i < lineCount() && (i == index || isNextLine(codeOf(commands[static_cast<size_t>(i)]))); ++i) {
+		const auto& line = commands[static_cast<size_t>(i)];
+		for (const QString& origin : CommandOrigin::uses(line)) {
+			if (!used.contains(origin)) {
+				used.append(origin);
+			}
+			if (!not_run.contains(origin) && !CommandOrigin::runs(origin, line)) {
+				not_run.append(origin);
+			}
+		}
+	}
+	// a tag for what the game tags; what it does not run, a warning (even
+	// of its engine: RPG Maker 2003's battles in a 2000 game)
+	QVariantList tags;
+	for (const QString& origin : used) {
+		const bool warning = not_run.contains(origin);
+		if (warning || CommandOrigin::tagged(origin)) {
+			tags.append(QVariantMap{{QStringLiteral("origin"), origin}, {QStringLiteral("warning"), warning}});
+		}
+	}
+	return tags;
+}
+
+bool EventCommandListModel::isTagged() const
+{
+	return m_tagged;
+}
+
+void EventCommandListModel::updateTagged()
+{
+	bool tagged = false;
+	for (int i = 0; i < lineCount() && !tagged; ++i) {
+		tagged = !origins(i).isEmpty();
+	}
+	if (tagged != m_tagged) {
+		m_tagged = tagged;
+		emit taggedChanged();
 	}
 }
 
@@ -537,6 +604,7 @@ void EventCommandListModel::finishChange()
 			std::move(*m_recorded), *m_commands));
 	}
 	m_recorded = *m_commands;
+	updateTagged();
 	emit commandsChanged();
 }
 

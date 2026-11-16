@@ -29,9 +29,10 @@ namespace lcf::rpg {
 }
 
 /**
- * The compatibility of a game with the Maniac Patch (the Maniac mode of the
- * Editor): what the game uses that the Maniac Patch's RPG_RT does not run,
- * and the conversion of what has a Maniac equivalent.
+ * The compatibility of a game with the Maniac Patch (checked when a game of
+ * the Maniac Patch opens, or turns it on): what the game uses that the
+ * Maniac Patch's RPG_RT does not run, and the conversion of what has a
+ * Maniac equivalent.
  *
  * - The format of RPG Maker 2000: the Maniac Patch runs RPG Maker 2003
  *   games (ProjectConvert::to2003).
@@ -45,6 +46,10 @@ namespace lcf::rpg {
  *   played instead).
  *
  * What has no equivalent is listed and stays as it is.
+ *
+ * The same scan lists what a game uses from the add-ons Project Settings
+ * turns off (uses()): nothing converts then, what is there stays as it is
+ * and is not run.
  */
 class ManiacCompat {
 	Q_DECLARE_TR_FUNCTIONS(ManiacCompat)
@@ -53,12 +58,16 @@ public:
 
 	/** A use, the same for each of its places */
 	struct Finding {
+		/** In the Maniac Patch check */
 		Group group = Group::EasyRpg;
 		QString what;
 		/** What the conversion makes of it; empty: it stays as it is */
 		QString becomes;
 		/** "Map 0003: Town, event 0005: Guard, page 1, line 12"... */
 		QStringList places;
+		/** In the check of add-ons turned off (uses()): the origin of
+		 *  Ez.Origins it needs ("maniac", "easyrpg"...) */
+		QString origin;
 	};
 
 	struct Report {
@@ -81,6 +90,19 @@ public:
 	using OpenMap = std::function<const lcf::rpg::Map*(int id)>;
 	/** What the project uses that the Maniac Patch does not run */
 	static Report check(const Project& project, const OpenMap& open_map = {});
+	/**
+	 * What the project uses from add-ons it stops running, by add-on in the
+	 * order of origins (origins of Ez.Origins: "maniac", "easyrpg",
+	 * "rpg2003", "dynrpg", "keypatch", "powermode"): the event commands of
+	 * the maps, the common events and the monster groups that use them
+	 * (CommandOrigin::uses; Power Mode's registers and the Key Patch's
+	 * links as check() finds them), the conditions of RPG Maker 2003 of the
+	 * pages, the large charsets of the EasyRPG Extensions ($ names), the
+	 * values of the database the Maniac Patch adds. dynRpg:
+	 * DynRPG stays on, and runs the calls of EasyRPG Player's plugin. Nothing
+	 * converts.
+	 */
+	static Report uses(const Project& project, const QStringList& origins, bool dynRpg, const OpenMap& open_map = {});
 
 	/** The folder, inside the project, that receives the files before they change */
 	static QString backupFolderName();

@@ -26,6 +26,9 @@ import org.easyrpg.editor as Ez
  *   dimmed, italic: functions of the line's model (a file of the RTP...)
  *   icon: the name of an icon of the Editor (resources/icons) before the text
  *   sort: the column's key for sortColumn
+ *   cell: a Component drawing the cell instead of its text (the profile
+ *     chips of a game), given the line's model in its property line and
+ *     whether the line is highlighted in highlighted; no higher than a line
  *
  * Sorted by the model, on request: with a sortColumn, a click on the title
  * of a column that has a sort key asks for it (sortClicked); the title of
@@ -302,8 +305,23 @@ Rectangle {
                             height: root.iconSize
                             anchors.verticalCenter: parent.verticalCenter
                         }
+                        // a cell the column draws itself, as high as it is
+                        Loader {
+                            id: drawn
+                            active: (cell.modelData.cell ?? null) !== null
+                            sourceComponent: cell.modelData.cell ?? null
+                            x: root.cellPadding
+                            width: parent.width - 2 * root.cellPadding
+                            anchors.verticalCenter: parent.verticalCenter
+                            clip: true
+                            onLoaded: {
+                                item.line = Qt.binding(() => line.model)
+                                item.highlighted = Qt.binding(() => line.highlighted)
+                            }
+                        }
                         Ez.Label {
                             id: label
+                            visible: !drawn.active
                             x: icon.visible ? icon.x + icon.width + Ez.Metrics.columnSpacing : 0
                             width: parent.width - x
                             leftPadding: icon.visible ? 0 : root.cellPadding

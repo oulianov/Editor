@@ -176,11 +176,12 @@ ColumnLayout {
         RowLayout {
             spacing: Ez.Metrics.columnSpacing
             Layout.fillWidth: true
-            // the mode of the Maniac Patch, in its games or while the command has one
+            // the mode of the Maniac Patch, in its games or while the command has
+            // one (then a warning tag in the other games)
             Ez.ComboBox {
                 objectName: "moveTargetMode"
                 visible: root.session.maniac || root.targetMode !== 0
-                enabled: root.session.maniac
+                enabled: Ez.Origins.available("maniac")
                 model: [{ value: 0, text: qsTranslate("ManiacCommandWidget", "Constant") },
                         { value: 1, text: qsTranslate("ManiacCommandWidget", "Variable") },
                         { value: 2, text: qsTranslate("ManiacCommandWidget", "Variable pointer") }]
@@ -195,6 +196,16 @@ ColumnLayout {
                     }
                     root.session.set("/parameters/2@8:4", currentValue)
                 }
+                Ez.OriginTip {
+                    origin: "maniac"
+                }
+            }
+            Ez.OriginTag {
+                readonly property string text: shown ? Ez.Origins.letter(origin) + "!" : ""
+                objectName: "moveTargetModeTag"
+                origin: "maniac"
+                warning: true
+                visible: root.targetMode !== 0 && !Ez.Origins.available(origin)
             }
             Ez.RefComboBox {
                 objectName: "moveTarget"

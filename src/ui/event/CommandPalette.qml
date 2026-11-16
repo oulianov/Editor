@@ -7,6 +7,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
+import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
 /**
@@ -15,11 +16,21 @@ import org.easyrpg.editor as Ez
  * over all of them (Enter picks the command of that name, else the first
  * match). Opened by CommandEditing::pickCommand, which reads code.
  *
- * pages: [{title, entries: [{code, name, source, rpg2k3Only, maniacOnly, easyrpgOnly}]}], an
+ * pages: [{title, origin, entries: [{code, name, source, origin}]}], an
  * entry of code 0 is the gap between two groups; the one of code -1 (in a
  * map event, a common event) opens the battle event commands (battlePages)
  * in this window again, over it: Cancel comes back here, a command chosen
- * there is this one's.
+ * there is this one's. The tabs are numbered.
+ *
+ * A command of an add-on (its origin, Ez.Origins: the Maniac Patch,
+ * EasyRPG Player, RPG Maker 2003's commands in a 2000 game) has its tag;
+ * while the game does not run it, it is greyed, cannot be chosen and its
+ * tooltip says what the game needs, or it is hidden (Editor Settings:
+ * Ez.Origins.shown), with the tab of a page left without commands. A page
+ * of one add-on has its tag in its tab. What the game runs (Ez.Game) and
+ * the Editor Settings are followed while the window is open: the patches
+ * written by Project Settings or another program enable, grey or hide the
+ * commands at once.
  */
 Ez.DialogWindow {
     id: root
@@ -33,16 +44,40 @@ Ez.DialogWindow {
     property string searchText: ""
     /** The commands of a battle */
     property bool battle: false
-    /** The game is RPG Maker 2003's, uses the Maniac Patch, EasyRPG Player's extensions: their commands can be chosen */
-    property bool rpg2k3: true
-    property bool maniac: false
-    property bool easyrpg: false
     /** The command chosen (0: none) */
     property int code: 0
     /** The tab shown first (the one shown last time), and the one shown when it closes */
     property int startPage: 0
     readonly property int page: tabs.currentIndex
 
+    /** An entry is offered: a command the game runs, or one it does not run shown greyed (Editor Settings) */
+    function entryShown(entry) {
+        return entry.code <= 0 || Ez.Origins.shown(entry.origin ?? "")
+    }
+    /** A page has commands offered: its tab is shown */
+    function pageShown(page) {
+        return page.entries.some(entry => entry.code !== 0 && entryShown(entry))
+    }
+    /** The title of the page at index as its tab shows it, numbered among the pages shown ("&&" of a mnemonic: "&") */
+    function pageTitle(index) {
+        let number = 0
+        for (let i = 0; i <= index; ++i) {
+            if (pageShown(pages[i])) {
+                ++number
+            }
+        }
+        return number + " " + pages[index].title.replace(/&&/g, "&")
+    }
+    /** The first page shown from index (none: 0) */
+    function shownPageFrom(index) {
+        for (let i = 0; i < pages.length; ++i) {
+            const at = (index + i) % pages.length
+            if (pageShown(pages[at])) {
+                return at
+            }
+        }
+        return 0
+    }
     /** Chooses the command of an entry; the one of the battle event commands opens them */
     function choose(entry) {
         if (entry.code < 0) {
@@ -59,34 +94,32 @@ Ez.DialogWindow {
     function openBattleCommands() {
         const search = searchField.text.trim()
         const found = battleNamed(folded(search), false).length > 0
-        if (Ez.Editor.exec("CommandPalette", { pages: battlePages, battle: true, rpg2k3: rpg2k3, maniac: maniac, easyrpg: easyrpg,
-                                               opener: root, searchText: found ? search : "" }, root.contentItem) === 1) {
+        if (Ez.Editor.exec("CommandPalette", { pages: battlePages, battle: true, opener: root,
+                                               searchText: found ? search : "" }, root.contentItem) === 1) {
             root.accept()
         }
     }
-    /** Why a command cannot be chosen, empty when it can */
+    /** Why a command cannot be chosen (what the game needs to run it), empty when it can */
     function whyNot(entry) {
-        if (entry.rpg2k3Only && !rpg2k3) {
-            return qsTr("Only in RPG Maker 2003")
-        }
-        if (entry.maniacOnly && !maniac) {
-            return qsTr("Only with the Maniac Patch")
-        }
-        if (entry.easyrpgOnly && !easyrpg) {
-            return qsTr("Only with the EasyRPG Extensions (Project Settings > EasyRPG Player > Patches)")
-        }
-        return ""
+        const origin = entry.origin ?? ""
+        return Ez.Origins.available(origin) ? "" : Ez.Origins.need(origin)
     }
-    /** The groups of a page in two columns: the second one starts at the group that best balances them */
+    /** The tooltip of a command: why it cannot be chosen, else what runs it when it has a tag */
+    function tipOf(entry) {
+        const origin = entry.origin ?? ""
+        return Ez.Origins.tagged(origin) || !Ez.Origins.available(origin) ? Ez.Origins.tip(origin) : ""
+    }
+    /** The groups of the entries offered of a page in two columns: the second one starts at the group that best balances them */
     function columnsOf(page) {
-        const groups = [[]]
+        let groups = [[]]
         for (const entry of page.entries) {
             if (entry.code === 0) {
                 groups.push([])
-            } else {
+            } else if (entryShown(entry)) {
                 groups[groups.length - 1].push(entry)
             }
         }
+        groups = groups.filter(group => group.length > 0)
         let total = 0
         for (const group of groups) {
             total += group.length
@@ -125,13 +158,15 @@ Ez.DialogWindow {
         const codes = new Set()
         for (const page of pages) {
             for (const entry of page.entries) {
-                codes.add(entry.code)
+                if (entryShown(entry)) {
+                    codes.add(entry.code)
+                }
             }
         }
         const found = []
         for (const page of battlePages) {
             for (const entry of page.entries) {
-                if (entry.code !== 0 && !codes.has(entry.code)) {
+                if (entry.code !== 0 && !codes.has(entry.code) && entryShown(entry)) {
                     found.push(entry)
                 }
             }
@@ -162,15 +197,15 @@ Ez.DialogWindow {
             return []
         }
         const found = []
-        for (const page of pages) {
+        for (let index = 0; index < pages.length; ++index) {
+            const page = pages[index]
             for (const column of columnsOf(page)) {
                 for (const group of column) {
                     for (const entry of group) {
                         if (root.named(entry, search, false)) {
                             // the battle event commands it opens: those found
                             const inside = entry.code < 0 ? root.battleNamed(search, false).map(one => one.name) : []
-                            // the title of the page as its tab shows it ("&&": "&")
-                            found.push({ entry: entry, page: page.title.replace(/&&/g, "&"), battle: inside })
+                            found.push({ entry: entry, page: root.pageTitle(index), battle: inside })
                         }
                     }
                 }
@@ -238,18 +273,39 @@ Ez.DialogWindow {
                 id: tabs
                 objectName: "tabPages"
                 Layout.fillWidth: true
+                // the window as wide as the tabs with their whole titles
+                Layout.minimumWidth: contentWidth
                 font: Ez.Metrics.font
-                // once its tabs are made: the one of last time
-                onCountChanged: if (count === root.pages.length) currentIndex = Math.max(0, Math.min(root.startPage, count - 1))
+                // once its tabs are made: the one of last time, if it is shown
+                onCountChanged: if (count === root.pages.length) {
+                    currentIndex = root.shownPageFrom(Math.max(0, Math.min(root.startPage, count - 1)))
+                }
 
+                // every page has its tab, the one of an add-on its tag after its
+                // title; those without commands offered without width: the tabs
+                // stay as the game's patches and the Editor Settings change
                 Repeater {
                     model: root.pages
                     Controls.TabButton {
+                        id: tab
                         required property var modelData
-                        // the titles escape "&" as "&&" (a mnemonic's), which these tabs show as written
-                        text: modelData.title.replace(/&&/g, "&")
-                        width: implicitWidth
+                        required property int index
+                        readonly property bool shown: root.pageShown(modelData)
+                        text: root.pageTitle(index)
                         font: Ez.Metrics.font
+                        // as wide as its title (not a share of the bar: a long title was cut)
+                        width: shown ? implicitWidth : 0
+                        opacity: shown ? 1 : 0
+                        enabled: shown
+                        // its page hidden while shown: the first one shown instead
+                        onShownChanged: if (!shown && tabs.currentIndex === index) tabs.currentIndex = root.shownPageFrom(0)
+                        rightPadding: leftPadding + (pageTag.width > 0 ? pageTag.width + Ez.Metrics.columnSpacing : 0)
+                        Ez.OriginTag {
+                            id: pageTag
+                            origin: tab.modelData.origin ?? ""
+                            x: tab.width - tab.rightPadding + Ez.Metrics.columnSpacing
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
                     }
                 }
             }
@@ -312,16 +368,29 @@ Ez.DialogWindow {
 
                                                 required property var modelData
                                                 readonly property string why: root.whyNot(modelData)
+                                                readonly property string tip: root.tipOf(modelData)
 
+                                                objectName: "command" + modelData.code
                                                 text: modelData.name + "..."
                                                 enabled: why === ""
                                                 Layout.fillWidth: true
-                                                // a greyed button still says why
-                                                Controls.ToolTip.visible: why !== "" && hover.hovered
-                                                Controls.ToolTip.text: why
+                                                // the text centred between the tag and the left edge
+                                                rightPadding: leftPadding + (commandTag.width > 0 ? commandTag.width + Ez.Metrics.columnSpacing : 0)
+                                                // a greyed button still says why (the tag's tooltip: the button's)
+                                                Controls.ToolTip.visible: tip !== "" && hover.hovered
+                                                Controls.ToolTip.text: tip
+                                                Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
                                                 onClicked: root.choose(modelData)
                                                 HoverHandler {
                                                     id: hover
+                                                }
+                                                Ez.OriginTag {
+                                                    id: commandTag
+                                                    origin: button.modelData.origin ?? ""
+                                                    toolTip: ""
+                                                    anchors.right: parent.right
+                                                    anchors.rightMargin: button.leftPadding
+                                                    anchors.verticalCenter: parent.verticalCenter
                                                 }
                                             }
                                         }
@@ -367,13 +436,20 @@ Ez.DialogWindow {
 
                         Ez.Button {
                             id: resultButton
+                            objectName: "result" + result.modelData.entry.code
                             anchors.fill: parent
                             text: result.modelData.entry.name + "..."
                             enabled: result.why === ""
-                            // the page of the command, as its tooltip (the battle event commands found there)
+                            rightPadding: leftPadding + (resultTag.width > 0 ? resultTag.width + Ez.Metrics.columnSpacing : 0)
+                            // the page of the command, as its tooltip (the battle event commands found
+                            // there), and what runs it when it has a tag
                             Controls.ToolTip.visible: resultHover.hovered
-                            Controls.ToolTip.text: result.why !== "" ? result.why
-                                : result.modelData.battle.length > 0 ? result.modelData.battle.join(", ") : result.modelData.page
+                            Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
+                            Controls.ToolTip.text: {
+                                const where = result.modelData.battle.length > 0 ? result.modelData.battle.join(", ") : result.modelData.page
+                                const tip = root.tipOf(result.modelData.entry)
+                                return tip !== "" ? where + "\n" + tip : where
+                            }
                             onClicked: root.choose(result.modelData.entry)
                             // the arrows go through the results (Up from
                             // the first one: back to the search), Return
@@ -388,6 +464,14 @@ Ez.DialogWindow {
                             Keys.onEnterPressed: click()
                             HoverHandler {
                                 id: resultHover
+                            }
+                            Ez.OriginTag {
+                                id: resultTag
+                                origin: result.modelData.entry.origin ?? ""
+                                toolTip: ""
+                                anchors.right: parent.right
+                                anchors.rightMargin: resultButton.leftPadding
+                                anchors.verticalCenter: parent.verticalCenter
                             }
                         }
                     }

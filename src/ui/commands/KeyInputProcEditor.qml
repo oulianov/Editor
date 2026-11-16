@@ -17,6 +17,11 @@ import org.easyrpg.editor as Ez
  * RPG Maker 2003 packs the decision and cancel keys (and with the newer
  * layout the down, up and Shift keys) in bit 0. An older layout becomes the
  * newer one only when an option needs it.
+ *
+ * The keys of RPG Maker 2003 are greyed in a 2000 game, the mouse buttons of
+ * the Maniac Patch (a 2003 game) in a game without it, with their tag and
+ * a tooltip saying what the game needs; or hidden (Editor Settings) unless
+ * the command has them.
  */
 ColumnLayout {
     id: root
@@ -163,6 +168,8 @@ ColumnLayout {
         }
         RowLayout {
             spacing: Ez.Metrics.columnSpacing
+            // RPG Maker 2003's: not offered in a 2000 game unless the command has it (Editor Settings)
+            visible: Ez.Origins.shown("engine2003") || root.timed
             Ez.CheckBox {
                 objectName: "keyStoreTime"
                 text: qsTr("Store Amount of Time it Takes to Press Key")
@@ -171,6 +178,9 @@ ColumnLayout {
                 onToggled: {
                     root.modernize()
                     root.setParameter(8, checked ? 1 : 0)
+                }
+                Ez.OriginTip {
+                    origin: "engine2003"
                 }
             }
             Ez.RefComboBox {
@@ -204,8 +214,12 @@ ColumnLayout {
                     text: root.labels[index]
                     // the number and operator keys are RPG Maker 2003's
                     enabled: index < 7 || root.rpg2003
+                    visible: index < 7 || Ez.Origins.shown("engine2003") || checked
                     checked: root.revision < 0 ? false : root.keyChecked(index)
                     onToggled: root.setKey(index, checked)
+                    Ez.OriginTip {
+                        origin: index < 7 ? "" : "engine2003"
+                    }
                 }
             }
         }
@@ -213,8 +227,9 @@ ColumnLayout {
 
     Ez.Section {
         title: qsTranslate("ManiacCommandWidget", "Mouse")
-        // in the games of the Maniac Patch, or while the command has a button
-        visible: root.rpg2003 && (root.session.maniac || root.anyMouse)
+        // RPG Maker 2003's layout of the keys: greyed without the Maniac Patch,
+        // or not offered (Editor Settings) unless the command has a button
+        visible: root.rpg2003 && (Ez.Origins.shown("maniac") || root.anyMouse)
         GridLayout {
             columns: 2
             rowSpacing: Ez.Metrics.rowSpacing
@@ -222,12 +237,27 @@ ColumnLayout {
             Repeater {
                 model: root.mouseNames.length
                 Ez.CheckBox {
+                    id: mouseButton
                     required property int index
                     objectName: root.mouseNames[index]
                     text: root.mouseLabels[index]
-                    enabled: root.session.maniac
+                    enabled: Ez.Origins.available("maniac")
                     checked: root.revision < 0 ? false : root.mouseChecked(index)
                     onToggled: root.setMouse(index, checked)
+                    // its tag after the text
+                    rightPadding: horizontalPadding + (mouseTag.width > 0 ? mouseTag.width + Ez.Metrics.columnSpacing : 0)
+                    Ez.OriginTag {
+                        id: mouseTag
+                        readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+                        objectName: mouseButton.objectName + "Tag"
+                        origin: "maniac"
+                        warning: mouseButton.checked && !Ez.Origins.available(origin)
+                        x: mouseButton.leftPadding + mouseButton.contentItem.implicitWidth + Ez.Metrics.columnSpacing
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Ez.OriginTip {
+                        origin: "maniac"
+                    }
                 }
             }
         }

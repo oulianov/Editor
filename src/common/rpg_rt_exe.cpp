@@ -371,3 +371,29 @@ int RpgRtExe::engineFromSetting(const QString& value) {
 	}
 	return EngineNone;
 }
+
+QString RpgRtExe::settingOf(int engine) {
+	switch (engine) {
+	case EngineRpg2k:
+		return QStringLiteral("rpg2k");
+	case EngineRpg2k | EngineMajorUpdated:
+		return QStringLiteral("rpg2kv150");
+	case EngineRpg2k | EngineMajorUpdated | EngineEnglish:
+		return QStringLiteral("rpg2ke");
+	case EngineRpg2k3:
+		return QStringLiteral("rpg2k3");
+	case EngineRpg2k3 | EngineMajorUpdated:
+		return QStringLiteral("rpg2k3v105");
+	case EngineRpg2k3 | EngineMajorUpdated | EngineEnglish:
+		return QStringLiteral("rpg2k3e");
+	default:
+		return {};
+	}
+}
+
+const QList<int>& RpgRtExe::settingEngines() {
+	static const QList<int> engines = {EngineRpg2k, EngineRpg2k | EngineMajorUpdated,
+		EngineRpg2k | EngineMajorUpdated | EngineEnglish, EngineRpg2k3, EngineRpg2k3 | EngineMajorUpdated,
+		EngineRpg2k3 | EngineMajorUpdated | EngineEnglish};
+	return engines;
+}

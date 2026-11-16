@@ -118,6 +118,8 @@ MapEventsView::MapEventsView(QQuickItem* parent) :
 	setFlag(ItemHasContents);
 	// clipRect() is then the part of the item in its Flickable (or window)
 	setFlag(ItemObservesViewport);
+	// the game's RTP in another folder: the charsets and tiles read again
+	connect(&core(), &Core::rtpChanged, this, &MapEventsView::reload);
 }
 
 MapEventsView::~MapEventsView() = default;

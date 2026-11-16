@@ -68,4 +68,8 @@ namespace RpgRtExe {
 	QString engineName(int engine);
 	/** The flags of an Engine= value of EasyRPG.ini ("2003v105", "rpg2ke"...), else EngineNone */
 	int engineFromSetting(const QString& value);
+	/** The Engine= value of EasyRPG.ini of an engine ("rpg2k3e"...), empty for none */
+	QString settingOf(int engine);
+	/** The engines EasyRPG Player can be told, in the order of its settings */
+	const QList<int>& settingEngines();
 }

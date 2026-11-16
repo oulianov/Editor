@@ -162,6 +162,9 @@ public:
 	Q_INVOKABLE bool requestClose();
 	/** Writes the workspace of the project open and the window's layout */
 	Q_INVOKABLE void saveWorkspace();
+	/** Project Settings on a page: "engine", "player" (a chip of the
+	 *  profile of the game clicked), else the first */
+	Q_INVOKABLE void showProjectSettings(const QString& page);
 
 signals:
 	void currentEditorChanged();
@@ -210,8 +213,11 @@ private:
 	void placeTeleport(int map, const QPoint& cell);
 
 	// the actions
-	/** soundfont: a file chosen as the game soundfont (the Jukebox), copied on OK */
-	void projectSettings(const QString& soundfont = QString());
+	/** soundfont: a file chosen as the game soundfont (the Jukebox), copied
+	 *  on OK; page: the page shown first (showProjectSettings). On OK, the
+	 *  add-ons it turns off that the game uses are listed first
+	 *  (ShellController::checkTurnedOff) */
+	void projectSettings(const QString& soundfont = QString(), const QString& page = QString());
 	/** The game's folder in the file manager of the system (Finder, Explorer...) */
 	void openGameFolder();
 	void exportGame();

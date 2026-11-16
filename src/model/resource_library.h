@@ -145,6 +145,8 @@ class ResourceLibraryModel : public QAbstractListModel
 	Q_PROPERTY(QStringList info READ info NOTIFY currentChanged)
 	Q_PROPERTY(QString previewNote READ previewNote NOTIFY currentChanged)
 	Q_PROPERTY(QImage previewImage READ previewImage NOTIFY currentChanged)
+	/** The image shown has more than 256 colors (a true color image) */
+	Q_PROPERTY(bool currentTrueColor READ currentTrueColor NOTIFY currentChanged)
 	Q_PROPERTY(bool canImport READ canImport NOTIFY currentChanged)
 	Q_PROPERTY(bool canExport READ canExport NOTIFY currentChanged)
 	Q_PROPERTY(bool canDelete READ canDelete NOTIFY currentChanged)
@@ -247,6 +249,13 @@ public:
 	/** The image shown, as in the game (palette color 0 transparent where
 	 *  the folder makes it so); null when none or not readable */
 	QImage previewImage() const;
+	bool currentTrueColor() const;
+
+	/** The game open shows true color images: EasyRPG Player with its
+	 *  extensions, or the Maniac Patch (GameSetup) */
+	static bool trueColorShown();
+	/** What a game needs to show them, for a tooltip */
+	static QString trueColorNeed();
 
 	/** The file extensions of a kind of file, in the order the Player tries them */
 	static QStringList extensions(FileFinder::FileType type);

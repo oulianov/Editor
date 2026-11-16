@@ -67,6 +67,7 @@ ProjectWatcher::Stamp ProjectWatcher::stampOf(const QString& path) {
 }
 
 void ProjectWatcher::setProject(const QString& dir, bool easyrpg) {
+	emit projectSet();
 	if (dir == m_dir && easyrpg == m_easyrpg) {
 		// the same project (a setting changed): its pending reloads stay
 		return;

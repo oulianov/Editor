@@ -38,6 +38,7 @@
 #include "controller/shell_controller.h"
 #include "model/export_controller.h"
 #include "model/editor_update.h"
+#include "model/game_patches.h"
 #include "model/map_document.h"
 #include "model/map_tree_model.h"
 #include "model/project.h"
@@ -51,6 +52,7 @@
 #include "qmlbinding/resource_windows.h"
 #include "qmlbinding/test_play.h"
 #include "model/event_editor_controller.h"
+#include "model/game_setup.h"
 #include "ui/event/event_window.h"
 #include "ui/map/map_editor.h"
 #include "ui/picker/pickers.h"
@@ -405,13 +407,8 @@ void QmlShell::trigger(const QString& name, bool checked)
 	}
 	else if (is("actionSearch"))
 		openSearch();
-	else if (is("actionSettings")) {
-		const bool maniac = EditorSettings::instance().maniacMode();
+	else if (is("actionSettings"))
 		m_dialogs->settings();
-		// the Maniac mode switched on with a game open: what the Maniac Patch does not run in it
-		if (!maniac && EditorSettings::instance().maniacMode())
-			m_shell->checkManiac(ShellController::ManiacCheck::ModeOn);
-	}
 	// Game
 	else if (is("actionPlayTest"))
 		TestPlay::launch(m_window, {});
@@ -680,7 +677,6 @@ void QmlShell::editEvent(int map, const lcf::rpg::Event& event, int page, int li
 	ProjectData& project = core().project()->projectData();
 	const int id = event.ID;
 	EventEditorController controller(doc->id());
-	controller.setRpg2k3(project.database().system.ldb_id == 2003);
 	// new: an event this map does not have yet (New Event)
 	controller.setEvent(event, doc->findEvent(id) == nullptr);
 	// Apply puts it on the map at once, like RPG Maker
@@ -697,19 +693,19 @@ void QmlShell::placeTeleport(int map, const QPoint& cell)
 	MapDocument* doc = m_project->document(map);
 	if (!doc || !core().project())
 		return;
-	// RPG Maker's Select Location starts on this map; RPG Maker 2003 also
-	// asks the facing after the teleport (0 keeps it)
-	const bool rpg2k3 = core().project()->projectData().database().system.ldb_id == 2003;
+	// RPG Maker's Select Location starts on this map; the facing after the
+	// teleport too when the game runs RPG Maker 2003's commands (0 keeps it)
+	const bool facing = GameSetup::instance().commands2k3();
 	Pickers::LocationRequest request;
 	request.current = {doc->id(), cell.x(), cell.y(), 0};
-	request.facing = rpg2k3;
+	request.facing = facing;
 	const auto picked = Pickers::pickLocation(m_window.data(), request);
 	// the chipset of this map again, after the map shown in the picker
 	core().LoadChipset(doc->map().chipset_id);
 	if (!picked)
 		return;
 	doc->placeTeleport(cell.x(), cell.y(), picked->map, picked->x, picked->y,
-		rpg2k3 ? std::optional<int>(picked->direction) : std::nullopt);
+		facing ? std::optional<int>(picked->direction) : std::nullopt);
 }
 
 void QmlShell::onCurrentMapChanged()
@@ -773,7 +769,12 @@ void QmlShell::setStatusMessage(const QString& text, int timeout)
  * The actions
  */
 
-void QmlShell::projectSettings(const QString& soundfont)
+void QmlShell::showProjectSettings(const QString& page)
+{
+	projectSettings(QString(), page);
+}
+
+void QmlShell::projectSettings(const QString& soundfont, const QString& page)
 {
 	auto project = core().project();
 	if (!project)
@@ -782,26 +783,29 @@ void QmlShell::projectSettings(const QString& soundfont)
 	ProjectSettings settings(*project, true);
 	if (!soundfont.isEmpty())
 		settings.soundfont()->choose(soundfont);
+	// an add-on turned off that the game uses: listed on OK, before anything is written
+	settings.setTurnOffCheck([this](const QStringList& origins, bool dyn_rpg) {
+		return m_shell->checkTurnedOff(origins, dyn_rpg);
+	});
 	if (QmlHost::exec(QStringLiteral("ProjectSettingsWindow"), m_window,
-			{{QStringLiteral("settings"), QVariant::fromValue(&settings)}}) != QmlHost::Accepted)
+			{{QStringLiteral("settings"), QVariant::fromValue(&settings)}, {QStringLiteral("page"), page}}) != QmlHost::Accepted)
 		return;
-	const QString folder_name = settings.folderName().trimmed();
 	// a new folder or code page: the project is closed (asking to save),
 	// changed, and opened again (its texts read in the new code page)
-	const bool rename = folder_name != folder.dirName();
+	const bool rename = settings.renamesFolder();
 	const bool reload = rename || settings.encodingModified();
-	const QString old_path = folder.absolutePath();
+	const bool maniac = GamePatches::hasManiac(*project);
+	QString path = folder.absolutePath();
 	if (reload && !m_shell->closeProject())
 		return;
+	// the RTP folder of the game too, which Core::rtpDirs follows at once
 	const QString error = settings.write(*project);
 	if (!error.isEmpty())
 		DialogService::instance().warning(windowText(QT_TRANSLATE_NOOP("MainWindow", "Project Settings")), error);
-	QString path = old_path;
 	if (rename) {
-		QDir parent(old_path);
-		parent.cdUp();
-		if (parent.rename(folder.dirName(), folder_name))
-			path = parent.filePath(folder_name);
+		// its RTP folder goes with it
+		if (const QString renamed = settings.renameFolder(); !renamed.isEmpty())
+			path = renamed;
 		else
 			DialogService::instance().warning(windowText(QT_TRANSLATE_NOOP("MainWindow", "Project Settings")), windowText(QT_TRANSLATE_NOOP("MainWindow", "The folder could not be renamed.")));
 	}
@@ -813,6 +817,9 @@ void QmlShell::projectSettings(const QString& soundfont)
 		emit m_shell->windowTitleChanged();
 	if (settings.convertRequested())
 		m_shell->convertProject();
+	// the Maniac Patch turned on: what the game uses that it does not run
+	if (!maniac && core().project() && GamePatches::hasManiac(*core().project()))
+		m_shell->checkManiac(ShellController::ManiacCheck::PatchOn);
 }
 
 void QmlShell::openGameFolder()

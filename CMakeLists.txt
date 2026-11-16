@@ -158,6 +158,8 @@ set(EDITOR_SOURCES
 	src/model/command_catalog.h
 	src/model/command_colors.cpp
 	src/model/command_colors.h
+	src/model/command_origin.cpp
+	src/model/command_origin.h
 	src/model/command_schema.cpp
 	src/model/command_schema.h
 	src/model/commonevent.cpp
@@ -236,6 +238,12 @@ set(EDITOR_SOURCES
 	src/model/game_runner.cpp
 	src/model/game_runner.h
 	src/model/game_patches.h
+	src/model/game_profile.cpp
+	src/model/game_profile.h
+	src/model/game_setup.cpp
+	src/model/game_setup.h
+	src/model/player_options.cpp
+	src/model/player_options.h
 	src/model/project_convert.cpp
 	src/model/project_convert.h
 	src/model/project.cpp
@@ -395,8 +403,12 @@ set(EDITOR_QML_UI
 	src/ui/common/Metrics.qml
 	src/ui/common/Note.qml
 	src/ui/common/NumberDialog.qml
+	src/ui/common/Origins.qml
+	src/ui/common/OriginTag.qml
+	src/ui/common/OriginTip.qml
 	src/ui/common/PathField.qml
 	src/ui/common/PickerData.qml
+	src/ui/common/ProfileChips.qml
 	src/ui/common/ProgressBar.qml
 	src/ui/common/RadioButton.qml
 	src/ui/common/RadioGroup.qml
@@ -533,6 +545,8 @@ set(EDITOR_QML_UI
 )
 # the design system: one object for all the windows
 set_source_files_properties(src/ui/common/Metrics.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+# where a command or an option comes from (Maniac Patch, EasyRPG...): one for all the windows
+set_source_files_properties(src/ui/common/Origins.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 list(APPEND EDITOR_SOURCES src/ui/shell/qml_engine.cpp src/ui/shell/qml_engine.h
 	src/ui/shell/editor_window.cpp src/ui/shell/editor_window.h
 	src/ui/shell/database_windows.cpp src/ui/shell/database_windows.h
@@ -558,6 +572,7 @@ set(EDITOR_QML_INTERFACE
 	src/qmlbinding/editor_bridge.h
 	src/qmlbinding/entry_filter_model.cpp
 	src/qmlbinding/entry_filter_model.h
+	src/qmlbinding/game_qml_types.h
 	src/qmlbinding/json.cpp
 	src/qmlbinding/json.h
 	src/qmlbinding/json_field.cpp
@@ -572,6 +587,7 @@ set(EDITOR_QML_INTERFACE
 	src/qmlbinding/project_data_gadget.cpp
 	src/qmlbinding/project_data_gadget.h
 	src/qmlbinding/preview_image.cpp
+	src/qmlbinding/profile_qml_types.h
 	src/qmlbinding/preview_image.h
 	src/qmlbinding/project_image_provider.cpp
 	src/qmlbinding/project_image_provider.h

@@ -341,7 +341,9 @@ Ez.DialogWindow {
                                 source: panoramaView.visible ? "image://project/Panorama/" + panoramaName.value : ""
                                 fillMode: Image.Tile
                                 smooth: false
-                                asynchronous: true
+                                // loaded at once, not asynchronously: the project's
+                                // images are read on this thread, and a load cut short
+                                // by the window closing kept the Editor from quitting
                             }
                         }
                         // the frames of the game, 60 a second, while it moves

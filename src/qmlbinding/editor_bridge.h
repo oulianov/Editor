@@ -42,14 +42,15 @@ class EditorBridge : public QObject {
 	Q_PROPERTY(QString playerPath READ playerPath WRITE setPlayerPath NOTIFY settingsChanged)
 	Q_PROPERTY(QString scriptEditor READ scriptEditor WRITE setScriptEditor NOTIFY settingsChanged)
 	Q_PROPERTY(bool reloadExternalChanges READ reloadExternalChanges WRITE setReloadExternalChanges NOTIFY settingsChanged)
-	/** Every game edited as a game of the Maniac Patch (GamePatches::usesManiac) */
-	Q_PROPERTY(bool maniacMode READ maniacMode WRITE setManiacMode NOTIFY settingsChanged)
 	Q_PROPERTY(bool searchCache READ searchCache WRITE setSearchCache NOTIFY settingsChanged)
 	/** A newer Editor looked for at start-up and every hour (Ez.Updater) */
 	Q_PROPERTY(bool checkForUpdates READ checkForUpdates WRITE setCheckForUpdates NOTIFY settingsChanged)
 	Q_PROPERTY(bool animateTiles READ animateTiles WRITE setAnimateTiles NOTIFY settingsChanged)
 	Q_PROPERTY(bool commandColors READ commandColors WRITE setCommandColors NOTIFY settingsChanged)
 	Q_PROPERTY(bool commandStripes READ commandStripes WRITE setCommandStripes NOTIFY settingsChanged)
+	/** EditorSettings::originBadges, unavailableShown (Ez.Origins) */
+	Q_PROPERTY(bool originBadges READ originBadges WRITE setOriginBadges NOTIFY settingsChanged)
+	Q_PROPERTY(bool unavailableShown READ unavailableShown WRITE setUnavailableShown NOTIFY settingsChanged)
 	/** Light or dark windows: "system", "light" or "dark", shown at once (EditorSettings::colorScheme) */
 	Q_PROPERTY(QString colorScheme READ colorScheme WRITE setColorScheme NOTIFY settingsChanged)
 	Q_PROPERTY(QString defaultScriptEditor READ defaultScriptEditor CONSTANT)
@@ -76,8 +77,6 @@ public:
 	void setScriptEditor(const QString& editor);
 	bool reloadExternalChanges() const;
 	void setReloadExternalChanges(bool on);
-	bool maniacMode() const;
-	void setManiacMode(bool on);
 	bool searchCache() const;
 	void setSearchCache(bool on);
 	bool checkForUpdates() const;
@@ -87,6 +86,10 @@ public:
 	bool commandColors() const;
 	void setCommandColors(bool on);
 	bool commandStripes() const;
+	bool originBadges() const;
+	void setOriginBadges(bool on);
+	bool unavailableShown() const;
+	void setUnavailableShown(bool on);
 	void setCommandStripes(bool on);
 	QString colorScheme() const;
 	void setColorScheme(const QString& scheme);
@@ -105,12 +108,6 @@ public:
 	/** What a folder holds: {exists, engine: 2000, 2003 or 0 (not an RTP),
 	 *  translation (EditorSettings::rtpTranslation), easyrpg: the EasyRPG RTP} */
 	Q_INVOKABLE QVariantMap rtpFolderInfo(const QString& folder) const;
-	/** The game open, for its RTP folder: {folder, name, engine (2000,
-	 *  2003), active: the folder it chose, empty for its engine's default};
-	 *  empty without a game */
-	Q_INVOKABLE QVariantMap rtpProject() const;
-	/** The folder a game uses instead of its engine's default (empty: the default again) */
-	Q_INVOKABLE void setRtpActive(const QString& project, const QString& folder);
 	/** Window sizes, tabs, selections... back to their defaults (the preferences and games stay) */
 	Q_INVOKABLE void resetLocalState();
 	/** The guide at a topic, next to the window of from */

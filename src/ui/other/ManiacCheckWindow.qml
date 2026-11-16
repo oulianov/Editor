@@ -9,18 +9,36 @@ import QtQuick.Controls as Controls
 import org.easyrpg.editor as Ez
 
 /**
- * The Maniac mode's check of a game (ManiacCompat): what it uses that the
+ * The Maniac Patch check of a game (ManiacCompat): what it uses that the
  * Maniac Patch's RPG_RT does not run, by group (RPG Maker 2000, EasyRPG
  * Player, Power Mode 2003, the Ineluki Key Patch), how many times, what the
  * conversion makes of it, and where. Yes converts what has an equivalent,
  * No leaves the game as it is; OK alone when nothing converts. The
  * conversion is the caller's (ManiacCheckWindow::ask).
+ *
+ * turnedOff: what the game uses from the add-ons Project Settings turns off
+ * instead (ManiacCompat::uses), by add-on, and where. Keep It Off (OK)
+ * writes the settings, what is listed staying in the game as it is, not
+ * run; Go Back (Cancel) returns to Project Settings.
  */
 Ez.DialogWindow {
     id: root
 
-    /** {section, what, count, becomes, places} by group */
+    /** {section, what, count, becomes, places} by group; turned off: {origin, what, count, places} */
     property var findings: []
+    /** The add-ons turned off whose uses are listed */
+    property bool turnedOff: false
+    /** Their names, in the order of the findings */
+    readonly property var addOnNames: {
+        const names = []
+        for (const finding of findings) {
+            const name = Ez.Origins.name(finding.origin ?? "")
+            if (turnedOff && name !== "" && !names.includes(name)) {
+                names.push(name)
+            }
+        }
+        return names
+    }
     /** The places converted, and those that stay */
     property int convertible: 0
     property int remaining: 0
@@ -37,20 +55,31 @@ Ez.DialogWindow {
     /** The finding whose places are listed */
     property int current: findings.length > 0 ? 0 : -1
 
-    objectName: "ManiacCheckDialog"
-    title: qsTr("Maniac Patch Compatibility")
+    objectName: turnedOff ? "TurnedOffDialog" : "ManiacCheckDialog"
+    title: turnedOff ? qsTr("Add-ons Turned Off") : qsTr("Maniac Patch Compatibility")
     preferredWidth: 760
     preferredHeight: 560
     stateKey: "maniac_check"
-    standardButtons: convertible > 0 ? Controls.DialogButtonBox.Yes | Controls.DialogButtonBox.No
-                                     : Controls.DialogButtonBox.Ok
+    standardButtons: turnedOff ? Controls.DialogButtonBox.Ok | Controls.DialogButtonBox.Cancel
+                     : convertible > 0 ? Controls.DialogButtonBox.Yes | Controls.DialogButtonBox.No
+                     : Controls.DialogButtonBox.Ok
 
     Component.onCompleted: {
         currentChanged()
+        if (turnedOff) {
+            buttonBox.standardButton(Controls.DialogButtonBox.Ok).text = addOnNames.length > 1 ? qsTr("Keep Them Off")
+                                                                                                : qsTr("Keep It Off")
+            buttonBox.standardButton(Controls.DialogButtonBox.Cancel).text = qsTr("Go Back")
+        }
+        // turned off: the uses of each add-on under its name
+        const totals = {}
+        for (const finding of findings) {
+            totals[finding.origin] = (totals[finding.origin] ?? 0) + finding.count
+        }
         for (let i = 0; i < findings.length; ++i) {
             const finding = findings[i]
             lines.append({
-                section: finding.section,
+                section: turnedOff ? "%1 (%2)".arg(Ez.Origins.name(finding.origin)).arg(totals[finding.origin]) : finding.section,
                 what: finding.what,
                 count: finding.count,
                 becomes: finding.becomes !== "" ? finding.becomes : qsTr("Stays (no equivalent)"),
@@ -66,7 +95,13 @@ Ez.DialogWindow {
     Ez.Note {
         objectName: "labelQuestion"
         font.bold: true
-        text: root.remaining + root.convertible === 1
+        text: root.turnedOff
+              ? (root.remaining === 1
+                 ? qsTr("This game uses %1 in one place. Turned off, it stays in the game as it is but is not "
+                        + "run.").arg(root.addOnNames.join(", "))
+                 : qsTr("This game uses %1 in %2 places. Turned off, they stay in the game as they are but are not "
+                        + "run.").arg(root.addOnNames.join(", ")).arg(root.remaining))
+              : root.remaining + root.convertible === 1
               ? qsTr("This game uses one thing the Maniac Patch does not run.") + " "
                 + (root.convertible === 1 ? qsTr("It can be converted. Convert it?") : qsTr("It has no equivalent in the Maniac Patch."))
               : qsTr("This game uses %1 things the Maniac Patch does not run.").arg(root.remaining + root.convertible) + " "
@@ -86,7 +121,7 @@ Ez.DialogWindow {
             { title: qsTr("Found"), role: "what" },
             { title: qsTr("Times"), role: "count", sample: "00000", alignment: Text.AlignRight },
             { title: qsTr("Converted to"), role: "becomes", dimmed: line => line.stays }
-        ]
+        ].slice(0, root.turnedOff ? 2 : 3)
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.minimumHeight: 160
@@ -97,7 +132,8 @@ Ez.DialogWindow {
     Ez.Note {
         objectName: "labelFinding"
         readonly property var finding: root.current >= 0 ? root.findings[root.current] : null
-        text: !finding ? "" : finding.becomes !== "" ? qsTr("%1\nConverted to: %2").arg(finding.what).arg(finding.becomes)
+        text: !finding ? "" : root.turnedOff ? finding.what
+              : finding.becomes !== "" ? qsTr("%1\nConverted to: %2").arg(finding.what).arg(finding.becomes)
                                                      : qsTr("%1\nStays as it is: the Maniac Patch has no equivalent.").arg(finding.what)
     }
     Ez.ColumnList {
@@ -121,7 +157,7 @@ Ez.DialogWindow {
 
     Ez.Section {
         title: qsTr("Conversion")
-        visible: root.convertible > 0
+        visible: !root.turnedOff && root.convertible > 0
         Ez.Note {
             objectName: "labelConversion"
             text: root.convertible > (root.rpg2000 ? 1 : 0)

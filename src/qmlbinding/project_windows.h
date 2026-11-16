@@ -18,6 +18,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <optional>
 #include "model/project_convert.h"
 
@@ -41,6 +42,9 @@ namespace ProjectWindows {
 		int tileSize = 16;
 		/** The folder of the games chosen (ends with "/") */
 		QString defDir;
+		/** The add-ons chosen: their keys in [Patch] of its EasyRPG.ini
+		 *  ("Maniac", "EasyRPG", "RPG2k3Commands"), for Project::create */
+		QStringList patches;
 	};
 	std::optional<NewProject> newProject(QWindow* over, const QString& def_dir);
 

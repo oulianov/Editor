@@ -96,13 +96,13 @@ public:
 	/** Convert to RPG Maker 2003: the project is closed, converted from its
 	 *  files and opened again */
 	void convertProject();
-	/** Why the Maniac mode's check of the project open runs */
+	/** Why the Maniac Patch check of the project open runs */
 	enum class ManiacCheck {
 		/** Game Project > Check Maniac Compatibility: says so when nothing is found */
 		Asked,
-		/** The Maniac mode was switched on */
-		ModeOn,
-		/** A project opened in Maniac mode: what was shown for it already is not shown again */
+		/** The Maniac Patch turned on in Project Settings */
+		PatchOn,
+		/** A game of the Maniac Patch opened: what was shown for it already is not shown again */
 		Opened,
 	};
 	/** What the project uses that the Maniac Patch does not run
@@ -110,6 +110,16 @@ public:
 	 *  project is closed, converted from its files (to RPG Maker 2003 first)
 	 *  and opened again */
 	void checkManiac(ManiacCheck why);
+	/** The add-ons Project Settings turns off (origins of Ez.Origins) that
+	 *  the project uses (ManiacCompat::uses, the open maps as they are
+	 *  edited), listed: true keeps them off (what uses them stays as it is,
+	 *  not run), false goes back to Project Settings; true when it uses
+	 *  none. dynRpg: DynRPG stays on */
+	bool checkTurnedOff(const QStringList& origins, bool dynRpg);
+	/** The options of the database only EasyRPG Player reads that RPG Maker
+	 *  removed when it saved it (PlayerOptions::dropped): asks to write them
+	 *  back from their copy in EasyRPG.ini; No forgets the copy */
+	void restorePlayerOptions();
 
 	/*
 	 * The map tree's actions, on the node selected

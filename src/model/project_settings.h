@@ -26,6 +26,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
+#include <functional>
 #include <optional>
 
 #include "model/project_soundfont.h"
@@ -36,13 +37,15 @@ class Project;
 /**
  * The settings of a game, as Game Project > Project Settings edits them:
  * its folder and title (RPG Maker's Rename Project), the code page of its
- * texts, its engine and the font of its database, and what EasyRPG Player
+ * texts, its engine and the font of its database, what EasyRPG Player
  * reads (the patches of EasyRPG.ini, the size of the screen, the fonts of
- * its Font folder, the game soundfont).
+ * its Font folder, the game soundfont), and the choices of this game kept
+ * on this computer only (its RTP folder, in the Editor's settings).
  *
  * The values are edited here, then write() puts them in the files of the
- * game. Closing the project first when its folder or code page changes,
- * renaming the folder and reading the game again are the caller's.
+ * game and in the Editor's settings. Closing the project first when its
+ * folder or code page changes, renaming the folder (renameFolder) and
+ * reading the game again are the caller's.
  *
  * The texts are in the context ProjectSettingsDialog, as
  * ProjectSettingsWindow.qml's, so their translations stay.
@@ -62,6 +65,31 @@ class ProjectSettings : public QObject
 	Q_PROPERTY(bool encodingModified READ encodingModified NOTIFY encodingChanged)
 	/** RPG Maker 2003, 2000 or EasyRPG (empty when the project is not open) */
 	Q_PROPERTY(QString engineName READ engineName CONSTANT)
+	/** The database is RPG Maker 2003's (ldb_id 2003) */
+	Q_PROPERTY(bool rpg2k3 READ rpg2k3 CONSTANT)
+	/**
+	 * [Game] Engine of EasyRPG.ini: the engine EasyRPG Player runs the game
+	 * as ("rpg2k3e"...), empty to let it detect it; a value it does not
+	 * know as written
+	 */
+	Q_PROPERTY(QString playerEngine READ playerEngine WRITE setPlayerEngine NOTIFY playerEngineChanged)
+	/** The engine the Player runs the game as, chosen or detected, is RPG Maker 2003 */
+	Q_PROPERTY(bool playerEngine2k3 READ playerEngine2k3 NOTIFY playerEngineChanged)
+	/**
+	 * The battles of RPG Maker 2000 in an RPG Maker 2003 game
+	 * (system.easyrpg_use_rpg2k_battle_system and its fields, see
+	 * PlayerOptions), when the project is open
+	 */
+	Q_PROPERTY(bool battle2k READ battle2k WRITE setBattle2k NOTIFY featuresChanged)
+	/** system.easyrpg_alternative_exp: 0 the engine's curve, 1 RPG Maker 2000's, 2 RPG Maker 2003's */
+	Q_PROPERTY(int alternativeExp READ alternativeExp WRITE setAlternativeExp NOTIFY featuresChanged)
+	/**
+	 * The programs the game can run with, as chosen in the window
+	 * (GameSetup::runsWithOf): {key ("rpgrt", "maniac", "easyrpg"), name,
+	 * available, why (the choices that keep it from running the game,
+	 * one a line)}
+	 */
+	Q_PROPERTY(QVariantList runtimes READ runtimes NOTIFY runtimesChanged)
 	Q_PROPERTY(bool canConvert READ canConvert CONSTANT)
 	/** Convert to RPG Maker 2003 after the settings are written */
 	Q_PROPERTY(bool convertRequested READ convertRequested WRITE setConvertRequested NOTIFY convertRequestedChanged)
@@ -94,6 +122,13 @@ class ProjectSettings : public QObject
 	 * map smaller than the screen in its middle, with black borders
 	 */
 	Q_PROPERTY(bool centerSmallMaps READ centerSmallMaps WRITE setCenterSmallMaps NOTIFY screenChanged)
+	/**
+	 * The RTP folder the game looks for the files it lacks in first, one of
+	 * the RTP folders of the Editor's settings; empty: the one marked for
+	 * its engine. Kept on this computer (EditorSettings::rtpActive), not in
+	 * the game.
+	 */
+	Q_PROPERTY(QString rtpFolder READ rtpFolder WRITE setRtpFolder NOTIFY rtpFolderChanged)
 
 public:
 	/** How the patches are decided */
@@ -116,8 +151,8 @@ public:
 	void setFolderName(const QString& name);
 	/** The folder is renamed: the project is closed first */
 	Q_INVOKABLE bool renamesFolder() const;
-	/** Renames the folder of the game (closed) to folderName: its new path,
-	 *  empty when it could not */
+	/** Renames the folder of the game (closed) to folderName, its RTP folder
+	 *  kept for the new one: its new path, empty when it could not */
 	Q_INVOKABLE QString renameFolder() const;
 
 	QString gameTitle() const;
@@ -132,6 +167,18 @@ public:
 	Q_INVOKABLE QVariantList encodingChoices() const;
 
 	QString engineName() const;
+	bool rpg2k3() const { return m_rpg2k3; }
+	QString playerEngine() const;
+	void setPlayerEngine(const QString& engine);
+	bool playerEngine2k3() const;
+	/** {value, name}: detect (with the engine found), the engines of
+	 *  [Game] Engine, and the value written when the Player does not know it */
+	Q_INVOKABLE QVariantList playerEngineChoices() const;
+	bool battle2k() const;
+	void setBattle2k(bool on);
+	int alternativeExp() const;
+	void setAlternativeExp(int curve);
+	QVariantList runtimes() const;
 	bool canConvert() const { return m_canConvert; }
 	bool convertRequested() const { return m_convert; }
 	void setConvertRequested(bool convert);
@@ -158,14 +205,18 @@ public:
 	Q_INVOKABLE QVariantList patchModeChoices() const;
 	bool detectAllowed() const { return m_others.isEmpty(); }
 	QStringList otherPatches() const { return m_others; }
-	/** {key, name, explanation}: the patches the Editor shows */
+	/** {key, name, explanation}: the patches of the grid, without those
+	 *  shown on their own (Maniac, EasyRPG, RPG2k3Commands) */
 	Q_INVOKABLE QVariantList patches() const;
 	/** On as the patch mode tells (detected, chosen, written) */
 	Q_INVOKABLE bool patchOn(const QString& key) const;
-	/** Checks a patch: only when they are chosen */
+	/** Checks a patch when they are chosen; detected, they are chosen from
+	 *  now on, from what is detected; as written, nothing changes */
 	Q_INVOKABLE void setPatchOn(const QString& key, bool on);
 	/** What a patch changes, as rich text; empty for none */
 	Q_INVOKABLE QString patchExplanation(const QString& key) const;
+	/** What a patch changes, as plain text (a tooltip) */
+	Q_INVOKABLE QString patchText(const QString& key) const;
 
 	/** The font file EasyRPG Player uses instead of font 1 (0) or 2 (1), as
 	 *  it will be: empty for its own */
@@ -196,10 +247,36 @@ public:
 	bool centerSmallMaps() const;
 	void setCenterSmallMaps(bool on);
 
+	QString rtpFolder() const { return m_rtpFolder; }
+	void setRtpFolder(const QString& folder);
+	/** {value, name}: the engine's default (empty), then the RTP folders of
+	 *  the Editor's settings in their order, each with the RTP it holds */
+	Q_INVOKABLE QVariantList rtpChoices() const;
+
+	/**
+	 * The add-ons the game open runs now (GameSetup) that the choices of
+	 * the window turn off, as origins of Ez.Origins: "maniac", "easyrpg",
+	 * "rpg2003" (RPG Maker 2003's commands in a 2000 game), "dynrpg",
+	 * "keypatch", "powermode"; none for a game not open
+	 */
+	Q_INVOKABLE QStringList turnedOff() const;
+	/** Lists what the game uses from the add-ons turned off (origins);
+	 *  dynRpg: DynRPG stays on. true keeps them off, false goes back */
+	using TurnOffCheck = std::function<bool(const QStringList& origins, bool dynRpg)>;
+	/** What OK asks about the add-ons turned off (confirmTurnOff), by the window that opened this one */
+	void setTurnOffCheck(TurnOffCheck check);
+	/** On OK, before anything is written: the add-ons turned off checked
+	 *  (setTurnOffCheck), once for the same ones; false: the window stays
+	 *  open, to change them back */
+	Q_INVOKABLE bool confirmTurnOff();
+
 	/** Why the settings cannot be written (the folder name), else empty */
 	Q_INVOKABLE QString validate() const;
-	/** Writes the title, the code page, the font, the patches and the fonts
-	 *  of the Player in the files of the game: the error, else empty */
+	/** Writes the title, the code page, the font and the options of the
+	 *  database (with their copy in EasyRPG.ini, PlayerOptions), the engine
+	 *  and the patches and the fonts of the Player in the files of the
+	 *  game, and its RTP folder in the Editor's settings; GameSetup reads
+	 *  the game again: the error, else empty */
 	QString write(Project& project) const;
 	/** write() in the project the settings are of */
 	Q_INVOKABLE QString apply() const;
@@ -214,18 +291,27 @@ signals:
 	void gameTitleChanged();
 	void encodingChanged();
 	void convertRequestedChanged();
+	void playerEngineChanged();
+	/** The battle system or the experience curve */
+	void featuresChanged();
+	/** What the game can run with: after any choice of the patches, the
+	 *  engine, the battle system or the experience curve */
+	void runtimesChanged();
 	void textFontChanged();
 	void patchModeChanged();
 	/** The patches shown changed: their values or the mode */
 	void patchesChanged();
 	void playerFontsChanged();
 	void screenChanged();
+	void rtpFolderChanged();
 	/** EasyRPG.ini and the players were read again */
 	void iniChanged();
 
 private:
 	/** The values the patch mode shows */
 	const QMap<QString, int>& patchValues() const;
+	/** The patches written and detected, the engine as chosen */
+	void readPatches();
 
 	Project& m_project;
 	bool m_open;
@@ -241,6 +327,20 @@ private:
 
 	bool m_canConvert = false;
 	bool m_convert = false;
+
+	/** The database: RPG Maker 2003's, its version (1: RPG Maker 2000 1.6x's) */
+	bool m_rpg2k3 = false;
+	int m_databaseVersion = 0;
+	/** [Game] Engine as written, as chosen (unset: unchanged), and the
+	 *  engine found without it (RpgRtExe::Engine flags) */
+	QString m_engineWritten;
+	std::optional<QString> m_engineChoice;
+	int m_engineDetected = 0;
+	/** The options of the database as it says, and as chosen (unset: unchanged) */
+	bool m_battleWritten = false;
+	std::optional<bool> m_battleChoice;
+	int m_expWritten = 0;
+	std::optional<int> m_expChoice;
 
 	QString m_runtime;
 	QString m_exe;
@@ -267,5 +367,14 @@ private:
 	/** Font files chosen for EasyRPG Player: empty for its own font; unset when unchanged */
 	std::optional<QString> m_fontChoice[2];
 
+	/** The RTP folder chosen (empty: the engine's default), and the engine
+	 *  of the game (2000, 2003) whose default it is */
+	QString m_rtpFolder;
+	int m_rtpEngine = 2000;
+
 	ProjectSoundfont* m_soundfont;
+
+	TurnOffCheck m_turnOffCheck;
+	/** The add-ons turned off whose check said to keep them off */
+	QStringList m_offConfirmed;
 };

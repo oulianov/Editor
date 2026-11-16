@@ -18,9 +18,7 @@
 #include "command_schema.h"
 #include "common/dbstring.h"
 #include "defines.h"
-#include "core.h"
-#include "model/game_patches.h"
-#include "model/project.h"
+#include "model/game_setup.h"
 #include <QCoreApplication>
 #include <algorithm>
 #include <deque>
@@ -63,6 +61,7 @@ struct F : Field {
 	F& ticks() { return with(Flag::Slider).with(Flag::Ticks); }
 	F& inlined() { return with(Flag::Inline); }
 	F& rpg2003() { return with(Flag::Rpg2003); }
+	F& engine2003() { return with(Flag::Engine2003); }
 	F& maniac() { return with(Flag::Maniac); }
 	/** An option of the Maniac Patch in a command of RPG Maker: hidden in the other games */
 	F& maniacOnly() { return with(Flag::Maniac).with(Flag::ManiacOnly); }
@@ -1891,12 +1890,12 @@ void addMessagesAndParty(Table& table) {
 		field(Kind::Expression, "expression", 6, {}).when("operand", {21}).maniac()
 	));
 
-	// Timer Operations
+	// Timer Operations: the second timer (parameter 5) is RPG Maker 2003's
 	table.add(Code::TimerOperation, "TimerOperationWidget", palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Timer Operations")), fields(
 		section(QT_TRANSLATE_NOOP("TimerOperationWidget", "Select Timer")),
 		choice("timer", 5, {}, {
 			{0, QT_TRANSLATE_NOOP("TimerOperationWidget", "Timer 1")},
-			{1, QT_TRANSLATE_NOOP("TimerOperationWidget", "Timer 2")}}).radio(),
+			{1, QT_TRANSLATE_NOOP("TimerOperationWidget", "Timer 2"), Flag::Rpg2003}}).radio(),
 		section(QT_TRANSLATE_NOOP("TimerOperationWidget", "Operation")),
 		choice("operation", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("TimerOperationWidget", "Set Time")},
@@ -2197,7 +2196,7 @@ void addSystemAndScenes(Table& table) {
 		// 0 (the terrain's formation) is not offered by RPG Maker
 		choice("formation", 7, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Formation"), {
 			{1, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Loose Formation")},
-			{2, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Tight Formation")}}).withDefault(1).enabledWhen("background", {1}).rpg2003(),
+			{2, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Tight Formation")}}).withDefault(1).enabledWhen("background", {1}).engine2003(),
 		section(QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Option")),
 		check("firstStrike", 5, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Begin Battle with First Strike without Affecting Enemy Disposition")),
 		// Maniac Patch: bit 0 of p9
@@ -2217,7 +2216,7 @@ void addSystemAndScenes(Table& table) {
 			{1, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Initiative")},
 			{2, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Back Attack")},
 			{3, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Surround Attack")},
-			{4, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Pincers Attack")}}).radio().rpg2003()
+			{4, QT_TRANSLATE_NOOP("EnemyEncounterWidget", "Pincers Attack")}}).radio().engine2003()
 	));
 
 	// Call Shop: the goods are the parameters after the fourth; the
@@ -2290,24 +2289,28 @@ Fields pictureFields(bool move) {
 	// the modes of the effect's angle and its divisor
 	const int angleModes = move ? 4 : 16;
 	auto pictureLabel = [](const char* text) { return Label("PictureWidget", text); };
-	// the mode of a value (Maniac Patch), in bits of a parameter
-	auto valueMode = [&](const char* id, int index, int shift, int bits) {
+	// the mode of a value (Maniac Patch), in bits of a parameter. Those of
+	// the picture, its magnification and its transparency are RPG Maker
+	// 2003 1.12's (a number or a variable: rpg2003), their pointer the
+	// Maniac Patch's
+	auto valueMode = [&](const char* id, int index, int shift, int bits, bool rpg2003 = false) {
 		Items items;
 		for (const auto& one : numberModes()) {
-			items.push_back({one.mode, one.label});
+			items.push_back({one.mode, one.label, rpg2003 && one.mode >= 2 ? Flags(Flag::Maniac) : Flags()});
 		}
 		return choice(id, index, pictureLabel(QT_TRANSLATE_NOOP("PictureWidget", "Given as")), std::move(items))
-			.bitsAt(shift, bits).maniac().with(index >= flags ? Flags(Flag::Extension) : Flags());
+			.bitsAt(shift, bits).with(rpg2003 ? Flag::Rpg2003 : Flag::Maniac)
+			.with(index >= flags ? Flags(Flag::Extension) : Flags());
 	};
 	// the variable a value is in, for the modes other than a number
-	auto valueVariable = [&](const char* id, int index, const char* modeId, Label label) {
-		return variable(id, index, label).unless(modeId, {0}).maniac();
+	auto valueVariable = [&](const char* id, int index, const char* modeId, Label label, bool rpg2003 = false) {
+		return variable(id, index, label).unless(modeId, {0}).with(rpg2003 ? Flag::Rpg2003 : Flag::Maniac);
 	};
 	Fields list = fields(
 		section(QT_TRANSLATE_NOOP("PictureWidget", "Picture No.")),
-		valueMode("pictureMode", 17, 0, move ? 8 : 4),
+		valueMode("pictureMode", 17, 0, move ? 8 : 4, true),
 		number("picture", 0, QT_TRANSLATE_NOOP("PictureWidget", "Picture No."), 1, 9999).withDefault(1).when("pictureMode", {0}),
-		valueVariable("pictureVariable", 0, "pictureMode", pictureLabel(QT_TRANSLATE_NOOP("PictureWidget", "Picture No."))));
+		valueVariable("pictureVariable", 0, "pictureMode", pictureLabel(QT_TRANSLATE_NOOP("PictureWidget", "Picture No.")), true));
 	if (!move) {
 		append(list, fields(
 			section(QT_TRANSLATE_NOOP("PictureWidget", "Image File")),
@@ -2335,10 +2338,10 @@ Fields pictureFields(bool move) {
 	append(list, fields(
 		section(QT_TRANSLATE_NOOP("PictureWidget", "Magnification")),
 		// p20: the width's mode, bit 4 for a separate height, then the height's mode
-		valueMode("magnificationMode", 20, 0, 4),
+		valueMode("magnificationMode", 20, 0, 4, true),
 		number("magnification", 5, {}, 0, 2000).withDefault(100).withSuffix(QT_TRANSLATE_NOOP("PictureWidget", "%"))
 			.when("magnificationMode", {0}),
-		valueVariable("magnificationVariable", 5, "magnificationMode", {}),
+		valueVariable("magnificationVariable", 5, "magnificationMode", {}, true),
 		check("separateHeight", 20, QT_TRANSLATE_NOOP("PictureWidget", "Separate height")).bit(4).maniac().extension(),
 		valueMode("heightMode", 20, 5, 4).enabledWhen("separateHeight", {1}),
 		number("height", move ? 18 : 31, QT_TRANSLATE_NOOP("PictureWidget", "Height"), 0, 2000).withDefault(100)
@@ -2347,13 +2350,13 @@ Fields pictureFields(bool move) {
 		valueVariable("heightVariable", move ? 18 : 31, "heightMode", pictureLabel(QT_TRANSLATE_NOOP("PictureWidget", "Height")))
 			.enabledWhen("separateHeight", {1}).extension(),
 		section(QT_TRANSLATE_NOOP("PictureWidget", "Transparency")),
-		valueMode("topMode", 21, 0, 32),
+		valueMode("topMode", 21, 0, 32, true),
 		number("top", 6, QT_TRANSLATE_NOOP("PictureWidget", "Top Half"), 0, 100).withSuffix(QT_TRANSLATE_NOOP("PictureWidget", "%"))
 			.when("topMode", {0}),
-		valueVariable("topVariable", 6, "topMode", pictureLabel(QT_TRANSLATE_NOOP("PictureWidget", "Top Half"))),
+		valueVariable("topVariable", 6, "topMode", pictureLabel(QT_TRANSLATE_NOOP("PictureWidget", "Top Half")), true),
 		// a missing one is the top's, and gets it when the command grows
 		number("bottom", flags, QT_TRANSLATE_NOOP("PictureWidget", "Bottom Half"), 0, 100).bitsAt(0, 8).copying(6)
-			.withSuffix(QT_TRANSLATE_NOOP("PictureWidget", "%")).rpg2003().extension()));
+			.withSuffix(QT_TRANSLATE_NOOP("PictureWidget", "%")).engine2003().extension()));
 	if (move) {
 		append(list, fields(
 			section(QT_TRANSLATE_NOOP("PictureWidget", "Transition Time")),
@@ -2402,6 +2405,8 @@ Fields pictureFields(bool move) {
 		valueVariable("divisorVariable", move ? 7 : 15, "divisorMode", pictureLabel(QT_TRANSLATE_NOOP("PictureWidget", "Divisor")))
 			.when("effect", {3}).with(move ? Flags() : Flags(Flag::Extension))));
 
+	// the spritesheet and the layers of Show Picture
+	Fields sheet;
 	Fields maniac = fields(
 		section(QT_TRANSLATE_NOOP("PictureWidget", "Maniac Patch")),
 		section(QT_TRANSLATE_NOOP("PictureWidget", "Display")),
@@ -2437,8 +2442,10 @@ Fields pictureFields(bool move) {
 				{2, in("ManiacCommandWidget", QT_TRANSLATE_NOOP("ManiacCommandWidget", "String pointer"))}}).bitsAt(8, 4).extension(),
 			number("nameString", 30, QT_TRANSLATE_NOOP("PictureWidget", "Name"), 0, 99999).when("nameMode", {1}).extension(),
 			variable("nameVariable", 30, QT_TRANSLATE_NOOP("PictureWidget", "Name")).when("nameMode", {2}).extension()));
-		// p24: 2 animates the frames, else the mode of the frame number (from 1)
-		append(maniac, only(fields(
+		// RPG Maker 2003 1.12's (EasyRPG Player reads them with its commands
+		// or the Maniac Patch). p24: 2 animates the frames, else the mode of
+		// the frame number (from 1)
+		append(sheet, only(fields(
 			section(QT_TRANSLATE_NOOP("PictureWidget", "Spritesheet")),
 			number("columns", 22, QT_TRANSLATE_NOOP("PictureWidget", "Columns (0: none)"), 0, 999),
 			number("rows", 23, QT_TRANSLATE_NOOP("PictureWidget", "Rows"), 0, 999),
@@ -2457,9 +2464,11 @@ Fields pictureFields(bool move) {
 			check("eraseOnBattleEnd", 29, QT_TRANSLATE_NOOP("PictureWidget", "Erase when the battle ends")).bit(1),
 			check("tint", 29, QT_TRANSLATE_NOOP("PictureWidget", "Affected by the screen tint")).bit(4),
 			check("flash", 29, QT_TRANSLATE_NOOP("PictureWidget", "Affected by the screen flash")).bit(5).withDefault(1),
-			check("shake", 29, QT_TRANSLATE_NOOP("PictureWidget", "Affected by the screen shake")).bit(6).withDefault(1)), Flag::Extension));
+			check("shake", 29, QT_TRANSLATE_NOOP("PictureWidget", "Affected by the screen shake")).bit(6).withDefault(1)),
+			Flag::Extension | Flag::Rpg2003));
 	}
 	append(list, only(maniac, Flag::Maniac));
+	append(list, sheet);
 	return list;
 }
 
@@ -2569,13 +2578,14 @@ void addMapAndScreen(Table& table) {
 		check("wait", 5, QT_TRANSLATE_NOOP("TintScreenWidget", "Wait for Completion"))
 	));
 
-	// Flash Screen: colors of 0-31
+	// Flash Screen: colors of 0-31; beginning and ending a flash (parameter 6)
+	// is RPG Maker 2003's
 	table.add(Code::FlashScreen, "FlashScreenWidget", palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Flash Screen")), fields(
 		section(QT_TRANSLATE_NOOP("FlashScreenWidget", "Options")),
 		choice("mode", 6, {}, {
 			{0, QT_TRANSLATE_NOOP("FlashScreenWidget", "Flash Once")},
-			{1, QT_TRANSLATE_NOOP("FlashScreenWidget", "Begin Flash")},
-			{2, QT_TRANSLATE_NOOP("FlashScreenWidget", "End Flash")}}).radio(),
+			{1, QT_TRANSLATE_NOOP("FlashScreenWidget", "Begin Flash"), Flag::Rpg2003},
+			{2, QT_TRANSLATE_NOOP("FlashScreenWidget", "End Flash"), Flag::Rpg2003}}).radio(),
 		// only a single flash is waited for
 		check("wait", 5, QT_TRANSLATE_NOOP("FlashScreenWidget", "Wait for Completion")).enabledWhen("mode", {0}),
 		number("time", 4, QT_TRANSLATE_NOOP("FlashScreenWidget", "Duration:"), 0, 1000)
@@ -2593,8 +2603,8 @@ void addMapAndScreen(Table& table) {
 		section(QT_TRANSLATE_NOOP("ShakeScreenWidget", "Options")),
 		choice("mode", 4, {}, {
 			{0, QT_TRANSLATE_NOOP("ShakeScreenWidget", "Shake Once")},
-			{1, QT_TRANSLATE_NOOP("ShakeScreenWidget", "Begin Shake")},
-			{2, QT_TRANSLATE_NOOP("ShakeScreenWidget", "End Shake")}}).radio().extension(),
+			{1, QT_TRANSLATE_NOOP("ShakeScreenWidget", "Begin Shake"), Flag::Rpg2003},
+			{2, QT_TRANSLATE_NOOP("ShakeScreenWidget", "End Shake"), Flag::Rpg2003}}).radio().extension(),
 		check("wait", 3, QT_TRANSLATE_NOOP("ShakeScreenWidget", "Wait for Completion")).enabledWhen("mode", {0}),
 		number("time", 2, QT_TRANSLATE_NOOP("ShakeScreenWidget", "Duration:"), 0, 1000)
 			.withSuffix(QT_TRANSLATE_NOOP("ShakeScreenWidget", "x0.1 sec")).enabledWhen("mode", {0}),
@@ -2657,15 +2667,15 @@ void addMapAndScreen(Table& table) {
 			.bit(2).when("operation", {6, 7}).maniacOnly()
 	));
 
-	// Weather Effects
+	// Weather Effects: fog and sandstorm are RPG Maker 2003's
 	table.add(Code::WeatherEffects, "WeatherEffectsWidget", palette(QT_TRANSLATE_NOOP("EventCommandPalette", "Weather Effects")), fields(
 		section(QT_TRANSLATE_NOOP("WeatherEffectsWidget", "Type")),
 		choice("type", 0, {}, {
 			{0, QT_TRANSLATE_NOOP("WeatherEffectsWidget", "No Weather")},
 			{1, QT_TRANSLATE_NOOP("WeatherEffectsWidget", "Rain")},
 			{2, QT_TRANSLATE_NOOP("WeatherEffectsWidget", "Snow")},
-			{3, QT_TRANSLATE_NOOP("WeatherEffectsWidget", "Fog")},
-			{4, QT_TRANSLATE_NOOP("WeatherEffectsWidget", "Sandstorm")}}).radio(),
+			{3, QT_TRANSLATE_NOOP("WeatherEffectsWidget", "Fog"), Flag::Rpg2003},
+			{4, QT_TRANSLATE_NOOP("WeatherEffectsWidget", "Sandstorm"), Flag::Rpg2003}}).radio(),
 		section(QT_TRANSLATE_NOOP("WeatherEffectsWidget", "Power")),
 		choice("power", 1, {}, {
 			{0, QT_TRANSLATE_NOOP("WeatherEffectsWidget", "Weak")},
@@ -2675,7 +2685,9 @@ void addMapAndScreen(Table& table) {
 
 	// Show Picture: RPG Maker 2003 1.12 and Maniac Patch add parameters 14-31
 	// (a shorter command gets the values EasyRPG Player uses when they grow);
-	// with Maniac Patch the values can come from variables (modes in p17, p20, p21)
+	// with RPG Maker 2003 1.12 the picture, its magnification and its
+	// transparency can come from variables (modes in p17, p20, p21), with the
+	// Maniac Patch the other values too, and from pointers
 	table.custom(Code::ShowPicture, "PictureWidget", in("ShowPictureWidget", QT_TRANSLATE_NOOP("ShowPictureWidget", "Show Picture")),
 		pictureFields(false), Flag::NoFlag);
 
@@ -2683,8 +2695,7 @@ void addMapAndScreen(Table& table) {
 	table.custom(Code::MovePicture, "PictureWidget", in("MovePictureWidget", QT_TRANSLATE_NOOP("MovePictureWidget", "Move Picture")),
 		pictureFields(true), Flag::NoFlag);
 
-	// Erase Picture: the selection of RPG Maker 2003 and Maniac Patch, shown
-	// only when the command has it or in Maniac Patch games
+	// Erase Picture: the selection of RPG Maker 2003 (1.12) and Maniac Patch
 	table.custom(Code::ErasePicture, "ErasePictureWidget", QT_TRANSLATE_NOOP("ErasePictureWidget", "Erase Picture"), fields(
 		section(QT_TRANSLATE_NOOP("ErasePictureWidget", "Picture No.")),
 		choice("selection", 1, QT_TRANSLATE_NOOP("ErasePictureWidget", "Selection"), {
@@ -3382,12 +3393,12 @@ void addBattle(Table& table) {
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Target")),
 		mode("targetMode", {}, 5, 1, numberModes()).hidden().maniac().extension(),
 		variable("targetVariable", 1).when("targetMode", {1, 2}).hidden().maniac().extension(),
-		check("party", 3, {}).hidden().extension().rpg2003(),
+		check("party", 3, {}).hidden().extension().engine2003(),
 		choice("target", 1, {}, Items{{-1, QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "All Enemies")}}
 			+ numbered(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Monster %1"), 8, 0)).withDefault(-1).unless("party", {1}),
 		ref(Kind::Actor, "hero", 1).withItems({{-1, QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Entire Party")}})
-			.withDefault(-1).when("party", {1}).rpg2003(),
-		number("line", 4, {}, -1, 9999).hidden().extension().rpg2003(),
+			.withDefault(-1).when("party", {1}).engine2003(),
+		number("line", 4, {}, -1, 9999).hidden().extension().engine2003(),
 		section(QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Option")),
 		check("wait", 2, QT_TRANSLATE_NOOP("ShowBattleAnimation_BWidget", "Halt Processing Until Animation Ends"))
 	));
@@ -3680,10 +3691,8 @@ bool CommandSchema::hasEditor(Code code) {
 		case Code::BreakLoop:
 		case Code::EndEventProcessing:
 		case Code::EraseEvent: {
-			// settings of the Maniac Patch (read only for them: the other
-			// lines do not need the game's patches)
-			const auto& project = core().project();
-			return hasEditor(code, project && GamePatches::usesManiac(*project));
+			// settings of the Maniac Patch: in its games
+			return hasEditor(code, GameSetup::instance().maniac());
 		}
 		default:
 			return hasEditor(code, false);

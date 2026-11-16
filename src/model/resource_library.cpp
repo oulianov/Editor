@@ -35,6 +35,7 @@
 #include "common/image_import.h"
 #include "controller/dialog_service.h"
 #include "defines.h"
+#include "game_setup.h"
 
 namespace {
 	// the window's keys of before (EditorSettings resets them)
@@ -753,9 +754,26 @@ QStringList ResourceLibraryModel::fileInfo(const QString& path, bool rtp, const 
 		lines << QCoreApplication::translate("ResourceManagerDialog", "%1 x %2 pixels").arg(image.width()).arg(image.height());
 		const int colors = ImageImport::paletteSize(image);
 		lines << (colors > 0 ? QCoreApplication::translate("ResourceManagerDialog", "Palette image, %1 colors").arg(colors)
-			: QCoreApplication::translate("ResourceManagerDialog", "True color image: the game needs the EasyRPG extensions (RPG Maker only uses 256 color images)."));
+			: QCoreApplication::translate("ResourceManagerDialog", "True color image (RPG Maker only uses images of 256 colors)"));
 	}
 	return lines;
+}
+
+bool ResourceLibraryModel::currentTrueColor() const
+{
+	return !m_image.isNull() && ImageImport::paletteSize(m_image) == 0;
+}
+
+bool ResourceLibraryModel::trueColorShown()
+{
+	const GameSetup& game = GameSetup::instance();
+	return game.easyrpg() || game.maniac();
+}
+
+QString ResourceLibraryModel::trueColorNeed()
+{
+	return QCoreApplication::translate("ResourceManagerDialog",
+		"Needs the EasyRPG Extensions (Project Settings › EasyRPG Player) or the Maniac Patch (Project Settings › Engine)");
 }
 
 bool ResourceLibraryModel::canImport() const
@@ -955,13 +973,19 @@ ResourceResult ResourceLibraryModel::importImage(const QString& source, const QS
 	}
 
 	// The games use palette images: convert when it loses nothing, else ask
+	// (all the colors kept only in a game that shows them)
 	QImage converted = ImageImport::toIndexed(image);
 	if (converted.isNull()) {
 		ResourceImportChoices fallback;
 		ResourceImportChoices& choices = m_choices ? *m_choices : fallback;
-		switch (choices.askColors(title, QCoreApplication::translate("ResourceManagerDialog",
-				"%1 has more than 256 colors. RPG Maker, and the EasyRPG Player without its extensions, only use images of 256 colors.")
-				.arg(info.fileName()))) {
+		QString text = QCoreApplication::translate("ResourceManagerDialog",
+			"%1 has more than 256 colors. RPG Maker only uses images of 256 colors; EasyRPG Player shows the others with its EasyRPG Extensions or the Maniac Patch.")
+			.arg(info.fileName());
+		if (!trueColorShown()) {
+			text += QStringLiteral("\n\n") + QCoreApplication::translate("ResourceManagerDialog",
+				"This game has neither: it would show a checkerboard instead. Reduce the image to 256 colors, or turn one of them on first.");
+		}
+		switch (choices.askColors(title, text)) {
 		case ResourceImportChoices::Colors::Reduce:
 			converted = ImageImport::reduceColors(image);
 			break;

@@ -13,7 +13,9 @@ import org.easyrpg.editor as Ez
  * A monster: its name, graphic, statistics, spoils, its behavior (the
  * actions it chooses in battle, edited in EnemyActionDialog.qml: the empty
  * last line adds one) and its resistances (a click gives a line the next
- * rank, A to E). With the Maniac Patch, the battle animation of its attacks.
+ * rank, A to E). The battle animation of its attacks: the Maniac Patch's,
+ * greyed in a game without it (hidden, unless set, when the Editor Settings
+ * hide what the game does not run).
  */
 DatabaseEntryPage {
     id: root
@@ -375,10 +377,20 @@ DatabaseEntryPage {
             }
 
             // the Maniac Patch: the battle animation of its normal attacks
+            // (without it greyed, or hidden as the Editor Settings say;
+            // another one than the first shown and kept as it is)
             Ez.Section {
                 objectName: "groupUnarmedAnimation"
                 title: qsTr("Attack Animation")
-                visible: root.maniac
+                origin: "maniac"
+                originWarning: !root.maniac && unarmedAnimation.valid && Number(unarmedAnimation.value) !== 1
+                enabled: root.maniac
+                visible: Ez.Origins.shown("maniac") || originWarning
+                Ez.JsonField {
+                    id: unarmedAnimation
+                    source: root.entry
+                    path: "maniac_unarmed_animation"
+                }
                 Ez.RefComboBox {
                     objectName: "comboUnarmedAnimation"
                     database: root.database

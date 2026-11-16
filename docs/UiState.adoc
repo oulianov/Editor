@@ -37,3 +37,9 @@ size, centered, and the main window back to its default view, without saving
 what they show meanwhile (`local_state_resetting`). Unsaved game edits and
 preferences remain intact. A new settings key of presentation state goes in
 the list it removes.
+
+Preferences are the options of the Editor Settings (`EditorSettings`), saved
+on this computer for every game, and the choices of one game kept on this
+computer only (Project Settings, On This Computer: its RTP folder, in
+`rtp_projects`). What a game keeps in its own folder is in its Project
+Settings.

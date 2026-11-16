@@ -18,6 +18,7 @@
 #include "project_list.h"
 #include "common/filefinder.h"
 #include "controller/dialog_service.h"
+#include "model/game_profile.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -49,13 +50,17 @@ QVariant ProjectListModel::data(const QModelIndex& index, int role) const
 	}
 	const Project& project = *m_projects[static_cast<size_t>(index.row())];
 	if (role == Qt::DisplayRole) {
-		role = index.column() == TitleColumn ? TitleRole : FolderRole;
+		role = index.column() == TitleColumn ? TitleRole : index.column() == ProfileColumn ? ProfileTextRole : FolderRole;
 	}
 	switch (role) {
 	case FolderRole:
 		return project.projectDir().dirName();
 	case TitleRole:
 		return project.gameTitle();
+	case ProfileRole:
+		return m_profiles.value(index.row());
+	case ProfileTextRole:
+		return GameProfile::textOf(m_profiles.value(index.row()));
 	case PathRole:
 	case Qt::ToolTipRole:
 		return QDir::toNativeSeparators(project.projectDir().absolutePath());
@@ -70,6 +75,7 @@ QVariant ProjectListModel::headerData(int section, Qt::Orientation orientation, 
 		return QVariant();
 	}
 	return section == TitleColumn ? QCoreApplication::translate("OpenProjectDialog", "Game Title")
+		: section == ProfileColumn ? QCoreApplication::translate("OpenProjectDialog", "Engine")
 		: QCoreApplication::translate("OpenProjectDialog", "Folder");
 }
 
@@ -79,6 +85,8 @@ QHash<int, QByteArray> ProjectListModel::roleNames() const
 	names.insert(FolderRole, "folder");
 	names.insert(TitleRole, "title");
 	names.insert(PathRole, "path");
+	names.insert(ProfileRole, "profile");
+	names.insert(ProfileTextRole, "profileText");
 	return names;
 }
 
@@ -112,6 +120,7 @@ void ProjectListModel::refresh()
 {
 	beginResetModel();
 	m_projects.clear();
+	m_profiles.clear();
 	endResetModel();
 	setCurrentRow(-1);
 
@@ -131,27 +140,43 @@ void ProjectListModel::refresh()
 		emit listed();
 		return;
 	}
-	auto* scan = new QFutureWatcher<Project::ProjectList>(this);
+	auto* scan = new QFutureWatcher<Listing>(this);
 	// another folder can be asked for before this one is listed: its list only
 	m_scan = scan;
-	connect(scan, &QFutureWatcher<Project::ProjectList>::finished, this, [this, scan] {
+	connect(scan, &QFutureWatcher<Listing>::finished, this, [this, scan] {
 		scan->deleteLater();
 		if (m_scan != scan) {
 			return;
 		}
 		m_scan = nullptr;
+		const Listing listing = scan->result();
 		beginResetModel();
-		m_projects = scan->result();
+		m_projects = listing.projects;
+		m_profiles.clear();
+		for (const QVariantMap& setup : listing.setups) {
+			m_profiles << GameProfile::chipsOf(setup);
+		}
 		endResetModel();
 		setCurrentRow(m_projects.empty() ? -1 : 0);
 		emit busyChanged();
 		emit listed();
 	});
 	// only the files are read in the background
-	scan->setFuture(QtConcurrent::run(&Project::enumerate, QDir(m_folder)));
+	scan->setFuture(QtConcurrent::run(&ProjectListModel::list, QDir(m_folder)));
 	if (!was_busy) {
 		emit busyChanged();
 	}
+}
+
+ProjectListModel::Listing ProjectListModel::list(const QDir& folder)
+{
+	Listing listing;
+	listing.projects = Project::enumerate(folder);
+	// what their files tell of their engine and add-ons, without their whole database
+	for (const auto& project : listing.projects) {
+		listing.setups << GameProfile::read(*project);
+	}
+	return listing;
 }
 
 int ProjectListModel::currentRow() const

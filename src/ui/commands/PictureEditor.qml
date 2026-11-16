@@ -12,12 +12,16 @@ import org.easyrpg.editor as Ez
 /**
  * Show Picture and Move Picture, in tabs as RPG Maker 2003's: the picture,
  * where and how large and transparent it is (and for Move Picture how long
- * it moves), then its color tint and effect, then the options of the
- * Maniac Patch.
+ * it moves), then its color tint and effect, then more options: the
+ * Maniac Patch's, the spritesheet and the layers of RPG Maker 2003 1.12.
  *
  * With the Maniac Patch a value can be given by a variable: its mode is
  * shown before it. A command written with the Maniac Patch shows them in
- * any game (greyed), others only in its games.
+ * any game (greyed), others only in its games. The other options of an
+ * add-on (the coordinates in variable pointers, a separate height, an
+ * effect, those of the last tab) are there in every game, greyed with
+ * their tag where the game does not run them, or hidden (Editor Settings)
+ * unless the command has them: the last tab too when none is left.
  *
  * The bottom transparency of an older command is the top one: it gets it
  * when the command grows (CommandSchema's copies).
@@ -40,10 +44,22 @@ ColumnLayout {
         const parameters = session.value("/parameters") ?? []
         return index < parameters.length ? parameters[index] : 0
     }
-    /** The options of the Maniac Patch: in its games, or when the command has them (as opened) */
+    /** The modes of the values of the Maniac Patch: in its games, or when the command has them (as opened) */
     readonly property bool showManiac: session.maniac || (parameter(1) >> 8) !== 0 || (parameter(flags) >> 8) !== 0
                                        || parameter(12) === 3 || (move && (parameter(15) & ~1) !== 0)
     readonly property int effect: revision < 0 ? 0 : session.read("effect")
+    /** One of the fields is offered (the session's originShown: of an add-on the game runs, shown greyed, or the command's) */
+    function anyShown(ids) {
+        return revision < 0 || ids.some(id => session.path(id) !== "" && session.originShown(id))
+    }
+    // the fields of the sections of More Options
+    readonly property var displayIds: ["origin", "blend", "flipX", "flipY"]
+    readonly property var optionIds: move ? ["relative", "keepTint", "keepEffect", "keepBlend", "keepFlips", "keepTime", "magnifiedPosition"]
+                                          : ["nameMode", "nameString", "nameVariable"]
+    readonly property var sheetIds: move ? [] : ["columns", "rows", "frameMode", "frame", "frameVariable", "once"]
+    readonly property var layerIds: move ? [] : ["mapLayer", "battleLayer", "eraseOnMapChange", "eraseOnBattleEnd", "tint", "flash", "shake"]
+    /** More Options has a field offered: its tab is shown */
+    readonly property bool moreShown: anyShown(displayIds.concat(optionIds, sheetIds, layerIds))
 
     spacing: Ez.Metrics.sectionSpacing
     Layout.fillWidth: true
@@ -96,13 +112,18 @@ ColumnLayout {
         Layout.fillWidth: true
         font: Ez.Metrics.font
         Repeater {
-            model: root.showManiac ? [qsTr("Picture"), qsTr("Additional Attributes"), qsTr("Maniac Patch")]
-                                   : [qsTr("Picture"), qsTr("Additional Attributes")]
+            model: [qsTr("Picture"), qsTr("Additional Attributes"), qsTr("More Options")]
             Controls.TabButton {
                 required property string modelData
+                required property int index
+                // More Options without a field offered: no width
+                readonly property bool shown: index < 2 || root.moreShown
                 text: modelData
-                width: implicitWidth
+                width: shown ? implicitWidth : 0
+                opacity: shown ? 1 : 0
+                enabled: shown
                 font: Ez.Metrics.font
+                onShownChanged: if (!shown && tabs.currentIndex === index) tabs.currentIndex = 0
             }
         }
     }
@@ -154,8 +175,6 @@ ColumnLayout {
                             fieldId: "position"
                             value: modelData.value
                             objectName: modelData.name
-                            // the variables hold the ids of the variables of X and Y: Maniac Patch
-                            visible: modelData.value < 2 || root.showManiac
                         }
                     }
                     SchemaRows {
@@ -203,13 +222,14 @@ ColumnLayout {
                         session: root.session
                         fieldId: "separateHeight"
                         name: "pictureSeparateHeight"
-                        visible: root.showManiac
                     }
                     RowLayout {
                         spacing: Ez.Metrics.columnSpacing
-                        visible: root.showManiac
+                        // the Maniac Patch's: not offered (Editor Settings) unless the command has it
+                        visible: root.anyShown(["separateHeight"])
                         Ez.FormLabel {
                             text: qsTr("Height")
+                            enabled: Ez.Origins.available("maniac")
                         }
                         ModeValue {
                             modeId: "heightMode"
@@ -374,11 +394,16 @@ ColumnLayout {
                         jsonData: root.session
                         key: "/parameters/12"
                         Layout.fillWidth: true
+                        // the Maniac Patch's greyed in the other games, saying what they need
+                        enabledRole: "enabled"
+                        toolTipRole: "why"
                         model: {
                             const items = [{ value: 0, text: qsTr("None") }, { value: 1, text: qsTr("Rotation") },
                                            { value: 2, text: qsTr("Waver") }]
-                            if (root.showManiac) {
-                                items.push({ value: 3, text: qsTr("Fixed Angle") })
+                            // not offered (Editor Settings) unless it is the command's
+                            if (Ez.Origins.shown("maniac") || root.effect === 3) {
+                                items.push({ value: 3, text: qsTr("Fixed Angle"), enabled: Ez.Origins.available("maniac"),
+                                             why: Ez.Origins.available("maniac") ? "" : Ez.Origins.need("maniac") })
                             }
                             if (!items.some(item => item.value === root.effect)) {
                                 items.push({ value: root.effect, text: qsTr("Unknown (%1)").arg(root.effect) })
@@ -439,25 +464,26 @@ ColumnLayout {
             }
         }
 
-        // Maniac Patch: greyed in other games
+        // More Options: the Maniac Patch's, the spritesheet and the layers of
+        // RPG Maker 2003 1.12; each greyed with its tag where the game does not run it
         RowLayout {
             spacing: 2 * Ez.Metrics.columnSpacing
-            enabled: root.session.maniac
             PictureColumn {
                 Ez.Section {
                     title: qsTr("Display")
+                    visible: root.anyShown(root.displayIds)
                     SchemaRows {
                         session: root.session
-                        ids: ["origin", "blend", "flipX", "flipY"]
+                        ids: root.displayIds
                         names: ({ origin: "pictureOrigin", blend: "pictureBlendMode", flipX: "pictureFlipX", flipY: "pictureFlipY" })
                     }
                 }
                 Ez.Section {
                     title: root.move ? qsTr("Option") : qsTr("Image File")
+                    visible: root.anyShown(root.optionIds)
                     SchemaRows {
                         session: root.session
-                        ids: root.move ? ["relative", "keepTint", "keepEffect", "keepBlend", "keepFlips", "keepTime", "magnifiedPosition"]
-                                       : ["nameMode", "nameString", "nameVariable"]
+                        ids: root.optionIds
                         names: ({ relative: "pictureOption1", keepTint: "pictureOption2", keepEffect: "pictureOption3",
                                   keepBlend: "pictureOption4", keepFlips: "pictureOption5", keepTime: "pictureOption6",
                                   magnifiedPosition: "pictureOption8", nameMode: "pictureNameMode", nameString: "pictureName",
@@ -476,18 +502,20 @@ ColumnLayout {
                 visible: !root.move
                 Ez.Section {
                     title: qsTr("Spritesheet")
+                    visible: root.anyShown(root.sheetIds)
                     SchemaRows {
                         session: root.session
-                        ids: root.move ? [] : ["columns", "rows", "frameMode", "frame", "frameVariable", "once"]
+                        ids: root.sheetIds
                         names: ({ columns: "pictureSheetColumns", rows: "pictureSheetRows", frameMode: "pictureSheetMode",
                                   frame: "pictureSheetFrame", frameVariable: "pictureSheetFrameVariable", once: "pictureSheetOnce" })
                     }
                 }
                 Ez.Section {
                     title: qsTr("Layer")
+                    visible: root.anyShown(root.layerIds)
                     SchemaRows {
                         session: root.session
-                        ids: root.move ? [] : ["mapLayer", "battleLayer", "eraseOnMapChange", "eraseOnBattleEnd", "tint", "flash", "shake"]
+                        ids: root.layerIds
                         names: ({ mapLayer: "pictureMapLayer", battleLayer: "pictureBattleLayer",
                                   eraseOnMapChange: "pictureEraseOnMapChange", eraseOnBattleEnd: "pictureEraseOnBattleEnd",
                                   tint: "pictureAffectedByTint", flash: "pictureAffectedByFlash", shake: "pictureAffectedByShake" })

@@ -44,6 +44,8 @@ class QUndoStack;
 class EventCommandListModel : public QAbstractListModel
 {
 	Q_OBJECT
+	/** A line has tags (OriginsRole): the list has room for them */
+	Q_PROPERTY(bool tagged READ isTagged NOTIFY taggedChanged)
 
 public:
 	using Code = lcf::rpg::EventCommand::Code;
@@ -71,6 +73,12 @@ public:
 		/** A next line of a message, comment or script: the label of its
 		 *  first line ("Message"), its text starts under the first one's */
 		LineLabelRole,
+		/** The first line of a command: the add-ons it uses that have a
+		 *  tag in the game open, [{origin, warning}] (CommandOrigin; warning:
+		 *  the game does not run it), those of its next lines with them (a
+		 *  comment's calls of plugins); empty for the other lines. Read
+		 *  again when the setup of the game changes (GameSetup) */
+		OriginsRole,
 	};
 
 	explicit EventCommandListModel(QObject* parent = nullptr);
@@ -113,6 +121,10 @@ public:
 	/** The database the lines name entries from (a database window's copy);
 	 *  null: the project's */
 	void setDatabase(const lcf::rpg::Database* database);
+	/** OriginsRole of the line */
+	QVariantList origins(int index) const;
+	/** A line has tags */
+	bool isTagged() const;
 
 	/*
 	 * The changes: each is one undo step
@@ -156,6 +168,7 @@ signals:
 	/** The lines changed, any change (after the signals of the model): a
 	 *  view drawing them all draws them again */
 	void commandsChanged();
+	void taggedChanged();
 
 private:
 	int lineCount() const;
@@ -165,10 +178,13 @@ private:
 	void updateIndents();
 	/** Shows the list as it was (undo / redo) */
 	void restore(const Commands& commands);
+	/** After a change of the lines or of the game: whether a line has tags */
+	void updateTagged();
 
 	Commands* m_commands = nullptr;
 	const lcf::rpg::Database* m_database = nullptr;
 	QUndoStack* m_undoStack = nullptr;
 	/** The list as last recorded, to know what a change replaced */
 	std::optional<Commands> m_recorded;
+	bool m_tagged = false;
 };

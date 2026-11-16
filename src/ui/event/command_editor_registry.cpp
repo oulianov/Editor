@@ -21,6 +21,7 @@
 #include "model/event_branches.h"
 #include "model/event_command_defaults.h"
 #include "model/event_command_list.h"
+#include "model/game_setup.h"
 #include "model/maniac_expression_list.h"
 #include "model/project_data.h"
 #include "qmlbinding/command_edit_session.h"
@@ -413,13 +414,15 @@ bool applyEdit(QWindow* over, std::vector<Command>& list, int index, CommandEdit
 /**
  * Teleport: RPG Maker 2003's Select Teleport Location, the map location
  * picker itself (its editor has nothing else), with the Character Facing
- * in RPG Maker 2003 games. OK writes the map, the cell and the facing
+ * when the game runs RPG Maker 2003's commands. OK writes the map, the cell
+ * and the facing
  */
-bool pickTeleport(QWindow* over, ProjectData& project, Command& command) {
-	const bool rpg2k3 = project.database().system.ldb_id == 2003;
+bool pickTeleport(QWindow* over, ProjectData& /* project */, Command& command) {
+	// Game_Interpreter_Map::CommandTeleport
+	const bool facing = GameSetup::instance().commands2k3();
 	Pickers::LocationRequest request;
 	request.current = {parameterOf(command, 0), parameterOf(command, 1), parameterOf(command, 2), parameterOf(command, 3)};
-	request.facing = rpg2k3;
+	request.facing = facing;
 	request.title = QCoreApplication::translate("LocationCommandWidget", "Select Teleport Location");
 	const auto chosen = Pickers::pickLocation(over, request);
 	if (!chosen) {
@@ -428,7 +431,7 @@ bool pickTeleport(QWindow* over, ProjectData& project, Command& command) {
 	setParameterOf(command, 0, chosen->map);
 	setParameterOf(command, 1, chosen->x);
 	setParameterOf(command, 2, chosen->y);
-	if (rpg2k3 || command.parameters.size() > 3) {
+	if (facing || command.parameters.size() > 3) {
 		setParameterOf(command, 3, chosen->direction);
 	}
 	return true;

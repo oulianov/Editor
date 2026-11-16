@@ -8,6 +8,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import QtQuick.Dialogs as Dialogs
+import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
 /**
@@ -16,7 +17,9 @@ import org.easyrpg.editor as Ez
  * Create Gamedisk. One page, read from top to bottom: the game, the
  * platforms with their folder and Player, the options, then Export with
  * its log and progress. The settings and the work are an ExportController's;
- * the settings are kept in the project when the window closes.
+ * the settings are kept in the project when the window closes. The game's
+ * own RPG_RT.exe chosen for Windows while the game uses what only EasyRPG
+ * Player runs (Ez.Game.runsWith): said under the platforms.
  */
 Ez.DialogWindow {
     id: root
@@ -26,6 +29,8 @@ Ez.DialogWindow {
     property bool closeWhenDone: false
     /** The macOS platform is checked: its application can be customized */
     property bool macOSChecked: false
+    /** The Windows platform is checked with the game's own RPG_RT.exe */
+    property bool gameRuntime: false
     /** The widths of the columns of the platforms, the widest of the rows */
     property real checkWidth: 0
     property real launcherWidth: 0
@@ -150,6 +155,12 @@ Ez.DialogWindow {
                     value: platform.on
                     when: platform.platformId === "macos"
                 }
+                Binding {
+                    target: root
+                    property: "gameRuntime"
+                    value: platform.on && platform.model.launcher === "RPG_RT.exe"
+                    when: platform.platformId === "windows"
+                }
 
                 Ez.CheckBox {
                     id: check
@@ -236,6 +247,15 @@ Ez.DialogWindow {
                     }
                 }
             }
+        }
+        // what RPG_RT.exe ignores (the chips tagged E of the game's profile)
+        Ez.Note {
+            objectName: "labelRuntimeWarning"
+            readonly property var uses: Ez.GameProfile.chips.filter(chip => chip.tag === "E").map(chip => chip.text)
+            visible: root.gameRuntime && !Ez.Game.runsWith.includes("rpgrt") && !Ez.Game.runsWith.includes("maniac")
+            text: qsTr("RPG_RT.exe does not run this game as it is set up (%1): choose EasyRPG Player for Windows.")
+                .arg(uses.join(", "))
+            color: Kirigami.Theme.neutralTextColor
         }
     }
 

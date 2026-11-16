@@ -20,6 +20,7 @@
 #include "core.h"
 #include "common/dbstring.h"
 #include "common/editor_settings.h"
+#include "common/ini_file.h"
 #include "common/soundfont.h"
 #include "common/logging.h"
 #include "controller/action_catalog.h"
@@ -29,7 +30,9 @@
 #include "controller/dialog_service.h"
 #include "model/dungeon_generator.h"
 #include "model/event_command_defaults.h"
+#include "model/game_patches.h"
 #include "model/game_runner.h"
+#include "model/game_setup.h"
 #include "model/map_tools.h"
 #include "model/project.h"
 #include "model/project_soundfont.h"
@@ -849,6 +852,109 @@ bool Automation::run(const QStringList& args) {
 		const bool none = args[3] == QLatin1String("none");
 		if (none ? !found.isEmpty() : QDir::cleanPath(found) != QDir::cleanPath(args[3])) {
 			fail(QStringLiteral("%1/%2 is found at \"%3\"").arg(args[1], args[2], found));
+			return false;
+		}
+		return true;
+	}
+	if ((cmd == "log-game" && args.size() == 1) || (cmd == "expect-game" && args.size() == 3)) {
+		// how the Player runs the game open, as the editors read it (GameSetup)
+		const QVariantMap values = GameSetup::instance().values();
+		auto text = [](const QVariant& value) {
+			// a list: its items joined by commas, none: "none"
+			if (value.typeId() == QMetaType::QStringList) {
+				const QStringList items = value.toStringList();
+				return items.isEmpty() ? QStringLiteral("none") : items.join(QLatin1Char(','));
+			}
+			// a map: KEY=VALUE, by key
+			if (value.typeId() == QMetaType::QVariantMap) {
+				const QVariantMap map = value.toMap();
+				QStringList items;
+				for (auto it = map.cbegin(); it != map.cend(); ++it) {
+					items << it.key() + QLatin1Char('=') + it.value().toString();
+				}
+				return items.isEmpty() ? QStringLiteral("none") : items.join(QLatin1Char(','));
+			}
+			return value.typeId() == QMetaType::Bool ? QString(value.toBool() ? "on" : "off") : value.toString();
+		};
+		if (cmd == "log-game") {
+			QStringList shown;
+			for (auto it = values.cbegin(); it != values.cend(); ++it) {
+				shown << it.key() + QLatin1Char(' ') + text(it.value());
+			}
+			qCInfo(lcAutomation).noquote() << "game:" << shown.join(QStringLiteral(", "));
+			return true;
+		}
+		if (!values.contains(args[1])) {
+			fail(QStringLiteral("no %1: %2").arg(args[1], QStringList(values.keys()).join(QStringLiteral(", "))));
+			return false;
+		}
+		if (text(values.value(args[1])) != args[2]) {
+			fail(QStringLiteral("%1 is %2").arg(args[1], text(values.value(args[1]))));
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "game-patch" && core().project()
+			&& ((args.size() == 3 && toInt(args[2], a)) || (args.size() == 2 && args[1] == QLatin1String("detect")))) {
+		// a patch chosen as Project Settings writes it on OK: the patches
+		// as read, with this one; detect: the [Patch] section removed
+		const Project& project = *core().project();
+		std::optional<QMap<QString, int>> values;
+		if (args.size() == 3) {
+			const auto known = std::find_if(GamePatches::list().begin(), GamePatches::list().end(),
+				[&](const GamePatches::Patch& patch) { return args[1].compare(QLatin1String(patch.key), Qt::CaseInsensitive) == 0; });
+			if (known == GamePatches::list().end()) {
+				fail("no patch " + args[1]);
+				return false;
+			}
+			values = GamePatches::read(project).values;
+			values->insert(QString::fromLatin1(known->key), a);
+		}
+		if (!GamePatches::write(project, values)) {
+			fail("EasyRPG.ini cannot be written");
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "create-project" && args.size() >= 3) {
+		// a new game written as New Project does: its format, its add-ons
+		const QStringList formats = {QStringLiteral("2003"), QStringLiteral("2000"), QStringLiteral("xml")};
+		const int format = static_cast<int>(formats.indexOf(args[2]));
+		const QDir folder(args[1]);
+		if (format < 0 || folder.exists()) {
+			fail(format < 0 ? "no format " + args[2] : args[1] + " exists");
+			return false;
+		}
+		folder.mkpath(QStringLiteral("."));
+		const QString error = Project::create(folder, folder.dirName(), static_cast<Project::Format>(format), args.mid(3));
+		if (!error.isEmpty()) {
+			fail(error);
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "edit-ini-file" && args.size() == 5 && core().project()) {
+		// a value of an ini file of the game written on disk, apart from
+		// the Editor, as another program does (an empty value removes the key)
+		const QString path = core().project()->findFileOrDefault(args[1]);
+		const std::optional<QByteArray> value = args[4].isEmpty() ? std::nullopt : std::optional(args[4].toUtf8());
+		if (!IniFile::write(path, args[2].toUtf8(), {{args[3].toUtf8(), value}}, false, false)) {
+			fail(path + " cannot be written");
+			return false;
+		}
+		return true;
+	}
+	if (cmd == "expect-ini-file" && args.size() == 5 && core().project()) {
+		// a value of an ini file of the game as written on disk (none: no such key)
+		const QString path = core().project()->findFileOrDefault(args[1]);
+		QString found = QStringLiteral("none");
+		for (const auto& [key, value] : IniFile::read(path, args[2].toUtf8())) {
+			if (key.trimmed().compare(args[3].toUtf8(), Qt::CaseInsensitive) == 0) {
+				found = QString::fromUtf8(value.trimmed());
+			}
+		}
+		if (found != args[4]) {
+			fail(QStringLiteral("[%1] %2 of %3 is %4").arg(args[2], args[3], args[1], found));
 			return false;
 		}
 		return true;

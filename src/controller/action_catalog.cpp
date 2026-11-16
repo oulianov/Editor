@@ -130,7 +130,7 @@ const Info actions[] = {
 	{.name = "actionProjectManiacCheck", .text = QT_TRANSLATE_NOOP("MainWindow", "Check Maniac Compatibility..."),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "List what the Maniac Patch does not run in this game, and convert what has an equivalent")},
 	{.name = "actionSettings", .text = QT_TRANSLATE_NOOP("MainWindow", "Settings..."),
-		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Language, paths, reloading of changed files and appearance of the Editor"),
+		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "The Editor's preferences on this computer: language, files, RTP folders, programs and appearance"),
 		.role = MenuRole::Preferences},
 	{.name = "actionDrawSelect", .text = QT_TRANSLATE_NOOP("MainWindow", "Select"),
 		.toolTip = QT_TRANSLATE_NOOP("MainWindow", "Select map elements"),

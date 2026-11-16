@@ -17,10 +17,12 @@
 
 #include "command_edit_session.h"
 #include "common/dbstring.h"
+#include "common/editor_settings.h"
 #include "common/exfont.h"
 #include "defines.h"
 #include "json_view.h"
-#include "model/game_patches.h"
+#include "model/command_origin.h"
+#include "model/game_setup.h"
 #include "model/maniac_expression.h"
 #include "model/move_route_model.h"
 #include "model/project.h"
@@ -253,6 +255,10 @@ bool CommandSchemaView::hides() const {
 	return m_schema && (m_schema->flags & (Flag::Maniac | Flag::EasyRpg));
 }
 
+QString CommandSchemaView::origin() const {
+	return m_schema ? CommandOrigin::ofCode(m_schema->code) : QString();
+}
+
 QVariantMap CommandSchemaView::title() const {
 	return m_schema ? label(m_schema->title) : QVariantMap();
 }
@@ -327,6 +333,7 @@ QVariantMap CommandSchemaView::fieldMap(const Field& field) const {
 			{QStringLiteral("rpg2003"), bool(item.flags & Flag::Rpg2003)},
 			{QStringLiteral("maniac"), bool(item.flags & Flag::Maniac)},
 			{QStringLiteral("kept"), bool(item.flags & Flag::Kept)},
+			{QStringLiteral("origin"), CommandOrigin::ofFlags(item.flags)},
 		});
 	}
 	const QString list = listOf(field.kind);
@@ -374,6 +381,8 @@ QVariantMap CommandSchemaView::fieldMap(const Field& field) const {
 		{QStringLiteral("replaces"), QString::fromLatin1(field.replaces ? field.replaces : "")},
 		{QStringLiteral("list"), list},
 		{QStringLiteral("none"), none.isEmpty() ? QVariant() : QVariant(none)},
+		// RPG Maker's control of a value a field of the Maniac Patch edits: none
+		{QStringLiteral("origin"), (field.flags & Flag::NotManiac) ? QString() : CommandOrigin::ofFlags(field.flags)},
 	};
 }
 
@@ -468,11 +477,16 @@ CommandEditSession::CommandEditSession(const lcf::rpg::EventCommand& command, QO
 		++m_revision;
 		emit revisionChanged();
 	});
-	// the Maniac mode switched: the fields of the Maniac Patch are shown or not
-	connect(&GamePatchesWatch::instance(), &GamePatchesWatch::maniacChanged, this, [this] {
-		m_maniac = -1;
+	// the patches or the engine of the game changed: the fields of the
+	// Maniac Patch and of RPG Maker 2003 are shown, enabled or not
+	connect(&GameSetup::instance(), &GameSetup::changed, this, [this] {
 		++m_revision;
-		emit maniacChanged();
+		emit gameChanged();
+		emit revisionChanged();
+	});
+	// what the game does not run, shown greyed or hidden (Editor Settings)
+	connect(&EditorSettings::instance(), &EditorSettings::changed, this, [this] {
+		++m_revision;
 		emit revisionChanged();
 	});
 	if (command.code == static_cast<int>(Code::ControlVars)) {
@@ -563,14 +577,15 @@ JsonNode CommandEditSession::node(const QString& jsonPtr) const {
 }
 
 bool CommandEditSession::isRpg2k3() const {
-	return m_project && m_project->database().system.ldb_id == 2003;
+	return m_project && GameSetup::instance().rpg2k3();
+}
+
+bool CommandEditSession::commands2k3() const {
+	return m_project && GameSetup::instance().commands2k3();
 }
 
 bool CommandEditSession::maniac() const {
-	if (m_maniac < 0) {
-		m_maniac = m_project && GamePatches::usesManiac(m_project->project());
-	}
-	return m_maniac;
+	return m_project && GameSetup::instance().maniac();
 }
 
 JsonView* CommandEditSession::database() {
@@ -579,7 +594,6 @@ JsonView* CommandEditSession::database() {
 
 void CommandEditSession::setProject(ProjectData* project) {
 	m_project = project;
-	m_maniac = -1;
 	m_database.setData(project ? &project->database() : nullptr);
 	if (m_moveRoute && project) {
 		// the texts of the moves in the encoding of the game
@@ -587,7 +601,7 @@ void CommandEditSession::setProject(ProjectData* project) {
 		m_moveRoute->setCommand(m_command, project->project().encoding().toStdString());
 	}
 	emit projectChanged();
-	emit maniacChanged();
+	emit gameChanged();
 }
 
 void CommandEditSession::setContext(bool battle, bool isNew, int mapId, const QVariantList& events) {
@@ -713,26 +727,31 @@ bool CommandEditSession::isShown(const QString& fieldId) const {
 		return false;
 	}
 	const Schema& schema = *schemaOf();
+	if (!originShown(fieldId)) {
+		// of an add-on the game does not run, hidden (Editor Settings)
+		return false;
+	}
 	if ((found->flags & Flag::NotManiac) && maniac()) {
 		// a field of the Maniac Patch edits it
 		return false;
 	}
 	if ((found->flags & Flag::ManiacOnly) && !maniac()) {
-		// an option of the Maniac Patch in another game: only while the command uses it
-		if (!found->hasValue() || !CommandSchema::isVisible(schema, *found, m_command)) {
+		// an option of the Maniac Patch in another game: greyed as the rules
+		// show it (its tag says what it needs), not its notes
+		if (!found->hasValue()) {
 			return false;
 		}
 		const auto maniacItem = [](const auto& one) { return bool(one.flags & Flag::Maniac); };
 		if (found->kind == Kind::Choice && std::any_of(found->items.begin(), found->items.end(), maniacItem)) {
-			// RPG Maker's values are another field's
+			// RPG Maker's values are another field's, shown: this one only
+			// while the command has one of the patch's
+			if (!CommandSchema::isVisible(schema, *found, m_command)) {
+				return false;
+			}
 			const int value = CommandSchema::read(*found, m_command);
 			const auto item = std::find_if(found->items.begin(), found->items.end(), [value](const auto& one) { return one.value == value; });
 			return item == found->items.end() || (item->flags & Flag::Maniac);
 		}
-		if (found->usesString()) {
-			return !CommandSchema::readString(m_command).isEmpty();
-		}
-		return !found->isNumber() || CommandSchema::read(*found, m_command) != CommandSchema::defaultOf(*found, m_command);
 	}
 	if (CommandSchema::isVisible(schema, *found, m_command)) {
 		return true;
@@ -766,6 +785,28 @@ bool CommandEditSession::isEnabled(const QString& fieldId) const {
 	return found && CommandSchema::isEnabled(*schemaOf(), *found, m_command) && engineHas(fieldId) && engineHasCommand();
 }
 
+bool CommandEditSession::isSet(const QString& fieldId) const {
+	const Field* found = field(fieldId);
+	if (!found || !found->hasValue()) {
+		return false;
+	}
+	if (found->isNumber()) {
+		return CommandSchema::read(*found, m_command) != CommandSchema::defaultOf(*found, m_command);
+	}
+	return found->usesString() && !m_command.string.empty();
+}
+
+bool CommandEditSession::originShown(const QString& fieldId) const {
+	const Field* found = field(fieldId);
+	if (!found || (found->flags & Flag::NotManiac)) {
+		return true;
+	}
+	if (CommandOrigin::shown(CommandOrigin::ofFlags(found->flags))) {
+		return true;
+	}
+	return CommandSchema::holds(*schemaOf(), found->visible, m_command) && isSet(fieldId);
+}
+
 bool CommandEditSession::holdsExcept(const QString& fieldId, const QString& otherId) const {
 	const Field* found = field(fieldId);
 	if (!found) {
@@ -786,14 +827,15 @@ bool CommandEditSession::engineHas(const QString& fieldId) const {
 	if (!found) {
 		return true;
 	}
-	return !((found->flags & Flag::Rpg2003) && !isRpg2k3()) && !((found->flags & Flag::Maniac) && !maniac());
+	return !((found->flags & Flag::Rpg2003) && !commands2k3()) && !((found->flags & Flag::Engine2003) && !isRpg2k3())
+		&& !((found->flags & Flag::Maniac) && !maniac());
 }
 
 bool CommandEditSession::engineHasCommand() const {
 	// the commands of the Maniac Patch stay editable (the palette offers
 	// them only in its games)
 	const Schema* schema = schemaOf();
-	return !schema || !((schema->flags & Flag::Rpg2003) && !isRpg2k3());
+	return !schema || !((schema->flags & Flag::Rpg2003) && !commands2k3());
 }
 
 QVariant CommandEditSession::extra(const QString& key) const {

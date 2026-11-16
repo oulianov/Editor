@@ -127,16 +127,32 @@ ColumnLayout {
                     model: [{ mode: 1, text: qsTranslate("ValueOperandWidget", "By Variable") },
                             { mode: 2, text: qsTranslate("ManiacCommandWidget", "Variable pointer") }]
                     delegate: Ez.RadioButton {
+                        id: ignoreRadio
                         required property var modelData
+                        // the pointer: read with the Maniac Patch only (greyed, tagged without it)
+                        readonly property string origin: modelData.mode === 2 ? "maniac" : ""
                         objectName: "ignoreMode" + modelData.mode
                         text: modelData.text + ":"
-                        // the pointer: read with the Maniac Patch only
-                        visible: modelData.mode !== 2 || root.session.maniac || root.ignoreMode === 2
-                        enabled: modelData.mode !== 2 || root.session.maniac
-                        Binding on checked { value: root.ignoreMode === modelData.mode }
+                        enabled: Ez.Origins.available(origin)
+                        // not offered (Editor Settings) unless it is the command's
+                        visible: Ez.Origins.shown(origin) || root.ignoreMode === modelData.mode
+                        Binding on checked { value: root.ignoreMode === ignoreRadio.modelData.mode }
                         onToggled: if (checked) root.setIgnoreMode(modelData.mode)
                         Layout.row: modelData.mode
                         Layout.column: 0
+                        rightPadding: horizontalPadding + (ignoreTag.width > 0 ? ignoreTag.width + Ez.Metrics.columnSpacing : 0)
+                        Ez.OriginTag {
+                            id: ignoreTag
+                            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+                            objectName: ignoreRadio.objectName + "Tag"
+                            origin: ignoreRadio.origin
+                            warning: ignoreRadio.checked && !Ez.Origins.available(origin)
+                            x: ignoreRadio.leftPadding + ignoreRadio.contentItem.implicitWidth + Ez.Metrics.columnSpacing
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Ez.OriginTip {
+                            origin: ignoreRadio.origin
+                        }
                     }
                 }
                 Repeater {
@@ -144,8 +160,8 @@ ColumnLayout {
                     delegate: Ez.RefComboBox {
                         required property int modelData
                         objectName: modelData === 1 ? "ignoreVariable" : "ignorePointer"
-                        visible: modelData !== 2 || root.session.maniac || root.ignoreMode === 2
-                        enabled: root.ignoreMode === modelData
+                        visible: modelData !== 2 || Ez.Origins.shown("maniac") || root.ignoreMode === 2
+                        enabled: root.ignoreMode === modelData && (modelData !== 2 || Ez.Origins.available("maniac"))
                         database: root.session.database
                         listKey: "variables"
                         jsonData: root.session
@@ -225,15 +241,32 @@ ColumnLayout {
                 Repeater {
                     model: root.modes
                     delegate: Ez.RadioButton {
+                        id: frequencyRadio
                         required property var modelData
+                        // the pointer: read with the Maniac Patch only (greyed, tagged without it)
+                        readonly property string origin: modelData.value === 2 ? "maniac" : ""
                         objectName: "frequencyMode" + modelData.value
                         text: modelData.text + ":"
-                        visible: modelData.value !== 2 || root.session.maniac || root.frequencyMode === 2
-                        enabled: modelData.value !== 2 || root.session.maniac
-                        Binding on checked { value: root.frequencyMode === modelData.value }
+                        enabled: Ez.Origins.available(origin)
+                        // not offered (Editor Settings) unless it is the command's
+                        visible: Ez.Origins.shown(origin) || root.frequencyMode === modelData.value
+                        Binding on checked { value: root.frequencyMode === frequencyRadio.modelData.value }
                         onToggled: if (checked) root.setFrequency(modelData.value, modelData.value === 0 ? 3 : Math.max(1, root.frequency))
                         Layout.row: modelData.value
                         Layout.column: 0
+                        rightPadding: horizontalPadding + (frequencyTag.width > 0 ? frequencyTag.width + Ez.Metrics.columnSpacing : 0)
+                        Ez.OriginTag {
+                            id: frequencyTag
+                            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+                            objectName: frequencyRadio.objectName + "Tag"
+                            origin: frequencyRadio.origin
+                            warning: frequencyRadio.checked && !Ez.Origins.available(origin)
+                            x: frequencyRadio.leftPadding + frequencyRadio.contentItem.implicitWidth + Ez.Metrics.columnSpacing
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Ez.OriginTip {
+                            origin: frequencyRadio.origin
+                        }
                     }
                 }
                 Ez.SpinBox {
@@ -251,8 +284,8 @@ ColumnLayout {
                     delegate: Ez.RefComboBox {
                         required property int modelData
                         objectName: modelData === 1 ? "frequencyVariable" : "frequencyPointer"
-                        visible: modelData !== 2 || root.session.maniac || root.frequencyMode === 2
-                        enabled: root.frequencyMode === modelData
+                        visible: modelData !== 2 || Ez.Origins.shown("maniac") || root.frequencyMode === 2
+                        enabled: root.frequencyMode === modelData && (modelData !== 2 || Ez.Origins.available("maniac"))
                         database: root.session.database
                         listKey: "variables"
                         jsonData: root.session

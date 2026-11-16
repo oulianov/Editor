@@ -17,6 +17,7 @@
 
 #include "project_settings.h"
 #include "core.h"
+#include "common/editor_settings.h"
 #include "common/exfont.h"
 #include "common/game_font.h"
 #include "common/ini_file.h"
@@ -25,6 +26,8 @@
 #include "controller/dialog_service.h"
 #include "defines.h"
 #include "model/game_patches.h"
+#include "model/game_setup.h"
+#include "model/player_options.h"
 #include "model/project.h"
 #include "model/project_convert.h"
 #include "model/project_soundfont.h"
@@ -37,6 +40,7 @@
 #include <QSettings>
 #include <QVariantMap>
 #include <algorithm>
+#include <lcf/rpg/database.h>
 #include <lcf/rpg/system.h>
 #include <utility>
 #include <vector>
@@ -108,6 +112,11 @@ bool validFont(int font) {
 	return font == 0 || font == 1;
 }
 
+/** The patches shown on their own, not in the grid of the patches */
+bool shownAlone(const char* key) {
+	return qstrcmp(key, "Maniac") == 0 || qstrcmp(key, "EasyRPG") == 0 || qstrcmp(key, "RPG2k3Commands") == 0;
+}
+
 /**
  * WinW and WinH of RPG_RT.ini as EasyRPG Player reads them (Player::Init):
  * either one makes the size the game's, the other one 320 or 240; empty
@@ -130,6 +139,30 @@ QSize screenSizeOf(const Project& project) {
 		}
 	}
 	return sized ? QSize(width, height) : QSize(0, 0);
+}
+
+/** What an RTP folder holds and where, as the list of the RTP folder shows
+ *  it: what it holds first, the end of a long path elided */
+QString rtpFolderText(const QString& folder) {
+	QString path = QDir::toNativeSeparators(folder);
+#ifndef Q_OS_WIN
+	// the home folder as the shells write it
+	const QString home = QDir::homePath();
+	if (folder == home || folder.startsWith(home + QLatin1Char('/'))) {
+		path = QLatin1Char('~') + folder.mid(home.size());
+	}
+#endif
+	if (!QFileInfo(folder).isDir()) {
+		return QCoreApplication::translate("ProjectSettingsDialog", "Missing folder %1").arg(path);
+	}
+	const int engine = EditorSettings::rtpEngine(folder);
+	if (engine == 0) {
+		return QCoreApplication::translate("ProjectSettingsDialog", "Other files in %1").arg(path);
+	}
+	if (EditorSettings::isEasyRpgRtp(folder)) {
+		return QCoreApplication::translate("ProjectSettingsDialog", "EasyRPG RTP in %1").arg(path);
+	}
+	return QCoreApplication::translate("ProjectSettingsDialog", "RTP of RPG Maker %1 in %2").arg(QString::number(engine), path);
 }
 
 /** FakeResolution of EasyRPG.ini, as the Player reads a yes or no */
@@ -160,8 +193,28 @@ ProjectSettings::ProjectSettings(Project& project, bool open, QObject* parent) :
 		}
 	}
 	m_canConvert = open && ProjectConvert::canConvert(project);
+	// the format of the game, and the options of its database; a game not
+	// open: its format as its database says now
 	if (open) {
-		m_textFont = project.database().system.font_id;
+		const lcf::rpg::Database& database = project.database();
+		m_textFont = database.system.font_id;
+		m_rpg2k3 = database.system.ldb_id == 2003;
+		m_databaseVersion = database.version;
+		const PlayerOptions::Values options = PlayerOptions::of(database);
+		m_battleWritten = options.battle2k;
+		m_expWritten = options.alternativeExp;
+	} else if (const auto database = project.readDatabase()) {
+		m_rpg2k3 = database->system.ldb_id == 2003;
+		m_databaseVersion = database->version;
+		// shown in what the game runs with, not changed
+		const PlayerOptions::Values options = PlayerOptions::of(*database);
+		m_battleWritten = options.battle2k;
+		m_expWritten = options.alternativeExp;
+	}
+	m_rtpEngine = m_rpg2k3 ? 2003 : 2000;
+	// what the game runs with follows every choice
+	for (auto signal : {&ProjectSettings::patchesChanged, &ProjectSettings::featuresChanged, &ProjectSettings::playerEngineChanged}) {
+		connect(this, signal, this, &ProjectSettings::runtimesChanged);
 	}
 	const ExFont::Sheet sheet = ExFont::load(project);
 	m_symbols = sheet.image;
@@ -169,13 +222,17 @@ ProjectSettings::ProjectSettings(Project& project, bool open, QObject* parent) :
 
 	// the patches as EasyRPG.ini chooses them, else detected
 	const GamePatches::State state = GamePatches::read(project);
-	m_detected = GamePatches::detect(project);
-	m_written = state.chosen ? state.values : m_detected;
-	m_chosen = m_written;
-	m_others = state.others;
 	m_patchMode = !state.chosen ? Detect : state.others.isEmpty() ? Choose : Refer;
 	m_screenWritten = screenSizeOf(project);
 	readIni();
+	m_chosen = m_written;
+
+	// the RTP folder of the game: one of the list, else its engine's default
+	const EditorSettings& editor = EditorSettings::instance();
+	m_rtpFolder = editor.rtpActive(m_folder.absolutePath());
+	if (!editor.rtpFolders().contains(m_rtpFolder)) {
+		m_rtpFolder.clear();
+	}
 }
 
 QString ProjectSettings::folderName() const
@@ -202,7 +259,18 @@ QString ProjectSettings::renameFolder() const
 	const QString name = m_folderName.trimmed();
 	QDir parent = m_folder;
 	parent.cdUp();
-	return parent.rename(m_folder.dirName(), name) ? parent.filePath(name) : QString();
+	// the folder as the settings know it, before it is gone
+	const QString old_key = EditorSettings::projectKey(m_folder.absolutePath());
+	if (!parent.rename(m_folder.dirName(), name)) {
+		return QString();
+	}
+	const QString path = parent.filePath(name);
+	EditorSettings& editor = EditorSettings::instance();
+	if (const QString rtp = editor.rtpActive(old_key); !rtp.isEmpty()) {
+		editor.setRtpActive(old_key, QString());
+		editor.setRtpActive(path, rtp);
+	}
+	return path;
 }
 
 QString ProjectSettings::gameTitle() const
@@ -268,6 +336,123 @@ QString ProjectSettings::engineName() const
 	}
 	return m_project.database().system.ldb_id == 2003 ? QCoreApplication::translate("ProjectSettingsDialog", "RPG Maker 2003")
 		: QCoreApplication::translate("ProjectSettingsDialog", "RPG Maker 2000");
+}
+
+QString ProjectSettings::playerEngine() const
+{
+	if (m_engineChoice) {
+		return *m_engineChoice;
+	}
+	// as the Player reads it ("2003" is "rpg2k3"), else as written
+	const QString known = RpgRtExe::settingOf(RpgRtExe::engineFromSetting(m_engineWritten));
+	return known.isEmpty() ? m_engineWritten : known;
+}
+
+void ProjectSettings::setPlayerEngine(const QString& engine)
+{
+	if (engine == playerEngine()) {
+		return;
+	}
+	const bool told = RpgRtExe::engineFromSetting(playerEngine()) != RpgRtExe::EngineNone;
+	m_engineChoice = engine;
+	emit playerEngineChanged();
+	// told an engine, the Player does not read the program for the Maniac Patch
+	if ((RpgRtExe::engineFromSetting(engine) != RpgRtExe::EngineNone) != told) {
+		readPatches();
+		emit patchesChanged();
+	}
+}
+
+bool ProjectSettings::playerEngine2k3() const
+{
+	const int told = RpgRtExe::engineFromSetting(playerEngine());
+	return ((told != RpgRtExe::EngineNone ? told : m_engineDetected) & RpgRtExe::EngineRpg2k3) != 0;
+}
+
+QVariantList ProjectSettings::playerEngineChoices() const
+{
+	QVariantList choices;
+	choices << choice(QString(), QCoreApplication::translate("ProjectSettingsDialog", "Detect: %1").arg(RpgRtExe::engineName(m_engineDetected)));
+	for (const int engine : RpgRtExe::settingEngines()) {
+		choices << choice(RpgRtExe::settingOf(engine), RpgRtExe::engineName(engine));
+	}
+	// as written, though the Player does not read it
+	if (!m_engineWritten.isEmpty() && RpgRtExe::engineFromSetting(m_engineWritten) == RpgRtExe::EngineNone) {
+		choices << choice(m_engineWritten, QCoreApplication::translate("ProjectSettingsDialog", "%1: unknown, detected instead").arg(m_engineWritten));
+	}
+	return choices;
+}
+
+bool ProjectSettings::battle2k() const
+{
+	return m_battleChoice.value_or(m_battleWritten);
+}
+
+void ProjectSettings::setBattle2k(bool on)
+{
+	if (!m_open || !m_rpg2k3 || on == battle2k()) {
+		return;
+	}
+	m_battleChoice = on;
+	emit featuresChanged();
+}
+
+int ProjectSettings::alternativeExp() const
+{
+	return m_expChoice.value_or(m_expWritten);
+}
+
+void ProjectSettings::setAlternativeExp(int curve)
+{
+	if (!m_open || curve < 0 || curve == alternativeExp()) {
+		return;
+	}
+	m_expChoice = curve;
+	emit featuresChanged();
+}
+
+QVariantList ProjectSettings::runtimes() const
+{
+	auto tr = [](const char* text) { return QCoreApplication::translate("ProjectSettingsDialog", text); };
+	const bool maniac = patchOn(QStringLiteral("Maniac"));
+	const QStringList only = GameSetup::playerOnlyOf(m_rpg2k3, patchOn(QStringLiteral("RPG2k3Commands")), battle2k(),
+		alternativeExp(), patchOn(QStringLiteral("EasyRPG")), RpgRtExe::engineFromSetting(playerEngine()) != RpgRtExe::EngineNone);
+	const QStringList runs = GameSetup::runsWithOf(m_rpg2k3, maniac, only);
+	// the choices only EasyRPG Player runs, as playerOnlyOf names them (not
+	// the engine told to it: RPG_RT.exe ignores it and runs the game)
+	QStringList player;
+	for (const QString& choice : only) {
+		if (choice == QLatin1String("commands2k3")) {
+			player << tr("The RPG Maker 2003 commands in an RPG Maker 2000 game: EasyRPG Player only");
+		} else if (choice == QLatin1String("battle2k")) {
+			player << tr("The battle system of RPG Maker 2000 in an RPG Maker 2003 game: EasyRPG Player only");
+		} else if (choice == QLatin1String("alternativeExp")) {
+			player << tr("An experience curve chosen: EasyRPG Player only");
+		} else if (choice == QLatin1String("easyrpg")) {
+			player << tr("The EasyRPG Extensions: EasyRPG Player only");
+		}
+	}
+	auto runtime = [&](const QString& key, const QString& name, QStringList why) {
+		const bool available = runs.contains(key);
+		if (available) {
+			why.clear();
+		}
+		return QVariantMap{{QStringLiteral("key"), key}, {QStringLiteral("name"), name},
+			{QStringLiteral("available"), available}, {QStringLiteral("why"), why.join(QLatin1Char('\n'))}};
+	};
+	QStringList rpgrt = player;
+	if (maniac) {
+		rpgrt.prepend(tr("The Maniac Patch: the RPG_RT.exe of the Maniac Patch"));
+	}
+	QStringList maniac_rt = player;
+	if (!m_rpg2k3 && !maniac) {
+		maniac_rt.prepend(tr("An RPG Maker 2000 game: the RPG_RT.exe of the Maniac Patch is RPG Maker 2003's"));
+	}
+	return {
+		runtime(QStringLiteral("rpgrt"), QStringLiteral("RPG_RT.exe"), rpgrt),
+		runtime(QStringLiteral("maniac"), tr("Maniac Patch"), maniac_rt),
+		runtime(QStringLiteral("easyrpg"), tr("EasyRPG Player"), {}),
+	};
 }
 
 void ProjectSettings::setConvertRequested(bool convert)
@@ -355,6 +540,9 @@ QVariantList ProjectSettings::patches() const
 {
 	QVariantList list;
 	for (const auto& patch : GamePatches::list()) {
+		if (shownAlone(patch.key)) {
+			continue;
+		}
 		list << QVariantMap{
 			{QStringLiteral("key"), QString::fromLatin1(patch.key)},
 			{QStringLiteral("name"), QCoreApplication::translate("GamePatches", patch.name)},
@@ -377,8 +565,13 @@ bool ProjectSettings::patchOn(const QString& key) const
 
 void ProjectSettings::setPatchOn(const QString& key, bool on)
 {
-	if (m_patchMode != Choose) {
+	if (m_patchMode == Refer) {
 		return;
+	}
+	// one [Patch] for all of them: chosen from now on, from what is detected
+	if (m_patchMode == Detect) {
+		m_chosen = m_detected;
+		setPatchMode(Choose);
 	}
 	// the Maniac Patch keeps its version
 	const int was = m_chosen.value(key);
@@ -393,6 +586,16 @@ QString ProjectSettings::patchExplanation(const QString& key) const
 	for (const auto& patch : GamePatches::list()) {
 		if (key == QLatin1String(patch.key)) {
 			return GamePatches::explain(patch);
+		}
+	}
+	return {};
+}
+
+QString ProjectSettings::patchText(const QString& key) const
+{
+	for (const auto& patch : GamePatches::list()) {
+		if (key == QLatin1String(patch.key)) {
+			return QCoreApplication::translate("GamePatches", patch.text);
 		}
 	}
 	return {};
@@ -529,11 +732,13 @@ void ProjectSettings::readIni()
 	const QStringList names = exe.isEmpty() || info.easyrpgPlayer ? QStringList() : RpgRtExe::fontNames(exe);
 	m_exeFonts = names.isEmpty() ? QCoreApplication::translate("ProjectSettingsDialog", "Unknown") : names.join(QStringLiteral(", "));
 
+	// the engine the Player is told, else the one it finds
+	m_engineWritten = GamePatches::engineSetting(m_project);
+	m_engineDetected = GamePatches::detectEngine(m_project, m_rpg2k3 ? 2003 : 2000, m_databaseVersion);
+	emit playerEngineChanged();
+
 	// the patches as EasyRPG.ini says now
-	const GamePatches::State state = GamePatches::read(m_project);
-	m_detected = GamePatches::detect(m_project);
-	m_written = state.chosen ? state.values : m_detected;
-	m_others = state.others;
+	readPatches();
 	m_centerWritten = centerSmallMapsOf(m_project);
 	emit iniChanged();
 	emit screenChanged();
@@ -544,6 +749,14 @@ void ProjectSettings::readIni()
 		}
 	}
 	emit patchesChanged();
+}
+
+void ProjectSettings::readPatches()
+{
+	const GamePatches::State state = GamePatches::read(m_project);
+	m_detected = GamePatches::detect(m_project, RpgRtExe::engineFromSetting(playerEngine()) != RpgRtExe::EngineNone);
+	m_written = state.chosen ? state.values : m_detected;
+	m_others = state.others;
 }
 
 QSize ProjectSettings::screenSize() const
@@ -623,19 +836,108 @@ QString ProjectSettings::validate() const
 	return {};
 }
 
+void ProjectSettings::setRtpFolder(const QString& folder)
+{
+	if (folder == m_rtpFolder) {
+		return;
+	}
+	m_rtpFolder = folder;
+	emit rtpFolderChanged();
+}
+
+QVariantList ProjectSettings::rtpChoices() const
+{
+	const EditorSettings& editor = EditorSettings::instance();
+	const QString fallback = editor.rtpDefault(m_rtpEngine);
+	QVariantList choices;
+	choices << choice(QString(), fallback.isEmpty()
+		? QCoreApplication::translate("ProjectSettingsDialog", "Engine's default (RPG Maker %1): none").arg(m_rtpEngine)
+		: QCoreApplication::translate("ProjectSettingsDialog", "Engine's default (RPG Maker %1): %2").arg(QString::number(m_rtpEngine), rtpFolderText(fallback)));
+	for (const QString& folder : editor.rtpFolders()) {
+		choices << choice(folder, rtpFolderText(folder));
+	}
+	return choices;
+}
+
+QStringList ProjectSettings::turnedOff() const
+{
+	const GameSetup& game = GameSetup::instance();
+	if (!m_open || !game.isOpen()) {
+		return {};
+	}
+	const QVariantMap patches = game.patches();
+	QStringList off;
+	auto check = [&](const char* origin, bool runs, const char* key) {
+		if (runs && !patchOn(QString::fromLatin1(key))) {
+			off << QString::fromLatin1(origin);
+		}
+	};
+	check("maniac", game.maniac(), "Maniac");
+	check("easyrpg", game.easyrpg(), "EasyRPG");
+	// RPG Maker 2003's commands of a 2000 game: a game converted to 2003 has them
+	if (!m_rpg2k3 && !m_convert) {
+		check("rpg2003", game.commands2k3(), "RPG2k3Commands");
+	}
+	check("dynrpg", patches.value(QStringLiteral("DynRPG")).toInt() > 0, "DynRPG");
+	check("keypatch", patches.value(QStringLiteral("KeyPatch")).toInt() > 0, "KeyPatch");
+	check("powermode", patches.value(QStringLiteral("PowerMode2003")).toInt() > 0, "PowerMode2003");
+	return off;
+}
+
+void ProjectSettings::setTurnOffCheck(TurnOffCheck check)
+{
+	m_turnOffCheck = std::move(check);
+}
+
+bool ProjectSettings::confirmTurnOff()
+{
+	const QStringList off = turnedOff();
+	if (off.isEmpty() || !m_turnOffCheck || off == m_offConfirmed) {
+		return true;
+	}
+	if (!m_turnOffCheck(off, patchOn(QStringLiteral("DynRPG")))) {
+		return false;
+	}
+	m_offConfirmed = off;
+	return true;
+}
+
 QString ProjectSettings::write(Project& project) const
 {
-	// the font of the game: in the database
-	if (m_open && m_textFont != project.database().system.font_id) {
+	// on this computer, not in the game: its RTP folder (Core::rtpDirs
+	// follows it at once)
+	EditorSettings::instance().setRtpActive(project.projectDir().absolutePath(), m_rtpFolder);
+	// the font of the game and the options of the database only EasyRPG
+	// Player reads: in the database
+	const bool font = m_open && m_textFont != project.database().system.font_id;
+	PlayerOptions::Values options = m_open ? PlayerOptions::of(project.database()) : PlayerOptions::Values();
+	int changed = 0;
+	if (m_open && m_battleChoice && *m_battleChoice != options.battle2k) {
+		options.battle2k = *m_battleChoice;
+		changed |= PlayerOptions::Battle2k;
+	}
+	if (m_open && m_expChoice && *m_expChoice != options.alternativeExp) {
+		options.alternativeExp = *m_expChoice;
+		changed |= PlayerOptions::AlternativeExp;
+	}
+	if (font || changed) {
 		// another program (rpgsync...) changed the database since it was
-		// read: the font goes in its version, never over it. Outside the
-		// Database window the Editor has no unsaved database edits to lose.
+		// read: the values go in its version, never over it. Outside the
+		// Database window (modal, as this one) the Editor has no unsaved
+		// database edits to lose.
 		if (core().watcher().isStale(project.databaseFile()) && !project.reloadDatabase()) {
 			return QCoreApplication::translate("ProjectSettingsDialog", "The database changed on disk and could not be read again.");
 		}
-		project.database().system.font_id = m_textFont;
+		if (font) {
+			project.database().system.font_id = m_textFont;
+		}
+		PlayerOptions::set(project.database(), options, changed);
 		if (!project.saveDatabase()) {
 			return project.withWriteError(QCoreApplication::translate("ProjectSettingsDialog", "The database could not be saved."));
+		}
+		// their copy, for when RPG Maker removes them
+		if (!PlayerOptions::keep(project, options, changed)) {
+			return QCoreApplication::translate("ProjectSettingsDialog", "The copy of the options of the database could not be written in EasyRPG.ini.");
 		}
 	}
 	// the code page first: the title is written in it
@@ -648,6 +950,17 @@ QString ProjectSettings::write(Project& project) const
 		: m_patchMode == Detect && state.chosen;
 	if (patches_changed && !GamePatches::write(project, m_patchMode == Choose ? std::optional(m_chosen) : std::nullopt)) {
 		return QCoreApplication::translate("ProjectSettingsDialog", "The patches could not be written in EasyRPG.ini.");
+	}
+	// the engine of the Player: the key, or none to detect it
+	if (m_engineChoice) {
+		const QString written = GamePatches::engineSetting(project);
+		const QString known = RpgRtExe::settingOf(RpgRtExe::engineFromSetting(written));
+		if (*m_engineChoice != (known.isEmpty() ? written : known)) {
+			const std::optional<QByteArray> value = m_engineChoice->isEmpty() ? std::nullopt : std::optional(m_engineChoice->toUtf8());
+			if (!IniFile::write(project.findFileOrDefault(QStringLiteral("EasyRPG.ini")), "Game", {{"Engine", value}}, false, false)) {
+				return QCoreApplication::translate("ProjectSettingsDialog", "The engine could not be written in EasyRPG.ini.");
+			}
+		}
 	}
 	// the size of the screen: both keys, or none (the player's choice)
 	if (m_screenChoice && *m_screenChoice != screenSizeOf(project)) {
@@ -702,6 +1015,8 @@ QString ProjectSettings::write(Project& project) const
 	if (m_title != m_initialTitle && !project.saveGameTitle(m_title)) {
 		return QCoreApplication::translate("ProjectSettingsDialog", "The game title could not be written.");
 	}
+	// the engine, the patches and the options as the editors read them, at once
+	GameSetup::instance().reload();
 	return {};
 }
 

@@ -27,6 +27,9 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <ul>
 <li><a href="#new-project">New project</a></li>
 <li><a href="#project-settings">Project settings</a></li>
+<li><a href="#game-profile">The game's engine and add-ons</a></li>
+<li><a href="#editor-settings">Editor settings</a></li>
+<li><a href="#maniac-check">Maniac Patch compatibility</a></li>
 <li><a href="#soundfont">MIDI music and soundfonts</a></li>
 <li><a href="#maps">Maps and drawing</a></li>
 <li><a href="#map-properties">Map properties</a></li>
@@ -78,7 +81,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <!-- ============================================================ -->
 <h2>Project and maps</h2>
 
-<p>The Editor remembers window sizes and positions, docked panel sizes and placement, splitter widths, table columns, database and event pages, selections, scroll positions and each project's open maps, tile brushes, layers and zoom. In <b>Settings</b>, choose <b>Reset local state</b> to restore these defaults immediately. Game files, unsaved edits, the Player path and RTP folders, language and other preferences are kept.</p>
+<p>The Editor remembers window sizes and positions, docked panel sizes and placement, splitter widths, table columns, database and event pages, selections, scroll positions and each project's open maps, tile brushes, layers and zoom. In <b>Editor Settings</b>, choose <b>Reset local state</b> to restore these defaults immediately. Game files, unsaved edits, the Player path and RTP folders, language and other preferences are kept.</p>
 <p><b>Keyboard</b>: as in RPG Maker 2003, <b>Tab</b> moves through every control of a window (fields, buttons, check boxes, drop-down lists, lists), and <b>Shift+Tab</b> goes back. In a group of radio buttons, Tab stops on the one checked and the arrow keys choose another; <b>Space</b> presses the button or check box in focus.</p>
 
 <a name="new-project"></a>
@@ -87,19 +90,55 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <ul>
 <li><b>Game Title</b>: the name shown in the window title of the game.</li>
 <li><b>Game Folder</b>: the name of the folder created for the project, inside the <b>Path to games folder</b>.</li>
+<li><b>Format</b>: the engine of the game, RPG Maker 2003 or RPG Maker 2000, or EasyRPG's XML files (an RPG Maker 2000 game).</li>
+<li><b>Add-ons</b>: what the game runs besides its engine, each with its tag: the <b>Maniac Patch</b> (M), the <b>EasyRPG Extensions</b> (E: EasyRPG Player only) and, for an RPG Maker 2000 game, the <b>RPG Maker 2003 commands</b> (E). They are written in the <code>[Patch]</code> section of its EasyRPG.ini, as <a href="#project-settings">Project Settings</a> writes them; change them there later.</li>
 <li><b>DB template</b>: the starting database (heroes, items, chipsets...) copied into the new project.</li>
-<li><b>Tile Size</b>: size of one map tile in pixels. RPG Maker 2000/2003 games always use 16; larger sizes only work with EasyRPG Player.</li>
+<li><b>Tile Size</b>: always 16 pixels: RPG Maker and EasyRPG Player run no other size.</li>
 </ul>
 
 <a name="project-settings"></a>
 <h3>Project settings</h3>
-<p><b>Game Project &gt; Project Settings</b> (or <b>Settings...</b> in the list of projects) has three pages:</p>
+<p><b>Game Project &gt; Project Settings</b> (or <b>Settings...</b> in the list of projects) holds what concerns one game: what is saved in its folder, and what it uses on this computer. It has four pages. <b>Engine</b> tells what the game is for RPG Maker and its RPG_RT.exe; <b>EasyRPG Player</b> holds everything only EasyRPG Player reads, which RPG_RT.exe ignores:</p>
 <ul>
 <li><b>General</b>: the <b>Directory Name</b> and <b>Game Name</b> (as RPG Maker's Rename Project), and the <b>Encoding</b> of the texts (<code>[EasyRPG] Encoding</code> of RPG_RT.ini). Texts shown garbled usually mean a wrong one: the project is closed (asking to save it) and opened again in the one chosen.</li>
-<li><b>Engine</b>: the format of the project (<b>Convert to RPG Maker 2003...</b> converts it, after a backup), the players in the game folder with their version (RPG_RT.exe of RPG Maker 2000 or 2003, the Maniac Patch, EasyRPG Player), the <b>Text font</b> of the game (saved in the database, with a sentence drawn as EasyRPG Player draws it), the fonts RPG_RT.exe asks Windows for, and the symbols of messages ($A...).</li>
-<li><b>EasyRPG Player</b>: what EasyRPG Player reads; RPG_RT.exe is not changed. <b>Patches</b> are detected from the game files as the Player does, chosen (written in the <code>[Patch]</code> section of EasyRPG.ini), or taken as written in EasyRPG.ini, which the Editor then leaves as it is (the choice when EasyRPG.ini sets other options, such as AntiLagSwitch). Point at a patch to see what it changes. The EasyRPG Extensions and the Maniac Patch enable their commands in the <a href="#command-palette">Event Commands</a> window. <b>Screen</b>: the size of the game's screen. <b>Player's choice</b> writes none: the game is 320×240, or wider when the player chose Widescreen (416×240) or Ultrawide (560×240) in the Player's settings. Any other size is the game's own, for every player (<code>WinW</code> and <code>WinH</code> of RPG_RT.ini, read by EasyRPG Player 0.8 or later and by the Maniac Patch; <b>320×240 only</b> keeps players from widening it); the window sizes of <b>Test Play Options</b> are multiples of it. <b>Center maps smaller than the screen</b> (<code>FakeResolution</code> of EasyRPG.ini) draws such a map in the middle with black borders, as the Player does by itself when the player chose a wider screen. <b>Fonts</b>: the Player's own, or a font file copied in the Font folder of the game (<b>Choose...</b>).</li>
+<li><b>Engine</b>: <b>Runs with</b>, the programs the game can run with as it is set up in the window, before OK: the <b>RPG_RT.exe</b> of its engine, the one of the <b>Maniac Patch</b> (RPG Maker 2003's: an RPG Maker 2003 game, or one with the patch) and <b>EasyRPG Player</b>, which runs them all; a choice of the <b>EasyRPG Player</b> page leaves only the Player (not its <b>Engine</b>, which RPG_RT.exe ignores), the Maniac Patch only its own RPG_RT.exe. Point at one to see what keeps it from running the game. Then the format of the project (<b>Convert to RPG Maker 2003...</b> converts it, after a backup), the players in the game folder with their version (RPG_RT.exe of RPG Maker 2000 or 2003, the Maniac Patch, EasyRPG Player), the <b>Maniac Patch</b> (another RPG_RT.exe, which EasyRPG Player runs too: its commands are then offered in the <a href="#command-palette">Event Commands</a> window), the <b>Text font</b> of the game (saved in the database, with a sentence drawn as EasyRPG Player draws it), the fonts RPG_RT.exe asks Windows for, and the symbols of messages ($A...).</li>
+<li><b>EasyRPG Player</b>: what only EasyRPG Player reads; RPG_RT.exe is not changed. <b>Game</b>: how the Player runs the game. <b>Engine</b> is the version of RPG Maker it runs the game as (its commands, battles and menus behave as in it; <code>[Game] Engine</code> of EasyRPG.ini): <b>Detect</b> shows the one the Player finds, from RPG_RT.exe, else from the database and the files of the game. <b>RPG Maker 2003 commands</b> (RPG Maker 2000 games) lets the game use the commands and options of RPG Maker 2003 1.12. <b>Battle system</b> (RPG Maker 2003 games): <b>RPG Maker 2000</b> runs the front view battles of RPG Maker 2000, with the Fight, Auto and Escape commands of the party. <b>Experience curve</b>: the formula of the experience heroes need for each level, the engine's or the one of RPG Maker 2000 or 2003. <b>EasyRPG Extensions</b> enables the <a href="#commands-easyrpg">commands of EasyRPG Player</a>. The battle system and the experience curve are saved in the database (see below); the others in EasyRPG.ini. <b>Patches</b> are detected from the game files as the Player does, chosen (written in the <code>[Patch]</code> section of EasyRPG.ini), or taken as written in EasyRPG.ini, which the Editor then leaves as it is (the choice when EasyRPG.ini sets other options, such as AntiLagSwitch). The Maniac Patch, the RPG Maker 2003 commands and the EasyRPG Extensions are patches too: checking one of them while the patches are detected chooses them all from then on, starting from what is detected; taken as written, they are greyed. Point at a patch to see what it changes. <b>Screen</b>: the size of the game's screen. <b>Player's choice</b> writes none: the game is 320×240, or wider when the player chose Widescreen (416×240) or Ultrawide (560×240) in the Player's settings. Any other size is the game's own, for every player (<code>WinW</code> and <code>WinH</code> of RPG_RT.ini, read by EasyRPG Player 0.8 or later and by the Maniac Patch; <b>320×240 only</b> keeps players from widening it); the window sizes of <b>Test Play Options</b> are multiples of it. <b>Center maps smaller than the screen</b> (<code>FakeResolution</code> of EasyRPG.ini) draws such a map in the middle with black borders, as the Player does by itself when the player chose a wider screen. <b>Fonts</b>: the Player's own, or a font file copied in the Font folder of the game (<b>Choose...</b>).</li>
+<li><b>On This Computer</b>: what this game uses on this computer only, kept in the Editor's settings for the game's folder (nothing is written in the game, which keeps it when the folder is renamed here). The <b>RTP folder</b> is the one of the <a href="#rtp">RTP folders</a> of the Editor Settings where the files the game lacks are looked for first: <b>Engine's default</b>, the folder marked there for the engine of the game, or another one. Each folder shows the RTP it holds. From OK on, the maps shown, the pickers, the Resource Manager, the Jukebox and test play take the RTP files from there, without opening the game again.</li>
 </ul>
 <p><b>Open EasyRPG.ini</b> opens the file in the script editor of the Editor settings (created if missing), for the options not shown here; the window reads it again when you come back. Only the lines changed are written: the rest of RPG_RT.ini and EasyRPG.ini stays as it is.</p>
+<p>Turning the <b>Maniac Patch</b> on checks the game for what the Maniac Patch does not run once you click OK (see <a href="#maniac-check">Maniac Patch compatibility</a>). Turning off an add-on the game uses lists what uses it first (see <a href="#addon-check">Turning an add-on off</a>).</p>
+<a name="player-options"></a>
+<p>RPG Maker 2000 and 2003 remove from the database what they do not know when they save it, such as the <b>Battle system</b> and the <b>Experience curve</b> chosen for EasyRPG Player. The Editor keeps a copy of these two choices in EasyRPG.ini, in a section of its own that the Player does not read (<code>[EasyRPG Editor]</code>), written with them on OK and by <b>Convert to RPG Maker 2003...</b> (its two choices); a choice set back to the default is removed from the copy. When a game opens whose database lost them, the Editor asks once whether to write them back: <b>Yes</b> saves them in the database again, <b>No</b> forgets the copy, and the game runs as RPG Maker left it.</p>
+
+<a name="game-profile"></a>
+<h3>The game's engine and add-ons</h3>
+<p>The end of the status bar shows what the game is: its engine, <b>RPG Maker 2000</b> or <b>RPG Maker 2003</b>, then each add-on it turns on, with the tag the editors give to what comes from it: <b>M</b> (purple) the Maniac Patch; <b>E</b> (green) what only EasyRPG Player runs: the EasyRPG Extensions, the RPG Maker 2003 commands of an RPG Maker 2000 game, the battles of RPG Maker 2000 or another experience curve in an RPG Maker 2003 game, the version of RPG Maker the Player is told to run the game as; <b>P</b> (orange) a patch of RPG_RT.exe that EasyRPG Player runs too (DynRPG, the Ineluki Key Patch, Power Mode 2003, Common This Event, Unlock Pictures). Point at one to see what it is and which programs run the game as it is set up; click it to open <a href="#project-settings">Project Settings</a> on the page that changes it. When there is not enough room, the add-ons show their tag alone. The list of <b>Open Project</b> shows the same for each game, read from its files without opening it.</p>
+<p><b>Export Game</b> says so when the game's own RPG_RT.exe is chosen for Windows while the game uses what only EasyRPG Player runs. Test play always runs EasyRPG Player.</p>
+
+<a name="addon-check"></a>
+<h3>Turning an add-on off</h3>
+<p>When you turn off, in Project Settings, an add-on the game uses (the <b>Maniac Patch</b>, the <b>EasyRPG Extensions</b>, the <b>RPG Maker 2003 commands</b> of an RPG Maker 2000 game, <b>DynRPG</b>, the <b>Ineluki Key Patch</b> or <b>Power Mode 2003</b>), OK first lists what uses it, before anything is written: the event commands of the maps (with their unsaved changes), of the common events and of the monster groups, the second timer of RPG Maker 2003 in the conditions of the pages, the large charsets of the EasyRPG Extensions (their names start with $) of the pages, heroes and vehicles, and the values of the database the Maniac Patch adds (its triggers of common events, the common events of the title and save scenes, its message window, the attack animation of monsters), each with how many times and where. <b>Keep It Off</b> writes the settings: what is listed stays in the game as it is, and is not run until the add-on is turned on again. <b>Go Back</b> returns to Project Settings with your choices, to turn it back on.</p>
+
+<a name="editor-settings"></a>
+<h3>Editor settings</h3>
+<p><b>Settings...</b> (in the <b>Tools</b> menu; on macOS, in the <b>EasyRPG Editor</b> menu) opens the <b>Editor Settings</b>: the preferences of the Editor, saved on this computer for every game. They never change a game; what concerns one game is in its <a href="#project-settings">Project Settings</a>.</p>
+<p>On the <b>General</b> page:</p>
+<ul>
+<li><b>General</b>: the <b>Language</b> of the Editor, its <b>Color scheme</b> (light, dark, or as the system), <b>Check for updates automatically</b> (see <a href="#updates">Updates</a>), and <b>Keep search results between searches</b>.</li>
+<li><b>Display</b>: the animated tiles of the map, and the colors and stripes of the event commands.</li>
+<li><b>Add-ons</b>: <b>Show the badges of the add-ons (M, E, P)</b> beside the commands and options that need the Maniac Patch, EasyRPG Player or another patch (see <a href="#game-profile">The game's engine and add-ons</a>); what the game has and does not run keeps its badge (M!...) anyway. <b>Show add-on commands even when the game does not use the add-on</b>: they are shown greyed, their tooltip saying what they need and where to turn it on; turned off, they are hidden, except those the game already has.</li>
+<li><b>Files</b>: <b>Reload the files other programs change (rpgsync)</b> (see <a href="#reload">Reload files changed on disk</a>).</li>
+</ul>
+<p>On the <b>RTP and Programs</b> page:</p>
+<ul>
+<li><b>RTP folders</b>: the folders of the RTP, and the one the games of each engine use (see <a href="#rtp">RTP folders</a>).</li>
+<li><b>Programs</b>: the <b>EasyRPG Player</b> of test play (searched next to the Editor and in the PATH when empty, or downloaded), the <b>Script editor</b> where rpgsync scripts open, and the <b>Soundfont for previews</b>, the SF2 file the Editor plays MIDI music with when the game has no soundfont of its own (see <a href="#soundfont">MIDI music and soundfonts</a>).</li>
+</ul>
+
+<a name="maniac-check"></a>
+<h3>Maniac Patch compatibility</h3>
+<p>A game is a Maniac Patch game by its own patches: the <b>Maniac Patch</b> checked in <b>Project Settings &gt; Engine</b> (<code>Maniac=1</code> in the <code>[Patch]</code> section of EasyRPG.ini), or detected as EasyRPG Player does (a Maniac RPG_RT.exe, or accord.dll in the game folder). Its commands are then offered in the <a href="#commands-maniac">Event Commands</a> window.</p>
+<p>When such a game opens, and when you turn the Maniac Patch on in its Project Settings, the Editor looks for what the game uses that the RPG_RT.exe of the Maniac Patch does not run: RPG Maker 2000 (the game becomes an RPG Maker 2003 game first), the commands of EasyRPG Player, Power Mode 2003 and the Ineluki Key Patch. The window lists what it found, how many times, what it is converted to, and where. <b>Yes</b> converts what has an equivalent, after a copy of the files that change, and turns the Maniac Patch on in EasyRPG.ini; <b>No</b> leaves the game as it is. When the game opens again, the same findings are not shown again. <b>Game Project &gt; Check Maniac Compatibility...</b> checks any game at any time.</p>
 
 <a name="soundfont"></a>
 <h3>MIDI music and soundfonts</h3>
@@ -114,7 +153,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 </ol>
 <p>The soundfonts are only tried when the Player has FluidSynth (FluidLite on some systems) and its <b>FluidSynth (SF2)</b> option is on, as it is by default; each of WildMidi and the synthesizer of the system can be turned off in the same settings. A player who chose a soundfont of their own hears it instead of the game's.</p>
 <p><b>Project Settings &gt; EasyRPG Player &gt; Soundfont</b> gives the game its soundfont: <b>Choose...</b> an SF2 file, copied into the game folder as <code>easyrpg.soundfont</code> when you click OK (a large file shows the progress of the copy, which <b>Cancel</b> stops). <b>Play a Sample</b> plays a song of the game through it, <b>Remove</b> puts it in the trash on OK. The Editor checks that the file is a real SF2 soundfont and refuses the others. Ship the file with the game: it is part of the game folder.</p>
-<p>The Editor plays MIDI music (Jukebox, sound pickers, Resource Manager, Play a Sample) as players will, as far as it can know: the game soundfont, then the Editor's default soundfont (<b>Settings &gt; Paths &gt; MIDI soundfont</b>), then a soundfont of the system, then the synthesizer of the system (FmMidi on Linux). In the <b>Jukebox</b>, the <b>MIDI Soundfont</b> drop-down plays the songs through another of them, to compare; it is back to <b>Automatic</b> once the Jukebox is closed. A choice that is not there is grayed out: point at it to see why. When the soundfont chosen cannot be played, the Jukebox says so and what plays instead.</p>
+<p>The Editor plays MIDI music (Jukebox, sound pickers, Resource Manager, Play a Sample) as players will, as far as it can know: the game soundfont, then the Editor's soundfont (<b>Editor Settings &gt; RTP and Programs &gt; Soundfont for previews</b>), then a soundfont of the system, then the synthesizer of the system (FmMidi on Linux). In the <b>Jukebox</b>, the <b>MIDI Soundfont</b> drop-down plays the songs through another of them, to compare; it is back to <b>Automatic</b> once the Jukebox is closed. A choice that is not there is grayed out: point at it to see why. When the soundfont chosen cannot be played, the Jukebox says so and what plays instead.</p>
 
 <a name="maps"></a>
 <h3>Maps and drawing</h3>
@@ -169,13 +208,13 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="rtp"></a>
 <h3>RTP folders</h3>
-<p>The RTP (Run Time Package) is the set of standard graphics and sounds of RPG Maker 2000/2003. Games that use RTP files do not include them, so the Editor needs to know where the RTP is installed. In <b>Settings</b>, <b>RTP folders</b> lists the RTP folders (the ones containing CharSet, ChipSet, Music...): <b>Add</b> one (<b>From Folder...</b>), <b>Remove</b> the one selected, or move it up or down. Each line tells whether the folder is there and which RTP it looks like (2000 or 2003); hover it to see more. The Editor keeps this list in its own settings: nothing is written in the game's folder.</p>
+<p>The RTP (Run Time Package) is the set of standard graphics and sounds of RPG Maker 2000/2003. Games that use RTP files do not include them, so the Editor needs to know where the RTP is installed. In <b>Editor Settings</b>, on the <b>RTP and Programs</b> page, <b>RTP folders</b> lists the RTP folders (the ones containing CharSet, ChipSet, Music...): <b>Add</b> one (<b>From Folder...</b>), <b>Remove</b> the one selected, or move it up or down. Each line tells whether the folder is there and which RTP it looks like (2000 or 2003); hover it to see more. The Editor keeps this list in its own settings: nothing is written in the game's folder.</p>
 <p><b>Add &gt; Download EasyRPG RTP...</b> downloads the EasyRPG RTP, the free RTP of the EasyRPG project for the games of both RPG Maker 2000 and 2003, into the Editor's data folder and adds it to the list (marked for an engine that has no folder yet). Downloaded before, you can download it again or just add its folder.</p>
-<p>Mark in the <b>2000</b> and <b>2003</b> columns the folder that games of each engine use. With a game open, <b>This Game</b> shows the folder it uses; choose another one for this game only (the Editor remembers it for the game's folder), or click <b>Engine's Default</b> to use the folder marked for its engine again. The files a game lacks come from its folder first, then from the other folders, from top to bottom: the Editor's pictures, pickers and Resource Manager look for them in this order, and test play gives the Player the folders in this order (EasyRPG Player 0.7.0 or later). Files in your project always take priority over RTP files with the same name.</p>
+<p>Mark in the <b>2000</b> and <b>2003</b> columns the folder that games of each engine use. A game can use another one of the list: choose it in its <b>Project Settings &gt; On This Computer</b> (the Editor remembers it for the game's folder), or <b>Engine's default</b> to use the folder marked for its engine again. The files a game lacks come from its folder first, then from the other folders, from top to bottom: the Editor's pictures, pickers and Resource Manager look for them in this order, and test play gives the Player the folders in this order (EasyRPG Player 0.7.0 or later). Files in your project always take priority over RTP files with the same name.</p>
 
 <a name="reload"></a>
 <h3>Reload files changed on disk</h3>
-<p>Option in the <b>Tools</b> menu. When another program writes the project files (for example a script or a sync tool that edits the database or maps as text), the Editor reloads the database, the map tree and the open maps automatically. It is <b>off</b> by default. If you have unsaved changes in the Editor, it asks before discarding them.</p>
+<p><b>Reload the files other programs change (rpgsync)</b>, in <b>Editor Settings &gt; General &gt; Files</b>. When another program writes the project files (for example a script or a sync tool that edits the database or maps as text), the Editor reloads the database, the map tree and the open maps automatically. It is <b>off</b> by default. If you have unsaved changes in the Editor, it asks before discarding them.</p>
 
 <a name="screenshots"></a>
 <h3>Screenshots</h3>
@@ -183,7 +222,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="updates"></a>
 <h3>Updates</h3>
-<p>The Editor looks for a newer version a few seconds after it starts, then every hour while it runs, without interrupting you: nothing is shown when there is none or when the check fails. Turn <b>Check for updates automatically</b> off in <b>Settings</b> to stop these checks. <b>Check for Updates...</b> (in the <b>Help</b> menu, below <b>About EasyRPG Editor</b>; on macOS, in the <b>EasyRPG Editor</b> menu, below <b>Settings...</b> and <b>Test Play Options...</b>) checks at once and tells you the result.</p>
+<p>The Editor looks for a newer version a few seconds after it starts, then every hour while it runs, without interrupting you: nothing is shown when there is none or when the check fails. Turn <b>Check for updates automatically</b> off in <b>Editor Settings</b> to stop these checks. <b>Check for Updates...</b> (in the <b>Help</b> menu, below <b>About EasyRPG Editor</b>; on macOS, in the <b>EasyRPG Editor</b> menu, below <b>Settings...</b> and <b>Test Play Options...</b>) checks at once and tells you the result.</p>
 <p>A new version is announced once its download for your system is ready (it is published a little before). When a newer version is found, the menu item becomes <b>Install Update</b> with its version, and an <b>Update</b> button appears at the right end of the toolbar. Click either one to install it: the button shows the progress of the download, then <b>Restart to Update</b>. Restarting asks about unsaved maps as quitting does; if you cancel, or choose <b>Later</b>, the update is installed the next time you quit the Editor.</p>
 <ul>
 <li><b>macOS</b>: the disk image is downloaded, its application is checked (its signature, from the same developer) and copied next to the Editor, then put in its place once the Editor has quit. If the Editor cannot replace itself (its folder cannot be written, or macOS runs it from a temporary copy because it was opened where it was downloaded), the disk image is downloaded and opened instead: quit the Editor and drag the new one to its folder.</li>
@@ -231,10 +270,12 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li>The arrow keys go from command to command: the next lines of a message, <code>: Else</code> and <code>: End</code> are skipped, and <b>Left</b> and <b>Right</b> work like <b>Up</b> and <b>Down</b>. <b>Page Up</b> and <b>Page Down</b> move by half a list (pressed elsewhere in the window, they first go back to the list); <b>Ctrl+Tab</b> and <b>Ctrl+Shift+Tab</b> switch event pages (the Control key on macOS too). With <b>Shift</b>, the keys select several commands.</li>
 <li><b>Ctrl+C</b>, <b>Ctrl+X</b> and <b>Ctrl+V</b> copy, cut and paste whole commands; a branch, choice or loop is copied with everything inside it. The commands copied can also be pasted as text in a text editor, as the lines of the list.</li>
 </ul>
+<a name="command-tags"></a>
+<p><b>Tags</b>: a command that uses an add-on of the game has its tag at the left of its first line: <b>M</b> for the Maniac Patch, <b>E</b> for EasyRPG Player (its EasyRPG Extensions, or RPG Maker 2003's commands and options in an RPG Maker 2000 game), <b>P</b> for a patch (DynRPG: a comment starting with <code>@</code>; the Ineluki Key Patch: a sound named <code>.script</code>). What the game's own engine runs has none. An exclamation mark after the letter means the game, as set up in <a href="#project-settings">Project Settings</a>, does not run it: the command stays as it is; point at the tag to see what it needs and where to turn it on. In the window of a command, the options and fields of an add-on have the same tags; those the game does not run are greyed, their tooltip saying what they need, and a value already set there stays as it is. Everything follows at once when an add-on is turned on or off. In the <b>Add-ons</b> options of the Editor Settings, the badges can be hidden (those with an exclamation mark stay), and what the game does not run can be hidden instead of greyed, in the Event Commands window and in the windows of the commands: what a command already has stays shown.</p>
 
 <a name="command-palette"></a>
 <h3>Event Commands window</h3>
-<p>Lists every event command, grouped in tabs (messages, game progression, map, screen, sound, flow control...), opening on the tab shown last. Click a command to add it. Type in the <b>search field</b> to filter the list by name in all tabs at once; <b>Enter</b> picks the best match, or <b>Tab</b> (or <b>Down</b>) goes to the results: the arrow keys move through them (Up from the first one goes back to the search) and <b>Enter</b> chooses the one in focus. Commands that do not exist in the current game type (RPG Maker 2000 or 2003), or need the <a href="#commands-easyrpg">EasyRPG Extensions</a> or the <a href="#commands-maniac">Maniac Patch</a>, are greyed out; point at one to see why.</p>
+<p>Lists every event command, grouped in tabs (messages, game progression, map, screen, sound, flow control...), opening on the tab shown last. Click a command to add it. Type in the <b>search field</b> to filter the list by name in all tabs at once; <b>Enter</b> picks the best match, or <b>Tab</b> (or <b>Down</b>) goes to the results: the arrow keys move through them (Up from the first one goes back to the search) and <b>Enter</b> chooses the one in focus. The commands of an add-on (RPG Maker 2003's in an RPG Maker 2000 game, the <a href="#commands-easyrpg">EasyRPG Extensions</a>, the <a href="#commands-maniac">Maniac Patch</a>) have its <a href="#command-tags">tag</a>, the tab of an add-on too; while the game does not run them they are greyed and cannot be added: point at one to see what the game needs and where to turn it on.</p>
 <p>The battle pages of a monster group list the <b>Battle Event Commands</b> instead (the enemies' HP, MP and conditions, the battle background, Force Flee, End Battle...). RPG Maker offers them in battle pages only; here a map event or a common event can have them too (a common event called from a battle page, for example): <b>Battle Event Commands...</b>, at the bottom of the <b>Flow &amp; System</b> tab, opens them in a window of their own. Click one to add it as in a battle page, or <b>Cancel</b> to go back to the event commands. The search finds them through that button (point at it to see which ones); clicked, it opens them with the same search.</p>
 
 <a name="move-route"></a>
@@ -256,6 +297,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <a name="database"></a>
 <h3>Database overview</h3>
 <p>The database (F8) holds everything that is shared by the whole game: heroes, skills, items, monsters, chipsets, words used by the menus, music and more. Each tab has a list on the left; select an entry to edit it on the right. Click <b>OK</b> or <b>Apply</b> to keep your changes. Tabs marked RPG Maker 2003 are only shown for 2003 projects.</p>
+<p>What comes from an add-on has its tag: <b>M</b> for the Maniac Patch, <b>E</b> for what only EasyRPG Player reads. The fields of an add-on the game does not use are greyed (or hidden, as the <a href="#editor-settings">Editor Settings</a> choose): point at one to see what it needs and where to turn it on in <a href="#project-settings">Project Settings</a>; they follow at once when it is turned on. A value already set there stays as it is, its tag then showing an exclamation mark: the game does not run it.</p>
 <p>Names, descriptions and other texts the game shows are in a monospaced font, with a thin vertical line where RPG Maker stops typing (for example 12 characters for a hero name, 20 for an item name, 50 for an item description): text after the line may not fit in the game window. The Editor does not cut longer text.</p>
 
 <a name="database-heroes"></a>
@@ -267,6 +309,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li>Options: <b>Two weapons</b>, <b>Lock equipment</b>, <b>AI controlled</b> in battle, <b>Strong defense</b>.</li>
 <li><b>Parameter curves</b> for Max HP, Max MP, Attack, Defense, Spirit and Agility at each level.</li>
 <li><b>Initial equipment</b>, <b>Skills</b> learned at each level, <b>Attribute</b> and <b>Condition</b> resistance (A = most affected, E = least affected), unarmed battle animation, and in RPG Maker 2003 the <b>Battle commands</b>.</li>
+<li><b>EasyRPG Properties</b> (E): settings only EasyRPG Player reads, RPG_RT.exe ignoring them, editable in every game: protection from critical hits, raised evasion, immunity to attribute reductions, and the unarmed attacks (ignore evasion, attack twice, attack all enemies, hit rate).</li>
 </ul>
 
 <a name="database-classes"></a>
@@ -281,6 +324,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li><b>Target</b>: one enemy, all enemies, user, one ally, all allies.</li>
 <li><b>Effect rating</b> (base power), <b>Attack/Spirit influence</b>, <b>Variance</b>, <b>Success rate</b>, <b>Battle animation</b>.</li>
 <li>Affected parameters (HP, MP, Attack...), absorb or ignore defense, <b>Attributes</b> and <b>Conditions</b> it inflicts or cures.</li>
+<li><b>Calculate Hit Rate</b> (M, Maniac Patch): the target's evasion and conditions lower the success rate, as for an attack.</li>
 </ul>
 
 <a name="database-items"></a>
@@ -298,6 +342,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <li>Max HP, Max MP, Attack, Defense, Spirit, Agility; <b>Experience</b> and <b>Money</b> earned; <b>Item</b> dropped and drop chance; critical hits.</li>
 <li>Attribute and condition resistance.</li>
 <li><b>Action patterns</b>: what the monster can do (attack, defend, skill, transform, escape...), each with a condition (turn, HP, MP, party level, switch) and a <b>priority</b>; actions with higher priority are chosen more often.</li>
+<li><b>Attack Animation</b> (M, Maniac Patch): the battle animation of its normal attacks.</li>
 </ul>
 
 <a name="database-monster-groups"></a>
@@ -354,7 +399,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="database-vocabulary"></a>
 <h3>Vocabulary</h3>
-<p>All the words and messages of the game: battle messages ("X attacks!", "Victory!"...), shop and inn texts, menu commands, parameter names, the currency unit, level-up and game-over texts. Translate or rename them here.</p>
+<p>All the words and messages of the game: battle messages ("X attacks!", "Victory!"...), shop and inn texts, menu commands, parameter names, the currency unit, level-up and game-over texts. Translate or rename them here. The groups of terms only EasyRPG Player reads have its tag (E; M for those the Maniac Patch reads too, in its games): left empty, a term shows the Player's text, greyed. The Maniac Patch adds texts of its own around some messages (M): greyed in a game without it.</p>
 
 <a name="database-system"></a>
 <h3>System</h3>
@@ -369,11 +414,11 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="database-system2"></a>
 <h3>System 2 (RPG Maker 2003)</h3>
-<p>Settings added by RPG Maker 2003: the commands of the main menu and their order, a <b>Frame</b> image drawn over the whole screen, window options, and what happens when the party is defeated in a random encounter (game over, or teleport and call a common event).</p>
+<p>Settings added by RPG Maker 2003: the commands of the main menu and their order, a <b>Frame</b> image drawn over the whole screen, window options, and what happens when the party is defeated in a random encounter (game over, or teleport and call a common event). The Maniac Patch (M) adds: hiding <b>Quit Game</b> from the menu, the font, size and layout of the message window (<b>Message Window...</b>), and the common event the title and save scenes call (<b>Title Scene Control</b>, <b>Save/Load Scene Control</b>).</p>
 
 <a name="database-common-events"></a>
 <h3>Common Events</h3>
-<p>Events that do not belong to a map and can be used anywhere. <b>Trigger</b>: <b>Call</b> (only runs when called by <a href="#cmd-CallEvent">Call Event</a>), <b>Autostart</b> or <b>Parallel Process</b> (both only while the chosen <b>condition switch</b> is ON, on every map). Write the commands as in the <a href="#event-editor">event window</a>.</p>
+<p>Events that do not belong to a map and can be used anywhere. <b>Trigger</b>: <b>Call</b> (only runs when called by <a href="#cmd-CallEvent">Call Event</a>), <b>Autostart</b> or <b>Parallel Process</b> (both only while the chosen <b>condition switch</b> is ON, on every map); with the Maniac Patch (M) also <b>Battle Start</b> (once before the battle events of the first turn) and <b>Parallel Process in Battle</b>. Write the commands as in the <a href="#event-editor">event window</a>.</p>
 
 <a name="database-switches"></a>
 <h3>Switches and variables</h3>
@@ -720,7 +765,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="cmd-ShowPicture"></a>
 <h3>Show Picture</h3>
-<p>Displays a numbered picture from the Picture folder, at fixed coordinates or coordinates stored in variables. Choose whether it follows the map, the transparent color, magnification and transparency, then set red, green, blue, saturation and rotation or waving on Additional Attributes. RPG Maker 2003 supports separate top and bottom transparency. Later picture extensions are preserved when editing the standard controls.</p>
+<p>Displays a numbered picture from the Picture folder, at fixed coordinates or coordinates stored in variables. Choose whether it follows the map, the transparent color, magnification and transparency, then set red, green, blue, saturation and rotation or waving on Additional Attributes. RPG Maker 2003 supports separate top and bottom transparency. <b>More Options</b> holds the spritesheet and the layers of RPG Maker 2003 1.12 and the options of the Maniac Patch (origin, blend mode, flips...), each with its <a href="#command-tags">tag</a>. Later picture extensions are preserved when editing the standard controls.</p>
 
 <a name="cmd-MovePicture"></a>
 <h3>Move Picture</h3>
@@ -856,7 +901,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="commands-easyrpg"></a>
 <h2>EasyRPG Player commands</h2>
-<p>Commands only EasyRPG Player runs. They are in the <b>EasyRPG Player</b> page of the command list (Process JSON and Set Interpreter Flag also in battle events), enabled when the game uses the <b>EasyRPG Extensions</b> (<b>Project Settings &gt; EasyRPG Player &gt; Patches</b>, written <code>EasyRPG=1</code> in the <code>[Patch]</code> section of EasyRPG.ini). EasyRPG Player skips them otherwise, and RPG_RT.exe never runs them.</p>
+<p>Commands only EasyRPG Player runs. They are in the <b>EasyRPG Player</b> page of the command list (Process JSON and Set Interpreter Flag also in battle events), enabled when the game uses the <b>EasyRPG Extensions</b> (<b>Project Settings &gt; EasyRPG Player &gt; Game</b>, written <code>EasyRPG=1</code> in the <code>[Patch]</code> section of EasyRPG.ini). EasyRPG Player skips them otherwise, and RPG_RT.exe never runs them.</p>
 <p>Each value has its radio buttons, its control on the line of each: <b>Constant</b> (or the event, the map), <b>By Variable</b> (the value a variable holds) and, in games with the Maniac Patch, <b>Variable pointer</b> (the value of the variable whose number another variable holds: EasyRPG Player reads it only with the patch). The lists of events are searched by number or name, as the lists of the database: type in the list, or open it. Each event shows the graphic of its first page.</p>
 
 <a name="cmd-EasyRpg_TriggerEventAt"></a>
@@ -902,7 +947,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="commands-maniac"></a>
 <h2>Maniac Patch commands</h2>
-<p>Commands added by the Maniac Patch. They are in the <b>Maniac Patch</b> page of the command list, enabled when the game uses the patch (as EasyRPG Player detects it: a <code>[Patch]</code> section with <code>Maniac=1</code> in EasyRPG.ini, a Maniac RPG_RT.exe, or accord.dll in the game folder). In other games they are shown and kept but cannot be added.</p>
+<p>Commands added by the Maniac Patch. They are in the <b>Maniac Patch</b> page of the command list, enabled when the game uses the patch (as EasyRPG Player detects it: a <code>[Patch]</code> section with <code>Maniac=1</code> in EasyRPG.ini, a Maniac RPG_RT.exe, or accord.dll in the game folder; see <a href="#maniac-check">Maniac Patch compatibility</a>). In other games they are shown and kept but cannot be added.</p>
 
 <a name="cmd-Maniac_GetSaveInfo"></a>
 <h3>Get Save Info (Maniac Patch)</h3>
@@ -1019,7 +1064,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 <a name="resource-manager"></a>
 <h2>Resource Manager</h2>
 <p>Tools &gt; Resource Manager lists the files of the game, folder by folder (CharSet, ChipSet, Music...), with the files of the RTP marked <i>(RTP)</i>: a file of the game hides the RTP file of the same name, as in the games. A folder the game does not have is shown in italics. The game's own files are listed first, then the RTP's, each by name, as in RPG Maker 2003. Click a column title (<b>File</b>, <b>Format</b>, <b>Source</b>) to sort by that column, and click it again to reverse the order; the arrow after the title shows which column sorts and in which direction, and the Editor remembers the choice. The lists of the Jukebox sort the same way (the music and sounds of the database, in its <b>System</b> section, stay in the order of the System tab). The filter field narrows the list; the preview shows a picture with its transparent color, or plays a music or sound.</p>
-<p><b>Import</b> copies files into the selected folder (created if needed). A picture is checked against RPG Maker's sizes and kept with 256 colors (reduced if it has more, or kept in true color, which only EasyRPG Player shows); for the folders whose pictures have a transparent color, click that color in the picture. Pictures are saved as PNG or as XYZ. <b>Export</b> copies a file, of the game or of the RTP, elsewhere. <b>Delete</b> moves a file of the game to the trash (RTP files cannot be deleted).</p>
+<p><b>Import</b> copies files into the selected folder (created if needed). A picture is checked against RPG Maker's sizes and kept with 256 colors (reduced if it has more, or kept in true color, which EasyRPG Player shows with its EasyRPG Extensions or the Maniac Patch, as the Maniac Patch's RPG_RT.exe does: in a game without either, <b>Keep all colors</b> is greyed, or left out as the <a href="#editor-settings">Editor Settings</a> choose); for the folders whose pictures have a transparent color, click that color in the picture. Pictures are saved as PNG or as XYZ. <b>Export</b> copies a file, of the game or of the RTP, elsewhere. <b>Delete</b> moves a file of the game to the trash (RTP files cannot be deleted).</p>
 
 <p><a href="#top">Back to top</a></p>
 </body>

@@ -20,7 +20,14 @@ import org.easyrpg.editor as Ez
  * A value with a mode of the Maniac Patch (a hero, or the one in a
  * variable; a name, or a string variable) has the box of its mode before
  * it (objectName: the mode's id), in the games of the patch or while the
- * mode is not RPG Maker's; the field of the mode chosen replaces it.
+ * mode is not RPG Maker's (then with a warning tag); the field of the mode
+ * chosen replaces it.
+ *
+ * A field of an add-on the game does not run (its origin, Ez.Origins) says
+ * what the game needs in its tooltip; a check box has its tag after its
+ * text (the other fields: after their label, SchemaForm). The items of a
+ * list the game does not run are greyed, with that tooltip, or hidden
+ * (Editor Settings) unless the command has one.
  */
 Loader {
     id: root
@@ -56,6 +63,8 @@ Loader {
         }
         return Number(session.read(shown.link + "Mode")) === 0 ? Number(session.read(shown.link)) : -1
     }
+    /** The add-on the field comes from (Ez.Origins), "" for none */
+    readonly property string origin: shown.origin ?? ""
     /** Its control takes the width of its row (the lists, the texts) */
     readonly property bool wide: (shown.list !== "" || ["File", "String", "Map", "Character", "Choice", "Tile", "Expression", "Location"].includes(shown.kind))
                                  && !(shown.preview && shown.kind === "Tile") || (shown.kind === "Sample" && shown.link === "tint")
@@ -122,6 +131,18 @@ Loader {
                 key: root.bound ? root.modeField.path : "/defaults/" + root.modeField.id
                 enabled: root.session.revision < 0 ? false : root.session.isEnabled(root.modeField.id)
                 model: root.modeField.items.map(item => ({ value: item.value, text: root.tr(item.text) }))
+                Ez.OriginTip {
+                    origin: root.modeField.origin ?? ""
+                }
+            }
+            // a mode of the Maniac Patch in a game without it (each value of
+            // its games has one: no tag there)
+            Ez.OriginTag {
+                readonly property string text: shown ? Ez.Origins.letter(origin) + "!" : ""
+                objectName: root.field.mode + "Tag"
+                origin: root.modeField.origin ?? ""
+                warning: true
+                visible: root.modeValue !== 0 && !Ez.Origins.available(origin)
             }
             Loader {
                 sourceComponent: root.control
@@ -134,6 +155,11 @@ Loader {
         id: current
         source: root.session
         path: root.key
+    }
+
+    // greyed for its add-on: what the game needs
+    Ez.OriginTip {
+        origin: root.origin
     }
 
     /** The entries of a combo box, with the value of the command when it is none of them */
@@ -188,6 +214,7 @@ Loader {
     Component {
         id: check
         Ez.CheckBox {
+            id: checkBox
             objectName: root.name
             text: root.tr(root.shown.label)
             // inverted: checked for 0
@@ -196,6 +223,17 @@ Loader {
                 if (current.valid) {
                     current.value = checked !== root.shown.inverted ? 1 : 0
                 }
+            }
+            // its tag after the text
+            rightPadding: horizontalPadding + (checkTag.width > 0 ? checkTag.width + Ez.Metrics.columnSpacing : 0)
+            Ez.OriginTag {
+                id: checkTag
+                readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
+                objectName: root.name + "Tag"
+                origin: root.origin
+                warning: !Ez.Origins.available(origin) && root.bound && root.session.revision >= 0 && root.session.isSet(root.shown.id)
+                x: checkBox.leftPadding + checkBox.contentItem.implicitWidth + Ez.Metrics.columnSpacing
+                anchors.verticalCenter: parent.verticalCenter
             }
         }
     }
@@ -206,13 +244,18 @@ Loader {
             objectName: root.name
             jsonData: root.session
             key: root.key
+            // the items of an add-on the game does not run greyed, saying what it needs
+            enabledRole: "enabled"
+            toolTipRole: "why"
             model: {
-                // the items of another engine or kept only while the command has them
+                // the items kept only while the command has them, those of an
+                // add-on the game does not run hidden unless they are its (Editor Settings)
                 const shown = Number(current.value)
                 const items = root.shown.kind === "CharacterSet" ? root.session.characterSets : root.shown.items
-                return items.filter(item => item.value === shown
-                                    || (!item.kept && (!item.rpg2003 || root.session.rpg2k3) && (!item.maniac || root.session.maniac)))
-                            .map(item => ({ value: item.value, text: root.tr(item.text) }))
+                return items.filter(item => item.value === shown || (!item.kept && Ez.Origins.shown(item.origin ?? "")))
+                            .map(item => ({ value: item.value, text: root.tr(item.text),
+                                            enabled: Ez.Origins.available(item.origin ?? ""),
+                                            why: Ez.Origins.available(item.origin ?? "") ? "" : Ez.Origins.need(item.origin) }))
             }
         }
     }
@@ -749,7 +792,9 @@ Loader {
                     horizontalAlignment: Image.AlignLeft
                     verticalAlignment: Image.AlignTop
                     smooth: false
-                    asynchronous: true
+                    // loaded at once, not asynchronously: the project's images are
+                    // read on this thread (ProjectImageProvider), and a load cut
+                    // short by the window closing kept the Editor from quitting
                 }
                 MouseArea {
                     anchors.fill: parent

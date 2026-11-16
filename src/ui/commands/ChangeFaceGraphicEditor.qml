@@ -107,8 +107,10 @@ ColumnLayout {
 
     Ez.Section {
         // Maniac Patch: the faces from the index to the end index in turn
+        // (greyed with their tags in the other games, or not offered there:
+        // Editor Settings, unless the command has them)
         title: qsTranslate("ManiacCommandWidget", "Animation")
-        visible: root.session.maniac || root.animated
+        visible: Ez.Origins.shown("maniac") || root.animated
         SchemaRows {
             session: root.session
             ids: ["animated", "endIndex", "interval", "intervalVariation", "framesPerCell", "framesVariation",

@@ -36,9 +36,17 @@ namespace {
 	constexpr const char* ANIMATE_TILES_KEY = "animate_tiles";
 	constexpr const char* COMMAND_COLORS_KEY = "event_command_colors";
 	constexpr const char* COMMAND_STRIPES_KEY = "event_command_stripes";
+	constexpr const char* ORIGIN_BADGES_KEY = "origin_badges";
+	constexpr const char* UNAVAILABLE_SHOWN_KEY = "unavailable_add_ons_shown";
 	constexpr const char* SEARCH_CACHE_KEY = "search_cache";
 	constexpr const char* CHECK_UPDATES_KEY = "check_for_updates";
-	constexpr const char* MANIAC_MODE_KEY = "maniac_mode";
+	// the Maniac mode of the Editors before: a game is a Maniac Patch game by its own patches
+	constexpr const char* OLD_MANIAC_MODE_KEY = "maniac_mode";
+}
+
+EditorSettings::EditorSettings() {
+	// the options of the Editors before that are gone
+	QSettings().remove(QLatin1String(OLD_MANIAC_MODE_KEY));
 }
 
 EditorSettings& EditorSettings::instance() {
@@ -389,9 +397,6 @@ void EditorSettings::setScriptEditor(const QString& editor) { setValue(kScriptEd
 bool EditorSettings::reloadExternalChanges() const { return value(RELOAD_EXTERNAL_KEY, false).toBool(); }
 void EditorSettings::setReloadExternalChanges(bool on) { setValue(RELOAD_EXTERNAL_KEY, on); }
 
-bool EditorSettings::maniacMode() const { return value(MANIAC_MODE_KEY, false).toBool(); }
-void EditorSettings::setManiacMode(bool on) { setValue(MANIAC_MODE_KEY, on); }
-
 bool EditorSettings::animateTiles() const { return value(ANIMATE_TILES_KEY, true).toBool(); }
 void EditorSettings::setAnimateTiles(bool on) { setValue(ANIMATE_TILES_KEY, on); }
 
@@ -400,6 +405,12 @@ void EditorSettings::setCommandColors(bool on) { setValue(COMMAND_COLORS_KEY, on
 
 bool EditorSettings::commandStripes() const { return value(COMMAND_STRIPES_KEY, true).toBool(); }
 void EditorSettings::setCommandStripes(bool on) { setValue(COMMAND_STRIPES_KEY, on); }
+
+bool EditorSettings::originBadges() const { return value(ORIGIN_BADGES_KEY, true).toBool(); }
+void EditorSettings::setOriginBadges(bool on) { setValue(ORIGIN_BADGES_KEY, on); }
+
+bool EditorSettings::unavailableShown() const { return value(UNAVAILABLE_SHOWN_KEY, true).toBool(); }
+void EditorSettings::setUnavailableShown(bool on) { setValue(UNAVAILABLE_SHOWN_KEY, on); }
 
 bool EditorSettings::searchCache() const { return value(SEARCH_CACHE_KEY, false).toBool(); }
 void EditorSettings::setSearchCache(bool on) { setValue(SEARCH_CACHE_KEY, on); }

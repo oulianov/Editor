@@ -19,6 +19,7 @@ RowLayout {
 
     required property Ez.CommandEditSession session
     readonly property string title: qsTr("Enemy Encounter")
+    readonly property int revision: session.revision
 
     spacing: 2 * Ez.Metrics.columnSpacing
     Layout.fillWidth: true
@@ -85,14 +86,12 @@ RowLayout {
                     session: root.session
                     fieldId: "troopKind"
                     value: 2
-                    hidesManiac: true
                     objectName: "encounterTroopKind2"
                 }
                 CommandField {
                     session: root.session
                     fieldId: "troopPointer"
                     name: "encounterTroopPointer"
-                    visible: troopPointer.visible
                     Layout.fillWidth: true
                     Layout.preferredWidth: 200
                 }
@@ -140,8 +139,10 @@ RowLayout {
                 }
                 Ez.FormLabel {
                     text: qsTr("Formation")
+                    visible: formation.visible
                 }
                 CommandField {
+                    id: formation
                     session: root.session
                     fieldId: "formation"
                     name: "encounterFormation"
@@ -191,6 +192,9 @@ RowLayout {
         }
         Ez.Section {
             title: qsTr("Special Battle Conditions")
+            // RPG Maker 2003's battles: in a 2000 game hidden when the Editor
+            // Settings hide what the game does not run, unless the command has one
+            visible: Ez.Origins.shown("engine2003") || (root.revision >= 0 && root.session.isSet("condition"))
             Radios {
                 fieldId: "condition"
                 name: "encounterCondition"

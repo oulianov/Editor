@@ -18,8 +18,11 @@
 #pragma once
 
 #include <QAbstractTableModel>
+#include <QList>
 #include <QPointer>
 #include <QString>
+#include <QVariantList>
+#include <QVariantMap>
 #include <functional>
 #include <memory>
 #include "model/project.h"
@@ -28,8 +31,9 @@ template<typename T> class QFutureWatcher;
 
 /**
  * Game Project > Open Project, without its window: the projects of the
- * folder of the games (one row each: its folder, its title), listed in the
- * background, and what can be done with them there (Delete).
+ * folder of the games (one row each: its folder, its title, its profile:
+ * its engine and its add-ons, GameProfile), listed in the background, and
+ * what can be done with them there (Delete).
  *
  * The project open in the Editor (openPath) is not changed from there. The
  * texts are in the context OpenProjectDialog, as OpenProjectWindow.qml's.
@@ -50,7 +54,7 @@ class ProjectListModel : public QAbstractTableModel
 	Q_PROPERTY(QString openPath READ openPath WRITE setOpenPath NOTIFY openPathChanged)
 
 public:
-	enum Column { FolderColumn, TitleColumn, ColumnCount };
+	enum Column { FolderColumn, TitleColumn, ProfileColumn, ColumnCount };
 	enum Role {
 		/** The name of its folder (DisplayRole of the first column) */
 		FolderRole = Qt::UserRole + 1,
@@ -58,6 +62,10 @@ public:
 		TitleRole,
 		/** The folder of the project */
 		PathRole,
+		/** Its profile: the chips of GameProfile::chipsOf, read from its files */
+		ProfileRole,
+		/** Their texts (DisplayRole of the third column), joined by commas */
+		ProfileTextRole,
 	};
 
 	explicit ProjectListModel(QObject* parent = nullptr);
@@ -122,7 +130,16 @@ signals:
 	void listed();
 
 private:
+	/** What the listing reads in the background: the projects, and the setup of each (GameProfile::read) */
+	struct Listing {
+		Project::ProjectList projects;
+		QList<QVariantMap> setups;
+	};
+	static Listing list(const QDir& folder);
+
 	Project::ProjectList m_projects;
+	/** The chips of the profile of each project */
+	QList<QVariantList> m_profiles;
 	QString m_folder;
 	bool m_folderExists = false;
 	QString m_openPath;
@@ -130,5 +147,5 @@ private:
 	bool m_useTrash = true;
 	SettingsEditor m_settingsEditor;
 	/** The listing running, the last one asked for */
-	QPointer<QFutureWatcher<Project::ProjectList>> m_scan;
+	QPointer<QFutureWatcher<Listing>> m_scan;
 };

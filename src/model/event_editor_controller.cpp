@@ -22,6 +22,7 @@
 #include <lcf/rpg/database.h>
 #include "common/dbstring.h"
 #include "model/event_page_defaults.h"
+#include "model/game_setup.h"
 
 namespace {
 using Page = lcf::rpg::EventPage;
@@ -71,6 +72,8 @@ QString turnsText(int a, int b)
 EventPageSettings::EventPageSettings(QObject* parent) :
 	QObject(parent)
 {
+	// the rules follow the game's engine and patches
+	connect(&GameSetup::instance(), &GameSetup::changed, this, &EventPageSettings::changed);
 }
 
 template<typename T, typename V>
@@ -101,15 +104,12 @@ bool EventPageSettings::hasPage() const
 
 bool EventPageSettings::rpg2k3() const
 {
-	return m_rpg2k3;
+	return GameSetup::instance().rpg2k3();
 }
 
-void EventPageSettings::setRpg2k3(bool rpg2k3)
+bool EventPageSettings::commands2k3() const
 {
-	if (m_rpg2k3 != rpg2k3) {
-		m_rpg2k3 = rpg2k3;
-		emit changed();
-	}
+	return GameSetup::instance().commands2k3();
 }
 
 // Without a page the fields read as a new page's and are not written
@@ -248,17 +248,18 @@ int EventPageSettings::variableMinimum() const
 
 int EventPageSettings::variableMaximum() const
 {
-	return m_rpg2k3 ? 9999999 : 999999;
+	return rpg2k3() ? 9999999 : 999999;
 }
 
 bool EventPageSettings::compareOperatorEnabled() const
 {
-	return m_rpg2k3 && variable();
+	return rpg2k3() && variable();
 }
 
 bool EventPageSettings::timer2Allowed() const
 {
-	return m_rpg2k3;
+	// Game_Event::AreConditionsMet
+	return commands2k3();
 }
 
 bool EventPageSettings::moveFrequencyEnabled() const
@@ -372,6 +373,7 @@ EventEditorController::EventEditorController(int map_id, QObject* parent) :
 {
 	// the settings of the page shown are edits of the event
 	connect(m_pageSettings, &EventPageSettings::changed, this, &EventEditorController::edited);
+	connect(&GameSetup::instance(), &GameSetup::rpg2k3Changed, this, &EventEditorController::rpg2k3Changed);
 }
 
 EventEditorController::~EventEditorController() = default;
@@ -395,17 +397,7 @@ void EventEditorController::setMapId(int map_id)
 
 bool EventEditorController::rpg2k3() const
 {
-	return m_rpg2k3;
-}
-
-void EventEditorController::setRpg2k3(bool rpg2k3)
-{
-	if (m_rpg2k3 == rpg2k3) {
-		return;
-	}
-	m_rpg2k3 = rpg2k3;
-	m_pageSettings->setRpg2k3(rpg2k3);
-	emit rpg2k3Changed();
+	return GameSetup::instance().rpg2k3();
 }
 
 void EventEditorController::setEvent(const lcf::rpg::Event& event, bool is_new)
@@ -824,9 +816,11 @@ bool EventEditorController::equalEvents(const lcf::rpg::Event& e1, const lcf::rp
  * BattlePageConditions
  */
 
-BattlePageConditions::BattlePageConditions(const lcf::rpg::TroopPageCondition& condition, bool rpg2k3, QObject* parent) :
-	QObject(parent), m_condition(condition), m_rpg2k3(rpg2k3)
+BattlePageConditions::BattlePageConditions(const lcf::rpg::TroopPageCondition& condition, QObject* parent) :
+	QObject(parent), m_condition(condition)
 {
+	// the rows allowed follow the game's engine and patches
+	connect(&GameSetup::instance(), &GameSetup::changed, this, &BattlePageConditions::changed);
 }
 
 lcf::rpg::TroopPageCondition& BattlePageConditions::condition()
@@ -841,12 +835,17 @@ const lcf::rpg::TroopPageCondition& BattlePageConditions::condition() const
 
 bool BattlePageConditions::rpg2k3() const
 {
-	return m_rpg2k3;
+	return GameSetup::instance().rpg2k3();
+}
+
+bool BattlePageConditions::commands2k3() const
+{
+	return GameSetup::instance().commands2k3();
 }
 
 int BattlePageConditions::variableMaximum() const
 {
-	return m_rpg2k3 ? 9999999 : 999999;
+	return rpg2k3() ? 9999999 : 999999;
 }
 
 bool BattlePageConditions::isChecked(int row) const
@@ -866,7 +865,7 @@ void BattlePageConditions::setChecked(int row, bool checked)
 
 bool BattlePageConditions::isAllowed(int row) const
 {
-	return allowed(row, m_rpg2k3);
+	return allowed(row, commands2k3());
 }
 
 bool BattlePageConditions::fieldsEnabled(int row) const
@@ -974,16 +973,17 @@ QVariantList BattlePageConditions::battleCommands() const
 	return m_battleCommands;
 }
 
-bool BattlePageConditions::allowed(int row, bool rpg2k3)
+bool BattlePageConditions::allowed(int row, bool commands2k3)
 {
 	switch (row) {
-		// RPG Maker 2003: the exhaustion of the party, the turns of one
-		// battler, and the command a hero chose
+		// RPG Maker 2003's commands: the exhaustion of the party, the turns
+		// of one battler, and the command a hero chose
+		// (Game_Interpreter_Battle::AreConditionsMet)
 		case Fatigue:
 		case TurnEnemy:
 		case TurnActor:
 		case Command:
-			return rpg2k3;
+			return commands2k3;
 		default:
 			return row >= 0 && row < RowCount;
 	}

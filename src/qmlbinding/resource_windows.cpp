@@ -16,8 +16,10 @@
  */
 
 #include "resource_windows.h"
+#include "common/editor_settings.h"
 #include "core.h"
 #include "model/audio_library.h"
+#include "model/game_setup.h"
 #include "model/project.h"
 #include "model/transparent_color.h"
 #include "qml_dialog_service.h"
@@ -126,12 +128,22 @@ bool ResourceDialogs::report(const QString& title, const ResourceResult& result)
 
 ResourceImportChoices::Colors ResourceDialogs::askColors(const QString& title, const QString& text)
 {
-	const QVariantList buttons = {
+	// all the colors: EasyRPG Player shows them with its extensions or the
+	// Maniac Patch (as its RPG_RT.exe); without either greyed, or left out
+	// as the Editor Settings say
+	const GameSetup& game = GameSetup::instance();
+	const bool trueColor = ResourceLibraryModel::trueColorShown();
+	QVariantList buttons = {
 		QVariantMap{{QStringLiteral("answer"), QStringLiteral("reduce")}, {QStringLiteral("role"), AcceptRole},
 			{QStringLiteral("text"), QCoreApplication::translate("ResourceManagerDialog", "Reduce to 256 colors")}},
-		QVariantMap{{QStringLiteral("answer"), QStringLiteral("keep")}, {QStringLiteral("role"), AcceptRole},
-			{QStringLiteral("text"), QCoreApplication::translate("ResourceManagerDialog", "Keep all colors")}},
 	};
+	if (trueColor || EditorSettings::instance().unavailableShown()) {
+		buttons << QVariantMap{{QStringLiteral("answer"), QStringLiteral("keep")}, {QStringLiteral("role"), AcceptRole},
+			{QStringLiteral("text"), QCoreApplication::translate("ResourceManagerDialog", "Keep all colors")},
+			{QStringLiteral("enabled"), trueColor},
+			{QStringLiteral("origin"), game.maniac() && !game.easyrpg() ? QStringLiteral("maniac") : QStringLiteral("easyrpg")},
+			{QStringLiteral("toolTip"), trueColor ? QString() : ResourceLibraryModel::trueColorNeed()}};
+	}
 	QString answer;
 	QmlHost::exec(QStringLiteral("MessageWindow"), m_window, {
 		{QStringLiteral("title"), title},

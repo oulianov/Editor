@@ -12,7 +12,10 @@ import org.easyrpg.editor as Ez
  * The transparent color of an image imported into the game, as the Preview
  * window of RPG Maker's Resource Manager: a click on the image picks the
  * color, shown transparent at once. Small game graphics (charsets,
- * faces...) open enlarged, they are easier to click.
+ * faces...) open enlarged, they are easier to click. A true color image
+ * (kept with all its colors) has the tag of what shows it: EasyRPG
+ * Player's extensions or the Maniac Patch, a warning in a game without
+ * either.
  */
 Ez.DialogWindow {
     id: root
@@ -73,6 +76,17 @@ Ez.DialogWindow {
             wrapMode: Text.Wrap
             Layout.fillWidth: true
             Layout.preferredWidth: 1
+            Layout.alignment: Qt.AlignTop
+        }
+        // a true color image: what shows it (the tag warns when the game does not)
+        Ez.OriginTag {
+            objectName: "tagTrueColor"
+            readonly property bool shownInGame: Ez.Game.easyrpg || Ez.Game.maniac
+            origin: Ez.Game.maniac && !Ez.Game.easyrpg ? "maniac" : "easyrpg"
+            warning: !shownInGame
+            toolTip: shownInGame ? Ez.Origins.about(origin)
+                                 : qsTranslate("ResourceManagerDialog", "Not shown in this game without the EasyRPG Extensions (Project Settings › EasyRPG Player) or the Maniac Patch (Project Settings › Engine)")
+            visible: shown && !!root.choice && !root.choice.palette
             Layout.alignment: Qt.AlignTop
         }
         Ez.ZoomButtons {
