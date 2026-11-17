@@ -122,7 +122,7 @@ public:
 	void setOriginBadges(bool on);
 
 	/** The commands and options of an add-on the game does not use, shown
-	 *  greyed; else hidden, but those the game already has */
+	 *  greyed; else (the default) hidden, but those the game already has */
 	bool unavailableShown() const;
 	void setUnavailableShown(bool on);
 

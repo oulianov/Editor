@@ -974,7 +974,8 @@ ColumnLayout {
                         }
                         Ez.FormLabel {
                             text: qsTr("Rows")
-                            enabled: root.runs112
+                            // without columns: no spritesheet, the rest greyed
+                            enabled: root.runs112 && root.read("columns") !== 0
                             Layout.leftMargin: Ez.Metrics.columnSpacing
                         }
                         CommandField {
@@ -988,7 +989,7 @@ ColumnLayout {
                     }
                     Ez.FormLabel {
                         text: qsTr("Show")
-                        enabled: root.runs112
+                        enabled: root.runs112 && root.read("columns") !== 0
                     }
                     RowLayout {
                         spacing: Ez.Metrics.columnSpacing

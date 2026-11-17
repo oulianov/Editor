@@ -2460,14 +2460,17 @@ Fields pictureFields(bool move) {
 		append(sheet, only(fields(
 			section(QT_TRANSLATE_NOOP("PictureWidget", "Spritesheet")),
 			number("columns", 22, QT_TRANSLATE_NOOP("PictureWidget", "Columns (0: none)"), 0, 999),
-			number("rows", 23, QT_TRANSLATE_NOOP("PictureWidget", "Rows"), 0, 999),
+			// without columns, no spritesheet: EasyRPG Player reads none of the rest
+			number("rows", 23, QT_TRANSLATE_NOOP("PictureWidget", "Rows"), 0, 999).enabledUnless("columns", {0}),
 			choice("frameMode", 24, QT_TRANSLATE_NOOP("PictureWidget", "Show"), {
 				{0, QT_TRANSLATE_NOOP("PictureWidget", "Frame")},
 				{1, QT_TRANSLATE_NOOP("PictureWidget", "Frame in variable")},
-				{2, QT_TRANSLATE_NOOP("PictureWidget", "Animation")}}),
-			number("frame", 25, QT_TRANSLATE_NOOP("PictureWidget", "Frame or speed"), 0, 99999).when("frameMode", {0, 2}),
-			variable("frameVariable", 25, QT_TRANSLATE_NOOP("PictureWidget", "Frame or speed")).when("frameMode", {1}),
-			check("once", 26, QT_TRANSLATE_NOOP("PictureWidget", "Play once")).when("frameMode", {2}),
+				{2, QT_TRANSLATE_NOOP("PictureWidget", "Animation")}}).enabledUnless("columns", {0}),
+			number("frame", 25, QT_TRANSLATE_NOOP("PictureWidget", "Frame or speed"), 0, 99999).when("frameMode", {0, 2})
+				.enabledUnless("columns", {0}),
+			variable("frameVariable", 25, QT_TRANSLATE_NOOP("PictureWidget", "Frame or speed")).when("frameMode", {1})
+				.enabledUnless("columns", {0}),
+			check("once", 26, QT_TRANSLATE_NOOP("PictureWidget", "Play once")).when("frameMode", {2}).enabledUnless("columns", {0}),
 			section(QT_TRANSLATE_NOOP("PictureWidget", "Layer")),
 			// what the picture is drawn above (lcf SavePicture::MapLayer and
 			// BattleLayer), 0: not there. EasyRPG Player draws a picture with

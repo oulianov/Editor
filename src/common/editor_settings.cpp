@@ -409,7 +409,7 @@ void EditorSettings::setCommandStripes(bool on) { setValue(COMMAND_STRIPES_KEY, 
 bool EditorSettings::originBadges() const { return value(ORIGIN_BADGES_KEY, true).toBool(); }
 void EditorSettings::setOriginBadges(bool on) { setValue(ORIGIN_BADGES_KEY, on); }
 
-bool EditorSettings::unavailableShown() const { return value(UNAVAILABLE_SHOWN_KEY, true).toBool(); }
+bool EditorSettings::unavailableShown() const { return value(UNAVAILABLE_SHOWN_KEY, false).toBool(); }
 void EditorSettings::setUnavailableShown(bool on) { setValue(UNAVAILABLE_SHOWN_KEY, on); }
 
 bool EditorSettings::searchCache() const { return value(SEARCH_CACHE_KEY, false).toBool(); }
