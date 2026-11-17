@@ -236,6 +236,11 @@ QString MapEditor::hoverText() const
 	return m_hoverText;
 }
 
+QString MapEditor::hoverEvents() const
+{
+	return m_hoverEvents;
+}
+
 qreal MapEditor::scale() const
 {
 	return m_scale;
@@ -547,7 +552,8 @@ void MapEditor::onMove(int x, int y, Qt::MouseButtons buttons)
 void MapEditor::showCell(const QPoint& cell)
 {
 	// Show coordinates of the cell
-	QString status_msg = QString("(%0, %1)").arg(cell.x()).arg(cell.y());
+	const QString status_msg = QString("(%0, %1)").arg(cell.x()).arg(cell.y());
+	QStringList events;
 	if (m_state.layer() == EditorState::EVENT)
 	{
 		// Show events on the cell
@@ -555,12 +561,13 @@ void MapEditor::showCell(const QPoint& cell)
 		{
 			if (QPoint(evt.x, evt.y) == cell)
 			{
-				status_msg.append(QString(" - " + QCoreApplication::translate("MapScene", "Event") + " %0: %1")
-					.arg(evt.ID).arg(ToQString(evt.name)));
+				events << QString(QCoreApplication::translate("MapScene", "Event") + " %0: %1")
+					.arg(evt.ID).arg(ToQString(evt.name));
 			}
 		}
 	}
 	m_hoverText = status_msg;
+	m_hoverEvents = events.join(QStringLiteral(" - "));
 	emit cellHovered(status_msg);
 }
 

@@ -32,10 +32,11 @@ import org.easyrpg.editor as Ez
  * started (anchor).
  *
  * A command using an add-on the game tags (the Maniac Patch, EasyRPG
- * Player, a patch: Ez.Origins) has its tag in a gutter at the left of its
+ * Player, a patch: Ez.Origins) has its tag in a column at the right of its
  * first line (objectName "originTag" and the line, its text the letter),
- * a warning one while the game does not run it; the tooltip of the gutter
- * says what each tag means. The gutter is there while a line has a tag.
+ * a warning one while the game does not run it; the tooltip of the column
+ * says what each tag means. The column is there while a line has a tag, at
+ * the right of the list as it is scrolled.
  */
 FocusScope {
     id: root
@@ -266,9 +267,9 @@ FocusScope {
     // the widest line shown: lines are as wide (wider ones scroll sideways, as RPG Maker)
     property real widest: 0
     onWidestChanged: Qt.callLater(view.updateContentWidth)
-    // the gutter of the tags, while a line has one (the badges hidden in the
-    // Editor Settings: the warning ones): as wide as the widest tag, "M!"
-    // (the letter of Ez.OriginTag and its margins)
+    // the column of the tags at the right, while a line has one (the badges
+    // hidden in the Editor Settings: the warning ones): as wide as the widest
+    // tag, "M!" (the letter of Ez.OriginTag and its margins)
     readonly property real gutterWidth: editor.model.tagged ? widestTag.advanceWidth + 6 + 2 * Ez.Metrics.listTextPadding : 0
     /** The tooltip of the tags of a line: what each means, one per line */
     function tagsTip(origins) {
@@ -369,7 +370,8 @@ FocusScope {
 
             width: view.contentWidth
             height: view.rowHeight
-            implicitWidth: label.x + label.implicitWidth + Ez.Metrics.listTextPadding
+            // room for the column of the tags after the text: a long line ends before it
+            implicitWidth: label.x + label.implicitWidth + Ez.Metrics.listTextPadding + root.gutterWidth
             onImplicitWidthChanged: root.widest = Math.max(root.widest, implicitWidth)
             Component.onCompleted: root.widest = Math.max(root.widest, implicitWidth)
 
@@ -379,22 +381,9 @@ FocusScope {
                 visible: line.selected || (root.stripes && line.index % 2 === 1)
                 color: line.selected ? Kirigami.Theme.highlightColor : root.stripeColor
             }
-            Ez.OriginTag {
-                id: tag
-                // the letter for the scripts: "M", "M!"
-                readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
-                objectName: "originTag" + line.index
-                origin: line.tag ? line.tag.origin : ""
-                warning: line.tag ? line.tag.warning : false
-                // the list's tooltip says what the tags mean (the mouse is its)
-                toolTip: ""
-                visible: shown && line.tag !== null
-                x: Math.round((root.gutterWidth - width) / 2)
-                anchors.verticalCenter: parent.verticalCenter
-            }
             Text {
                 id: label
-                x: root.gutterWidth + Ez.Metrics.listTextPadding + Math.max(0, line.indent) * root.indentWidth
+                x: Ez.Metrics.listTextPadding + Math.max(0, line.indent) * root.indentWidth
                    + root.nextLineOffset(line.lineLabel)
                 anchors.verticalCenter: parent.verticalCenter
                 text: line.display
@@ -402,6 +391,28 @@ FocusScope {
                 font: Ez.Metrics.font
                 color: line.selected ? Kirigami.Theme.highlightedTextColor
                                      : (root.kindColors[line.colorKind] ?? Kirigami.Theme.textColor)
+            }
+            // the column of the tags, at the right of the list as it is
+            // scrolled sideways: over the text of a line wider than the list,
+            // in the line's colors
+            Rectangle {
+                x: view.contentX - view.originX + view.width - (vbar.visible ? vbar.width : 0) - width
+                width: root.gutterWidth
+                height: parent.height
+                visible: width > 0
+                color: line.selected ? Kirigami.Theme.highlightColor
+                       : root.stripes && line.index % 2 === 1 ? root.stripeColor : Kirigami.Theme.backgroundColor
+                Ez.OriginTag {
+                    id: tag
+                    // the letter for the scripts: "M", "M!"
+                    objectName: "originTag" + line.index
+                    origin: line.tag ? line.tag.origin : ""
+                    warning: line.tag ? line.tag.warning : false
+                    // the list's tooltip says what the tags mean (the mouse is its)
+                    toolTip: ""
+                    visible: shown && line.tag !== null
+                    anchors.centerIn: parent
+                }
             }
         }
     }
@@ -422,21 +433,28 @@ FocusScope {
         property int hovered: -1
         // pressed on the line already selected, alone: released there, it is edited
         property bool pressOnCurrent: false
-        /** The tooltip of the tags of the line pointed at in the gutter */
+        /** The tooltip of the tags of the line pointed at in their column (at the right) */
         readonly property string tagsTip: {
-            if (hovered < 0 || !containsMouse || mouseX + view.contentX - view.originX >= root.gutterWidth) {
+            if (hovered < 0 || !containsMouse || mouseX < width - root.gutterWidth) {
                 return ""
             }
             const item = view.itemAtIndex(hovered)
             return item ? item.tagsTip : ""
         }
 
+        // below the pointer, inside the list: by the column of the tags, its
+        // right edge at the list's (one that does not fit is flipped around
+        // its parent, the whole list: it showed at the left); above the
+        // pointer near the bottom
         Ez.ToolTip {
+            id: tagsToolTip
             visible: mouse.tagsTip !== ""
             text: mouse.tagsTip
             delay: Kirigami.Units.toolTipDelay
-            x: mouse.mouseX + Kirigami.Units.gridUnit
-            y: mouse.mouseY + Kirigami.Units.gridUnit
+            x: Math.max(0, Math.min(mouse.mouseX + Kirigami.Units.gridUnit, mouse.width - tagsToolTip.width))
+            y: mouse.mouseY + Kirigami.Units.gridUnit + tagsToolTip.height <= mouse.height
+               ? mouse.mouseY + Kirigami.Units.gridUnit
+               : Math.max(0, mouse.mouseY - tagsToolTip.height - Kirigami.Units.smallSpacing)
         }
 
         anchors.fill: view

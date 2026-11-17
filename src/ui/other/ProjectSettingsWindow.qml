@@ -466,8 +466,8 @@ Ez.DialogWindow {
                     + "in RPG_RT.ini, which the Maniac Patch reads too). RPG_RT.exe is not changed.")
                 color: Ez.Metrics.mutedTextColor
             }
-            // how it runs the game: the engine, the options of the database
-            // RPG_RT.exe ignores, the patches of EasyRPG Player alone
+            // how it runs the game: the engine, the patches of EasyRPG Player
+            // alone (its options of the database: Database, System)
             Ez.Section {
                 objectName: "groupGame"
                 title: qsTr("Game")
@@ -489,49 +489,6 @@ Ez.DialogWindow {
                         onActivated: root.settings.playerEngine = currentValue
                         Binding on currentIndex {
                             value: { playerEngine.count; return Math.max(0, playerEngine.indexOfValue(root.settings.playerEngine)) }
-                        }
-                    }
-                    Ez.FormLabel {
-                        visible: root.settings.open && root.settings.rpg2k3
-                        text: qsTr("Battle system")
-                    }
-                    Ez.ComboBox {
-                        objectName: "comboBattleSystem"
-                        visible: root.settings.open && root.settings.rpg2k3
-                        textRole: ""
-                        model: [qsTr("RPG Maker 2003"), qsTr("RPG Maker 2000")]
-                        Layout.fillWidth: true
-                        Controls.ToolTip.visible: hovered && !popup.visible
-                        Controls.ToolTip.text: qsTr("RPG Maker 2000: front view battles, with the Fight, Auto and Escape "
-                            + "commands of the party, instead of the side view battles of RPG Maker 2003. Saved in the database.")
-                        onActivated: index => root.settings.battle2k = index === 1
-                        Binding on currentIndex {
-                            value: root.settings.battle2k ? 1 : 0
-                        }
-                    }
-                    Ez.FormLabel {
-                        visible: root.settings.open
-                        text: qsTr("Experience curve")
-                    }
-                    Ez.ComboBox {
-                        id: experienceCurve
-                        objectName: "comboExperienceCurve"
-                        visible: root.settings.open
-                        textRole: "name"
-                        valueRole: "value"
-                        model: [
-                            { value: 0, name: qsTr("Engine's (%1)").arg(root.settings.playerEngine2k3 ? qsTr("RPG Maker 2003") : qsTr("RPG Maker 2000")) },
-                            { value: 1, name: qsTr("RPG Maker 2000") },
-                            { value: 2, name: qsTr("RPG Maker 2003") }
-                        ]
-                        Layout.fillWidth: true
-                        Controls.ToolTip.visible: hovered && !popup.visible
-                        Controls.ToolTip.text: qsTr("The formula of the experience the heroes need for each level, from the "
-                            + "values of their class or their own. Engine's: the one of the engine above. Saved in the database.")
-                        onActivated: root.settings.alternativeExp = currentValue
-                        Binding on currentIndex {
-                            // the Player takes any other value for 2003's
-                            value: { experienceCurve.count; return Math.min(root.settings.alternativeExp, 2) }
                         }
                     }
                 }
@@ -953,21 +910,17 @@ Ez.DialogWindow {
 
     /**
      * A patch of [Patch] shown on its own (Maniac, EasyRPG, RPG2k3Commands):
-     * the same mode as the grid; checked while they are detected, all of
-     * them are chosen from then on; greyed as written in EasyRPG.ini
+     * the same mode as the grid; checked while they are detected or taken as
+     * written in EasyRPG.ini, all of them are chosen from then on, from what
+     * is detected or written (the other keys of [Patch] stay)
      */
     component PatchBox: Ez.CheckBox {
         id: box
         required property string patchKey
         objectName: "patch" + patchKey
-        enabled: root.settings.patchMode !== Ez.ProjectSettings.Refer
         Controls.ToolTip.visible: hovered
         Controls.ToolTip.text: root.settings.patchText(patchKey)
         onToggled: root.settings.setPatchOn(patchKey, checked)
-        // greyed as written: how to set it here (a greyed box shows no tooltip of its own)
-        Ez.OriginTip {
-            toolTip: box.enabled ? "" : qsTr("The patches are as written in EasyRPG.ini: choose “Choose” in Project Settings › EasyRPG Player › Patches to set them here")
-        }
         Binding on checked {
             value: { root.patchRevision; return root.settings.patchOn(box.patchKey) }
         }

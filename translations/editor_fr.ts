@@ -16305,10 +16305,6 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
         <translation>Les Extensions EasyRPG : EasyRPG Player seulement</translation>
     </message>
     <message>
-        <source>The patches are as written in EasyRPG.ini: choose “Choose” in Project Settings › EasyRPG Player › Patches to set them here</source>
-        <translation>Les patchs sont tels qu&apos;écrits dans EasyRPG.ini : choisissez « Choisir » dans Paramètres du projet › EasyRPG Player › Patchs pour les régler ici</translation>
-    </message>
-    <message>
         <source>The Maniac Patch: the RPG_RT.exe of the Maniac Patch</source>
         <translation>Le Maniac Patch : le RPG_RT.exe du Maniac Patch</translation>
     </message>
@@ -22350,6 +22346,54 @@ Enregistrer maintenant remplace ces modifications.</translation>
         <location filename="../src/ui/database/SystemPage.qml" line="-21"/>
         <source>Starting Party</source>
         <translation>Equipe de départ</translation>
+    </message>
+    <message>
+        <source>EasyRPG Player</source>
+        <translation>EasyRPG Player</translation>
+    </message>
+    <message>
+        <source>Battle system</source>
+        <translation>Système de combat</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2003</source>
+        <translation>RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2000</source>
+        <translation>RPG Maker 2000</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2000: front view battles, the heroes&apos; commands in one window. RPG_RT.exe keeps the battles of RPG Maker 2003.</source>
+        <translation>RPG Maker 2000 : combats vus de face, les commandes des héros dans une seule fenêtre. RPG_RT.exe garde les combats de RPG Maker 2003.</translation>
+    </message>
+    <message>
+        <source>Party commands (Fight, Auto, Escape)</source>
+        <translation>Commandes du groupe (Combattre, Auto, Fuir)</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2000&apos;s battle commands. Off: the heroes&apos; commands of RPG Maker 2003.</source>
+        <translation>Les commandes de combat de RPG Maker 2000. Décoché : les commandes des héros de RPG Maker 2003.</translation>
+    </message>
+    <message>
+        <source>Experience curve</source>
+        <translation>Courbe d&apos;expérience</translation>
+    </message>
+    <message>
+        <source>The engine&apos;s</source>
+        <translation>Celle du moteur</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2000&apos;s</source>
+        <translation>Celle de RPG Maker 2000</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2003&apos;s</source>
+        <translation>Celle de RPG Maker 2003</translation>
+    </message>
+    <message>
+        <source>The formula of the experience the heroes need for each level. RPG_RT.exe keeps its engine&apos;s.</source>
+        <translation>La formule de l&apos;expérience dont les héros ont besoin à chaque niveau. RPG_RT.exe garde celle de son moteur.</translation>
     </message>
     <message>
         <location line="+3"/>

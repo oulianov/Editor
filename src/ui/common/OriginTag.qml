@@ -30,6 +30,8 @@ Rectangle {
     /** Shown: the game tags the origin, or does not run what is there (a
      *  warning of RPG Maker 2003's engine in a 2000 game: "!" alone) */
     readonly property bool shown: Ez.Origins.tagged(origin) || (warning && origin !== "" && !Ez.Origins.available(origin))
+    /** What it shows, for the scripts (expect NAME M!): its letter, "!" for a warning; empty while not shown */
+    readonly property string text: shown ? letter.text : ""
 
     visible: shown
     implicitWidth: shown ? Math.max(implicitHeight, letter.implicitWidth + 6) : 0

@@ -104,7 +104,6 @@ GridLayout {
             rightPadding: labelTag.width > 0 ? labelTag.width + Ez.Metrics.columnSpacing : 0
             Ez.OriginTag {
                 id: labelTag
-                readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
                 objectName: (root.names[label.modelData.field.id] ?? label.modelData.field.id) + "Tag"
                 origin: label.origin
                 warning: !Ez.Origins.available(origin) && label.rowState.revision >= 0

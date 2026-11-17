@@ -143,7 +143,6 @@ ColumnLayout {
                         rightPadding: horizontalPadding + (ignoreTag.width > 0 ? ignoreTag.width + Ez.Metrics.columnSpacing : 0)
                         Ez.OriginTag {
                             id: ignoreTag
-                            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
                             objectName: ignoreRadio.objectName + "Tag"
                             origin: ignoreRadio.origin
                             warning: ignoreRadio.checked && !Ez.Origins.available(origin)
@@ -257,7 +256,6 @@ ColumnLayout {
                         rightPadding: horizontalPadding + (frequencyTag.width > 0 ? frequencyTag.width + Ez.Metrics.columnSpacing : 0)
                         Ez.OriginTag {
                             id: frequencyTag
-                            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
                             objectName: frequencyRadio.objectName + "Tag"
                             origin: frequencyRadio.origin
                             warning: frequencyRadio.checked && !Ez.Origins.available(origin)

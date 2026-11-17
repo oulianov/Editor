@@ -109,7 +109,6 @@ ColumnLayout {
         rightPadding: horizontalPadding + (typeTag.width > 0 ? typeTag.width + Ez.Metrics.columnSpacing : 0)
         Ez.OriginTag {
             id: typeTag
-            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
             objectName: typeRadio.objectName + "Tag"
             origin: typeRadio.origin
             warning: typeRadio.checked && !Ez.Origins.available(origin)
@@ -151,7 +150,6 @@ ColumnLayout {
         rightPadding: horizontalPadding + (optionTag.width > 0 ? optionTag.width + Ez.Metrics.columnSpacing : 0)
         Ez.OriginTag {
             id: optionTag
-            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
             objectName: optionRadio.objectName + "Tag"
             origin: optionRadio.origin
             warning: optionRadio.checked && optionRadio.bound && !Ez.Origins.available(origin)

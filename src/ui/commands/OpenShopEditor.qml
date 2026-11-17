@@ -148,7 +148,6 @@ ColumnLayout {
                 }
             }
             Ez.OriginTag {
-                readonly property string text: shown ? Ez.Origins.letter(origin) + "!" : ""
                 objectName: "shopGoodsModeTag"
                 origin: "maniac"
                 warning: true

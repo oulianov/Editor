@@ -397,12 +397,13 @@ ColumnLayout {
                         // the Maniac Patch's greyed in the other games, saying what they need
                         enabledRole: "enabled"
                         toolTipRole: "why"
+                        originRole: "origin"
                         model: {
                             const items = [{ value: 0, text: qsTr("None") }, { value: 1, text: qsTr("Rotation") },
                                            { value: 2, text: qsTr("Waver") }]
                             // not offered (Editor Settings) unless it is the command's
                             if (Ez.Origins.shown("maniac") || root.effect === 3) {
-                                items.push({ value: 3, text: qsTr("Fixed Angle"), enabled: Ez.Origins.available("maniac"),
+                                items.push({ value: 3, text: qsTr("Fixed Angle"), origin: "maniac", enabled: Ez.Origins.available("maniac"),
                                              why: Ez.Origins.available("maniac") ? "" : Ez.Origins.need("maniac") })
                             }
                             if (!items.some(item => item.value === root.effect)) {

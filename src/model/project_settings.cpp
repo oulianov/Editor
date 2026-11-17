@@ -27,7 +27,6 @@
 #include "defines.h"
 #include "model/game_patches.h"
 #include "model/game_setup.h"
-#include "model/player_options.h"
 #include "model/project.h"
 #include "model/project_convert.h"
 #include "model/project_soundfont.h"
@@ -200,16 +199,14 @@ ProjectSettings::ProjectSettings(Project& project, bool open, QObject* parent) :
 		m_textFont = database.system.font_id;
 		m_rpg2k3 = database.system.ldb_id == 2003;
 		m_databaseVersion = database.version;
-		const PlayerOptions::Values options = PlayerOptions::of(database);
-		m_battleWritten = options.battle2k;
-		m_expWritten = options.alternativeExp;
+		m_battle2k = database.system.easyrpg_use_rpg2k_battle_system;
+		m_alternativeExp = database.system.easyrpg_alternative_exp;
 	} else if (const auto database = project.readDatabase()) {
 		m_rpg2k3 = database->system.ldb_id == 2003;
 		m_databaseVersion = database->version;
-		// shown in what the game runs with, not changed
-		const PlayerOptions::Values options = PlayerOptions::of(*database);
-		m_battleWritten = options.battle2k;
-		m_expWritten = options.alternativeExp;
+		// shown in what the game runs with
+		m_battle2k = database->system.easyrpg_use_rpg2k_battle_system;
+		m_alternativeExp = database->system.easyrpg_alternative_exp;
 	}
 	m_rtpEngine = m_rpg2k3 ? 2003 : 2000;
 	// what the game runs with follows every choice
@@ -383,34 +380,6 @@ QVariantList ProjectSettings::playerEngineChoices() const
 	return choices;
 }
 
-bool ProjectSettings::battle2k() const
-{
-	return m_battleChoice.value_or(m_battleWritten);
-}
-
-void ProjectSettings::setBattle2k(bool on)
-{
-	if (!m_open || !m_rpg2k3 || on == battle2k()) {
-		return;
-	}
-	m_battleChoice = on;
-	emit featuresChanged();
-}
-
-int ProjectSettings::alternativeExp() const
-{
-	return m_expChoice.value_or(m_expWritten);
-}
-
-void ProjectSettings::setAlternativeExp(int curve)
-{
-	if (!m_open || curve < 0 || curve == alternativeExp()) {
-		return;
-	}
-	m_expChoice = curve;
-	emit featuresChanged();
-}
-
 QVariantList ProjectSettings::runtimes() const
 {
 	auto tr = [](const char* text) { return QCoreApplication::translate("ProjectSettingsDialog", text); };
@@ -565,12 +534,10 @@ bool ProjectSettings::patchOn(const QString& key) const
 
 void ProjectSettings::setPatchOn(const QString& key, bool on)
 {
-	if (m_patchMode == Refer) {
-		return;
-	}
 	// one [Patch] for all of them: chosen from now on, from what is detected
-	if (m_patchMode == Detect) {
-		m_chosen = m_detected;
+	// or written (GamePatches::write keeps the other keys of the section)
+	if (m_patchMode != Choose) {
+		m_chosen = m_patchMode == Detect ? m_detected : m_written;
 		setPatchMode(Choose);
 	}
 	// the Maniac Patch keeps its version
@@ -907,20 +874,9 @@ QString ProjectSettings::write(Project& project) const
 	// on this computer, not in the game: its RTP folder (Core::rtpDirs
 	// follows it at once)
 	EditorSettings::instance().setRtpActive(project.projectDir().absolutePath(), m_rtpFolder);
-	// the font of the game and the options of the database only EasyRPG
-	// Player reads: in the database
+	// the font of the game: in the database
 	const bool font = m_open && m_textFont != project.database().system.font_id;
-	PlayerOptions::Values options = m_open ? PlayerOptions::of(project.database()) : PlayerOptions::Values();
-	int changed = 0;
-	if (m_open && m_battleChoice && *m_battleChoice != options.battle2k) {
-		options.battle2k = *m_battleChoice;
-		changed |= PlayerOptions::Battle2k;
-	}
-	if (m_open && m_expChoice && *m_expChoice != options.alternativeExp) {
-		options.alternativeExp = *m_expChoice;
-		changed |= PlayerOptions::AlternativeExp;
-	}
-	if (font || changed) {
+	if (font) {
 		// another program (rpgsync...) changed the database since it was
 		// read: the values go in its version, never over it. Outside the
 		// Database window (modal, as this one) the Editor has no unsaved
@@ -928,16 +884,9 @@ QString ProjectSettings::write(Project& project) const
 		if (core().watcher().isStale(project.databaseFile()) && !project.reloadDatabase()) {
 			return QCoreApplication::translate("ProjectSettingsDialog", "The database changed on disk and could not be read again.");
 		}
-		if (font) {
-			project.database().system.font_id = m_textFont;
-		}
-		PlayerOptions::set(project.database(), options, changed);
+		project.database().system.font_id = m_textFont;
 		if (!project.saveDatabase()) {
 			return project.withWriteError(QCoreApplication::translate("ProjectSettingsDialog", "The database could not be saved."));
-		}
-		// their copy, for when RPG Maker removes them
-		if (!PlayerOptions::keep(project, options, changed)) {
-			return QCoreApplication::translate("ProjectSettingsDialog", "The copy of the options of the database could not be written in EasyRPG.ini.");
 		}
 	}
 	// the code page first: the title is written in it

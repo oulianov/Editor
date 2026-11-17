@@ -65,8 +65,9 @@ public:
 	 * The chips of a setup (GameSetup::values(), read()): {key ("engine",
 	 * "maniac", "easyrpg", "commands2k3", "battle2k", "alternativeExp",
 	 * "playerEngine", or the key of a patch: "DynRPG"...), text, tag ("",
-	 * "M", "E", "P"), tip, page (the page of Project Settings that changes
-	 * it: "engine", "player")}; none for an empty setup or no game
+	 * "M", "E", "P"), tip, page (where it is changed: the page of Project
+	 * Settings, "engine", "player"; "database-system", the System page of
+	 * the database)}; none for an empty setup or no game
 	 */
 	static QVariantList chipsOf(const QVariantMap& setup);
 	/** The texts of chips, joined by commas */

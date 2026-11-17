@@ -102,13 +102,16 @@ DatabaseEntryPage {
                                                                || (!!root.entry && root.entry.num("trigger") >= 6)
                         enabledRole: "enabled"
                         toolTipRole: "toolTip"
+                        originRole: "origin"
                         model: [
                             { text: qsTr("Call"), value: 5 },
                             { text: qsTr("Auto Start"), value: 3 },
                             { text: qsTr("Parallel Process"), value: 4 },
                         ].concat(battleTriggers ? [
-                            { text: qsTr("Battle Start"), value: 6, enabled: root.maniac, toolTip: Ez.Origins.need("maniac") },
-                            { text: qsTr("Parallel Process in Battle"), value: 7, enabled: root.maniac, toolTip: Ez.Origins.need("maniac") },
+                            { text: qsTr("Battle Start"), value: 6, origin: "maniac", enabled: root.maniac,
+                              toolTip: root.maniac ? "" : Ez.Origins.need("maniac") },
+                            { text: qsTr("Parallel Process in Battle"), value: 7, origin: "maniac", enabled: root.maniac,
+                              toolTip: root.maniac ? "" : Ez.Origins.need("maniac") },
                         ] : [])
                         Layout.fillWidth: true
                     }

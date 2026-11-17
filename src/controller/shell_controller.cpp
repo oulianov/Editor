@@ -40,7 +40,6 @@
 #include "model/maniac_compat.h"
 #include "model/map_document.h"
 #include "model/map_tools.h"
-#include "model/player_options.h"
 #include "model/project.h"
 #include "model/project_convert.h"
 
@@ -191,11 +190,6 @@ bool ShellController::openProject(const QString& folder)
 		<< "maps:" << (core().project()->treeMap().maps.size() - 1)
 		<< "reload changed files:" << EditorSettings::instance().reloadExternalChanges();
 	updateActions();
-	// what RPG Maker removed from the database that the Editor kept a copy
-	// of, once the window shows the project (before the Maniac Patch's
-	// check, which reads it)
-	if (PlayerOptions::dropped(*core().project()))
-		QTimer::singleShot(0, this, [this] { restorePlayerOptions(); });
 	// a game of the Maniac Patch (its own patches): what it uses that the
 	// Maniac Patch does not run, once the window shows the project
 	if (check_maniac && GamePatches::hasManiac(*core().project()))
@@ -386,34 +380,6 @@ bool ShellController::checkTurnedOff(const QStringList& origins, bool dynRpg)
 		qCInfo(lcProject).noquote() << "  " << finding.origin << "|" << finding.what << "|" << finding.places.size()
 			<< "|" << finding.places.value(0);
 	return report.empty() || m_dialogs->turnedOffCheck(report);
-}
-
-void ShellController::restorePlayerOptions()
-{
-	auto project = core().project();
-	if (!project)
-		return;
-	const int dropped = PlayerOptions::dropped(*project);
-	if (!dropped)
-		return;
-	const PlayerOptions::Kept copy = PlayerOptions::kept(*project);
-	const QStringList what = PlayerOptions::describe(copy.values, dropped);
-	qCInfo(lcProject).noquote() << "options removed by RPG Maker:" << what.join(QStringLiteral(", "));
-	const QString title = QCoreApplication::translate("MainWindow", "Options Removed by RPG Maker");
-	const QString text = what.size() == 1
-		? QCoreApplication::translate("MainWindow", "RPG Maker saved the database of this game and removed an option "
-			"only EasyRPG Player reads: %1.\n\nWrite it back into the database?").arg(what.join(QString()))
-		: QCoreApplication::translate("MainWindow", "RPG Maker saved the database of this game and removed options "
-			"only EasyRPG Player reads: %1.\n\nWrite them back into the database?").arg(what.join(QStringLiteral(", ")));
-	if (dialogs().question(title, text) != DialogService::Answer::Yes) {
-		// not asked again
-		PlayerOptions::keep(*project, PlayerOptions::Values(), dropped);
-		return;
-	}
-	PlayerOptions::set(project->database(), copy.values, dropped);
-	if (!project->saveDatabase())
-		dialogs().warning(title, project->withWriteError(QCoreApplication::translate("MainWindow", "The database could not be saved.")));
-	GameSetup::instance().reload();
 }
 
 void ShellController::convertManiac(bool rpg2000)
@@ -850,50 +816,6 @@ QString ShellController::windowTitle() const
 {
 	return core().project() ? QCoreApplication::translate("MainWindow", "EasyRPG Editor") + QStringLiteral(" - ") + core().project()->gameTitle()
 		: QCoreApplication::translate("MainWindow", "EasyRPG Editor");
-}
-
-QString ShellController::editModeText() const
-{
-	if (!core().project() || !m_tabs->currentDocument())
-		return {};
-	QString mode;
-	switch (core().layer()) {
-	case Core::LOWER:
-		mode = QCoreApplication::translate("MainWindow", "Lower Layer Editing Mode");
-		break;
-	case Core::UPPER:
-		mode = QCoreApplication::translate("MainWindow", "Upper Layer Editing Mode");
-		break;
-	case Core::EVENT:
-		mode = QCoreApplication::translate("MainWindow", "Event Editing Mode");
-		break;
-	}
-	// the tools draw on the tile layers only
-	if (core().layer() == Core::EVENT)
-		return mode;
-	QString tool;
-	switch (core().tool()) {
-	case Core::ZOOM:
-		tool = QCoreApplication::translate("MainWindow", "Zoom Tool");
-		break;
-	case Core::PENCIL:
-		tool = QCoreApplication::translate("MainWindow", "Pen Tool");
-		break;
-	case Core::RECTANGLE:
-		tool = QCoreApplication::translate("MainWindow", "Rectangle Tool");
-		break;
-	case Core::CIRCLE:
-		tool = QCoreApplication::translate("MainWindow", "Ellipse Tool");
-		break;
-	case Core::FILL:
-		tool = QCoreApplication::translate("MainWindow", "Flood Fill");
-		break;
-	case Core::SELECT:
-		tool = QCoreApplication::translate("MainWindow", "Selection Tool");
-		break;
-	}
-	//: Status bar: the edit mode and the tool
-	return QCoreApplication::translate("MainWindow", "%1 - %2").arg(mode, tool);
 }
 
 QString ShellController::mapText() const

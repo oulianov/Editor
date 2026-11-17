@@ -46,7 +46,6 @@ Ez.RadioButton {
     rightPadding: horizontalPadding + (tag.width > 0 ? tag.width + Ez.Metrics.columnSpacing : 0)
     Ez.OriginTag {
         id: tag
-        readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
         objectName: root.objectName + "Tag"
         origin: root.origin
         warning: root.checked && !Ez.Origins.available(origin)

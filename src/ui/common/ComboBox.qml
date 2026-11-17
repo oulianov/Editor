@@ -30,6 +30,9 @@ Controls.ComboBox {
     property string enabledRole: ""
     /** The role of why an entry cannot be chosen, shown over it (empty: none) */
     property string toolTipRole: ""
+    /** The role of where an entry comes from (Ez.Origins: "maniac"...), its
+     *  badge after its text (empty: none) */
+    property string originRole: ""
 
     /** Whether the entry at index can be chosen */
     function optionEnabled(index) {
@@ -68,8 +71,10 @@ Controls.ComboBox {
         required property int index
         readonly property bool choosable: root.enabledRole === "" || model[root.enabledRole] !== false
         readonly property string why: root.toolTipRole !== "" ? (model[root.toolTipRole] ?? "") : ""
+        readonly property string origin: root.originRole !== "" ? (model[root.originRole] ?? "") : ""
 
         implicitWidth: leftPadding + implicitContentWidth + rightPadding
+                       + (badge.shown ? badge.implicitWidth + Ez.Metrics.columnSpacing : 0)
         width: parent ? parent.width : implicitWidth
         // a list of texts has no role: textRole ""
         text: root.textRole !== "" ? model[root.textRole] : model.modelData
@@ -88,6 +93,15 @@ Controls.ComboBox {
             Controls.ToolTip.visible: containsMouse && option.why !== ""
             Controls.ToolTip.text: option.why
             Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
+        }
+        // its badge at the right; an entry that cannot be chosen says why above
+        Ez.OriginTag {
+            id: badge
+            origin: option.origin
+            toolTip: option.why === "" ? Ez.Origins.about(option.origin) : ""
+            anchors.right: parent.right
+            anchors.rightMargin: option.rightPadding
+            anchors.verticalCenter: parent.verticalCenter
         }
     }
 

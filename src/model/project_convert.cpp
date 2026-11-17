@@ -17,7 +17,6 @@
 
 #include "project_convert.h"
 #include "project.h"
-#include "player_options.h"
 #include "defines.h"
 #include "common/dbstring.h"
 #include "common/filefinder.h"
@@ -438,13 +437,6 @@ QString ProjectConvert::to2003(Project& project, const Options& options, QString
 	project.database() = std::move(db);
 	if (backup_path) {
 		*backup_path = backup_dir;
-	}
-	// 5. The options kept for EasyRPG Player alone, copied in EasyRPG.ini:
-	// RPG Maker 2003 removes them from the database when it saves it
-	const int kept = (options.keep2kBattleSystem ? PlayerOptions::Battle2k : 0)
-		| (options.keep2kExperience ? PlayerOptions::AlternativeExp : 0);
-	if (kept) {
-		PlayerOptions::keep(project, PlayerOptions::of(project.database()), kept);
 	}
 	return {};
 }

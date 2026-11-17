@@ -252,14 +252,14 @@ QVariantList GameProfile::chipsOf(const QVariantMap& setup)
 	}
 	if (only.contains(QStringLiteral("battle2k"))) {
 		chip(QStringLiteral("battle2k"), tr("RPG Maker 2000 battles"), "E",
-			tr("The battle system of RPG Maker 2000 in this RPG Maker 2003 game: EasyRPG Player only"), "player");
+			tr("The battle system of RPG Maker 2000 in this RPG Maker 2003 game: EasyRPG Player only"), "database-system");
 	}
 	if (only.contains(QStringLiteral("alternativeExp"))) {
 		// the Player takes any other value for RPG Maker 2003's
 		const bool exp2000 = setup.value(QStringLiteral("alternativeExp")).toInt() == 1;
 		chip(QStringLiteral("alternativeExp"), exp2000 ? tr("RPG Maker 2000 experience") : tr("RPG Maker 2003 experience"), "E",
 			exp2000 ? tr("The experience curve of RPG Maker 2000: EasyRPG Player only")
-				: tr("The experience curve of RPG Maker 2003: EasyRPG Player only"), "player");
+				: tr("The experience curve of RPG Maker 2003: EasyRPG Player only"), "database-system");
 	}
 	if (only.contains(QStringLiteral("engine"))) {
 		const QString name = RpgRtExe::engineName(RpgRtExe::engineFromSetting(setup.value(QStringLiteral("playerEngine")).toString()));

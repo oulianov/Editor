@@ -123,7 +123,6 @@ ColumnLayout {
                 }
             }
             Ez.OriginTag {
-                readonly property string text: shown ? Ez.Origins.letter(origin) + "!" : ""
                 objectName: "battleAnimationTargetModeTag"
                 origin: "maniac"
                 warning: true

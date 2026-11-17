@@ -26,7 +26,7 @@ Row {
     property var chips: []
     /** The width they may take, beyond which the add-ons show their tag alone (0: any) */
     property real room: 0
-    /** A click on a chip asks for the page of Project Settings that changes it (clicked) */
+    /** A click on a chip asks for where it is changed (clicked: a page of Project Settings, or "database-system") */
     property bool clickable: false
     /** On the highlighted line of a list: in its colors */
     property bool highlighted: false

@@ -77,12 +77,13 @@ class ProjectSettings : public QObject
 	Q_PROPERTY(bool playerEngine2k3 READ playerEngine2k3 NOTIFY playerEngineChanged)
 	/**
 	 * The battles of RPG Maker 2000 in an RPG Maker 2003 game
-	 * (system.easyrpg_use_rpg2k_battle_system and its fields, see
-	 * PlayerOptions), when the project is open
+	 * (system.easyrpg_use_rpg2k_battle_system), as the database says: what
+	 * the game runs with (runtimes). Chosen in the database (System)
 	 */
-	Q_PROPERTY(bool battle2k READ battle2k WRITE setBattle2k NOTIFY featuresChanged)
-	/** system.easyrpg_alternative_exp: 0 the engine's curve, 1 RPG Maker 2000's, 2 RPG Maker 2003's */
-	Q_PROPERTY(int alternativeExp READ alternativeExp WRITE setAlternativeExp NOTIFY featuresChanged)
+	Q_PROPERTY(bool battle2k READ battle2k CONSTANT)
+	/** system.easyrpg_alternative_exp, as the database says: 0 the engine's
+	 *  curve, 1 RPG Maker 2000's, 2 RPG Maker 2003's */
+	Q_PROPERTY(int alternativeExp READ alternativeExp CONSTANT)
 	/**
 	 * The programs the game can run with, as chosen in the window
 	 * (GameSetup::runsWithOf): {key ("rpgrt", "maniac", "easyrpg"), name,
@@ -174,10 +175,8 @@ public:
 	/** {value, name}: detect (with the engine found), the engines of
 	 *  [Game] Engine, and the value written when the Player does not know it */
 	Q_INVOKABLE QVariantList playerEngineChoices() const;
-	bool battle2k() const;
-	void setBattle2k(bool on);
-	int alternativeExp() const;
-	void setAlternativeExp(int curve);
+	bool battle2k() const { return m_battle2k; }
+	int alternativeExp() const { return m_alternativeExp; }
 	QVariantList runtimes() const;
 	bool canConvert() const { return m_canConvert; }
 	bool convertRequested() const { return m_convert; }
@@ -210,8 +209,8 @@ public:
 	Q_INVOKABLE QVariantList patches() const;
 	/** On as the patch mode tells (detected, chosen, written) */
 	Q_INVOKABLE bool patchOn(const QString& key) const;
-	/** Checks a patch when they are chosen; detected, they are chosen from
-	 *  now on, from what is detected; as written, nothing changes */
+	/** Checks a patch when they are chosen; detected or as written, they are
+	 *  chosen from now on, from what is detected or written */
 	Q_INVOKABLE void setPatchOn(const QString& key, bool on);
 	/** What a patch changes, as rich text; empty for none */
 	Q_INVOKABLE QString patchExplanation(const QString& key) const;
@@ -272,11 +271,10 @@ public:
 
 	/** Why the settings cannot be written (the folder name), else empty */
 	Q_INVOKABLE QString validate() const;
-	/** Writes the title, the code page, the font and the options of the
-	 *  database (with their copy in EasyRPG.ini, PlayerOptions), the engine
-	 *  and the patches and the fonts of the Player in the files of the
-	 *  game, and its RTP folder in the Editor's settings; GameSetup reads
-	 *  the game again: the error, else empty */
+	/** Writes the title, the code page, the font of the database, the
+	 *  engine and the patches and the fonts of the Player in the files of
+	 *  the game, and its RTP folder in the Editor's settings; GameSetup
+	 *  reads the game again: the error, else empty */
 	QString write(Project& project) const;
 	/** write() in the project the settings are of */
 	Q_INVOKABLE QString apply() const;
@@ -336,11 +334,9 @@ private:
 	QString m_engineWritten;
 	std::optional<QString> m_engineChoice;
 	int m_engineDetected = 0;
-	/** The options of the database as it says, and as chosen (unset: unchanged) */
-	bool m_battleWritten = false;
-	std::optional<bool> m_battleChoice;
-	int m_expWritten = 0;
-	std::optional<int> m_expChoice;
+	/** The options of the database only EasyRPG Player reads, as it says */
+	bool m_battle2k = false;
+	int m_alternativeExp = 0;
 
 	QString m_runtime;
 	QString m_exe;

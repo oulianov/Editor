@@ -37,8 +37,10 @@ FocusScope {
     readonly property real cellSize: preview.lowerView.cellSize
     /** The boundaries of an area of this map, dashed; empty: none (showArea) */
     property rect area
-    /** The cell under the pointer and its events, for the status bar */
+    /** The cell under the pointer, "(x, y)", for the status bar */
     readonly property string hoverText: editor ? editor.hoverText : ""
+    /** Its events on the event layer ("Event 3: name"), else empty */
+    readonly property string hoverEvents: editor ? editor.hoverEvents : ""
     /** The zoom a map opens at, as the map tabs (RPG Maker's 1/2) */
     property real defaultScale: 2
     /** Past an edge by less than this, a drag scrolls the view */

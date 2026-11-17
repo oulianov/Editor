@@ -14,8 +14,8 @@ import org.easyrpg.editor as Ez
  *
  * In other games it is RPG Maker's window: radio buttons, the values of the
  * one checked enabled, the targets of the Maniac Patch greyed with their
- * tag (its operations and operands, too many for radio buttons, are not
- * offered there). With the Maniac Patch (in its games, or for a command
+ * tag (its operations and operands, too many for radio buttons, listed
+ * greyed below them). With the Maniac Patch (in its games, or for a command
  * using it): ranges through variables and expressions as targets, bit
  * operations, and more operands (party members, switches, functions,
  * expressions) chosen in lists, whose values can come from variables (their
@@ -55,6 +55,43 @@ ColumnLayout {
                                         { value: 1, text: qsTranslate("ManiacCommandWidget", "Variable") },
                                         { value: 2, text: qsTranslate("ManiacCommandWidget", "Variable pointer") }]
     readonly property var switchModes: [{ value: 0, text: qsTr("Switch") }, { value: 1, text: qsTr("Switch of variable") }]
+
+    /** The operations by value: RPG Maker's, then the Maniac Patch's (from 6) */
+    readonly property var operationNames: [qsTr("Set equal"), qsTr("Add"), qsTr("Subtract"), qsTr("Multiply"), qsTr("Divide"),
+                                           qsTr("Modulus"), qsTr("Bitwise OR"), qsTr("Bitwise AND"), qsTr("Bitwise XOR"),
+                                           qsTr("Shift left"), qsTr("Shift right")]
+    /** The operands by value: RPG Maker's (Monster: 2003's), then the Maniac Patch's (from 9) */
+    readonly property var operandNames: [qsTr("Number"), qsTr("Value of variable"), qsTr("Value stored in index"), qsTr("Random number"),
+                                         qsTr("Item"), qsTr("Hero"), qsTr("Sprite"), qsTr("Other"), qsTr("Monster"), qsTr("Party member"),
+                                         qsTr("Switch (0 or 1)"), qsTr("Power"), qsTr("Square root"), qsTr("Sine"), qsTr("Cosine"),
+                                         qsTr("Arc tangent (atan2)"), qsTr("Minimum"), qsTr("Maximum"), qsTr("Absolute value"),
+                                         qsTr("Binary operation"), qsTr("Comparison (ternary)"), qsTr("Expression"),
+                                         qsTr("Linear interpolation"), qsTr("Sum of variables"), qsTr("Minimum of variables"),
+                                         qsTr("Maximum of variables")]
+    function operationOrigin(value) {
+        return value >= 6 ? "maniac" : ""
+    }
+    function operandOrigin(value) {
+        return value >= 9 ? "maniac" : value === 8 ? "rpg2003" : ""
+    }
+    /**
+     * The entries of a list of names by value, from first: each with its
+     * origin (Ez.Origins), greyed with what it needs when the game does not
+     * run it, left out as the Editor Settings say unless it is current's
+     */
+    function choices(names, originOf, current, first) {
+        const entries = []
+        for (let value = first; value < names.length; ++value) {
+            const origin = originOf(value)
+            if (value !== current && !Ez.Origins.shown(origin)) {
+                continue
+            }
+            const available = Ez.Origins.available(origin)
+            entries.push({ value: value, text: names[value], origin: origin, enabled: available,
+                           why: available ? "" : Ez.Origins.need(origin) })
+        }
+        return entries
+    }
 
     /**
      * The rows of the operands of the Maniac Patch, as EasyRPG Player reads
@@ -266,6 +303,40 @@ ColumnLayout {
             Layout.fillHeight: false
         }
     }
+    // there, the operations and operands of the Maniac Patch (too many for
+    // radio buttons): listed greyed, with what they need, or hidden as the
+    // Editor Settings say. Its games (or a command using them) open the lists
+    // below; with the patch turned on while the window is open, once opened again
+    Ez.Section {
+        objectName: "groupManiacOperations"
+        title: qsTranslate("Origins", "Maniac Patch")
+        origin: "maniac"
+        visible: !root.showManiac && Ez.Origins.shown("maniac")
+        enabled: false
+        Layout.fillWidth: true
+        Ez.Form {
+            Ez.FormLabel {
+                text: qsTr("Operation")
+            }
+            Ez.ComboBox {
+                objectName: "maniacOperations"
+                model: root.operationNames.slice(6)
+                textRole: ""
+                valueRole: ""
+                Layout.fillWidth: true
+            }
+            Ez.FormLabel {
+                text: qsTr("Operand")
+            }
+            Ez.ComboBox {
+                objectName: "maniacOperands"
+                model: root.operandNames.slice(9)
+                textRole: ""
+                valueRole: ""
+                Layout.fillWidth: true
+            }
+        }
+    }
 
     // the Maniac Patch: too many choices for radio buttons; the rows of the operand chosen are shown
     Loader {
@@ -285,11 +356,11 @@ ColumnLayout {
                         jsonData: root.session
                         key: "/parameters/3"
                         enabledRole: "enabled"
+                        toolTipRole: "why"
+                        originRole: "origin"
                         Layout.fillWidth: true
-                        model: [qsTr("Set equal"), qsTr("Add"), qsTr("Subtract"), qsTr("Multiply"), qsTr("Divide"),
-                                qsTr("Modulus"), qsTr("Bitwise OR"), qsTr("Bitwise AND"), qsTr("Bitwise XOR"),
-                                qsTr("Shift left"), qsTr("Shift right")]
-                               .map((text, value) => ({ value: value, text: text, enabled: value < 6 || root.session.maniac }))
+                        model: root.choices(root.operationNames, root.operationOrigin,
+                                            root.revision < 0 ? 0 : root.session.read("operation"), 0)
                     }
                 }
             }
@@ -304,15 +375,10 @@ ColumnLayout {
                         jsonData: root.session
                         key: "/parameters/4"
                         enabledRole: "enabled"
+                        toolTipRole: "why"
+                        originRole: "origin"
                         Layout.fillWidth: true
-                        model: [qsTr("Number"), qsTr("Value of variable"), qsTr("Value stored in index"), qsTr("Random number"),
-                                qsTr("Item"), qsTr("Hero"), qsTr("Sprite"), qsTr("Other"), qsTr("Monster"), qsTr("Party member"),
-                                qsTr("Switch (0 or 1)"), qsTr("Power"), qsTr("Square root"), qsTr("Sine"), qsTr("Cosine"),
-                                qsTr("Arc tangent (atan2)"), qsTr("Minimum"), qsTr("Maximum"), qsTr("Absolute value"),
-                                qsTr("Binary operation"), qsTr("Comparison (ternary)"), qsTr("Expression"),
-                                qsTr("Linear interpolation"), qsTr("Sum of variables"), qsTr("Minimum of variables"),
-                                qsTr("Maximum of variables")]
-                               .map((text, value) => ({ value: value, text: text, enabled: value < 9 || root.session.maniac }))
+                        model: root.choices(root.operandNames, root.operandOrigin, root.operand, 0)
                     }
                     Repeater {
                         model: root.maniacRows

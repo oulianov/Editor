@@ -9,12 +9,11 @@ import QtQuick.Controls as Controls
 import org.easyrpg.editor as Ez
 
 /**
- * The status bar of the main window, as RPG Maker's: the hint of the action
- * hovered (else a note of the project, a file another program changed...),
- * then the edit mode and the tool, the map shown and the cell under the
- * pointer, each named for the scripts. At its end, the profile of the game
- * (Ez.GameProfile: its engine and its add-ons, profileChips): a click on a
- * chip opens Project Settings where it changes.
+ * The status bar of the main window: the hint of the action hovered (else a
+ * note of the project, a file another program changed...), then the events
+ * of the cell under the pointer, the map shown and the cell, each named for
+ * the scripts. The cell is in a monospaced font, as wide as the widest
+ * ("(499, 499)"), so that nothing moves with the pointer.
  */
 Controls.ToolBar {
     id: root
@@ -22,8 +21,10 @@ Controls.ToolBar {
     required property Ez.Shell shell
     /** The hint of the action hovered, empty for none */
     property string hint
-    /** The cell under the pointer and its events */
+    /** The cell under the pointer, "(x, y)" */
     property string cellText
+    /** Its events on the event layer ("Event 3: name"), else empty */
+    property string cellEvents
 
     objectName: "statusBar"
     position: Controls.ToolBar.Footer
@@ -42,9 +43,11 @@ Controls.ToolBar {
             Layout.fillWidth: true
         }
         Ez.Label {
-            objectName: "labelEditMode"
-            text: root.shell ? root.shell.controller.editModeText : ""
+            objectName: "labelCellEvents"
+            text: root.shell && root.shell.currentEditor ? root.cellEvents : ""
             visible: text !== ""
+            elide: Text.ElideRight
+            Layout.maximumWidth: root.width / 3
         }
         Ez.Label {
             objectName: "labelMapName"
@@ -55,15 +58,13 @@ Controls.ToolBar {
             objectName: "labelCell"
             text: root.shell && root.shell.currentEditor ? root.cellText : ""
             visible: text !== ""
-        }
-        // the add-ons by their tag alone when their names take too much room
-        Ez.ProfileChips {
-            objectName: "profileChips"
-            visible: chips.length > 0
-            chips: Ez.GameProfile.chips
-            room: root.availableWidth * 0.4
-            clickable: root.shell !== null
-            onClicked: page => root.shell.showProjectSettings(page)
+            font: Ez.Metrics.monospaceFont
+            Layout.minimumWidth: cellMetrics.advanceWidth
+            TextMetrics {
+                id: cellMetrics
+                font: Ez.Metrics.monospaceFont
+                text: "(000, 000)"
+            }
         }
     }
 }

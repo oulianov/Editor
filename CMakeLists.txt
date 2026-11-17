@@ -242,8 +242,6 @@ set(EDITOR_SOURCES
 	src/model/game_profile.h
 	src/model/game_setup.cpp
 	src/model/game_setup.h
-	src/model/player_options.cpp
-	src/model/player_options.h
 	src/model/project_convert.cpp
 	src/model/project_convert.h
 	src/model/project.cpp

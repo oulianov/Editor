@@ -769,11 +769,6 @@ void QmlShell::setStatusMessage(const QString& text, int timeout)
  * The actions
  */
 
-void QmlShell::showProjectSettings(const QString& page)
-{
-	projectSettings(QString(), page);
-}
-
 void QmlShell::projectSettings(const QString& soundfont, const QString& page)
 {
 	auto project = core().project();

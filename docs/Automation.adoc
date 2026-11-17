@@ -104,6 +104,7 @@ at once: the next commands act on the dialog, until `close`.
 | `expect-not NAME TEXT` | Fails if the control shows the text.
 | `set-control NAME VALUE` | Sets a control: index of a combo box, number of a spin box, `on`/`off` for a check box, radio button or checkable section, text of a field, value of a slider.
 | `expect-enabled NAME on\|off` | Fails unless the control (by object name or button text) or action (by object name or text; those of the pop-up menu shown first) is enabled (`on`) or disabled (`off`).
+| `expect-visible NAME on\|off` | Fails unless the control (by object name or button text) is shown (`on`: visible with its parents, not of zero size) or not (`off`: hidden, of zero size such as a tab hidden by its width, or not there, such as a command left out of the palette).
 | `expect-checked NAME on\|off` | Fails unless the check box, radio button or menu option (object name or text) is checked (`on`) or not (`off`).
 | `expect-option-enabled NAME INDEX on\|off` | The same for one item of a combo box.
 | `inspect-controls FILE` | Writes the controls and group boxes of the dialog to a JSON file: values, choices, enabled states, position and widths (to find what makes a window too wide).
@@ -183,7 +184,7 @@ or one opened by `qml-open`, else the main window): `click`, `double-click`,
 `press`, `release`, `hover`, `expect-menu`, `click-item`, `double-click-item`, `context-menu`, `type`, `key`, `focus`,
 `set-control`, `tab`, `expect-tab`, `menu`, `action` (its
 `Controls.Action`s, those of the page shown first), `expect`, `expect-not`,
-`expect-checked`, `expect-enabled`, `set-enabled`, `inspect-controls`, `check-layout`, `check-disabled`,
+`expect-checked`, `expect-enabled`, `expect-visible`, `set-enabled`, `inspect-controls`, `check-layout`, `check-disabled`,
 `check-option-spacing`, `resize`, `screenshot`, `screenshot-menu` (a menu or
 pop-up shown in it), `select-command` (the command list shown),
 `view-click`, `view-drag`, `view-press`, `view-release` and `view-wheel` (a point of an item, in its own coordinates)
@@ -242,18 +243,18 @@ in their tooltips), `labelEngine`, `pushConvert`, `labelRuntime` and
 `comboPlayerEngine` (0: Detect, which shows the engine found, then
 `rpg2k`, `rpg2kv150`, `rpg2ke`, `rpg2k3`, `rpg2k3v105`, `rpg2k3e`; written
 in `[Game] Engine` of EasyRPG.ini, Detect removes it),
-`patchRPG2k3Commands` (2000 games), `comboBattleSystem` (2003 games: 0
-RPG Maker 2003, 1 RPG Maker 2000), `comboExperienceCurve` (0 the
-engine's, 1 RPG Maker 2000's, 2 RPG Maker 2003's), `patchEasyRPG`; then
+`patchRPG2k3Commands` (2000 games), `patchEasyRPG`; then
 `comboPatchMode` (0 Detect, 1 Choose, 2 As written) and a box per other
 patch (`patchDynRPG`...). The patch boxes share the mode: one checked
-while detected chooses them all, from what is detected; as written, they
-are disabled. The battle system and the experience curve are saved in the
-database with a copy in the `[EasyRPG Editor]` section of EasyRPG.ini
-(`UseRpg2kBattleSystem`, `AlternativeExp`); a project opened whose
-database lost them (`edit-database-file system/easyrpg_alternative_exp 0`,
-as RPG Maker saves it) asks to write them back (`messageText`, `click Yes`
-or `click No`, which removes them from the copy).
+while detected or as written chooses them all, from what is detected or
+written (the other keys of `[Patch]` stay); the grid is enabled in Choose.
+The options of the database only EasyRPG Player reads are on the System
+page of the database (`tab tabOld_Pages 14`), section `groupEasyRpgPlayer`:
+`comboBattleSystem` (2003 games: RPG Maker 2003, RPG Maker 2000; choosing
+writes `easyrpg_use_rpg2k_battle_commands` the same, and
+`easyrpg_battle_use_rpg2ke_strings` in a database of version 1),
+`checkRpg2kBattleCommands`, `comboExperienceCurve` (the engine's, RPG
+Maker 2000's, RPG Maker 2003's: `easyrpg_alternative_exp` 0, 1, 2).
 
 OK with an add-on turned off that the game uses (`patchManiac off`,
 `patchEasyRPG`, `patchRPG2k3Commands`, `patchDynRPG`, `patchKeyPatch`,
@@ -264,18 +265,12 @@ its places in `listPlaces`; `click Keep It Off` (`Keep Them Off` for
 several) writes the settings, `click Go Back` returns to Project Settings
 as it was. The log lists the uses (`add-ons turned off:`).
 
-The profile of the game open is at the end of the status bar
-(`profileChips`, its text all the chips joined by commas: `RPG Maker 2003,
-Maniac Patch`), following `log-game`: a chip per part, `chipEngine` (the
-format), then `chipManiac`, `chipEasyrpg`, `chipCommands2k3`,
-`chipBattle2k`, `chipAlternativeExp`, `chipPlayerEngine` (`[Game] Engine`)
-and a chip per patch on (`chipDynRPG`, `chipKeyPatch`,
-`chipPowerMode2003`, `chipCommonThisEvent`, `chipPicUnlock`); `click
-chipManiac` opens Project Settings on its page (Engine for the format and
-the Maniac Patch, EasyRPG Player for the others). Open Project
-(`OpenProjectDialog`: `tableProjects`, `lineProjectPath`) shows the same
-for each game in its third column (`Folder | Game Title | RPG Maker 2003,
-Maniac Patch`). Export Game warns in `labelRuntimeWarning` when the
+Open Project (`OpenProjectDialog`: `tableProjects`, `lineProjectPath`)
+shows the profile of each game in its third column (`Folder | Game Title |
+RPG Maker 2003, Maniac Patch`): its format, then the add-ons it turns on
+(the Maniac Patch, the EasyRPG Extensions, RPG Maker 2003's commands, the
+battles of RPG Maker 2000, an experience curve, the engine told to the
+Player, the patches on). Export Game warns in `labelRuntimeWarning` when the
 Windows platform keeps the game's RPG_RT.exe while the game uses what
 only EasyRPG Player runs.
 
@@ -416,7 +411,7 @@ choosing another one; `pushSetSprite` and its menu: `Character...`,
 `Tile...`, `No Graphic`), `comboCondition`, `comboLayer`, `comboMoveType`,
 `comboMoveFrequency`, `pushMovePattern`, `comboAnimationType`,
 `comboMoveSpeed` and its command list `commands` (the tag of the add-on
-a command uses, at the left of its line N: `originTagN`, its text the
+a command uses, at the right of its line N: `originTagN`, its text the
 letter, `M!` when the game does not run it: `expect originTag3 M!`). A tile is chosen in
 `tileDialog` (`tileView`, 32 pixels a tile: `view-click tileView 40 8`
 picks the second one). The command palette is `EventCommandPalette` (its
@@ -463,7 +458,8 @@ and `pinch map`, as in the main window, and `palette` still picks tiles.
 Its tool bar has the layer, tool, undo and zoom actions of the main window
 (`actionLayerEvents`, `actionUndo`...), its menus the actions of the map's
 (`actionEventNew`...); `expect-enabled` and `expect-shown` read those
-actions. Its status bar shows the cell under the pointer (`labelCell`) and
+actions. Its status bar shows the cell under the pointer (`labelCell`; its
+events, on the event layer: `labelCellEvents`, as in the main window) and
 the last request of the map (`labelRequest`: `new event X,Y`, `edit event
 ID`, `place teleport X,Y`, `start game X,Y`), which only the main window
 answers. The commands of the palette act on the main window's palette too,

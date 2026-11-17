@@ -211,6 +211,7 @@ Kirigami.ApplicationWindow {
         shell: root.shell
         hint: windowActions.hint
         cellText: mapTabs.currentCanvas ? mapTabs.currentCanvas.hoverText : ""
+        cellEvents: mapTabs.currentCanvas ? mapTabs.currentCanvas.hoverEvents : ""
     }
 
     // qmllint disable import unqualified unresolved-type

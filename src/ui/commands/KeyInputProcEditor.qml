@@ -248,7 +248,6 @@ ColumnLayout {
                     rightPadding: horizontalPadding + (mouseTag.width > 0 ? mouseTag.width + Ez.Metrics.columnSpacing : 0)
                     Ez.OriginTag {
                         id: mouseTag
-                        readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
                         objectName: mouseButton.objectName + "Tag"
                         origin: "maniac"
                         warning: mouseButton.checked && !Ez.Origins.available(origin)

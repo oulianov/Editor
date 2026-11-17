@@ -48,7 +48,6 @@ class ShellController : public QObject
 {
 	Q_OBJECT
 	Q_PROPERTY(QString windowTitle READ windowTitle NOTIFY windowTitleChanged)
-	Q_PROPERTY(QString editModeText READ editModeText NOTIFY statusChanged)
 	Q_PROPERTY(QString mapText READ mapText NOTIFY statusChanged)
 	Q_PROPERTY(int selectedMap READ selectedMap WRITE setSelectedMap NOTIFY selectedMapChanged)
 
@@ -116,10 +115,6 @@ public:
 	 *  not run), false goes back to Project Settings; true when it uses
 	 *  none. dynRpg: DynRPG stays on */
 	bool checkTurnedOff(const QStringList& origins, bool dynRpg);
-	/** The options of the database only EasyRPG Player reads that RPG Maker
-	 *  removed when it saved it (PlayerOptions::dropped): asks to write them
-	 *  back from their copy in EasyRPG.ini; No forgets the copy */
-	void restorePlayerOptions();
 
 	/*
 	 * The map tree's actions, on the node selected
@@ -200,8 +195,6 @@ public:
 	void updateActions();
 	/** "EasyRPG Editor - <game title>" */
 	QString windowTitle() const;
-	/** RPG Maker's edit mode and tool ("Lower Layer Editing Mode - Pen Tool") */
-	QString editModeText() const;
 	/** The id and name of the map shown ("0001: name"), empty for none */
 	QString mapText() const;
 

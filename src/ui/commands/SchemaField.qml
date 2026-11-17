@@ -138,7 +138,6 @@ Loader {
             // a mode of the Maniac Patch in a game without it (each value of
             // its games has one: no tag there)
             Ez.OriginTag {
-                readonly property string text: shown ? Ez.Origins.letter(origin) + "!" : ""
                 objectName: root.field.mode + "Tag"
                 origin: root.modeField.origin ?? ""
                 warning: true
@@ -228,7 +227,6 @@ Loader {
             rightPadding: horizontalPadding + (checkTag.width > 0 ? checkTag.width + Ez.Metrics.columnSpacing : 0)
             Ez.OriginTag {
                 id: checkTag
-                readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
                 objectName: root.name + "Tag"
                 origin: root.origin
                 warning: !Ez.Origins.available(origin) && root.bound && root.session.revision >= 0 && root.session.isSet(root.shown.id)
@@ -247,13 +245,14 @@ Loader {
             // the items of an add-on the game does not run greyed, saying what it needs
             enabledRole: "enabled"
             toolTipRole: "why"
+            originRole: "origin"
             model: {
                 // the items kept only while the command has them, those of an
                 // add-on the game does not run hidden unless they are its (Editor Settings)
                 const shown = Number(current.value)
                 const items = root.shown.kind === "CharacterSet" ? root.session.characterSets : root.shown.items
                 return items.filter(item => item.value === shown || (!item.kept && Ez.Origins.shown(item.origin ?? "")))
-                            .map(item => ({ value: item.value, text: root.tr(item.text),
+                            .map(item => ({ value: item.value, text: root.tr(item.text), origin: item.origin ?? "",
                                             enabled: Ez.Origins.available(item.origin ?? ""),
                                             why: Ez.Origins.available(item.origin ?? "") ? "" : Ez.Origins.need(item.origin) }))
             }

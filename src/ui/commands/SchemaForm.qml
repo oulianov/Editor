@@ -277,7 +277,6 @@ ColumnLayout {
                                 rightPadding: labelTag.width > 0 ? labelTag.width + Ez.Metrics.columnSpacing : 0
                                 Ez.OriginTag {
                                     id: labelTag
-                                    readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
                                     objectName: root.nameOf(cell.field.id) + "Tag"
                                     origin: fieldLabel.origin
                                     warning: root.warns(cell.field, fieldLabel.origin)
@@ -307,7 +306,6 @@ ColumnLayout {
                                 rightPadding: horizontalPadding + (optionTag.width > 0 ? optionTag.width + Ez.Metrics.columnSpacing : 0)
                                 Ez.OriginTag {
                                     id: optionTag
-                                    readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
                                     objectName: optionRadio.objectName + "Tag"
                                     origin: optionRadio.origin
                                     warning: optionRadio.checked && !Ez.Origins.available(origin)
@@ -359,7 +357,6 @@ ColumnLayout {
                                         rightPadding: horizontalPadding + (itemTag.width > 0 ? itemTag.width + Ez.Metrics.columnSpacing : 0)
                                         Ez.OriginTag {
                                             id: itemTag
-                                            readonly property string text: shown ? Ez.Origins.letter(origin) + (warning ? "!" : "") : ""
                                             objectName: itemRadio.objectName + "Tag"
                                             origin: itemRadio.origin
                                             warning: itemRadio.checked && !Ez.Origins.available(origin)

@@ -279,12 +279,25 @@ Controls.ApplicationWindow {
                 elide: Text.ElideRight
             }
             Ez.Label {
+                objectName: "labelCellEvents"
+                text: canvas.hoverEvents
+                visible: text !== ""
+            }
+            Ez.Label {
                 objectName: "labelZoom"
                 text: "x" + canvas.zoom
             }
             Ez.Label {
                 objectName: "labelCell"
                 text: canvas.hoverText
+                // the same width wherever the pointer is
+                font: Ez.Metrics.monospaceFont
+                Layout.minimumWidth: cellMetrics.advanceWidth
+                TextMetrics {
+                    id: cellMetrics
+                    font: Ez.Metrics.monospaceFont
+                    text: "(000, 000)"
+                }
             }
         }
     }

@@ -1288,6 +1288,19 @@ bool AutomationQuickDriver::run(QQuickWindow* window, const QStringList& args, b
 		}
 		return true;
 	}
+	if (cmd == "expect-visible" && args.size() >= 3) {
+		// shown: visible with its parents and not of zero size (a tab hidden
+		// by its width); a control not there (left out of a list) is not shown
+		const QString name = args.mid(1, args.size() - 2).join(u' ');
+		const bool on = args.last() == QLatin1String("on");
+		QQuickItem* item = findItem(window, name);
+		const bool shown = item && item->isVisible() && item->width() > 0 && item->height() > 0;
+		if (shown != on) {
+			m_fail(QStringLiteral("%1 is %2").arg(name, !item ? QStringLiteral("not there") : shown ? QStringLiteral("shown") : QStringLiteral("hidden")));
+			return false;
+		}
+		return true;
+	}
 	if ((cmd == "expect" || cmd == "expect-not") && args.size() >= 3) {
 		// the window itself (its objectName): its title
 		const bool title = !window->objectName().isEmpty() && args[1] == window->objectName();

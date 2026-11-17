@@ -6,13 +6,15 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls as Controls
 import org.easyrpg.editor as Ez
 
 /**
  * The System page of the database, in RPG Maker 2003's three columns: the
  * graphics of the vehicles, the title, game over and system, the text
  * font and the starting party; the music of the game and its screen
- * transitions; its sound effects. Each file has a "..." button opening its
+ * transitions; its sound effects, then the options only EasyRPG Player reads
+ * (its battle system, experience curve). Each file has a "..." button opening its
  * picker (a vehicle's: its character in the sheet too).
  */
 DatabaseEntryPage {
@@ -423,6 +425,75 @@ DatabaseEntryPage {
                         }
                     }
                 }
+            }
+            // what only EasyRPG Player reads, RPG_RT.exe ignoring it: options of
+            // the database (System), as the Player reads them
+            Ez.Section {
+                objectName: "groupEasyRpgPlayer"
+                title: qsTr("EasyRPG Player")
+                origin: "player"
+                Ez.Form {
+                    // an RPG Maker 2003 game only: a 2000 game has its own battles
+                    Ez.FormLabel {
+                        text: qsTr("Battle system")
+                        visible: root.rpg2k3
+                    }
+                    Choice {
+                        id: battleSystem
+                        objectName: "comboBattleSystem"
+                        key: "easyrpg_use_rpg2k_battle_system"
+                        visible: root.rpg2k3
+                        model: [{ text: qsTr("RPG Maker 2003"), value: false }, { text: qsTr("RPG Maker 2000"), value: true }]
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("RPG Maker 2000: front view battles, the heroes' commands in one window. "
+                                                    + "RPG_RT.exe keeps the battles of RPG Maker 2003.")
+                        // RPG Maker 2000's battles: its commands with them, and the
+                        // messages of its English versions (%S...) in a database of
+                        // RPG Maker 2003 1.12 (version 1), as the Player converts them
+                        onActivated: {
+                            commandsField.value = currentValue
+                            stringsField.value = currentValue && root.database.num("version") >= 1
+                        }
+                    }
+                    Item {
+                        visible: root.rpg2k3
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: 1
+                    }
+                    Ez.CheckBox {
+                        objectName: "checkRpg2kBattleCommands"
+                        jsonData: root.system
+                        key: "easyrpg_use_rpg2k_battle_commands"
+                        text: qsTr("Party commands (Fight, Auto, Escape)")
+                        visible: root.rpg2k3
+                        enabled: battleSystem.currentValue === true
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("RPG Maker 2000's battle commands. Off: the heroes' commands of RPG Maker 2003.")
+                    }
+                    Ez.FormLabel {
+                        text: qsTr("Experience curve")
+                    }
+                    Choice {
+                        objectName: "comboExperienceCurve"
+                        key: "easyrpg_alternative_exp"
+                        model: [{ text: qsTr("The engine's"), value: 0 },
+                                { text: qsTr("RPG Maker 2000's"), value: 1 },
+                                { text: qsTr("RPG Maker 2003's"), value: 2 }]
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("The formula of the experience the heroes need for each level. "
+                                                    + "RPG_RT.exe keeps its engine's.")
+                    }
+                }
+            }
+            Ez.JsonField {
+                id: commandsField
+                source: root.system
+                path: "easyrpg_use_rpg2k_battle_commands"
+            }
+            Ez.JsonField {
+                id: stringsField
+                source: root.system
+                path: "easyrpg_battle_use_rpg2ke_strings"
             }
         }
     }

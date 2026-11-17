@@ -59,6 +59,7 @@ class MapEditor : public QObject
 	Q_PROPERTY(Cursor cursor READ cursor NOTIFY cursorChanged)
 	Q_PROPERTY(bool dragging READ isDragging NOTIFY draggingChanged)
 	Q_PROPERTY(QString hoverText READ hoverText NOTIFY cellHovered)
+	Q_PROPERTY(QString hoverEvents READ hoverEvents NOTIFY cellHovered)
 	Q_PROPERTY(qreal scale READ scale WRITE setScale NOTIFY scaleChanged)
 	Q_PROPERTY(qreal devicePixelRatio READ devicePixelRatio WRITE setDevicePixelRatio NOTIFY devicePixelRatioChanged)
 	Q_PROPERTY(QRectF viewCells READ viewCells WRITE setViewCells NOTIFY viewCellsChanged)
@@ -167,8 +168,11 @@ public:
 	 *  view scrolls when the pointer goes past its edges) */
 	bool isDragging() const;
 	/** The cell under the pointer (or the one the arrow keys selected on
-	 *  the event layer, since), and its events on the event layer */
+	 *  the event layer, since): "(x, y)" */
 	QString hoverText() const;
+	/** The events on that cell on the event layer ("Event 3: name"), else
+	 *  empty */
+	QString hoverEvents() const;
 
 	/** The zoom, 0 until set */
 	qreal scale() const;
@@ -404,6 +408,7 @@ private:
 	QPoint m_floatGrab;
 	bool m_floatDragging = false;
 	QString m_hoverText;
+	QString m_hoverEvents;
 	Cursor m_cursor = ArrowCursor;
 	bool m_dragging = false;
 	qreal m_scale = 0;
