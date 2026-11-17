@@ -394,7 +394,7 @@ QString EditorSettings::defaultScriptEditor() { return QStringLiteral("vscode://
 QString EditorSettings::scriptEditor() const { return value(kScriptEditorKey, defaultScriptEditor()).toString(); }
 void EditorSettings::setScriptEditor(const QString& editor) { setValue(kScriptEditorKey, editor); }
 
-bool EditorSettings::reloadExternalChanges() const { return value(RELOAD_EXTERNAL_KEY, false).toBool(); }
+bool EditorSettings::reloadExternalChanges() const { return value(RELOAD_EXTERNAL_KEY, true).toBool(); }
 void EditorSettings::setReloadExternalChanges(bool on) { setValue(RELOAD_EXTERNAL_KEY, on); }
 
 bool EditorSettings::animateTiles() const { return value(ANIMATE_TILES_KEY, true).toBool(); }

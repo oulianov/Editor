@@ -100,7 +100,7 @@ public:
 	void setScriptEditor(const QString& editor);
 	static QString defaultScriptEditor();
 
-	/** Read again the files that other programs change in the project (off by default) */
+	/** Read again the files that other programs change in the project (on by default) */
 	bool reloadExternalChanges() const;
 	void setReloadExternalChanges(bool on);
 
