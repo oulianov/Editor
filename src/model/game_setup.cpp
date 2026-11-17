@@ -71,6 +71,10 @@ bool GameSetup::commands2k3() const {
 	return state().commands2k3;
 }
 
+bool GameSetup::commands2k3e() const {
+	return state().commands2k3e;
+}
+
 bool GameSetup::maniac() const {
 	return state().maniac;
 }
@@ -154,6 +158,7 @@ QVariantMap GameSetup::values() const {
 		{QStringLiteral("rpg2k3"), now.rpg2k3},
 		{QStringLiteral("engine"), now.rpg2k3 ? 2003 : 2000},
 		{QStringLiteral("commands2k3"), now.commands2k3},
+		{QStringLiteral("commands2k3e"), now.commands2k3e},
 		{QStringLiteral("maniac"), now.maniac},
 		{QStringLiteral("easyrpg"), now.easyrpg},
 		{QStringLiteral("battle2k"), now.battle2k},
@@ -185,7 +190,14 @@ void GameSetup::update(bool queued) {
 		next.easyrpg = patches.value(QStringLiteral("EasyRPG")) > 0;
 		next.battle2k = !next.rpg2k3 || system.easyrpg_use_rpg2k_battle_system;
 		next.alternativeExp = system.easyrpg_alternative_exp;
-		next.playerEngine = RpgRtExe::settingOf(GamePatches::engineSet(*project));
+		const int engineSet = GamePatches::engineSet(*project);
+		next.playerEngine = RpgRtExe::settingOf(engineSet);
+		// Player::IsRPG2k3ECommands: the engine told, else the one it finds
+		const int engine = engineSet != RpgRtExe::EngineNone ? engineSet
+			: GamePatches::detectEngine(*project, system.ldb_id, project->database().version);
+		const int english2k3 = RpgRtExe::EngineRpg2k3 | RpgRtExe::EngineEnglish;
+		next.commands2k3e = (engine & english2k3) == english2k3 || patches.value(QStringLiteral("RPG2k3Commands")) > 0
+			|| next.maniac;
 		next.patches = patches;
 		// what RPG_RT.exe ignores, and what runs the game then
 		next.playerOnly = playerOnlyOf(next.rpg2k3, next.commands2k3, next.battle2k, next.alternativeExp, next.easyrpg,
@@ -213,6 +225,7 @@ void GameSetup::emitChanges(const State& before, const State& after) {
 	tell(before.open != after.open, [this] { emit openChanged(); });
 	tell(before.rpg2k3 != after.rpg2k3, [this] { emit rpg2k3Changed(); });
 	tell(before.commands2k3 != after.commands2k3, [this] { emit commands2k3Changed(); });
+	tell(before.commands2k3e != after.commands2k3e, [this] { emit commands2k3eChanged(); });
 	tell(before.maniac != after.maniac, [this] { emit maniacChanged(); });
 	tell(before.easyrpg != after.easyrpg, [this] { emit easyrpgChanged(); });
 	tell(before.battle2k != after.battle2k, [this] { emit battle2kChanged(); });

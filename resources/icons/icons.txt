@@ -17,6 +17,7 @@ zoom-in: zoom-in
 zoom-reset: zoom-original
 
 palette: draw-brush
+image: an empty picture's hint (Ez.PickHint), drawn for the Editor after image-x-generic
 tree: view-list-tree
 audio: folder-sound
 

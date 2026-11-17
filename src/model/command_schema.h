@@ -192,6 +192,10 @@ namespace CommandSchema {
 		 *  in RPG Maker 2000 games, even with the patch RPG2k3Commands
 		 *  (GameSetup::rpg2k3) */
 		Engine2003 = 1 << 18,
+		/** RPG Maker 2003 1.10 and later's commands and options (the Steam
+		 *  version, 1.12: the variables and spritesheets of the pictures...):
+		 *  disabled in the games that do not run them (GameSetup::commands2k3e) */
+		Rpg2003E = 1 << 19,
 	};
 	Q_DECLARE_FLAGS(Flags, Flag)
 	Q_FLAG_NS(Flags)
@@ -199,7 +203,7 @@ namespace CommandSchema {
 	struct Item {
 		int value = 0;
 		Label text;
-		/** Rpg2003, Maniac, Kept */
+		/** Rpg2003, Rpg2003E, Maniac, Kept */
 		Flags flags;
 	};
 

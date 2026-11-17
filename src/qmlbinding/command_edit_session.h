@@ -235,6 +235,8 @@ public:
 	}
 	int eventMap() const;
 	bool commands2k3() const;
+	/** RPG Maker 2003 1.10 and later's commands and options run (GameSetup::commands2k3e) */
+	bool commands2k3e() const;
 	bool maniac() const;
 	QVariantList maps() const;
 	QVariantList events() const {

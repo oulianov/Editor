@@ -49,6 +49,8 @@ QString CommandOrigin::ofFlags(CommandSchema::Flags flags) {
 		return QStringLiteral("easyrpg");
 	if (flags & Flag::Engine2003)
 		return QStringLiteral("engine2003");
+	if (flags & Flag::Rpg2003E)
+		return QStringLiteral("rpg2003e");
 	if (flags & Flag::Rpg2003)
 		return QStringLiteral("rpg2003");
 	return QString();
@@ -56,20 +58,22 @@ QString CommandOrigin::ofFlags(CommandSchema::Flags flags) {
 
 QString CommandOrigin::ofCode(Code code) {
 	switch (code) {
-		// RPG Maker 2003's commands (its battles, its classes; those without
-		// settings of its versions 1.10 and later): EasyRPG Player runs them
-		// in a 2000 game with RPG2k3Commands
+		// RPG Maker 2003's commands (its battles, its classes): EasyRPG
+		// Player runs them in a 2000 game with RPG2k3Commands
 		case Code::CallCommonEvent:
 		case Code::ForceFlee:
 		case Code::EnableCombo:
 		case Code::ChangeClass:
 		case Code::ChangeBattleCommands:
+			return QStringLiteral("rpg2003");
+		// those of its versions 1.10 and later, without settings
+		// (Player::IsRPG2k3ECommands)
 		case Code::OpenLoadMenu:
 		case Code::ExitGame:
 		case Code::ToggleAtbMode:
 		case Code::ToggleFullscreen:
 		case Code::OpenVideoOptions:
-			return QStringLiteral("rpg2003");
+			return QStringLiteral("rpg2003e");
 		default:
 			break;
 	}
@@ -134,6 +138,8 @@ bool CommandOrigin::available(const QString& origin) {
 	const GameSetup& game = GameSetup::instance();
 	if (origin == QLatin1String("rpg2003"))
 		return game.commands2k3();
+	if (origin == QLatin1String("rpg2003e"))
+		return game.commands2k3e();
 	if (origin == QLatin1String("engine2003"))
 		return game.rpg2k3();
 	if (origin == QLatin1String("maniac"))
@@ -153,7 +159,8 @@ bool CommandOrigin::tagged(const QString& origin) {
 		return false;
 	if (origin == QLatin1String("rpg2003"))
 		return !GameSetup::instance().rpg2k3();
-	static const QStringList all = {QStringLiteral("maniac"), QStringLiteral("easyrpg"), QStringLiteral("player"),
+	// the version of RPG Maker 2003 a command needs: tagged as the add-ons
+	static const QStringList all = {QStringLiteral("rpg2003e"), QStringLiteral("maniac"), QStringLiteral("easyrpg"), QStringLiteral("player"),
 		QStringLiteral("dynrpg"), QStringLiteral("keypatch"), QStringLiteral("powermode")};
 	return all.contains(origin);
 }

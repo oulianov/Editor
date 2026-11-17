@@ -202,6 +202,24 @@ ColumnLayout {
                                          : modelData.rows.some(row => root.session.isShown(row.field.id))
 
             readonly property bool isSection: true
+            /** The add-on all its fields come from: its tag on its title, none on them ("" for none, or several) */
+            readonly property string origin: {
+                if (title === "") {
+                    return ""
+                }
+                const fields = []
+                for (const row of modelData.rows) {
+                    fields.push(row.field, ...(row.inline ?? []))
+                    for (const option of row.options ?? []) {
+                        fields.push(...option.inline)
+                    }
+                }
+                const origins = fields.map(field => field.origin ?? "")
+                return origins.length > 0 && origins.every(one => one === origins[0]) ? origins[0] : ""
+            }
+            /** The command has a value of that add-on, and the game does not run it */
+            readonly property bool originWarning: origin !== "" && root.session.revision >= 0 && !Ez.Origins.available(origin)
+                                                  && modelData.rows.some(row => root.session.isSet(row.field.id))
 
             visible: shown
             spacing: 0
@@ -214,6 +232,8 @@ ColumnLayout {
                 id: box
                 visible: section.title !== ""
                 title: section.title
+                origin: section.origin
+                originWarning: section.originWarning
             }
 
             RowLayout {
@@ -278,7 +298,7 @@ ColumnLayout {
                                 Ez.OriginTag {
                                     id: labelTag
                                     objectName: root.nameOf(cell.field.id) + "Tag"
-                                    origin: fieldLabel.origin
+                                    origin: fieldLabel.origin === section.origin ? "" : fieldLabel.origin
                                     warning: root.warns(cell.field, fieldLabel.origin)
                                     x: fieldLabel.leftPadding + fieldLabel.contentWidth + Ez.Metrics.columnSpacing
                                     anchors.verticalCenter: parent.verticalCenter
@@ -307,7 +327,7 @@ ColumnLayout {
                                 Ez.OriginTag {
                                     id: optionTag
                                     objectName: optionRadio.objectName + "Tag"
-                                    origin: optionRadio.origin
+                                    origin: optionRadio.origin === section.origin ? "" : optionRadio.origin
                                     warning: optionRadio.checked && !Ez.Origins.available(origin)
                                     x: optionRadio.leftPadding + optionRadio.contentItem.implicitWidth + Ez.Metrics.columnSpacing
                                     anchors.verticalCenter: parent.verticalCenter
@@ -358,7 +378,7 @@ ColumnLayout {
                                         Ez.OriginTag {
                                             id: itemTag
                                             objectName: itemRadio.objectName + "Tag"
-                                            origin: itemRadio.origin
+                                            origin: itemRadio.origin === section.origin ? "" : itemRadio.origin
                                             warning: itemRadio.checked && !Ez.Origins.available(origin)
                                             x: itemRadio.leftPadding + itemRadio.contentItem.implicitWidth + Ez.Metrics.columnSpacing
                                             anchors.verticalCenter: parent.verticalCenter
@@ -378,6 +398,7 @@ ColumnLayout {
                                         field: modelData
                                         name: root.nameOf(modelData.id)
                                         bound: fieldVisible
+                                        tagShown: section.origin === "" || (modelData.origin ?? "") !== section.origin
                                         visible: fieldVisible && root.session.originShown(modelData.id)
                                         enabled: cell.revision < 0 ? false : fieldVisible && root.session.isEnabled(modelData.id)
                                     }
@@ -402,6 +423,7 @@ ColumnLayout {
                                         field: modelData
                                         name: root.nameOf(modelData.id)
                                         bound: fieldVisible
+                                        tagShown: section.origin === "" || (modelData.origin ?? "") !== section.origin
                                         // the first is the row's (its cell shows and greys it); the
                                         // next ones: the value of a mode, hidden when another mode
                                         // shows its own in its place, greyed on the line of its radio

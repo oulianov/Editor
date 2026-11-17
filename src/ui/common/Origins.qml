@@ -19,6 +19,10 @@ import org.easyrpg.editor as Ez
  * - "rpg2003": an option of RPG Maker 2003's commands. Part of a 2003 game
  *   (no tag); in a 2000 game, EasyRPG Player runs it with its RPG Maker 2003
  *   commands (tag E).
+ * - "rpg2003e": a command or an option of RPG Maker 2003 1.10 and later
+ *   (the Steam version, 1.12: tag 1.12), as the add-ons: what the version
+ *   of RPG_RT.exe of the game runs, the Maniac Patch's, and EasyRPG Player
+ *   told to run the game as that version.
  * - "maniac": the Maniac Patch (tag M).
  * - "easyrpg": EasyRPG Player's extensions (tag E): its own commands, true
  *   color images...
@@ -32,13 +36,14 @@ import org.easyrpg.editor as Ez
  *   pictures...): not in a 2000 game, even with RPG Maker 2003's commands,
  *   until it is converted. No tag: greyed, with its tooltip.
  *
- * A tag is relative to the game: what its engine runs has none.
+ * A tag is relative to the game: what its engine runs has none (but the
+ * version 1.12 of RPG Maker 2003).
  */
 QtObject {
     id: root
 
     /** The origins, in the order of the tags */
-    readonly property var all: ["rpg2003", "maniac", "easyrpg", "player", "dynrpg", "keypatch", "powermode"]
+    readonly property var all: ["rpg2003", "rpg2003e", "maniac", "easyrpg", "player", "dynrpg", "keypatch", "powermode"]
 
     /** The dark colors of the theme */
     readonly property bool dark: Kirigami.Theme.backgroundColor.hslLightness < 0.5
@@ -57,6 +62,7 @@ QtObject {
     function available(origin) {
         switch (origin) {
         case "rpg2003": return Ez.Game.commands2k3
+        case "rpg2003e": return Ez.Game.commands2k3e
         case "engine2003": return Ez.Game.rpg2k3
         case "maniac": return Ez.Game.maniac
         case "easyrpg": return Ez.Game.easyrpg
@@ -88,9 +94,11 @@ QtObject {
         return unavailableShown || available(origin)
     }
 
-    /** The letter of the tag: M (Maniac Patch), E (EasyRPG Player), P (a patch) */
+    /** The letter of the tag: M (Maniac Patch), E (EasyRPG Player), P (a
+     *  patch); 1.12 for the version of RPG Maker 2003 */
     function letter(origin) {
         switch (origin) {
+        case "rpg2003e": return "1.12"
         case "maniac": return "M"
         case "rpg2003":
         case "easyrpg":
@@ -102,9 +110,11 @@ QtObject {
         return ""
     }
 
-    /** The color of the tag, as the letter: purple, green, orange (lighter in dark themes) */
+    /** The color of the tag, as the letter: purple, green, orange, blue for
+     *  the version (lighter in dark themes) */
     function color(origin) {
         switch (letter(origin)) {
+        case "1.12": return dark ? "#85c1e9" : "#2471a3"
         case "M": return dark ? "#c39bd3" : "#8e44ad"
         case "E": return dark ? "#7dcea0" : "#1e8449"
         case "P": return dark ? "#f5b041" : "#b9770e"
@@ -116,6 +126,7 @@ QtObject {
     function name(origin) {
         switch (origin) {
         case "rpg2003": return qsTr("RPG Maker 2003 commands")
+        case "rpg2003e": return qsTr("RPG Maker 2003 1.12")
         case "engine2003": return qsTr("RPG Maker 2003")
         case "maniac": return qsTr("Maniac Patch")
         case "easyrpg": return qsTr("EasyRPG Extensions")
@@ -131,6 +142,9 @@ QtObject {
     function place(origin) {
         switch (origin) {
         case "rpg2003": return qsTr("Project Settings › EasyRPG Player › RPG Maker 2003 commands")
+        // in a 2000 game: RPG Maker 2003's commands, those of 1.12 too
+        case "rpg2003e": return Ez.Game.rpg2k3 ? qsTr("Project Settings › EasyRPG Player › Engine: RPG Maker 2003 1.10-1.12")
+                                               : place("rpg2003")
         case "engine2003": return qsTr("Project Settings › Engine › Convert to RPG Maker 2003")
         case "maniac": return qsTr("Project Settings › Engine › Maniac Patch")
         case "easyrpg": return qsTr("Project Settings › EasyRPG Player › EasyRPG Extensions")
@@ -145,6 +159,7 @@ QtObject {
     function about(origin) {
         switch (origin) {
         case "rpg2003": return qsTr("An option of RPG Maker 2003: in this RPG Maker 2000 game, only EasyRPG Player runs it")
+        case "rpg2003e": return qsTr("RPG Maker 2003 1.12 (Steam version): runs with its RPG_RT.exe, the Maniac Patch and EasyRPG Player, not with the older versions")
         case "maniac": return qsTr("Maniac Patch: runs with its RPG_RT.exe and with EasyRPG Player")
         case "easyrpg": return qsTr("EasyRPG Extensions: runs with EasyRPG Player only")
         case "player": return qsTr("EasyRPG Player only: RPG_RT.exe ignores it")
@@ -159,6 +174,8 @@ QtObject {
     function need(origin) {
         switch (origin) {
         case "rpg2003": return qsTr("Needs RPG Maker 2003's commands in this RPG Maker 2000 game: %1").arg(place(origin))
+        case "rpg2003e": return Ez.Game.rpg2k3 ? qsTr("Needs RPG Maker 2003 1.12 (Steam version) or the Maniac Patch, this game has an older version: %1").arg(place(origin))
+                                               : need("rpg2003")
         case "engine2003": return qsTr("Needs an RPG Maker 2003 game: %1").arg(place(origin))
         case "maniac": return qsTr("Needs the Maniac Patch: %1").arg(place(origin))
         case "easyrpg": return qsTr("Needs the EasyRPG Extensions: %1").arg(place(origin))
@@ -174,6 +191,8 @@ QtObject {
     function warning(origin) {
         switch (origin) {
         case "rpg2003": return qsTr("Not run in this RPG Maker 2000 game without RPG Maker 2003's commands: %1").arg(place(origin))
+        case "rpg2003e": return Ez.Game.rpg2k3 ? qsTr("Not run with the older version of RPG Maker 2003 of this game, needs 1.12 (Steam version) or the Maniac Patch: %1").arg(place(origin))
+                                               : warning("rpg2003")
         case "engine2003": return qsTr("Not run in an RPG Maker 2000 game: %1").arg(place(origin))
         case "maniac": return qsTr("Not run without the Maniac Patch: %1").arg(place(origin))
         case "easyrpg": return qsTr("Not run without the EasyRPG Extensions: %1").arg(place(origin))

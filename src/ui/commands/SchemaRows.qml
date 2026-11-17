@@ -15,7 +15,8 @@ import org.easyrpg.editor as Ez
  * (hides: false). A check box or a field without a label takes the whole row.
  * A field of an add-on (its origin, Ez.Origins) has its tag after its label
  * (objectName: the field's and "Tag"), a warning one when the command has
- * a value of it and the game does not run it.
+ * a value of it and the game does not run it. Rows all of one add-on
+ * alone in a section: its tag on the section instead (tagged: false).
  *
  *   SchemaRows { session: root.session; ids: ["switch", "switchState"] }
  */
@@ -31,6 +32,25 @@ GridLayout {
     property var names: ({})
     /** A row of a field is shown (besides its rules): a function of the field id */
     property var showRow: null
+    /**
+     * Each row has the tag of its field's add-on; false: the section the
+     * rows are alone in has it instead (origin, warns), the fields all of
+     * that add-on
+     */
+    property bool tagged: true
+    /** The add-on every field comes from: "" for none, or several */
+    readonly property string origin: {
+        const origins = []
+        for (const row of fieldRows) {
+            for (const field of row.fields) {
+                origins.push(field.origin ?? "")
+            }
+        }
+        return origins.length > 0 && origins.every(one => one === origins[0]) ? origins[0] : ""
+    }
+    /** The command has a value of that add-on, and the game does not run it (a warning tag) */
+    readonly property bool warns: origin !== "" && session.revision >= 0 && !Ez.Origins.available(origin)
+                                  && fieldRows.some(row => row.fields.some(field => session.isSet(field.id)))
 
     /** A text of the schema in the language of the interface */
     function tr(text) {
@@ -105,7 +125,7 @@ GridLayout {
             Ez.OriginTag {
                 id: labelTag
                 objectName: (root.names[label.modelData.field.id] ?? label.modelData.field.id) + "Tag"
-                origin: label.origin
+                origin: root.tagged || label.origin !== root.origin ? label.origin : ""
                 warning: !Ez.Origins.available(origin) && label.rowState.revision >= 0
                          && (!label.modelData.field.origin || root.session.isSet(label.modelData.field.id))
                 x: label.leftPadding + label.contentWidth + Ez.Metrics.columnSpacing
@@ -140,6 +160,7 @@ GridLayout {
                     field: modelData
                     name: root.names[modelData.id] ?? modelData.id
                     bound: fieldVisible
+                    tagShown: root.tagged || (modelData.origin ?? "") !== root.origin
                     // the first is the row's; the next ones: hidden when their rules fail
                     visible: (index === 0 || fieldVisible) && (controls.rowState.revision < 0 || root.session.originShown(modelData.id))
                     enabled: controls.rowState.revision < 0 ? false : fieldVisible && root.session.isEnabled(modelData.id)

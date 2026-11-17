@@ -28,6 +28,8 @@
  * origins of Ez.Origins (src/ui/common/Origins.qml):
  * - "rpg2003": RPG Maker 2003's commands and their options (a 2000 game
  *   runs them with the patch RPG2k3Commands, GameSetup::commands2k3);
+ * - "rpg2003e": those of RPG Maker 2003 1.10 and later (the Steam version,
+ *   1.12), GameSetup::commands2k3e;
  * - "engine2003": RPG Maker 2003's engine itself (its battles...), a 2003
  *   game only;
  * - "maniac": the Maniac Patch;
@@ -46,7 +48,7 @@
 namespace CommandOrigin {
 	/** The origin of flags of the schema (of a command, a field, an item), ""
 	 *  for none: Maniac or ManiacOnly "maniac", EasyRpg "easyrpg", Engine2003
-	 *  "engine2003", Rpg2003 "rpg2003" (the first that holds). NotManiac has
+	 *  "engine2003", Rpg2003E "rpg2003e", Rpg2003 "rpg2003" (the first that holds). NotManiac has
 	 *  none: RPG Maker's control of a value */
 	QString ofFlags(CommandSchema::Flags flags);
 	/** The origin of the command itself (its code): "" for RPG Maker's commands of 2000 */

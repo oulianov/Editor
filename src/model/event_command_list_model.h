@@ -159,7 +159,8 @@ public:
 	 */
 
 	/** The lines of a new command: the last one accepted of its kind in the
-	 *  game of project_dir, else the defaults */
+	 *  game of project_dir, else the defaults (always for the commands of
+	 *  text, Show Picture and Move Picture) */
 	static Commands newCommand(const QString& project_dir, Code code, int indent);
 	/** The settings of the command at index: the next new one of its kind starts from them */
 	void rememberCommand(int index, const QString& project_dir) const;

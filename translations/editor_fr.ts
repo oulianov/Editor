@@ -13956,6 +13956,26 @@ Les réécrire dans la base de données ?</translation>
         <source>Not run without %1: %2</source>
         <translation>Pas exécuté sans %1 : %2</translation>
     </message>
+    <message>
+        <source>RPG Maker 2003 1.12</source>
+        <translation>RPG Maker 2003 1.12</translation>
+    </message>
+    <message>
+        <source>Project Settings › EasyRPG Player › Engine: RPG Maker 2003 1.10-1.12</source>
+        <translation>Paramètres du projet › EasyRPG Player › Moteur : RPG Maker 2003 1.10-1.12</translation>
+    </message>
+    <message>
+        <source>RPG Maker 2003 1.12 (Steam version): runs with its RPG_RT.exe, the Maniac Patch and EasyRPG Player, not with the older versions</source>
+        <translation>RPG Maker 2003 1.12 (version Steam) : fonctionne avec son RPG_RT.exe, le Maniac Patch et EasyRPG Player, pas avec les versions plus anciennes</translation>
+    </message>
+    <message>
+        <source>Needs RPG Maker 2003 1.12 (Steam version) or the Maniac Patch, this game has an older version: %1</source>
+        <translation>Demande RPG Maker 2003 1.12 (version Steam) ou le Maniac Patch, ce jeu a une version plus ancienne : %1</translation>
+    </message>
+    <message>
+        <source>Not run with the older version of RPG Maker 2003 of this game, needs 1.12 (Steam version) or the Maniac Patch: %1</source>
+        <translation>Ignoré par la version plus ancienne de RPG Maker 2003 de ce jeu, demande la 1.12 (version Steam) ou le Maniac Patch : %1</translation>
+    </message>
 </context>
 <context>
     <name>OperandWidget</name>
@@ -14740,6 +14760,158 @@ Les réécrire dans la base de données ?</translation>
         <location line="+1"/>
         <source>Affected by the screen shake</source>
         <translation>Affectée par le tremblement de l&apos;écran</translation>
+    </message>
+    <message>
+        <source>Replace the end of the name</source>
+        <translation>Remplacer la fin du nom</translation>
+    </message>
+    <message>
+        <source>Characters</source>
+        <translation>Caractères</translation>
+    </message>
+    <message>
+        <source>Variable</source>
+        <translation>Variable</translation>
+    </message>
+    <message>
+        <source>%1, last %2 characters: V[%3]</source>
+        <translation>%1, %2 derniers caractères : V[%3]</translation>
+    </message>
+    <message>
+        <source>Above the background</source>
+        <translation>Au-dessus du fond</translation>
+    </message>
+    <message>
+        <source>Above the battle animations</source>
+        <translation>Au-dessus des animations de combat</translation>
+    </message>
+    <message>
+        <source>Above the battlers and animations</source>
+        <translation>Au-dessus des combattants et des animations</translation>
+    </message>
+    <message>
+        <source>Above the events above the hero</source>
+        <translation>Au-dessus des évènements au-dessus du héros</translation>
+    </message>
+    <message>
+        <source>Above the events below the hero</source>
+        <translation>Au-dessus des évènements sous le héros</translation>
+    </message>
+    <message>
+        <source>Above the hero</source>
+        <translation>Au-dessus du héros</translation>
+    </message>
+    <message>
+        <source>Above the lower tiles</source>
+        <translation>Au-dessus du niveau inférieur</translation>
+    </message>
+    <message>
+        <source>Above the panorama</source>
+        <translation>Au-dessus du panorama</translation>
+    </message>
+    <message>
+        <source>Above the timers</source>
+        <translation>Au-dessus des chronos</translation>
+    </message>
+    <message>
+        <source>Above the upper tiles</source>
+        <translation>Au-dessus du niveau supérieur</translation>
+    </message>
+    <message>
+        <source>Above the weather effects</source>
+        <translation>Au-dessus des effets météorologiques</translation>
+    </message>
+    <message>
+        <source>Above the windows</source>
+        <translation>Au-dessus des fenêtres</translation>
+    </message>
+    <message>
+        <source>Above the windows and the status</source>
+        <translation>Au-dessus des fenêtres et de l&apos;état</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Avancé</translation>
+    </message>
+    <message>
+        <source>Affected by</source>
+        <translation>Affectée par</translation>
+    </message>
+    <message>
+        <source>Appearance</source>
+        <translation>Apparence</translation>
+    </message>
+    <message>
+        <source>Battle end</source>
+        <translation>Fin du combat</translation>
+    </message>
+    <message>
+        <source>Click to choose the picture</source>
+        <translation>Cliquez pour choisir l&apos;image</translation>
+    </message>
+    <message>
+        <source>Columns</source>
+        <translation>Colonnes</translation>
+    </message>
+    <message>
+        <source>Erase on</source>
+        <translation>Effacée après</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>Fichier</translation>
+    </message>
+    <message>
+        <source>Flash</source>
+        <translation>Flash</translation>
+    </message>
+    <message>
+        <source>Flip</source>
+        <translation>Retourner</translation>
+    </message>
+    <message>
+        <source>Horizontally</source>
+        <translation>Horizontalement</translation>
+    </message>
+    <message>
+        <source>In battle</source>
+        <translation>En combat</translation>
+    </message>
+    <message>
+        <source>Map change</source>
+        <translation>Changement de carte</translation>
+    </message>
+    <message>
+        <source>No picture</source>
+        <translation>Aucune image</translation>
+    </message>
+    <message>
+        <source>Not shown</source>
+        <translation>Non affichée</translation>
+    </message>
+    <message>
+        <source>On the map</source>
+        <translation>Sur la carte</translation>
+    </message>
+    <message>
+        <source>Separate</source>
+        <translation>Séparée</translation>
+    </message>
+    <message>
+        <source>Shake</source>
+        <translation>Tremblement</translation>
+    </message>
+    <message>
+        <source>Tint</source>
+        <translation>Ton de l&apos;écran</translation>
+    </message>
+    <message>
+        <source>Vertically</source>
+        <translation>Verticalement</translation>
+    </message>
+    <message>
+        <source>Width</source>
+        <translation>Largeur</translation>
     </message>
 </context>
 <context>
@@ -22101,6 +22273,13 @@ Enregistrer maintenant remplace ces modifications.</translation>
             <numerusform>%n évènements ignorés</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>(last %n characters: %1)</source>
+        <translation>
+            <numerusform>(dernier caractère : %1)</numerusform>
+            <numerusform>(%n derniers caractères : %1)</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>SwitchOperationsWidget</name>
@@ -24702,6 +24881,13 @@ Enregistrer maintenant remplace ces modifications.</translation>
     <message>
         <source>Cannot move %1 to %2.</source>
         <translation>Impossible de déplacer %1 vers %2.</translation>
+    </message>
+</context>
+<context>
+    <name>PickHint</name>
+    <message>
+        <source>Click to choose a picture</source>
+        <translation>Cliquez pour choisir une image</translation>
     </message>
 </context>
 </TS>

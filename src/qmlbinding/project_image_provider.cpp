@@ -18,7 +18,86 @@
 #include "project_image_provider.h"
 #include "common/image_loader.h"
 
+#include <QTransform>
 #include <QUrlQuery>
+
+#include <algorithm>
+
+namespace {
+
+/** A percentage of a command (100: unchanged) as a tone of the Player (128: unchanged) */
+int toneOf(int percent) {
+	return std::clamp(percent * 128 / 100, 0, 255);
+}
+
+/** The hard light of a tone on a level, the Player's tint of a picture */
+int hardLight(int tone, int level) {
+	return std::clamp(tone <= 128 ? 2 * tone * level / 255 : 255 - 2 * (255 - tone) * (255 - level) / 255, 0, 255);
+}
+
+/** A level of a pixel of luma luma, its saturation scaled (1024: unchanged) */
+int saturated(int level, int luma, int factor) {
+	return std::clamp((luma * 1024 + (level - luma) * factor) >> 10, 0, 255);
+}
+
+/** The numbers of a query item: "100,50" */
+QList<int> numbersOf(const QUrlQuery& query, const QString& key) {
+	QList<int> numbers;
+	for (const QString& one : query.queryItemValue(key).split(u',', Qt::SkipEmptyParts)) {
+		numbers << one.toInt();
+	}
+	return numbers;
+}
+
+/**
+ * What Show Picture does to its picture, as the Player draws it (Bitmap::
+ * ToneBlit, Sprite_Picture): the saturation, then the tint; each half's
+ * opacity (the bottom one: its lower half, rounded down); the flips
+ */
+void applyAppearance(QImage& image, const QUrlQuery& query) {
+	const QList<int> tone = numbersOf(query, QStringLiteral("tone"));
+	const QList<int> opacity = numbersOf(query, QStringLiteral("opacity"));
+	const QString flip = query.queryItemValue(QStringLiteral("flip"));
+	if (tone.size() != 4 && opacity.size() != 2 && flip.isEmpty()) {
+		return;
+	}
+	image = image.convertToFormat(QImage::Format_ARGB32);
+	const int red = tone.size() == 4 ? toneOf(tone[0]) : 128;
+	const int green = tone.size() == 4 ? toneOf(tone[1]) : 128;
+	const int blue = tone.size() == 4 ? toneOf(tone[2]) : 128;
+	const int gray = tone.size() == 4 ? toneOf(tone[3]) : 128;
+	const int factor = gray > 128 ? 1024 + (gray - 128) * 16 : gray * 8;
+	const bool tinted = red != 128 || green != 128 || blue != 128;
+	const int top = opacity.size() == 2 ? std::clamp(opacity[0], 0, 100) : 100;
+	const int bottom = opacity.size() == 2 ? std::clamp(opacity[1], 0, 100) : 100;
+	const int bottomFrom = image.height() - image.height() / 2;
+	for (int y = 0; y < image.height(); ++y) {
+		auto* line = reinterpret_cast<QRgb*>(image.scanLine(y));
+		const int percent = y < bottomFrom ? top : bottom;
+		for (int x = 0; x < image.width(); ++x) {
+			int r = qRed(line[x]);
+			int g = qGreen(line[x]);
+			int b = qBlue(line[x]);
+			if (gray != 128) {
+				const int luma = (7471 * b + 38470 * g + 19595 * r) >> 16;
+				r = saturated(r, luma, factor);
+				g = saturated(g, luma, factor);
+				b = saturated(b, luma, factor);
+			}
+			if (tinted) {
+				r = hardLight(red, r);
+				g = hardLight(green, g);
+				b = hardLight(blue, b);
+			}
+			line[x] = qRgba(r, g, b, qAlpha(line[x]) * percent / 100);
+		}
+	}
+	if (!flip.isEmpty()) {
+		image = image.transformed(QTransform::fromScale(flip.contains(u'x') ? -1 : 1, flip.contains(u'y') ? -1 : 1));
+	}
+}
+
+} // namespace
 
 ProjectImageProvider::ProjectImageProvider(Finder finder) :
 	QQuickImageProvider(QQuickImageProvider::Pixmap), m_finder(std::move(finder))
@@ -68,6 +147,9 @@ QPixmap ProjectImageProvider::requestPixmap(const QString& id, QSize* size, cons
 		transparent = query.queryItemValue(QStringLiteral("transparent")) != QLatin1String("0");
 	}
 	QImage image = load(m_finder(folder, name), transparent);
+	if (!image.isNull()) {
+		applyAppearance(image, query);
+	}
 	if (image.isNull()) {
 		// a picture the game does not have (or that cannot be read): nothing
 		// shown, as in RPG Maker's previews, without a warning of the QML engine

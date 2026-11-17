@@ -247,7 +247,9 @@ Ez.ComboBox {
 
     // the "..." between the text and the arrow, in the frame of the box
     readonly property real pickPart: pickable ? pick.implicitWidth + spacing : 0
-    readonly property real indicatorPart: indicator && indicator.visible ? indicator.width + 2 * spacing : 0
+    // the arrow, counted while the box is hidden too (a page of tabs not
+    // shown: its window opens as wide as that page needs)
+    readonly property real indicatorPart: indicator ? indicator.width + 2 * spacing : 0
     rightPadding: horizontalPadding + indicatorPart + pickPart
     leftPadding: horizontalPadding + facePart
     Binding {

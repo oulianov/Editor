@@ -37,6 +37,10 @@ Loader {
     property bool bound: true
     /** The objectName of its control (the hand-written editors give their own, which scripts use) */
     property string name: field.id
+    /** The text of a check box, else its label's (a shorter one on a row of checks: "Erase on: Map change") */
+    property string checkText: ""
+    /** A check box has the tag of its add-on after its text: not where its tab already has it */
+    property bool tagShown: true
     /** The field of its mode (Maniac Patch), null for none */
     readonly property var modeField: field.mode ? session.schema.field(field.mode) : null
     readonly property int modeValue: modeField && bound && session.revision >= 0 ? session.read(modeField.id) : 0
@@ -215,7 +219,7 @@ Loader {
         Ez.CheckBox {
             id: checkBox
             objectName: root.name
-            text: root.tr(root.shown.label)
+            text: root.checkText !== "" ? root.checkText : root.tr(root.shown.label)
             // inverted: checked for 0
             checked: current.valid && (Number(current.value) !== 0) !== root.shown.inverted
             onToggled: {
@@ -228,7 +232,7 @@ Loader {
             Ez.OriginTag {
                 id: checkTag
                 objectName: root.name + "Tag"
-                origin: root.origin
+                origin: root.tagShown ? root.origin : ""
                 warning: !Ez.Origins.available(origin) && root.bound && root.session.revision >= 0 && root.session.isSet(root.shown.id)
                 x: checkBox.leftPadding + checkBox.contentItem.implicitWidth + Ez.Metrics.columnSpacing
                 anchors.verticalCenter: parent.verticalCenter
@@ -794,6 +798,11 @@ Loader {
                     // loaded at once, not asynchronously: the project's images are
                     // read on this thread (ProjectImageProvider), and a load cut
                     // short by the window closing kept the Editor from quitting
+                }
+                Ez.PickHint {
+                    anchors.centerIn: parent
+                    availableWidth: parent.width
+                    visible: pictureColumn.name === ""
                 }
                 MouseArea {
                     anchors.fill: parent

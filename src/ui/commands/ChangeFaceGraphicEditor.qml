@@ -110,9 +110,14 @@ ColumnLayout {
         // (greyed with their tags in the other games, or not offered there:
         // Editor Settings, unless the command has them)
         title: qsTranslate("ManiacCommandWidget", "Animation")
+        // its tag on its title, not on each field
+        origin: animationRows.origin
+        originWarning: animationRows.warns
         visible: Ez.Origins.shown("maniac") || root.animated
         SchemaRows {
+            id: animationRows
             session: root.session
+            tagged: false
             ids: ["animated", "endIndex", "interval", "intervalVariation", "framesPerCell", "framesVariation",
                   "forceUpdate", "turnaround", "once", "intervalPositive", "framesPositive", "turnaroundInterval"]
             names: ({ animated: "faceAnimated", endIndex: "faceEndIndex", interval: "faceInterval",

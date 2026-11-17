@@ -169,6 +169,7 @@
         <file alias="fullscreen">icons/bright/fullscreen.svg</file>
         <file alias="export">icons/bright/export.svg</file>
         <file alias="help-about">icons/bright/help-about.svg</file>
+        <file alias="image">icons/bright/image.svg</file>
         <file alias="layer-event">icons/bright/layer-event.svg</file>
         <file alias="layer-high">icons/bright/layer-high.svg</file>
         <file alias="layer-low">icons/bright/layer-low.svg</file>
@@ -227,6 +228,7 @@
         <file alias="fullscreen">icons/dark/fullscreen.svg</file>
         <file alias="export">icons/dark/export.svg</file>
         <file alias="help-about">icons/dark/help-about.svg</file>
+        <file alias="image">icons/dark/image.svg</file>
         <file alias="layer-event">icons/dark/layer-event.svg</file>
         <file alias="layer-high">icons/dark/layer-high.svg</file>
         <file alias="layer-low">icons/dark/layer-low.svg</file>

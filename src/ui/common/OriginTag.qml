@@ -11,7 +11,8 @@ import org.easyrpg.editor as Ez
  * its letter in its color, beside its text. Shown only when the game tags
  * that origin (none for what its engine runs: no size then). Its tooltip
  * says what runs it, or what the game needs and where to turn it on; it
- * shows even when the tag is in a greyed control.
+ * shows even when the tag is in a greyed control. Greyed with that control,
+ * and for what the game does not run.
  *
  * warning: what is already there and that the game does not run (a command
  * of the Maniac Patch in a game without it): an exclamation mark after the
@@ -32,8 +33,23 @@ Rectangle {
     readonly property bool shown: Ez.Origins.tagged(origin) || (warning && origin !== "" && !Ez.Origins.available(origin))
     /** What it shows, for the scripts (expect NAME M!): its letter, "!" for a warning; empty while not shown */
     readonly property string text: shown ? letter.text : ""
+    /**
+     * Greyed as what it tags: in a greyed control, or for what the game
+     * does not run (the control beside it greyed); a warning stays bright
+     */
+    readonly property bool greyed: !warning && (!enabled || (origin !== "" && !Ez.Origins.available(origin)))
+    // the opacity of the items it is in (a greyed check box, an entry that
+    // cannot be chosen): greyed once, not twice
+    readonly property real inheritedOpacity: {
+        let opacity = 1
+        for (let item = parent; item; item = item.parent) {
+            opacity *= item.opacity
+        }
+        return opacity
+    }
 
     visible: shown
+    opacity: greyed ? Math.min(1, Ez.Metrics.disabledOpacity / Math.max(inheritedOpacity, Ez.Metrics.disabledOpacity)) : 1
     implicitWidth: shown ? Math.max(implicitHeight, letter.implicitWidth + 6) : 0
     implicitHeight: shown ? letter.implicitHeight + 1 : 0
     radius: 3

@@ -24,6 +24,15 @@ Controls.CheckBox {
         value: Ez.Metrics.palette.button
         when: !root.enabled && root.indicator !== null
     }
+    // the room of its box counted while it is hidden too (Breeze counts it
+    // only while the box shows: the window of a page of tabs not shown
+    // opened narrower than that page)
+    Binding {
+        target: root.contentItem
+        property: "leftPadding"
+        value: (root.contentItem?.horizontalPadding ?? 0) + (root.indicator?.width ?? 0) + (root.contentItem?.spacing ?? 0)
+        when: !root.visible && !root.mirrored && root.contentItem !== null && root.indicator !== null && root.indicator.width > 0
+    }
 
     Ez.JsonField {
         id: field
