@@ -200,7 +200,12 @@ ColumnLayout {
         }
 
         StackLayout {
+            id: stack
             currentIndex: root.battle ? 0 : pages.currentIndex
+            // as large as its largest page: the window opens at its size,
+            // and keeps it from page to page
+            Layout.minimumWidth: Math.max(0, ...Array.from(stack.children, page => page.implicitWidth))
+            Layout.minimumHeight: Math.max(0, ...Array.from(stack.children, page => page.implicitHeight))
             Layout.fillWidth: true
             Layout.topMargin: Ez.Metrics.rowSpacing
 

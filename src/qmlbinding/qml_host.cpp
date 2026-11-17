@@ -32,6 +32,8 @@
 #include <QQuickWindow>
 #include <QScreen>
 
+#include <memory>
+
 namespace {
 
 QList<QPointer<QQuickWindow>>& opened() {
@@ -54,6 +56,34 @@ void center(QQuickWindow* window) {
 		geometry.moveTop(std::clamp(geometry.top(), available.top(), std::max(available.top(), available.bottom() - geometry.height())));
 	}
 	window->setPosition(geometry.topLeft());
+}
+
+/**
+ * Centered, and kept so while its size follows its content: the layouts
+ * settle once it is shown (an editor's fields, a page made then), and a
+ * window centered at its first size would grow to the right and down. A
+ * resize by hand (a button held) leaves it where it is; once moved, by hand
+ * or by the system, it stays where it was put.
+ */
+void keepCentered(QQuickWindow* window) {
+	center(window);
+	auto placed = std::make_shared<QPoint>(window->position());
+	auto connections = std::make_shared<QList<QMetaObject::Connection>>();
+	const auto follow = [window, placed, connections] {
+		if (window->position() != *placed) {
+			for (const auto& one : *connections) {
+				QObject::disconnect(one);
+			}
+			return;
+		}
+		if (QGuiApplication::mouseButtons() != Qt::NoButton) {
+			return;
+		}
+		center(window);
+		*placed = window->position();
+	};
+	connections->append(QObject::connect(window, &QWindow::widthChanged, window, follow));
+	connections->append(QObject::connect(window, &QWindow::heightChanged, window, follow));
 }
 
 QQuickWindow* create(const QString& type, QWindow* over, const QVariantMap& properties) {
@@ -91,7 +121,7 @@ QQuickWindow* create(const QString& type, QWindow* over, const QVariantMap& prop
 		window->setGeometry(geometry);
 	} else {
 		window->setProperty("defaultSize", window->size());
-		center(window);
+		keepCentered(window);
 	}
 	if (!key.isEmpty()) {
 		QObject::connect(window, &QWindow::visibleChanged, window, [window, key](bool visible) {

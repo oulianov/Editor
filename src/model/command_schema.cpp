@@ -61,6 +61,8 @@ struct F : Field {
 	F& ticks() { return with(Flag::Slider).with(Flag::Ticks); }
 	F& inlined() { return with(Flag::Inline); }
 	F& rpg2003() { return with(Flag::Rpg2003); }
+	/** RPG Maker 2003 1.10 and later's (1.12, the Steam version) */
+	F& rpg2003e() { return with(Flag::Rpg2003E); }
 	F& engine2003() { return with(Flag::Engine2003); }
 	F& maniac() { return with(Flag::Maniac); }
 	/** An option of the Maniac Patch in a command of RPG Maker: hidden in the other games */
@@ -2291,20 +2293,20 @@ Fields pictureFields(bool move) {
 	auto pictureLabel = [](const char* text) { return Label("PictureWidget", text); };
 	// the mode of a value (Maniac Patch), in bits of a parameter. Those of
 	// the picture, its magnification and its transparency are RPG Maker
-	// 2003 1.12's (a number or a variable: rpg2003), their pointer the
+	// 2003 1.12's (a number or a variable: rpg2003e), their pointer the
 	// Maniac Patch's
-	auto valueMode = [&](const char* id, int index, int shift, int bits, bool rpg2003 = false) {
+	auto valueMode = [&](const char* id, int index, int shift, int bits, bool rpg2003e = false) {
 		Items items;
 		for (const auto& one : numberModes()) {
-			items.push_back({one.mode, one.label, rpg2003 && one.mode >= 2 ? Flags(Flag::Maniac) : Flags()});
+			items.push_back({one.mode, one.label, rpg2003e && one.mode >= 2 ? Flags(Flag::Maniac) : Flags()});
 		}
 		return choice(id, index, pictureLabel(QT_TRANSLATE_NOOP("PictureWidget", "Given as")), std::move(items))
-			.bitsAt(shift, bits).with(rpg2003 ? Flag::Rpg2003 : Flag::Maniac)
+			.bitsAt(shift, bits).with(rpg2003e ? Flag::Rpg2003E : Flag::Maniac)
 			.with(index >= flags ? Flags(Flag::Extension) : Flags());
 	};
 	// the variable a value is in, for the modes other than a number
-	auto valueVariable = [&](const char* id, int index, const char* modeId, Label label, bool rpg2003 = false) {
-		return variable(id, index, label).unless(modeId, {0}).with(rpg2003 ? Flag::Rpg2003 : Flag::Maniac);
+	auto valueVariable = [&](const char* id, int index, const char* modeId, Label label, bool rpg2003e = false) {
+		return variable(id, index, label).unless(modeId, {0}).with(rpg2003e ? Flag::Rpg2003E : Flag::Maniac);
 	};
 	Fields list = fields(
 		section(QT_TRANSLATE_NOOP("PictureWidget", "Picture No.")),
@@ -2314,7 +2316,17 @@ Fields pictureFields(bool move) {
 	if (!move) {
 		append(list, fields(
 			section(QT_TRANSLATE_NOOP("PictureWidget", "Image File")),
-			file("file", {}, PICTURE)));
+			file("file", {}, PICTURE),
+			// RPG Maker 2003 1.12: the last p18 characters of the name
+			// replaced by the value of the variable p19 (0: none), padded
+			// with zeros. Without a variable RPG Maker leaves anything in
+			// p18. The check first: a grown command gets its 0
+			check("replace", 19, QT_TRANSLATE_NOOP("PictureWidget", "Replace the end of the name"))
+				.extension().rpg2003e(),
+			number("replaceCount", 18, QT_TRANSLATE_NOOP("PictureWidget", "Characters"), 1, 9).withDefault(1)
+				.unless("replace", {0}).extension().rpg2003e(),
+			variable("replaceVariable", 19, QT_TRANSLATE_NOOP("PictureWidget", "Variable")).unless("replace", {0})
+				.extension().rpg2003e()));
 	}
 	append(list, fields(
 		section(move ? QT_TRANSLATE_NOOP("PictureWidget", "Target Coordinates") : QT_TRANSLATE_NOOP("PictureWidget", "Display Coordinates")),
@@ -2457,15 +2469,35 @@ Fields pictureFields(bool move) {
 			variable("frameVariable", 25, QT_TRANSLATE_NOOP("PictureWidget", "Frame or speed")).when("frameMode", {1}),
 			check("once", 26, QT_TRANSLATE_NOOP("PictureWidget", "Play once")).when("frameMode", {2}),
 			section(QT_TRANSLATE_NOOP("PictureWidget", "Layer")),
-			number("mapLayer", 27, QT_TRANSLATE_NOOP("PictureWidget", "Map layer"), 0, 10),
-			number("battleLayer", 28, QT_TRANSLATE_NOOP("PictureWidget", "Battle layer"), 0, 10),
+			// what the picture is drawn above (lcf SavePicture::MapLayer and
+			// BattleLayer), 0: not there. EasyRPG Player draws a picture with
+			// both at 0 (an older command) above the weather of the map
+			choice("mapLayer", 27, QT_TRANSLATE_NOOP("PictureWidget", "On the map"), {
+				{0, QT_TRANSLATE_NOOP("PictureWidget", "Not shown")},
+				{1, QT_TRANSLATE_NOOP("PictureWidget", "Above the panorama")},
+				{2, QT_TRANSLATE_NOOP("PictureWidget", "Above the lower tiles")},
+				{3, QT_TRANSLATE_NOOP("PictureWidget", "Above the events below the hero")},
+				{4, QT_TRANSLATE_NOOP("PictureWidget", "Above the hero")},
+				{5, QT_TRANSLATE_NOOP("PictureWidget", "Above the upper tiles")},
+				{6, QT_TRANSLATE_NOOP("PictureWidget", "Above the events above the hero")},
+				{7, QT_TRANSLATE_NOOP("PictureWidget", "Above the weather effects")},
+				{8, QT_TRANSLATE_NOOP("PictureWidget", "Above the battle animations")},
+				{9, QT_TRANSLATE_NOOP("PictureWidget", "Above the windows")},
+				{10, QT_TRANSLATE_NOOP("PictureWidget", "Above the timers")}}),
+			choice("battleLayer", 28, QT_TRANSLATE_NOOP("PictureWidget", "In battle"), {
+				{0, QT_TRANSLATE_NOOP("PictureWidget", "Not shown")},
+				{1, QT_TRANSLATE_NOOP("PictureWidget", "Above the background")},
+				{2, QT_TRANSLATE_NOOP("PictureWidget", "Above the battlers and animations")},
+				{3, QT_TRANSLATE_NOOP("PictureWidget", "Above the weather effects")},
+				{4, QT_TRANSLATE_NOOP("PictureWidget", "Above the windows and the status")},
+				{5, QT_TRANSLATE_NOOP("PictureWidget", "Above the timers")}}),
 			// a missing parameter is 1 | 32 | 64 for EasyRPG Player
 			check("eraseOnMapChange", 29, QT_TRANSLATE_NOOP("PictureWidget", "Erase on map change")).bit(0).withDefault(1),
 			check("eraseOnBattleEnd", 29, QT_TRANSLATE_NOOP("PictureWidget", "Erase when the battle ends")).bit(1),
 			check("tint", 29, QT_TRANSLATE_NOOP("PictureWidget", "Affected by the screen tint")).bit(4),
 			check("flash", 29, QT_TRANSLATE_NOOP("PictureWidget", "Affected by the screen flash")).bit(5).withDefault(1),
 			check("shake", 29, QT_TRANSLATE_NOOP("PictureWidget", "Affected by the screen shake")).bit(6).withDefault(1)),
-			Flag::Extension | Flag::Rpg2003));
+			Flag::Extension | Flag::Rpg2003E));
 	}
 	append(list, only(maniac, Flag::Maniac));
 	append(list, sheet);
@@ -2704,12 +2736,12 @@ void addMapAndScreen(Table& table) {
 			{2, QT_TRANSLATE_NOOP("ErasePictureWidget", "Range")},
 			{3, QT_TRANSLATE_NOOP("ErasePictureWidget", "Range from Variables"), Flag::Maniac},
 			{4, QT_TRANSLATE_NOOP("ErasePictureWidget", "Indirect Variable Reference"), Flag::Maniac},
-			{5, QT_TRANSLATE_NOOP("ErasePictureWidget", "All Pictures"), Flag::Maniac}}).extension().rpg2003(),
+			{5, QT_TRANSLATE_NOOP("ErasePictureWidget", "All Pictures"), Flag::Maniac}}).extension().rpg2003e(),
 		number("picture", 0, QT_TRANSLATE_NOOP("ErasePictureWidget", "Picture No."), 1, 9999).withDefault(1).when("selection", {0, 2}),
 		number("last", 2, QT_TRANSLATE_NOOP("ErasePictureWidget", "Through Picture No."), 1, 9999).withDefault(1)
-			.when("selection", {2}).extension().rpg2003(),
-		variable("variable", 0, QT_TRANSLATE_NOOP("ErasePictureWidget", "Variable")).when("selection", {1, 3, 4}).rpg2003(),
-		variable("lastVariable", 2, QT_TRANSLATE_NOOP("ErasePictureWidget", "Through Variable")).when("selection", {3}).extension().rpg2003()
+			.when("selection", {2}).extension().rpg2003e(),
+		variable("variable", 0, QT_TRANSLATE_NOOP("ErasePictureWidget", "Variable")).when("selection", {1, 3, 4}).rpg2003e(),
+		variable("lastVariable", 2, QT_TRANSLATE_NOOP("ErasePictureWidget", "Through Variable")).when("selection", {3}).extension().rpg2003e()
 	));
 
 	// Show Battle Animation. Maniac Patch: where it is shown in p3 (an event,
@@ -3011,7 +3043,7 @@ Fields conditionFields(bool battle) {
 			{8, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Event was Started Using Action Key")},
 			{9, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "BGM has Played Through Once")},
 			{10, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Timer 2"), Flag::Rpg2003},
-			{11, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Other (RPG Maker 2003)"), Flag::Rpg2003},
+			{11, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Other (RPG Maker 2003)"), Flag::Rpg2003E},
 			{12, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Other (Maniac Patch)"), Flag::Maniac},
 			{13, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Switch of Variable"), Flag::Maniac},
 			{14, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Variable of Variable"), Flag::Maniac},
@@ -3119,7 +3151,7 @@ Fields conditionFields(bool battle) {
 				{0, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "A save file exists")},
 				{1, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Test Play mode is active")},
 				{2, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "ATB Wait mode is active")},
-				{3, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Fullscreen is active")}}).when("type", {11}).rpg2003(),
+				{3, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Fullscreen is active")}}).when("type", {11}).rpg2003e(),
 			// Maniac Patch
 			choice("maniacOther", 1, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "Condition"), {
 				{0, QT_TRANSLATE_NOOP("ConditionalBranchWidget", "A save was loaded this frame")},

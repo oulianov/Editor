@@ -1192,6 +1192,10 @@ namespace
 		// Maniac Patch: the modes of the id (p17) and of the magnification (p20)
 		QString result = Stringizer::tr("Show Picture") + ": " + modeValue(modeOf(p(17), 0), p(0));
 		result += ", " + ToQString(com.string);
+		// RPG Maker 2003 1.12: its last p18 characters, the value of the variable p19
+		if (p(19) != 0) {
+			result += " " + Stringizer::tr("(last %n characters: %1)", nullptr, p(18)).arg(variable(p(19)));
+		}
 		result += ", (" + modeValue(p(1) & 0xff, p(2)) + ","
 			+ modeValue(p(1) & 0xff, p(3)) + "), "
 			+ Stringizer::tr("Magnification") + " " + modeValue(modeOf(p(20), 0), p(5, 100)) + "%, "

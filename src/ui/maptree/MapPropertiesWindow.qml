@@ -367,6 +367,11 @@ Ez.DialogWindow {
                             }
                         }
                     }
+                    Ez.PickHint {
+                        anchors.centerIn: parent
+                        availableWidth: parent.width
+                        visible: panorama.enabled && (panoramaName.value ?? "") === ""
+                    }
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true

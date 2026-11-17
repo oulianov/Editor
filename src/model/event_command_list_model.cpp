@@ -90,10 +90,14 @@ QString lastCommandKey(const QString& project_dir, Cmd code)
 	return QStringLiteral("last_commands/%1/%2").arg(QString::fromLatin1(game)).arg(static_cast<int>(code));
 }
 
-/** Commands of text start empty: a message is not written twice */
+/** A new command starts with the settings of the last one of its kind, but
+ *  commands of text start empty (a message is not written twice), and Show
+ *  Picture and Move Picture start neutral (as at first: not the last one's
+ *  picture, place and effects) */
 bool remembersSettings(Cmd code)
 {
-	return code != Cmd::ShowMessage && code != Cmd::Comment && code != Cmd::ShowChoice && code != Cmd::Maniac_Script;
+	return code != Cmd::ShowMessage && code != Cmd::Comment && code != Cmd::ShowChoice && code != Cmd::Maniac_Script
+		&& code != Cmd::ShowPicture && code != Cmd::MovePicture;
 }
 
 /** What starts the text of the first line of a command (a message, a
@@ -670,6 +674,10 @@ QString EventCommandListModel::commandsText(const Commands& commands)
 
 EventCommandListModel::Commands EventCommandListModel::newCommand(const QString& project_dir, Code code, int indent)
 {
+	// what was kept before a command stopped remembering its settings: unused
+	if (!remembersSettings(code)) {
+		return EventCommandDefaults::make(code, indent);
+	}
 	const QVariantList saved = QSettings().value(lastCommandKey(project_dir, code)).toList();
 	Commands lines;
 	for (const QVariant& value : saved) {

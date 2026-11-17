@@ -13,7 +13,9 @@ import org.easyrpg.editor as Ez
  * large as its content needs, at least.
  *
  * result says how it closed (QmlHost::Result): 1 accepted (OK, Return),
- * 0 rejected (Cancel, Escape, the close button of the window). accept() can
+ * 0 rejected (Cancel, Escape, the close button of the window). It grows
+ * when its content needs more, and does not shrink when it needs less again
+ * (unless it gives its own width or height). accept() can
  * be refused by onAccepting: set accepting.ok to false; reject() (and
  * closing the window) by onRejecting the same way, while something runs.
  */
@@ -96,8 +98,17 @@ Controls.ApplicationWindow {
     font: Ez.Metrics.font
     minimumWidth: Math.ceil(layout.implicitWidth) + 2 * Ez.Metrics.dialogMargin
     minimumHeight: Math.ceil(layout.implicitHeight) + 2 * Ez.Metrics.dialogMargin
-    width: Math.max(minimumWidth, preferredWidth)
-    height: Math.max(minimumHeight, preferredHeight)
+    // As large as its content needs (its preferred size at least), and
+    // larger when its content needs more (a page of tabs, a field shown),
+    // but never smaller by itself: back on a page that needs less, it keeps
+    // its size. Bindings, not assignments: a window giving its own width or
+    // height (the event window's saved size) replaces them
+    property int neededWidth: 0
+    property int neededHeight: 0
+    onMinimumWidthChanged: neededWidth = Math.max(neededWidth, minimumWidth)
+    onMinimumHeightChanged: neededHeight = Math.max(neededHeight, minimumHeight)
+    width: Math.max(minimumWidth, preferredWidth, neededWidth)
+    height: Math.max(minimumHeight, preferredHeight, neededHeight)
 
     ColumnLayout {
         id: layout

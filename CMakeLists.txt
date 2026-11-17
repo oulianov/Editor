@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 cmake_policy(SET CMP0091 NEW) # Support MSVC_RUNTIME_LIBRARY
 
-project(EasyRPG_Editor VERSION 0.2.18
+project(EasyRPG_Editor VERSION 0.2.19
 	DESCRIPTION "Editor for RPG Maker 2000/2003 games (fork of the EasyRPG Editor)"
 	HOMEPAGE_URL "https://github.com/oulianov/Editor"
 	LANGUAGES CXX)
@@ -405,6 +405,7 @@ set(EDITOR_QML_UI
 	src/ui/common/OriginTag.qml
 	src/ui/common/OriginTip.qml
 	src/ui/common/PathField.qml
+	src/ui/common/PickHint.qml
 	src/ui/common/PickerData.qml
 	src/ui/common/ProfileChips.qml
 	src/ui/common/ProgressBar.qml

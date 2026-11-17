@@ -584,6 +584,10 @@ bool CommandEditSession::commands2k3() const {
 	return m_project && GameSetup::instance().commands2k3();
 }
 
+bool CommandEditSession::commands2k3e() const {
+	return m_project && GameSetup::instance().commands2k3e();
+}
+
 bool CommandEditSession::maniac() const {
 	return m_project && GameSetup::instance().maniac();
 }
@@ -827,8 +831,8 @@ bool CommandEditSession::engineHas(const QString& fieldId) const {
 	if (!found) {
 		return true;
 	}
-	return !((found->flags & Flag::Rpg2003) && !commands2k3()) && !((found->flags & Flag::Engine2003) && !isRpg2k3())
-		&& !((found->flags & Flag::Maniac) && !maniac());
+	return !((found->flags & Flag::Rpg2003) && !commands2k3()) && !((found->flags & Flag::Rpg2003E) && !commands2k3e())
+		&& !((found->flags & Flag::Engine2003) && !isRpg2k3()) && !((found->flags & Flag::Maniac) && !maniac());
 }
 
 bool CommandEditSession::engineHasCommand() const {

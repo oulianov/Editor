@@ -57,6 +57,16 @@ class GameSetup : public QObject
 	 * timer, the conditions of 2003 of the pages...
 	 */
 	Q_PROPERTY(bool commands2k3 READ commands2k3 NOTIFY commands2k3Changed)
+	/**
+	 * The commands and options of RPG Maker 2003 1.10 and later run (the
+	 * Steam version, 1.12: the variables and the spritesheets of the
+	 * pictures, Exit Game...): EasyRPG Player runs the game as RPG Maker
+	 * 2003 1.10-1.12 ([Game] Engine, else found as it does: RPG_RT.exe...),
+	 * or it is a 2000 game with the patch RPG2k3Commands
+	 * (Player::IsRPG2k3ECommands); or the Maniac Patch, whose RPG_RT.exe is
+	 * 1.12's (the Player reads the options of the pictures with it too)
+	 */
+	Q_PROPERTY(bool commands2k3e READ commands2k3e NOTIFY commands2k3eChanged)
 	/** The game's Maniac Patch (GamePatches::hasManiac): its commands and fields are offered */
 	Q_PROPERTY(bool maniac READ maniac NOTIFY maniacChanged)
 	/** The game's EasyRPG Extensions (GamePatches::hasEasyRpg): EasyRPG Player's own commands */
@@ -100,6 +110,7 @@ public:
 	bool rpg2k3() const;
 	int engine() const;
 	bool commands2k3() const;
+	bool commands2k3e() const;
 	bool maniac() const;
 	bool easyrpg() const;
 	bool battle2k() const;
@@ -130,6 +141,7 @@ signals:
 	void openChanged();
 	void rpg2k3Changed();
 	void commands2k3Changed();
+	void commands2k3eChanged();
 	void maniacChanged();
 	void easyrpgChanged();
 	void battle2kChanged();
@@ -148,6 +160,7 @@ private:
 		bool open = false;
 		bool rpg2k3 = false;
 		bool commands2k3 = false;
+		bool commands2k3e = false;
 		bool maniac = false;
 		bool easyrpg = false;
 		bool battle2k = false;
