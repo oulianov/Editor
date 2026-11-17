@@ -14886,6 +14886,10 @@ Les réécrire dans la base de données ?</translation>
         <translation>Aucune image</translation>
     </message>
     <message>
+        <source>Name from the string T[%1]</source>
+        <translation>Nom pris dans la chaîne T[%1]</translation>
+    </message>
+    <message>
         <source>Not shown</source>
         <translation>Non affichée</translation>
     </message>

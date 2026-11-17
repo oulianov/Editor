@@ -32,6 +32,8 @@ Rectangle {
 
     property var jsonData: null
     property string key: ""
+    /** A click (or Space) chooses the file; false: it is shown only (no hint when empty) */
+    property bool pickable: true
     property string indexKey: ""
     property string directionKey: ""
     property string patternKey: ""
@@ -156,7 +158,7 @@ Rectangle {
     Ez.PickHint {
         anchors.centerIn: parent
         availableWidth: root.width
-        visible: root.fileName === ""
+        visible: root.fileName === "" && root.pickable
     }
     Component {
         id: character
@@ -282,11 +284,12 @@ Rectangle {
     }
 
     TapHandler {
+        enabled: root.pickable
         onTapped: {
             root.forceActiveFocus()
             root.pick()
         }
     }
-    Keys.onSpacePressed: root.pick()
-    Keys.onReturnPressed: root.pick()
+    Keys.onSpacePressed: if (root.pickable) root.pick()
+    Keys.onReturnPressed: if (root.pickable) root.pick()
 }

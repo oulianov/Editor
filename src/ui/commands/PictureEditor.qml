@@ -58,6 +58,8 @@ ColumnLayout {
     readonly property bool showManiac: session.maniac || (parameter(1) >> 8) !== 0 || (parameter(flags) >> 8) !== 0
                                        || parameter(12) === 3 || (move && (parameter(15) & ~1) !== 0)
     readonly property int effect: read("effect")
+    /** The file name comes from a string (the Maniac Patch; the Player reads the mode in its games only) */
+    readonly property bool nameFromString: !move && session.maniac && read("nameMode") !== 0
     /** The field is offered (the session's originShown: of an add-on the game runs, shown greyed, or the command's) */
     function shown(id) {
         return revision < 0 || (session.path(id) !== "" && session.originShown(id))
@@ -674,7 +676,10 @@ ColumnLayout {
                 preview: "Image"
                 folder: "Picture"
                 jsonData: root.session
-                key: root.session.schema.field("file").path ?? ""
+                // the name from a string (the Maniac Patch): no file of the
+                // command to show or choose, the Player reads the string's
+                key: root.nameFromString ? "" : root.session.schema.field("file").path ?? ""
+                pickable: !root.nameFromString
                 enabled: root.revision >= 0
                 // as the Player draws it: the transparent color, the
                 // transparency (of each half before RPG Maker 2003 1.10), the
@@ -726,12 +731,12 @@ ColumnLayout {
                 scaleY: Math.max(0, heightPercent) / 100
                 Layout.fillWidth: true
                 Layout.preferredHeight: 180
-                Controls.ToolTip.visible: pictureHover.hovered
+                Controls.ToolTip.visible: pictureHover.hovered && pickable
                 Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
                 Controls.ToolTip.text: qsTr("Click to choose the picture")
                 HoverHandler {
                     id: pictureHover
-                    cursorShape: Qt.PointingHandCursor
+                    cursorShape: picture.pickable ? Qt.PointingHandCursor : Qt.ArrowCursor
                 }
 
                 // the frames of its spritesheet (RPG Maker 2003 1.12). The rows
@@ -789,6 +794,11 @@ ColumnLayout {
             Ez.Label {
                 objectName: "pictureFileName"
                 text: {
+                    if (root.nameFromString) {
+                        const string = root.read("nameMode") === 1 ? String(root.read("nameString")).padStart(4, "0")
+                                     : "V[" + String(root.read("nameVariable")).padStart(4, "0") + "]"
+                        return qsTr("Name from the string T[%1]").arg(string)
+                    }
                     const name = picture.fileName
                     if (name === "") {
                         return qsTr("No picture")
