@@ -14,12 +14,14 @@
 #    thinned to that kind (a universal build is twice as big);
 # 3. signs each: with SIGN_IDENTITY (a Developer ID Application certificate
 #    of the keychain), else for this computer only (ad hoc);
-# 4. notarizes it when Apple credentials are given: NOTARY_PROFILE (saved by
-#    xcrun notarytool store-credentials), or APPLE_ID, APPLE_TEAM_ID and
-#    APPLE_APP_SPECIFIC_PASSWORD;
-# 5. puts it in BUILD_DIR/dist/EasyRPG-Editor-VERSION-macOS-ARCH.dmg
-#    (arm64: Apple silicon, x86_64: Intel), signed and notarized the same
-#    way. The Editor's updater picks the disk image of its kind of Mac.
+# 4. puts it in BUILD_DIR/dist/EasyRPG-Editor-VERSION-macOS-ARCH.dmg
+#    (arm64: Apple silicon, x86_64: Intel), signed the same way. The
+#    Editor's updater picks the disk image of its kind of Mac;
+# 5. notarizes the disk image when Apple credentials are given:
+#    NOTARY_PROFILE (saved by xcrun notarytool store-credentials), or
+#    APPLE_ID, APPLE_TEAM_ID and APPLE_APP_SPECIFIC_PASSWORD. Apple
+#    notarizes the application inside it with it: both are stapled.
+# The kinds of Mac are packaged at the same time (notarizing waits on Apple).
 #
 #   BUILD_DIR   where the Editor was built     (default: build)
 #   QT_DIR      the official Qt build.sh used, if any
@@ -101,32 +103,6 @@ for module in QtQuick/Controls/{Material,Imagine,Universal,FluentWinUI3,iOS,macO
 	done < <(find "$qml/$module" -type l -name '*.dylib' -print0)
 	rm -rf "$qml/$module"
 done
-# then the libraries no program, library or plugin left uses (the
-# frameworks of those modules, what only they use...), by the names of
-# their files: QtSql.framework/Versions/A/QtSql, libdbus-1.3.dylib
-uses() {
-	local file id
-	while IFS= read -r -d '' file; do
-		file -b "$file" | grep -q '^Mach-O' || continue
-		# not itself: a library's own name is among its libraries
-		id="$(otool -D "$file" | awk '!/:$/ {print; exit}')"
-		otool -L "$file" | awk -v id="$id" '/^\t/ && $1 != id {print $1}'
-	done < <(find "$APP" -type f -print0)
-}
-while true; do
-	used="$(uses | sed 's#.*/##' | sort -u)"
-	removed=0
-	for library in "$APP/Contents/Frameworks/"*; do
-		base="$(basename "$library")"
-		if ! grep -qxF "${base%.framework}" <<< "$used"; then
-			echo "Unused: $base"
-			rm -rf "$library"
-			removed=1
-		fi
-	done
-	[ "$removed" = 1 ] || break
-done
-
 # every program and library of the application
 machos=()
 while IFS= read -r -d '' file; do
@@ -134,6 +110,35 @@ while IFS= read -r -d '' file; do
 		machos+=("$file")
 	fi
 done < <(find "$APP" -type f -print0)
+# then the libraries no program, library or plugin left uses (the
+# frameworks of those modules, what only they use...), by the names of
+# their files: QtSql.framework/Versions/A/QtSql, libdbus-1.3.dylib. The
+# libraries of each file are read once: "file<TAB>name" lines (not the
+# file itself: a library's own name is among its libraries)
+links="$(for file in "${machos[@]}"; do
+	id="$(otool -D "$file" | awk '!/:$/ {print; exit}')"
+	otool -L "$file" | awk -v id="$id" -v f="$file" '/^\t/ && $1 != id {n = $1; sub(/.*\//, "", n); print f "\t" n}'
+done)"
+while true; do
+	used="$(cut -f2 <<< "$links" | sort -u)"
+	removed=0
+	for library in "$APP/Contents/Frameworks/"*; do
+		base="$(basename "$library")"
+		if ! grep -qxF "${base%.framework}" <<< "$used"; then
+			echo "Unused: $base"
+			rm -rf "$library"
+			# what it used counts no more
+			links="$(awk -F'\t' -v l="$library" '$1 != l && index($1, l "/") != 1' <<< "$links")"
+			removed=1
+		fi
+	done
+	[ "$removed" = 1 ] || break
+done
+kept=()
+for file in "${machos[@]}"; do
+	[ -e "$file" ] && kept+=("$file")
+done
+machos=("${kept[@]}")
 
 # nothing outside the application but the system
 outside=0
@@ -241,16 +246,8 @@ package() {
 	"${sign[@]}" "$app"
 	codesign --verify --deep --strict --verbose=2 "$app"
 
-	if [ "$notarize" = true ]; then
-		step "Notarizing the application for $arch"
-		ditto -c -k --keepParent "$app" "$DIST/notarize.zip"
-		notarize "$DIST/notarize.zip"
-		rm "$DIST/notarize.zip"
-		xcrun stapler staple "$app"
-	fi
-
 	step "Disk image for $arch"
-	local stage="$DIST/dmg"
+	local stage="$DIST/dmg-$arch"
 	mkdir -p "$stage"
 	ditto "$app" "$stage/$NAME.app"
 	ln -s /Applications "$stage/Applications"
@@ -260,9 +257,12 @@ package() {
 	[ "$SIGN_IDENTITY" = - ] || sign+=(--timestamp)
 	"${sign[@]}" "$dmg"
 	if [ "$notarize" = true ]; then
+		# the application inside is notarized with it: its ticket is
+		# stapled to the copy beside the disk image too
 		step "Notarizing the disk image for $arch"
 		notarize "$dmg"
 		xcrun stapler staple "$dmg"
+		xcrun stapler staple "$app"
 		spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
 		spctl --assess --type execute --verbose=2 "$app"
 	fi
@@ -270,9 +270,21 @@ package() {
 	echo "The disk image:  $dmg ($(du -h "$dmg" | cut -f1))"
 }
 
+# every kind of Mac at the same time, each with its log, shown when done
+pids=()
 for arch in $archs; do
-	package "$arch"
+	package "$arch" > "$DIST/package-$arch.log" 2>&1 &
+	pids+=("$!")
 done
+failed=0
+i=0
+for arch in $archs; do
+	wait "${pids[$i]}" || failed=1
+	cat "$DIST/package-$arch.log"
+	rm "$DIST/package-$arch.log"
+	i=$((i + 1))
+done
+[ "$failed" = 0 ] || { echo "Packaging failed"; exit 1; }
 rm -rf "$DIST/all"
 
 step "Done"

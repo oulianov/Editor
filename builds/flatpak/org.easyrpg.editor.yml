@@ -85,11 +85,16 @@ modules:
   # support), built and linked statically: the checkout must include it
   # (git submodule update --init). Built out of source: liblcf refuses
   # in-source builds
+  # Release, as the other packages; no debug files (no debug bundle is
+  # made: extracting and compressing them took a minute)
   - name: editor
     buildsystem: cmake-ninja
     builddir: true
+    build-options:
+      no-debuginfo: true
+      strip: true
     config-opts:
-      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - -DCMAKE_BUILD_TYPE=Release
       - -DEDITOR_BUILD_LIBLCF=ON
     sources:
       - type: dir

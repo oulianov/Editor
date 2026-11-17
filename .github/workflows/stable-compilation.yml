@@ -51,7 +51,9 @@ env:
   VCPKG_COMMIT: e456309491fd875487bf02b8a0dca76c1b1b00cc
   # Qt's tools warn on every call without a UTF-8 locale
   LC_ALL: C.UTF-8
-  CCACHE_MAXSIZE: 500M
+  # the universal macOS build fills 1.4 GB (its own size, below): a build
+  # for one kind of processor, about half, more than 500 MB
+  CCACHE_MAXSIZE: 1G
   CCACHE_COMPILERCHECK: content
   # (no precompiled headers with ccache: CMakeLists.txt turns them off and
   # gives ccache its settings)
@@ -111,12 +113,32 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
+      # the compiled files of the Editor (flatpak-builder --ccache), kept
+      # per commit: the action's own cache below is named after the manifest
+      # and saved again only when the manifest changes, so the ccache in it
+      # stayed as old as the manifest and the Editor compiled from scratch
+      - name: Restore the compiled files
+        uses: actions/cache/restore@v6
+        with:
+          path: .flatpak-builder/ccache
+          key: ccache-flatpak-${{ github.sha }}
+          restore-keys: |
+            ccache-flatpak-
+
       # without a cache-key, the cache of the libraries is named after the
       # manifest: it is saved again only when the manifest changes
       - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: EasyRPG-Editor.flatpak
           manifest-path: builds/flatpak/org.easyrpg.editor.yml
+
+      # even when the build failed: what compiled is kept
+      - name: Save the compiled files
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: .flatpak-builder/ccache
+          key: ccache-flatpak-${{ github.sha }}
 
   # The AppImages, for PCs (x86_64) and ARM computers (aarch64), each built on
   # a runner of its kind. linuxdeploy names them after the processor
@@ -159,10 +181,18 @@ jobs:
           echo "compiler=$(gcc -dumpfullversion)" >> "$GITHUB_OUTPUT"
         id: deps
 
+      # aqtinstall on a Python with prebuilt packages of py7zr's
+      # dependencies (on the newest one, pip built them), as on macOS and
+      # Windows
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - &qt6
         name: Install Qt6
         uses: jurplel/install-qt-action@v4
         with:
+          setup-python: false
           version: ${{ env.QT_VERSION }}
           install-deps: "nosudo"
           # Qt Quick comes with the base; Kirigami needs the shader tools
@@ -412,9 +442,16 @@ jobs:
       - name: Use gcc problem matcher
         run: echo "::add-matcher::.github/gcc_comment_matcher.json"
 
+      # aqtinstall on a Python with prebuilt packages of py7zr's
+      # dependencies (on the newest one, pip built them)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install Qt6
         uses: jurplel/install-qt-action@v4
         with:
+          setup-python: false
           version: ${{ env.QT_VERSION }}
           modules: "qtmultimedia qtshadertools"
           cache: true
@@ -579,9 +616,16 @@ jobs:
       # aqtinstall 3.3.0 (the latest release) does not know the folders of
       # the Windows Qt 6.11 and later: its fix, not released yet, at a fixed
       # commit (it needs a newer py7zr than the action's default)
+      # aqtinstall on a Python with prebuilt packages of py7zr's
+      # dependencies (on the newest one, pip built them: a minute)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install Qt6
         uses: jurplel/install-qt-action@v4
         with:
+          setup-python: false
           version: ${{ env.QT_VERSION }}
           arch: win64_msvc2022_64
           modules: "qtmultimedia qtshadertools"
@@ -598,7 +642,11 @@ jobs:
             echo "VCPKG_DOWNLOADS=$temp/vcpkg-cache/downloads"
             echo "Qt6_Path=$(cygpath -m "$QT_ROOT_DIR")"
             echo "EDITOR_TEST_PROJECT=$(cygpath -m "$PWD/build/testgame2003")"
+            echo "CCACHE_DIR=$temp/ccache"
           } >> "$GITHUB_ENV"
+          # ccache, found by CMakeLists.txt (release builds have no debug
+          # information: MSVC's objects can be cached)
+          choco install ccache --no-progress -y
           mkdir -p "$temp/vcpkg-cache/archives" "$temp/vcpkg-cache/downloads"
 
       - name: Install vcpkg
@@ -639,10 +687,29 @@ jobs:
           path: ${{ runner.temp }}/vcpkg-cache
           key: ${{ steps.vcpkgcache.outputs.cache-primary-key }}
 
+      - name: Restore the compiled files
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-windows-${{ github.sha }}
+          restore-keys: |
+            ccache-windows-
+
       - name: Compile
+        id: compile
         shell: pwsh
         run: |
+          ccache -z
           cmake --build --preset vcpkg-liblcf-release
+          ccache -s
+
+      # even when the build failed: what compiled is kept
+      - name: Save the compiled files
+        if: always() && steps.configure.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-windows-${{ github.sha }}
 
       # offscreen, with Qt Quick's software renderer (as a safeguard: the
       # default Direct3D renderer was not tried offscreen on a runner)
