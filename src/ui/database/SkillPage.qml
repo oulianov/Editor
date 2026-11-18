@@ -24,7 +24,7 @@ DatabaseEntryPage {
     id: root
 
     /** 2003 games can use the battles of RPG Maker 2000, and their messages */
-    readonly property bool has2kMessages: !rpg2k3 || (database ? database.boolean("system/easyrpg_use_rpg2k_battle_system") : false)
+    readonly property bool has2kMessages: !rpg2k3 || battle2k.value === true
     readonly property int type: typeField.valid ? Number(typeField.value) : 0
     /** The subset types of RPG Maker 2003 are normal skills */
     readonly property bool normal: type === 0 || type >= 4
@@ -74,6 +74,12 @@ DatabaseEntryPage {
         id: failureField
         source: root.entry
         path: "failure_message"
+    }
+    // the battle system, followed as it changes (System > EasyRPG Player), in this window too
+    Ez.JsonField {
+        id: battle2k
+        source: root.database
+        path: "system/easyrpg_use_rpg2k_battle_system"
     }
 
     /** A rate of 0 to 10 and its value */

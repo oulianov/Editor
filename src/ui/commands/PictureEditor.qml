@@ -76,6 +76,20 @@ ColumnLayout {
     readonly property bool runs112: Ez.Origins.available("rpg2003e")
     /** The bottom half has a transparency of its own: RPG Maker 2003 before 1.10 */
     readonly property bool bottomShown: Ez.Game.rpg2k3 && !Ez.Game.commands2k3e
+    /**
+     * The spritesheet once the command is read: 0 none, 1 + its mode. Its
+     * frames count from 1 (0: the Player draws nothing): a spritesheet given
+     * columns, or put back to a frame, starts on the first one
+     */
+    readonly property int sheetState: revision < 0 ? -1 : read("columns") > 0 ? 1 + read("frameMode") : 0
+    property int lastSheetState: -1
+    onSheetStateChanged: {
+        if (lastSheetState >= 0 && sheetState === 1 && read("frame") === 0) {
+            session.write("frame", 1)
+        }
+        lastSheetState = sheetState
+    }
+    Component.onCompleted: lastSheetState = sheetState
     /** The options of Move Picture after waiting: the Maniac Patch's */
     readonly property var moveOptionIds: ["relative", "keepTint", "keepEffect", "keepBlend", "keepFlips", "keepTime", "magnifiedPosition"]
 
@@ -708,6 +722,13 @@ ColumnLayout {
                     if (flip !== "") {
                         parts.push("flip=" + flip)
                     }
+                    // the frame of its spritesheet (RPG Maker 2003 1.12), as the
+                    // Player draws it: the one given (from 1), the first for an
+                    // animation or a frame in a variable
+                    if (root.runs112 && picture.columns > 0 && picture.rows > 0) {
+                        const frame = root.read("frameMode") === 0 ? root.read("frame") - 1 : 0
+                        parts.push("frame=" + picture.columns + "," + picture.rows + "," + frame)
+                    }
                     return parts.join("&")
                 }
                 // the power of the effect, unless a variable's (its modes:
@@ -739,42 +760,17 @@ ColumnLayout {
                     cursorShape: picture.pickable ? Qt.PointingHandCursor : Qt.ArrowCursor
                 }
 
-                // the frames of its spritesheet (RPG Maker 2003 1.12). The rows
-                // count only with columns, as the Player reads them: without,
-                // they hold what older versions left there (millions in real
-                // games). A line per frame only where frames are 2 pixels or
-                // wider in the preview, so never more lines than it has pixels
+                // its spritesheet (RPG Maker 2003 1.12): the frame shown (the
+                // image's query). The rows count only with columns, as the
+                // Player reads them: without, they hold what older versions
+                // left there (millions in real games)
                 readonly property int columns: Math.max(0, root.read("columns"))
                 readonly property int rows: columns > 0 ? Math.max(0, root.read("rows")) : 0
-                readonly property int columnLines: columns > 1 && pictureRect.width / columns >= 2 ? columns - 1 : 0
-                readonly property int rowLines: rows > 1 && pictureRect.height / rows >= 2 ? rows - 1 : 0
                 // what is drawn over the picture turns with it (around its
                 // center, the field's)
                 Item {
                     anchors.fill: parent
                     rotation: picture.shownAngle
-                    Repeater {
-                        model: picture.columnLines
-                        Rectangle {
-                            required property int index
-                            x: picture.pictureRect.x + Math.round((index + 1) * picture.pictureRect.width / picture.columns)
-                            y: picture.pictureRect.y
-                            width: 1
-                            height: picture.pictureRect.height
-                            color: Kirigami.Theme.highlightColor
-                        }
-                    }
-                    Repeater {
-                        model: picture.rowLines
-                        Rectangle {
-                            required property int index
-                            x: picture.pictureRect.x
-                            y: picture.pictureRect.y + Math.round((index + 1) * picture.pictureRect.height / picture.rows)
-                            width: picture.pictureRect.width
-                            height: 1
-                            color: Kirigami.Theme.highlightColor
-                        }
-                    }
                     // where X and Y put it, when not its center: the origin of the Maniac Patch
                     Rectangle {
                         objectName: "pictureOriginPoint"

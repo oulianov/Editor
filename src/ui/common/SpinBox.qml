@@ -180,13 +180,35 @@ Controls.SpinBox {
     Keys.onEnterPressed: (event) => root.takeTyped(event)
     function takeTyped(event) {
         event.accepted = false
+        commitTyped()
+    }
+    /** The number typed, not taken yet (no Return), becomes the value */
+    function commitTyped() {
         const input = contentItem as TextInput
-        if (!editable || !input) {
+        if (!editable || !input || input.text === textFromValue(value, locale)) {
             return
         }
         const typed = valueFromText(input.text, locale)
         if (!isNaN(typed)) {
             scrub.set(Math.trunc(typed))
+        }
+    }
+    // + and - step from the number typed: Qt's spin box steps from the
+    // value it had, then shows it again over what was typed
+    Connections {
+        target: root.up
+        function onPressedChanged() {
+            if (root.up.pressed) {
+                root.commitTyped()
+            }
+        }
+    }
+    Connections {
+        target: root.down
+        function onPressedChanged() {
+            if (root.down.pressed) {
+                root.commitTyped()
+            }
         }
     }
 

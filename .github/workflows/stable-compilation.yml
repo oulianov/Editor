@@ -351,6 +351,12 @@ jobs:
           kirigami="$(find "$PWD/build" -type d -path '*vcpkg_installed*/org/kde/kirigami' | head -1)"
           export QML_MODULES_PATHS="${kirigami%/org/kde/kirigami}"
           export EXTRA_PLATFORM_PLUGINS="libqoffscreen.so"
+          # the SVG icon engine: the icons of the Editor's themes (ezbright,
+          # ezdark: the arrows of the spin boxes and drop-downs...) are SVG
+          # files, which Qt loads only with it. linuxdeploy's Qt plugin
+          # leaves it out (blank icons in the AppImage up to 0.2.20)
+          mkdir -p AppDir/usr/plugins/iconengines
+          cp "$QT_ROOT_DIR/plugins/iconengines/libqsvgicon.so" AppDir/usr/plugins/iconengines/
           ./linuxdeploy-${{ matrix.os.arch }}.AppImage \
             --appdir AppDir \
             --executable AppDir/bin/easyrpg-editor \
@@ -370,6 +376,10 @@ jobs:
           find squashfs-root/usr/lib squashfs-root/usr/plugins squashfs-root/usr/qml -maxdepth 2 | sort
           if find squashfs-root -name 'libQt6Widgets*' | grep .; then
             echo "::error::The AppImage bundles Qt Widgets"
+            exit 1
+          fi
+          if [ ! -e squashfs-root/usr/plugins/iconengines/libqsvgicon.so ]; then
+            echo "::error::The AppImage has no SVG icon engine: its icons would be blank"
             exit 1
           fi
           # Qt Multimedia's FFmpeg plugin and Qt's FFmpeg libraries: without

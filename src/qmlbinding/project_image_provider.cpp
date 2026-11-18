@@ -147,6 +147,22 @@ QPixmap ProjectImageProvider::requestPixmap(const QString& id, QSize* size, cons
 		transparent = query.queryItemValue(QStringLiteral("transparent")) != QLatin1String("0");
 	}
 	QImage image = load(m_finder(folder, name), transparent);
+	// "frame=COLUMNS,ROWS,INDEX": the frame of a spritesheet (RPG Maker 2003
+	// 1.12), as the Player draws it (Sprite_Picture); none for a frame out of
+	// the sheet, which the Player does not draw
+	const QList<int> sheet = numbersOf(query, QStringLiteral("frame"));
+	if (!image.isNull() && sheet.size() == 3 && sheet[0] > 0 && sheet[1] > 0 && sheet[0] * sheet[1] > 1) {
+		const int columns = sheet[0];
+		const int rows = sheet[1];
+		const int index = sheet[2];
+		const int width = image.width() / columns;
+		const int height = image.height() / rows;
+		if (index < 0 || index >= columns * rows || width <= 0 || height <= 0) {
+			image = QImage();
+		} else {
+			image = image.copy(width * (index % columns), height * (index / columns % rows), width, height);
+		}
+	}
 	if (!image.isNull()) {
 		applyAppearance(image, query);
 	}
