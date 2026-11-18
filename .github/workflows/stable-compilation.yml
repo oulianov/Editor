@@ -307,7 +307,8 @@ jobs:
           cmake --build --preset vcpkg-liblcf-release
           ccache -s
           # keep only what this build used, so the saved cache stays small
-          ccache --evict-older-than 2h
+          # (in seconds: ccache 4.9, Ubuntu 24.04's, knows only d and s)
+          ccache --evict-older-than 7200s
 
       # all of them built: saved even when the Editor did not compile
       - &vcpkgsave
@@ -512,7 +513,8 @@ jobs:
           builds/macos/build.sh --tests
           ccache -s
           # keep only what this build used, so the saved cache stays small
-          ccache --evict-older-than 2h
+          # (in seconds: ccache 4.9, Ubuntu 24.04's, knows only d and s)
+          ccache --evict-older-than 7200s
 
       - name: Save the dependencies
         if: steps.deps.outputs.cache-hit != 'true'
@@ -717,7 +719,8 @@ jobs:
           cmake --build --preset vcpkg-liblcf-release
           ccache -s
           # keep only what this build used, so the saved cache stays small
-          ccache --evict-older-than 2h
+          # (in seconds: ccache 4.9, Ubuntu 24.04's, knows only d and s)
+          ccache --evict-older-than 7200s
 
       # even when the build failed: what compiled is kept
       - name: Save the compiled files
