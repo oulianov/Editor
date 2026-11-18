@@ -184,7 +184,7 @@ jobs:
       # aqtinstall on a Python with prebuilt packages of py7zr's
       # dependencies (on the newest one, pip built them), as on macOS and
       # Windows
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -306,6 +306,8 @@ jobs:
           ccache -z
           cmake --build --preset vcpkg-liblcf-release
           ccache -s
+          # keep only what this build used, so the saved cache stays small
+          ccache --evict-older-than 2h
 
       # all of them built: saved even when the Editor did not compile
       - &vcpkgsave
@@ -444,7 +446,7 @@ jobs:
 
       # aqtinstall on a Python with prebuilt packages of py7zr's
       # dependencies (on the newest one, pip built them)
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -499,6 +501,8 @@ jobs:
           ccache -z
           builds/macos/build.sh --tests
           ccache -s
+          # keep only what this build used, so the saved cache stays small
+          ccache --evict-older-than 2h
 
       - name: Save the dependencies
         if: steps.deps.outputs.cache-hit != 'true'
@@ -618,7 +622,7 @@ jobs:
       # commit (it needs a newer py7zr than the action's default)
       # aqtinstall on a Python with prebuilt packages of py7zr's
       # dependencies (on the newest one, pip built them: a minute)
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -702,6 +706,8 @@ jobs:
           ccache -z
           cmake --build --preset vcpkg-liblcf-release
           ccache -s
+          # keep only what this build used, so the saved cache stays small
+          ccache --evict-older-than 2h
 
       # even when the build failed: what compiled is kept
       - name: Save the compiled files
