@@ -159,8 +159,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
+          # the runners' Ubuntu is the container's: setup-python takes the
+          # runner's own Python, built for its Ubuntu (26.04's has no ssl
+          # module in a 24.04 container, and pip installs nothing)
           - arch: x86_64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             triplet: x64-linux-release
           - arch: aarch64
             runner: ubuntu-24.04-arm
