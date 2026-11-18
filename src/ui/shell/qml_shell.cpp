@@ -217,12 +217,6 @@ ProjectController* QmlShell::projectController() const
 	return m_project;
 }
 
-void QmlShell::askForRtp()
-{
-	if (EditorSettings::instance().rtpFolders().isEmpty())
-		m_dialogs->settings();
-}
-
 void QmlShell::loadLastProject()
 {
 	m_shell->openLastProject();

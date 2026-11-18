@@ -10,11 +10,11 @@ import QtQuick.Dialogs as Dialogs
 import org.easyrpg.editor as Ez
 
 /**
- * Game Project > Open Project: the projects of the folder of the games
- * (an Ez.ProjectListModel) with the profile of each (its engine and its
- * add-ons, as the status bar shows the game open), their settings and their
- * deletion, and Import for a game of RPG Maker. Its result: 1 to open the
- * project selected, 2 for Import.
+ * Game Project > Open Project: the folder of the games at the top, then its
+ * projects (an Ez.ProjectListModel) with the profile of each (its engine and
+ * its add-ons), and Import for a game of RPG Maker. A right click on a
+ * project: Open, Settings... and Delete. Its result: 1 to open the project
+ * selected (Open), 2 for Import.
  */
 Ez.DialogWindow {
     id: root
@@ -73,6 +73,8 @@ Ez.DialogWindow {
     // a project selected, listed
     acceptable: projects !== null && !projects.busy && projects.currentRow >= 0
 
+    Component.onCompleted: buttonBox.standardButton(Controls.DialogButtonBox.Ok).text = qsTr("Open")
+
     buttons: [
         Ez.Button {
             objectName: "pushImport"
@@ -81,54 +83,9 @@ Ez.DialogWindow {
             Controls.ToolTip.visible: hovered
             Controls.ToolTip.text: qsTr("Copy an RPG Maker 2000/2003 game into a new project")
             onClicked: root.importProject()
-        },
-        Ez.Button {
-            objectName: "pushRename"
-            text: qsTr("Settings...")
-            enabled: root.acceptable
-            Controls.DialogButtonBox.buttonRole: Controls.DialogButtonBox.ActionRole
-            onClicked: root.editSettings()
-        },
-        Ez.Button {
-            objectName: "pushDelete"
-            text: qsTr("Delete")
-            enabled: root.acceptable
-            Controls.DialogButtonBox.buttonRole: Controls.DialogButtonBox.ActionRole
-            onClicked: root.deleteProject()
         }
     ]
 
-    Ez.ColumnList {
-        listName: "tableProjects"
-        model: root.projects
-        currentRow: root.projects ? root.projects.currentRow : -1
-        enabled: root.projects !== null && !root.projects.busy
-        columns: [
-            { title: qsTr("Folder"), role: "folder", icon: "folder" },
-            { title: qsTr("Game Title"), role: "title" },
-            { title: qsTr("Engine"), role: "profileText", cell: profileCell }
-        ]
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        onPicked: row => root.projects.currentRow = row
-        onActivated: root.accept()
-
-        Controls.BusyIndicator {
-            anchors.centerIn: parent
-            running: root.projects !== null && root.projects.busy
-            visible: running
-        }
-        // a path typed that is no folder: nothing listed
-        Ez.Note {
-            objectName: "noteNoFolder"
-            anchors.centerIn: parent
-            width: Math.min(parent.width - 2 * Ez.Metrics.dialogMargin, 360)
-            horizontalAlignment: Text.AlignHCenter
-            color: Ez.Metrics.mutedTextColor
-            visible: root.projects !== null && !root.projects.folderExists
-            text: qsTr("This folder doesn't exist.")
-        }
-    }
     Ez.Section {
         title: qsTr("Path to games folder")
         Ez.PathField {
@@ -147,6 +104,74 @@ Ez.DialogWindow {
             // Return lists the folder typed: it does not open a project (OK)
             Keys.onReturnPressed: (event) => event.accepted = true
             Keys.onEnterPressed: (event) => event.accepted = true
+        }
+    }
+    Ez.ColumnList {
+        id: projectList
+        listName: "tableProjects"
+        model: root.projects
+        currentRow: root.projects ? root.projects.currentRow : -1
+        enabled: root.projects !== null && !root.projects.busy
+        columns: [
+            { title: qsTr("Folder"), role: "folder", icon: "folder" },
+            { title: qsTr("Game Title"), role: "title" },
+            { title: qsTr("Engine"), role: "profileText", cell: profileCell }
+        ]
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        onPicked: row => root.projects.currentRow = row
+        onActivated: root.accept()
+
+        // the right button on a project: it is selected, then its menu
+        Ez.ContextMenuHandler {
+            onRequested: (x, y) => {
+                const point = projectList.view.contentItem.mapFromItem(projectList, x, y)
+                const row = projectList.view.indexAt(point.x, point.y)
+                if (row >= 0 && root.projects && !root.projects.busy) {
+                    projectList.view.forceActiveFocus()
+                    root.projects.currentRow = row
+                    projectMenu.popupAt(projectList, x, y)
+                }
+            }
+        }
+        Ez.ContextMenu {
+            id: projectMenu
+            objectName: "projectMenu"
+            font: Ez.Metrics.font
+            Controls.MenuItem {
+                objectName: "actionOpen"
+                text: qsTr("Open")
+                enabled: root.acceptable
+                onTriggered: root.accept()
+            }
+            Controls.MenuItem {
+                objectName: "pushRename"
+                text: qsTr("Settings...")
+                enabled: root.acceptable
+                onTriggered: root.editSettings()
+            }
+            Controls.MenuItem {
+                objectName: "pushDelete"
+                text: qsTr("Delete")
+                enabled: root.acceptable
+                onTriggered: root.deleteProject()
+            }
+        }
+
+        Controls.BusyIndicator {
+            anchors.centerIn: parent
+            running: root.projects !== null && root.projects.busy
+            visible: running
+        }
+        // a path typed that is no folder: nothing listed
+        Ez.Note {
+            objectName: "noteNoFolder"
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 2 * Ez.Metrics.dialogMargin, 360)
+            horizontalAlignment: Text.AlignHCenter
+            color: Ez.Metrics.mutedTextColor
+            visible: root.projects !== null && !root.projects.folderExists
+            text: qsTr("This folder doesn't exist.")
         }
     }
 

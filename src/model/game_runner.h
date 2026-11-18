@@ -96,7 +96,11 @@ public:
 	/** Called before the Player starts (to save the maps): false cancels */
 	static void setBeforeLaunch(std::function<bool()> callback);
 
+	/** A Player gone this soon after its start, having written errors, is told about */
+	static constexpr int EarlyExitMs = 3000;
 private:
+	/** The process pid runs */
+	static bool isRunning(qint64 pid);
 #ifdef Q_OS_MACOS
 	/** Brings the Player in front once it runs (macOS gives it no focus) */
 	static void activatePlayer(qint64 pid);

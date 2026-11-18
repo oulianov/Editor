@@ -17,8 +17,9 @@ import org.easyrpg.editor as Ez
  * its add-ons, each with its tag: the Maniac Patch, EasyRPG Player's
  * extensions, RPG Maker 2003's commands in a game of RPG Maker 2000
  * (EasyRPG Player only), written in its EasyRPG.ini as Project Settings
- * writes them. The project is made by the caller, from what the window
- * says once accepted.
+ * writes them. When this computer has no RTP folder set up, or no EasyRPG
+ * Player, it offers to download them (on by default). The project is made by
+ * the caller, from what the window says once accepted.
  */
 Ez.DialogWindow {
     id: root
@@ -43,6 +44,13 @@ Ez.DialogWindow {
         return keys
     }
 
+    /** No RTP folder set up / no EasyRPG Player found: offered for download (the caller says) */
+    property bool rtpMissing: false
+    property bool playerMissing: false
+    /** Download them once the project is made (on unless unchecked) */
+    readonly property bool downloadRtp: rtpMissing && downloadRtpBox.checked
+    readonly property bool downloadPlayer: playerMissing && downloadPlayerBox.checked
+
     /** The folder of the games chosen (the folder window's choice; scripts give it too) */
     function chooseFolder(path) {
         if (path !== "") {
@@ -56,94 +64,149 @@ Ez.DialogWindow {
     // the folder of the game is needed
     acceptable: gameFolder !== ""
 
-    Ez.Section {
-        title: qsTr("Path to games folder")
-        Ez.PathField {
-            fieldName: "lineProjectPath"
-            buttonName: "toolProjectPath"
-            text: root.defDir
-            field.readOnly: true
-            buttonIcon: "folder"
-            onBrowse: folderDialog.open()
+    Controls.TabBar {
+        id: tabs
+        objectName: "tabs"
+        font: Ez.Metrics.font
+        Layout.fillWidth: true
+        Controls.TabButton {
+            text: qsTr("General")
+            width: implicitWidth
+        }
+        Controls.TabButton {
+            text: qsTr("Advanced")
+            width: implicitWidth
         }
     }
-    Ez.Section {
-        title: qsTr("Game Folder")
-        Ez.TextField {
-            id: folder
-            objectName: "lineGameFolder"
-            Layout.fillWidth: true
-        }
-    }
-    Ez.Section {
-        title: qsTr("Game Title")
-        Ez.TextField {
-            id: gameTitle
-            objectName: "lineGameTitle"
-            Layout.fillWidth: true
-        }
-    }
-    Ez.Section {
-        title: qsTr("Tile Size")
-        Ez.ComboBox {
-            id: tileSize
-            objectName: "comboTileSize"
-            // only 16 pixels: RPG_RT.exe and EasyRPG Player draw no other size
-            // (the Player's TILE_SIZE is fixed when it is built)
-            enabled: false
-            model: [{ text: "16", value: 16 }, { text: "32", value: 32 }, { text: "64", value: 64 }]
-            Layout.fillWidth: true
-            Ez.OriginTip {
-                toolTip: qsTr("RPG Maker and EasyRPG Player only run tiles of 16 pixels")
+
+    StackLayout {
+        currentIndex: tabs.currentIndex
+        Layout.fillWidth: true
+
+        // General: where the game goes, its title, what this computer lacks to run it
+        ColumnLayout {
+            spacing: Ez.Metrics.sectionSpacing
+            Ez.Section {
+                title: qsTr("Path to games folder")
+                Ez.PathField {
+                    fieldName: "lineProjectPath"
+                    buttonName: "toolProjectPath"
+                    text: root.defDir
+                    field.readOnly: true
+                    buttonIcon: "folder"
+                    onBrowse: folderDialog.open()
+                }
+            }
+            Ez.Section {
+                title: qsTr("Game Folder")
+                Ez.TextField {
+                    id: folder
+                    objectName: "lineGameFolder"
+                    Layout.fillWidth: true
+                }
+            }
+            Ez.Section {
+                title: qsTr("Game Title")
+                Ez.TextField {
+                    id: gameTitle
+                    objectName: "lineGameTitle"
+                    Layout.fillWidth: true
+                }
+            }
+            // what this computer lacks to run the game: downloaded once it is made
+            Ez.Section {
+                objectName: "groupDownloads"
+                title: qsTr("Downloads")
+                visible: root.rtpMissing || root.playerMissing
+                Ez.CheckBox {
+                    id: downloadRtpBox
+                    objectName: "checkDownloadRtp"
+                    text: qsTr("Download the EasyRPG RTP")
+                    checked: true
+                    visible: root.rtpMissing
+                    Controls.ToolTip.visible: hovered
+                    Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
+                    Controls.ToolTip.text: qsTr("No RTP folder is set up: EasyRPG's free RTP, for the games of RPG Maker 2000 and 2003, is downloaded and added to the RTP folders of the Editor Settings.")
+                }
+                Ez.CheckBox {
+                    id: downloadPlayerBox
+                    objectName: "checkDownloadPlayer"
+                    text: qsTr("Download EasyRPG Player")
+                    checked: true
+                    visible: root.playerMissing
+                    Controls.ToolTip.visible: hovered
+                    Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
+                    Controls.ToolTip.text: qsTr("No EasyRPG Player is found: the one of easyrpg.org is downloaded for test play.")
+                }
             }
         }
-    }
-    Ez.Section {
-        objectName: "groupFormat"
-        title: qsTr("Format")
-        Ez.ComboBox {
-            id: format
-            objectName: "comboFormat"
-            model: [{ text: qsTr("RPG Maker 2003"), value: 0 }, { text: qsTr("RPG Maker 2000"), value: 1 },
-                    { text: qsTr("EasyRPG (XML)"), value: 2 }]
-            Layout.fillWidth: true
-        }
-    }
-    // what the game runs besides its engine: [Patch] of its EasyRPG.ini
-    Ez.Section {
-        objectName: "groupAddOns"
-        title: qsTr("Add-ons")
-        AddOn {
-            id: maniac
-            name: "checkManiac"
-            patch: "Maniac"
-            origin: "maniac"
-        }
-        AddOn {
-            id: easyrpg
-            name: "checkEasyRpg"
-            patch: "EasyRPG"
-            origin: "easyrpg"
-        }
-        // RPG Maker 2003's are part of its games
-        AddOn {
-            id: commands2k3
-            name: "checkRpg2k3Commands"
-            patch: "RPG2k3Commands"
-            origin: "rpg2003"
-            tagOrigin: "player"
-            enabled: root.format !== 0
-            Ez.OriginTip {
-                toolTip: commands2k3.enabled ? "" : qsTr("Part of RPG Maker 2003: for a game of RPG Maker 2000")
+
+        // Advanced: its engine, add-ons, database and tiles
+        ColumnLayout {
+            spacing: Ez.Metrics.sectionSpacing
+            Ez.Section {
+                objectName: "groupEngine"
+                title: qsTr("Engine")
+                Ez.ComboBox {
+                    id: format
+                    objectName: "comboFormat"
+                    model: [{ text: qsTr("RPG Maker 2003"), value: 0 }, { text: qsTr("RPG Maker 2000"), value: 1 },
+                            { text: qsTr("EasyRPG (XML)"), value: 2 }]
+                    Layout.fillWidth: true
+                }
             }
-        }
-    }
-    Ez.Section {
-        title: qsTr("DB template")
-        Ez.ComboBox {
-            objectName: "comboDbTemplate"
-            model: [{ text: qsTr("Default<EN>"), value: 0 }]
-            Layout.fillWidth: true
+            // what the game runs besides its engine: [Patch] of its EasyRPG.ini
+            Ez.Section {
+                objectName: "groupAddOns"
+                title: qsTr("Add-ons")
+                AddOn {
+                    id: maniac
+                    name: "checkManiac"
+                    patch: "Maniac"
+                    origin: "maniac"
+                }
+                AddOn {
+                    id: easyrpg
+                    name: "checkEasyRpg"
+                    patch: "EasyRPG"
+                    origin: "easyrpg"
+                }
+                // RPG Maker 2003's are part of its games
+                AddOn {
+                    id: commands2k3
+                    name: "checkRpg2k3Commands"
+                    patch: "RPG2k3Commands"
+                    origin: "rpg2003"
+                    tagOrigin: "player"
+                    enabled: root.format !== 0
+                    Ez.OriginTip {
+                        toolTip: commands2k3.enabled ? "" : qsTr("Part of RPG Maker 2003: for a game of RPG Maker 2000")
+                    }
+                }
+            }
+            Ez.Section {
+                title: qsTr("DB template")
+                Ez.ComboBox {
+                    objectName: "comboDbTemplate"
+                    model: [{ text: qsTr("Default<EN>"), value: 0 }]
+                    Layout.fillWidth: true
+                }
+            }
+            Ez.Section {
+                title: qsTr("Tile Size")
+                Ez.ComboBox {
+                    id: tileSize
+                    objectName: "comboTileSize"
+                    // only 16 pixels: RPG_RT.exe and EasyRPG Player draw no other size
+                    // (the Player's TILE_SIZE is fixed when it is built)
+                    enabled: false
+                    model: [{ text: "16", value: 16 }, { text: "32", value: 32 }, { text: "64", value: 64 }]
+                    Layout.fillWidth: true
+                    Ez.OriginTip {
+                        toolTip: qsTr("RPG Maker and EasyRPG Player only run tiles of 16 pixels")
+                    }
+                }
+            }
         }
     }
 

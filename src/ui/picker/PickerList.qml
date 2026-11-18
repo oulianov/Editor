@@ -72,6 +72,8 @@ Rectangle {
         highlightResizeDuration: 0
         boundsBehavior: Flickable.StopAtBounds
         currentIndex: -1
+        // the lines scrolled out are used again for the ones coming in
+        reuseItems: true
         // shown while the list is longer than its frame, as RPG Maker's
         Controls.ScrollBar.vertical: Controls.ScrollBar {
             id: bar
@@ -102,27 +104,44 @@ Rectangle {
             event.accepted = true
         }
 
-        delegate: Controls.ItemDelegate {
+        // a line: its highlight and its text, light (a list can have thousands
+        // of entries: the switches of a game)
+        delegate: Item {
             id: line
 
             required property int index
             required property var model
+            readonly property bool highlighted: ListView.isCurrentItem
+            readonly property string text: model[root.textRole] ?? ""
 
             width: ListView.view.width - (bar.visible ? bar.width : 0)
-            text: model[root.textRole] ?? ""
-            font: Ez.Metrics.font
-            topPadding: 1
-            bottomPadding: 1
-            leftPadding: 4
-            rightPadding: 4
-            highlighted: ListView.isCurrentItem
+            height: label.implicitHeight + 2
             opacity: root.dimRole !== "" && model[root.dimRole] && !highlighted ? 0.6 : 1
 
-            onClicked: {
-                list.forceActiveFocus()
-                list.currentIndex = index
+            Rectangle {
+                anchors.fill: parent
+                visible: line.highlighted
+                radius: 3
+                color: Kirigami.Theme.highlightColor
             }
-            onDoubleClicked: root.activated(index)
+            Text {
+                id: label
+                x: 4
+                width: parent.width - 8
+                anchors.verticalCenter: parent.verticalCenter
+                text: line.text
+                elide: Text.ElideRight
+                font: Ez.Metrics.font
+                color: line.highlighted ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+            }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    list.forceActiveFocus()
+                    list.currentIndex = line.index
+                }
+                onDoubleClicked: root.activated(line.index)
+            }
         }
     }
 }

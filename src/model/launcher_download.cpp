@@ -20,10 +20,12 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QStandardPaths>
+#include <QSysInfo>
 #include <QVersionNumber>
 #include <algorithm>
 
@@ -131,6 +133,48 @@ QString Launchers::downloaded(ExportPlatform platform)
 {
 	const QString launcher = extracted(platform, folder(platform) + QLatin1Char('/') + version());
 	return GameExporter::isLauncher(platform, launcher) ? QDir::cleanPath(launcher) : QString();
+}
+
+QString Launchers::hostUnavailable()
+{
+#if defined(Q_OS_LINUX)
+	const QString arch = QSysInfo::currentCpuArchitecture();
+	if (arch != QLatin1String("x86_64")) {
+		return QCoreApplication::translate("LauncherDownload",
+			"easyrpg.org has EasyRPG Player for Linux on x86_64 (amd64) processors only, not on this one (%1). "
+			"Install it from the packages of your distribution or from Flathub (org.easyrpg.player), "
+			"then choose it in Editor Settings, RTP and Programs.").arg(arch);
+	}
+#endif
+	return QString();
+}
+
+bool Launchers::runsHere(const QString& program)
+{
+#if defined(Q_OS_LINUX)
+	// the machine of an ELF program (offset 18), as this computer's
+	QFile file(program);
+	if (!file.open(QIODevice::ReadOnly)) {
+		return true;
+	}
+	const QByteArray head = file.read(20);
+	if (head.size() < 20 || !head.startsWith("\x7f" "ELF")) {
+		return true; // a script, a link...: tried
+	}
+	const quint16 machine = quint8(head[18]) | (quint8(head[19]) << 8);
+	const QString arch = QSysInfo::currentCpuArchitecture();
+	struct Machine { quint16 id; const char* arch; };
+	static const Machine machines[] = { {0x3E, "x86_64"}, {0xB7, "arm64"}, {0x03, "i386"}, {0x28, "arm"}, {0xF3, "riscv64"} };
+	for (const Machine& known : machines) {
+		if (known.id == machine) {
+			return arch == QLatin1String(known.arch);
+		}
+	}
+	return true;
+#else
+	Q_UNUSED(program)
+	return true;
+#endif
 }
 
 ExportPlatform Launchers::hostPlatform()
@@ -333,7 +377,9 @@ void LauncherDownload::downloaded()
 #endif
 	} else {
 		program = QStandardPaths::findExecutable(QStringLiteral("tar"));
-		args = { QStringLiteral("-xzf"), archive, QStringLiteral("-C"), m_dir };
+		// the files are the user's: as root, tar would give them the owners
+		// of the archive, which a sandbox (Flatpak) refuses
+		args = { QStringLiteral("--no-same-owner"), QStringLiteral("-xzf"), archive, QStringLiteral("-C"), m_dir };
 	}
 	if (program.isEmpty()) {
 		fail(tr("No program to extract %1 was found (unzip or tar).").arg(QFileInfo(archive).fileName()));

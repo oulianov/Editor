@@ -244,6 +244,13 @@ Ez.ComboBox {
     }
 
     model: choices !== undefined ? choiceList : ids === undefined ? entries : allowed
+    // the lines of the box's own list: empty items, its drop-down being the
+    // search below. The style's pop-up, made anyway under it (Breeze: a
+    // ListView as tall as its content, following highlightedIndex), makes one
+    // for every entry when it first opens: with the lines of Ez.ComboBox,
+    // half a second for thousands of switches. (A delegate is needed: the
+    // box's text and count come through it.)
+    delegate: Item {}
 
     // the "..." between the text and the arrow, in the frame of the box
     readonly property real pickPart: pickable ? pick.implicitWidth + spacing : 0
@@ -609,6 +616,8 @@ Ez.ComboBox {
                     implicitHeight: Math.min(Math.max(1, root.count), search.maximumRows) * search.rowHeight
                     clip: true
                     model: found
+                    // the lines scrolled out are used again for the ones coming in
+                    reuseItems: true
                     highlightMoveDuration: 0
                     boundsBehavior: Flickable.StopAtBounds
                     Controls.ScrollBar.vertical: Controls.ScrollBar {}
@@ -629,7 +638,7 @@ Ez.ComboBox {
                         // removes the lines before it
                         required property var value
                         /** The row of the entry in the box */
-                        readonly property int row: root.indexOfValue(value)
+                        readonly property int row: found.sourceRowOfValue(value)
                         readonly property bool current: ListView.isCurrentItem
                         // the entry of the box
                         readonly property bool chosen: row === root.currentIndex
@@ -642,31 +651,39 @@ Ez.ComboBox {
                             visible: line.current
                             color: Kirigami.Theme.highlightColor
                         }
-                        Ez.FaceSetPaintedItem {
-                            readonly property var face: root.faceOf(Number(line.value))
-                            visible: root.showsFaces && face.name !== ""
+                        // the face of a hero, the charset of an event: only in the lists
+                        // that have them (none in the lists of switches, variables...)
+                        Loader {
+                            active: root.showsFaces
                             x: Ez.Metrics.listTextPadding
                             anchors.verticalCenter: parent.verticalCenter
-                            width: root.faceSize
-                            height: root.faceSize
-                            smooth: true
-                            projectData: Ez.ProjectData
-                            filename: face.name
-                            cellIndex: face.index
+                            sourceComponent: Ez.FaceSetPaintedItem {
+                                readonly property var face: root.faceOf(Number(line.value))
+                                visible: face.name !== ""
+                                width: root.faceSize
+                                height: root.faceSize
+                                smooth: true
+                                projectData: Ez.ProjectData
+                                filename: face.name
+                                cellIndex: face.index
+                            }
                         }
-                        Ez.CharSetPaintedItem {
-                            readonly property var entry: root.charsets[Number(line.value)] ?? null
-                            visible: entry !== null && entry.charset !== ""
+                        Loader {
+                            active: root.showsCharsets
                             x: Ez.Metrics.listTextPadding
                             anchors.verticalCenter: parent.verticalCenter
-                            width: root.charsetWidth
-                            height: root.charsetHeight
-                            opaque: true
-                            projectData: Ez.ProjectData
-                            filename: entry ? entry.charset : ""
-                            cellIndex: entry ? entry.charsetIndex : 0
-                            facing: entry ? entry.facing : 2
-                            frame: entry ? entry.frame : 1
+                            sourceComponent: Ez.CharSetPaintedItem {
+                                readonly property var entry: root.charsets[Number(line.value)] ?? null
+                                visible: entry !== null && entry.charset !== ""
+                                width: root.charsetWidth
+                                height: root.charsetHeight
+                                opaque: true
+                                projectData: Ez.ProjectData
+                                filename: entry ? entry.charset : ""
+                                cellIndex: entry ? entry.charsetIndex : 0
+                                facing: entry ? entry.facing : 2
+                                frame: entry ? entry.frame : 1
+                            }
                         }
                         Ez.Label {
                             x: Ez.Metrics.listTextPadding + root.facePart

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <QHash>
 #include <QSet>
 #include <QAbstractListModel>
 #include <QSortFilterProxyModel>
@@ -67,6 +68,14 @@ public:
 	Q_INVOKABLE int rowOf(int sourceRow) const;
 	/** The row to select for the search: the entry of the number typed, else the first one (-1: none) */
 	Q_INVOKABLE int bestRow() const;
+	/**
+	 * The row of the source whose "value" role is value (-1: none): for a
+	 * list of the database (its IDs in order) one read; else from a table
+	 * made once, kept until the source changes. The lines of a long list
+	 * (thousands of switches) find their entry without a search each
+	 */
+	Q_INVOKABLE int sourceRowOfValue(const QVariant& value) const;
+	void setSourceModel(QAbstractItemModel* model) override;
 
 signals:
 	void filterTextChanged();
@@ -84,6 +93,10 @@ private:
 	QVariant m_ids;
 	/** m_ids as numbers; none set: every entry */
 	std::optional<QSet<int>> m_idSet;
+	/** sourceRowOfValue's table: the value (as text) -> its row; empty: to make */
+	mutable QHash<QString, int> m_rowOfValue;
+	mutable bool m_rowsKnown = false;
+	QList<QMetaObject::Connection> m_sourceConnections;
 };
 
 /**

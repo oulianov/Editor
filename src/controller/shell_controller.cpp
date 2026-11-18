@@ -19,6 +19,7 @@
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QStandardPaths>
 #include <QEvent>
 #include <QSettings>
 #include <QTimer>
@@ -38,6 +39,7 @@
 #include "model/game_runner.h"
 #include "model/game_setup.h"
 #include "model/maniac_compat.h"
+#include "model/player_download.h"
 #include "model/map_document.h"
 #include "model/map_tools.h"
 #include "model/project.h"
@@ -92,7 +94,21 @@ ShellController::ShellController(QObject* parent) :
 	const QSettings settings;
 	m_actions->setChecked(QStringLiteral("actionFullScreenToggle"), settings.value(TESTPLAY_FULLSCREEN_KEY, false).toBool());
 	m_actions->setChecked(QStringLiteral("actionTitleBackgroundToggle"), settings.value(TESTPLAY_SHOW_TITLE_KEY, true).toBool());
-	core().setDefDir(settings.value(DEFAULT_DIR_KEY, QCoreApplication::applicationDirPath()).toString());
+	// the folder of the games, made with the first new project: on Windows
+	// Documents\EasyRPGProjects, elsewhere ~/EasyRPGProjects. Not the Editor's
+	// folder, read-only in a Flatpak or an AppImage, an application bundle on
+	// macOS: the one an older version kept is the default too.
+	const QString appDir = QCoreApplication::applicationDirPath();
+#ifdef Q_OS_WIN
+	const QString defaultDir = QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation))
+		.filePath(QStringLiteral("EasyRPGProjects"));
+#else
+	const QString defaultDir = QDir::home().filePath(QStringLiteral("EasyRPGProjects"));
+#endif
+	QString defDir = settings.value(DEFAULT_DIR_KEY, defaultDir).toString();
+	if (QDir::cleanPath(defDir) == QDir::cleanPath(appDir))
+		defDir = defaultDir;
+	core().setDefDir(defDir);
 	// the options of the Settings window, now and when they change
 	applySettings();
 	connect(&EditorSettings::instance(), &EditorSettings::changed, this, &ShellController::applySettings);
@@ -247,6 +263,66 @@ void ShellController::newProject()
 		return;
 	}
 	openProject(folder.absolutePath());
+	// what the window offered: the RTP and the Player this computer lacks
+	if (chosen->downloadRtp)
+		downloadRtp();
+	if (chosen->downloadPlayer)
+		downloadPlayer();
+}
+
+void ShellController::downloadRtp()
+{
+	auto* download = new RtpDownload(this);
+	connect(download, &RtpDownload::progressChanged, this, [this, download] {
+		emit m_project->statusMessage(QCoreApplication::translate("MainWindow", "Downloading the EasyRPG RTP: %1 KB")
+			.arg(download->progress()), 0);
+	});
+	connect(download, &RtpDownload::finished, this, [this, download](const QString& folder) {
+		download->deleteLater();
+		if (folder.isEmpty()) {
+			emit m_project->statusMessage(QString(), 0);
+			return;
+		}
+		auto& settings = EditorSettings::instance();
+		const QString clean = QDir::cleanPath(folder);
+		QStringList folders = settings.rtpFolders();
+		if (!folders.contains(clean))
+			settings.setRtpFolders(folders << clean);
+		for (const int engine : {2000, 2003}) {
+			const QString current = settings.rtpDefault(engine);
+			if (current.isEmpty() || !QDir(current).exists())
+				settings.setRtpDefault(engine, clean);
+		}
+		emit m_project->statusMessage(QCoreApplication::translate("MainWindow", "The EasyRPG RTP is downloaded: %1")
+			.arg(QDir::toNativeSeparators(clean)), 10000);
+	});
+	// downloaded before: that one
+	const QString there = download->downloaded();
+	if (!there.isEmpty())
+		emit download->finished(there);
+	else if (!download->start())
+		download->deleteLater();
+}
+
+void ShellController::downloadPlayer()
+{
+	auto* download = new PlayerDownload(this);
+	connect(download, &PlayerDownload::progressChanged, this, [this, download] {
+		emit m_project->statusMessage(QCoreApplication::translate("MainWindow", "Downloading EasyRPG Player: %1 KB")
+			.arg(download->progress()), 0);
+	});
+	connect(download, &PlayerDownload::finished, this, [this, download](const QString& program) {
+		download->deleteLater();
+		if (program.isEmpty()) {
+			emit m_project->statusMessage(QString(), 0);
+			return;
+		}
+		EditorSettings::instance().setPlayerPath(program);
+		emit m_project->statusMessage(QCoreApplication::translate("MainWindow", "EasyRPG Player is downloaded: %1")
+			.arg(QDir::toNativeSeparators(program)), 10000);
+	});
+	if (!download->start())
+		download->deleteLater();
 }
 
 void ShellController::openProjectWindow()

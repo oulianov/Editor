@@ -8956,6 +8956,11 @@ http://localhost:8000
 <context>
     <name>LauncherDownload</name>
     <message>
+        <location filename="../src/model/launcher_download.cpp" line="143"/>
+        <source>easyrpg.org has EasyRPG Player for Linux on x86_64 (amd64) processors only, not on this one (%1). Install it from the packages of your distribution or from Flathub (org.easyrpg.player), then choose it in Editor Settings, RTP and Programs.</source>
+        <translation>easyrpg.org ne propose EasyRPG Player pour Linux que sur les processeurs x86_64 (amd64), pas sur celui-ci (%1). Installez-le depuis les paquets de votre distribution ou depuis Flathub (org.easyrpg.player), puis choisissez-le dans Paramètres de l&apos;éditeur, RTP et programmes.</translation>
+    </message>
+    <message>
         <location filename="../src/model/launcher_download.cpp" line="+223"/>
         <source>Cannot create %1.</source>
         <translation>Impossible de créer %1.</translation>
@@ -9434,6 +9439,22 @@ http://localhost:8000
 </context>
 <context>
     <name>MainWindow</name>
+    <message>
+        <source>Downloading the EasyRPG RTP: %1 KB</source>
+        <translation>Téléchargement du RTP d&apos;EasyRPG : %1 Ko</translation>
+    </message>
+    <message>
+        <source>The EasyRPG RTP is downloaded: %1</source>
+        <translation>Le RTP d&apos;EasyRPG est téléchargé : %1</translation>
+    </message>
+    <message>
+        <source>Downloading EasyRPG Player: %1 KB</source>
+        <translation>Téléchargement d&apos;EasyRPG Player : %1 Ko</translation>
+    </message>
+    <message>
+        <source>EasyRPG Player is downloaded: %1</source>
+        <translation>EasyRPG Player est téléchargé : %1</translation>
+    </message>
     <message>
         <location filename="../src/controller/shell_controller.cpp" line="+710"/>
         <location line="+1"/>
@@ -13597,6 +13618,38 @@ Les réécrire dans la base de données ?</translation>
 <context>
     <name>NewProjectDialog</name>
     <message>
+        <source>General</source>
+        <translation>Général</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Avancé</translation>
+    </message>
+    <message>
+        <source>Engine</source>
+        <translation>Moteur</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>Téléchargements</translation>
+    </message>
+    <message>
+        <source>Download the EasyRPG RTP</source>
+        <translation>Télécharger le RTP d&apos;EasyRPG</translation>
+    </message>
+    <message>
+        <source>Download EasyRPG Player</source>
+        <translation>Télécharger EasyRPG Player</translation>
+    </message>
+    <message>
+        <source>No RTP folder is set up: EasyRPG&apos;s free RTP, for the games of RPG Maker 2000 and 2003, is downloaded and added to the RTP folders of the Editor Settings.</source>
+        <translation>Aucun dossier RTP n&apos;est configuré : le RTP libre d&apos;EasyRPG, pour les jeux de RPG Maker 2000 et 2003, est téléchargé et ajouté aux dossiers RTP des paramètres de l&apos;éditeur.</translation>
+    </message>
+    <message>
+        <source>No EasyRPG Player is found: the one of easyrpg.org is downloaded for test play.</source>
+        <translation>Aucun EasyRPG Player n&apos;a été trouvé : celui d&apos;easyrpg.org est téléchargé pour les tests.</translation>
+    </message>
+    <message>
         <location filename="../src/ui/other/NewProjectWindow.qml" line="+35"/>
         <source>Create new Project</source>
         <translation>Créer un nouveau projet</translation>
@@ -13677,6 +13730,10 @@ Les réécrire dans la base de données ?</translation>
 <context>
     <name>OpenProjectDialog</name>
     <message>
+        <source>Open</source>
+        <translation>Ouvrir</translation>
+    </message>
+    <message>
         <location filename="../src/ui/other/OpenProjectWindow.qml" line="+68"/>
         <location filename="../src/model/project_list.cpp" line="+223"/>
         <source>Open existing Project</source>
@@ -13726,8 +13783,8 @@ Les réécrire dans la base de données ?</translation>
     </message>
     <message>
         <location line="+5"/>
-        <source>Settings...</source>
-        <translation>Paramètres...</translation>
+        <source>Editor Settings...</source>
+        <translation>Paramètres de l&apos;éditeur...</translation>
     </message>
     <message>
         <location filename="../src/model/project_list.cpp" line="+139"/>
@@ -17121,6 +17178,13 @@ Cochez d&apos;abord « Utiliser le générateur de donjons aléatoires » dans l
 </context>
 <context>
     <name>RunGameDialog</name>
+    <message>
+        <location filename="../src/model/game_runner.cpp" line="135"/>
+        <source>EasyRPG Player stopped as soon as it started:
+%1</source>
+        <translation>EasyRPG Player s&apos;est arrêté dès son lancement :
+%1</translation>
+    </message>
     <message>
         <location filename="../src/ui/other/RunGameWindow.qml" line="+61"/>
         <source>Play Mode</source>

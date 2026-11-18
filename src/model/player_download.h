@@ -43,6 +43,10 @@ class PlayerDownload : public QObject
 	Q_PROPERTY(QString version READ version CONSTANT)
 	/** The archive downloaded, its file name */
 	Q_PROPERTY(QString fileName READ fileName CONSTANT)
+	/** easyrpg.org has a Player for this computer (not for Linux on ARM...) */
+	Q_PROPERTY(bool available READ isAvailable CONSTANT)
+	/** Why not, for the tooltips of the Download buttons */
+	Q_PROPERTY(QString unavailableText READ unavailableText CONSTANT)
 
 public:
 	explicit PlayerDownload(QObject* parent = nullptr);
@@ -70,6 +74,10 @@ public:
 
 	/** The program of the Player downloaded, as the Settings keep it; empty if none */
 	static QString downloadedProgram();
+	/** easyrpg.org has a Player for this computer */
+	bool isAvailable() const;
+	/** Why it has none (Launchers::hostUnavailable), empty when it has one */
+	QString unavailableText() const;
 
 signals:
 	void busyChanged();

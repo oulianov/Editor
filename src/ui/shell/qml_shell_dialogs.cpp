@@ -80,7 +80,8 @@ std::optional<ShellDialogs::NewProject> QmlShellDialogs::newProject(const QStrin
 	const auto chosen = ProjectWindows::newProject(m_window(), def_dir);
 	if (!chosen)
 		return std::nullopt;
-	return NewProject{chosen->folder, chosen->title, chosen->format, chosen->tileSize, chosen->defDir, chosen->patches};
+	return NewProject{chosen->folder, chosen->title, chosen->format, chosen->tileSize, chosen->defDir, chosen->patches,
+		chosen->downloadRtp, chosen->downloadPlayer};
 }
 
 ShellDialogs::OpenProject QmlShellDialogs::openProject(const QString& def_dir)

@@ -84,7 +84,19 @@ void PlayerDownload::setProgress(int value, int maximum)
 QString PlayerDownload::downloadedProgram()
 {
 	const QString launcher = Launchers::downloaded(Launchers::hostPlatform());
-	return launcher.isEmpty() ? QString() : GameRunner::executableOf(launcher);
+	const QString program = launcher.isEmpty() ? QString() : GameRunner::executableOf(launcher);
+	// one for another processor (downloaded by an older version) does not run
+	return Launchers::runsHere(program) ? program : QString();
+}
+
+bool PlayerDownload::isAvailable() const
+{
+	return Launchers::hostUnavailable().isEmpty();
+}
+
+QString PlayerDownload::unavailableText() const
+{
+	return Launchers::hostUnavailable();
 }
 
 bool PlayerDownload::start()
@@ -98,6 +110,10 @@ bool PlayerDownload::start()
 		return true;
 	}
 	const ExportPlatform platform = Launchers::hostPlatform();
+	if (const QString unavailable = Launchers::hostUnavailable(); !unavailable.isEmpty()) {
+		dialogs().warning(QCoreApplication::translate("ExportDialog", "Download"), unavailable);
+		return false;
+	}
 	if (Launchers::url(platform).isEmpty()) {
 		return false;
 	}

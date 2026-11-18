@@ -23,10 +23,20 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTimer>
+#include <algorithm>
+#include "controller/dialog_service.h"
+#if defined(Q_OS_WIN)
+#include <windows.h>
+#else
+#include <cerrno>
+#include <csignal>
+#endif
 
 namespace {
 std::function<bool()> before_launch;
@@ -94,14 +104,57 @@ GameRunner::Result GameRunner::launch(const QStringList& options, bool use_setti
 	}
 	args << options;
 
+	// detached (it runs on when the Editor quits), its errors in a file: a
+	// Player that stops at once (a library missing, the build of another
+	// processor) says why, instead of nothing happening
+	const QString errors = QDir::temp().filePath(QStringLiteral("easyrpg-editor-player-%1.log")
+		.arg(QCoreApplication::applicationPid()));
+	QFile::remove(errors);
+	QProcess process;
+	process.setProgram(player);
+	process.setArguments(args);
+	process.setWorkingDirectory(project_dir);
+	process.setStandardErrorFile(errors);
 	qint64 pid = 0;
-	if (!QProcess::startDetached(player, args, project_dir, &pid)) {
+	if (!process.startDetached(&pid)) {
 		return Result::StartFailed;
 	}
+	QTimer::singleShot(EarlyExitMs, qApp, [pid, errors] {
+		if (isRunning(pid)) {
+			return;
+		}
+		QFile file(errors);
+		const QString text = file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).trimmed() : QString();
+		if (text.isEmpty()) {
+			return; // closed by the player, or quiet
+		}
+		// its last lines
+		const QStringList lines = text.split(QLatin1Char('\n'));
+		const QString last = lines.mid(std::max(0, int(lines.size()) - 8)).join(QLatin1Char('\n'));
+		DialogService::instance().warning(QCoreApplication::translate("RunGameDialog", "Test Play"),
+			QCoreApplication::translate("RunGameDialog", "EasyRPG Player stopped as soon as it started:\n%1").arg(last));
+	});
 #ifdef Q_OS_MACOS
 	activatePlayer(pid);
 #endif
 	return Result::Started;
+}
+
+bool GameRunner::isRunning(qint64 pid)
+{
+#if defined(Q_OS_WIN)
+	HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, static_cast<DWORD>(pid));
+	if (!process) {
+		return false;
+	}
+	DWORD code = 0;
+	const bool running = GetExitCodeProcess(process, &code) && code == STILL_ACTIVE;
+	CloseHandle(process);
+	return running;
+#else
+	// detached: not a child of the Editor (no zombie), gone once it ended
+	return ::kill(static_cast<pid_t>(pid), 0) == 0 || errno == EPERM;
+#endif
 }
 
 QStringList GameRunner::displayOptions(bool fullscreen, int window_zoom)
@@ -193,7 +246,8 @@ QString GameRunner::findPlayer()
 			continue;
 		}
 		QString program = executableOf(candidate);
-		if (!program.isEmpty()) {
+		// one built for another processor (the x86_64 Player on ARM) does not run
+		if (!program.isEmpty() && Launchers::runsHere(program)) {
 			return program;
 		}
 	}

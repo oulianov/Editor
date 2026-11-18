@@ -265,8 +265,9 @@ its places in `listPlaces`; `click Keep It Off` (`Keep Them Off` for
 several) writes the settings, `click Go Back` returns to Project Settings
 as it was. The log lists the uses (`add-ons turned off:`).
 
-Open Project (`OpenProjectDialog`: `tableProjects`, `lineProjectPath`)
-shows the profile of each game in its third column (`Folder | Game Title |
+Open Project (`OpenProjectDialog`: `lineProjectPath` at the top, `tableProjects`,
+its right-click menu `projectMenu` with `actionOpen`, `pushRename` (Settings...) and
+`pushDelete`: `context-menu tableProjects`) shows the profile of each game in its third column (`Folder | Game Title |
 RPG Maker 2003, Maniac Patch`): its format, then the add-ons it turns on
 (the Maniac Patch, the EasyRPG Extensions, RPG Maker 2003's commands, the
 battles of RPG Maker 2000, an experience curve, the engine told to the
@@ -305,7 +306,10 @@ Properties of a hero (`pushEditCustom`, `ActorEasyRpgDialog`:
 `checkPreventCritical`..., `spinUnarmedHit`) are enabled in every game.
 
 New Project (`actionProjectNew`, with no project open) is
-`NewProjectDialog`: `lineGameFolder`, `lineGameTitle`, `comboFormat` (0
+`NewProjectDialog`, in two tabs (`tabs`): General, `lineGameFolder`,
+`lineGameTitle`, and the downloads of what this computer lacks,
+`checkDownloadRtp` (no RTP folder set up) and `checkDownloadPlayer` (no
+EasyRPG Player found), on by default; Advanced, the engine `comboFormat` (0
 RPG Maker 2003, 1 RPG Maker 2000, 2 EasyRPG XML), the add-ons
 `checkManiac`, `checkEasyRpg` and `checkRpg2k3Commands` (greyed for RPG
 Maker 2003), `comboTileSize` (greyed: 16 only); scripts choose the folder

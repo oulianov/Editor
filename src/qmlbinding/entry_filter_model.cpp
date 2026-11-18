@@ -90,6 +90,60 @@ bool EntryFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex& source
 	return SearchMatch::matches(index.data().toString(), entryId(index), m_filterText);
 }
 
+void EntryFilterModel::setSourceModel(QAbstractItemModel* model) {
+	for (const auto& connection : std::as_const(m_sourceConnections)) {
+		disconnect(connection);
+	}
+	m_sourceConnections.clear();
+	m_rowsKnown = false;
+	QSortFilterProxyModel::setSourceModel(model);
+	if (!model) {
+		return;
+	}
+	// the table is made again once the rows or their values change
+	const auto forget = [this] { m_rowsKnown = false; };
+	m_sourceConnections << connect(model, &QAbstractItemModel::modelReset, this, forget)
+		<< connect(model, &QAbstractItemModel::rowsInserted, this, forget)
+		<< connect(model, &QAbstractItemModel::rowsRemoved, this, forget)
+		<< connect(model, &QAbstractItemModel::rowsMoved, this, forget)
+		<< connect(model, &QAbstractItemModel::layoutChanged, this, forget)
+		<< connect(model, &QAbstractItemModel::dataChanged, this, forget);
+}
+
+int EntryFilterModel::sourceRowOfValue(const QVariant& value) const {
+	QAbstractItemModel* source = sourceModel();
+	if (!source) {
+		return -1;
+	}
+	const int role = source->roleNames().key(QByteArrayLiteral("value"), -1);
+	const auto valueAt = [&](int row) {
+		const QModelIndex index = source->index(row, 0);
+		return role >= 0 ? index.data(role) : QVariant(entryId(index));
+	};
+	// the entries of a list of the database are in the order of their IDs,
+	// from 1, "(None)" (0) first or not: one read finds it
+	bool number = false;
+	const int id = value.toInt(&number);
+	if (number) {
+		for (const int row : {id - 1, id}) {
+			if (row >= 0 && row < source->rowCount() && valueAt(row) == value) {
+				return row;
+			}
+		}
+	}
+	// other lists: a table of every value, made once until the source changes
+	if (!m_rowsKnown) {
+		m_rowOfValue.clear();
+		const int rows = source->rowCount();
+		m_rowOfValue.reserve(rows);
+		for (int row = 0; row < rows; ++row) {
+			m_rowOfValue.insert(valueAt(row).toString(), row);
+		}
+		m_rowsKnown = true;
+	}
+	return m_rowOfValue.value(value.toString(), -1);
+}
+
 int EntryFilterModel::sourceRow(int row) const {
 	const QModelIndex source = mapToSource(index(row, 0));
 	return source.isValid() ? source.row() : -1;

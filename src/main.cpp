@@ -133,11 +133,9 @@ int main(int argc, char *argv[]) {
 	Translations::apply(language);
 
 	// main window and project
+	// no RTP folder set: nothing asked at start (New Project offers to
+	// download the EasyRPG RTP, Editor Settings add the folders)
 	QmlShell window;
-	// a script runs without an RTP (as in CI): no window may wait for one
-	if (!automation) {
-		window.askForRtp();
-	}
 	if (automation) {
 		// Clean up after the window has saved its workspace on aboutToQuit.
 		QObject::connect(&app, &QCoreApplication::aboutToQuit, [] {

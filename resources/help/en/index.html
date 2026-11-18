@@ -86,11 +86,16 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="new-project"></a>
 <h3>New project</h3>
-<p>Creates an empty game folder ready to be played with EasyRPG Player.</p>
+<p>Creates an empty game folder ready to be played with EasyRPG Player. On the <b>General</b> page:</p>
 <ul>
-<li><b>Game Title</b>: the name shown in the window title of the game.</li>
+<li><b>Path to games folder</b>: where the game folders go, <code>~/EasyRPGProjects</code> at first (<code>Documents\EasyRPGProjects</code> on Windows).</li>
 <li><b>Game Folder</b>: the name of the folder created for the project, inside the <b>Path to games folder</b>.</li>
-<li><b>Format</b>: the engine of the game, RPG Maker 2003 or RPG Maker 2000, or EasyRPG's XML files (an RPG Maker 2000 game).</li>
+<li><b>Game Title</b>: the name shown in the window title of the game.</li>
+<li><b>Download the EasyRPG RTP</b>, when no RTP folder is set up: EasyRPG's free RTP is downloaded once the game is made and added to the <a href="#rtp">RTP folders</a> of the Editor Settings. <b>Download EasyRPG Player</b>, when none is found: the Player of test play. Both are on by default; the status bar shows how the downloads go.</li>
+</ul>
+<p>On the <b>Advanced</b> page:</p>
+<ul>
+<li><b>Engine</b>: RPG Maker 2003 or RPG Maker 2000, or EasyRPG's XML files (an RPG Maker 2000 game).</li>
 <li><b>Add-ons</b>: what the game runs besides its engine, each with its tag: the <b>Maniac Patch</b> (M), the <b>EasyRPG Extensions</b> (E: EasyRPG Player only) and, for an RPG Maker 2000 game, the <b>RPG Maker 2003 commands</b> (E). They are written in the <code>[Patch]</code> section of its EasyRPG.ini, as <a href="#project-settings">Project Settings</a> writes them; change them there later.</li>
 <li><b>DB template</b>: the starting database (heroes, items, chipsets...) copied into the new project.</li>
 <li><b>Tile Size</b>: always 16 pixels: RPG Maker and EasyRPG Player run no other size.</li>
@@ -98,7 +103,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="project-settings"></a>
 <h3>Project settings</h3>
-<p><b>Game Project &gt; Project Settings</b> (or <b>Settings...</b> in the list of projects) holds what concerns one game: what is saved in its folder, and what it uses on this computer. It has four pages. <b>Engine</b> tells what the game is for RPG Maker and its RPG_RT.exe; <b>EasyRPG Player</b> holds everything only EasyRPG Player reads, which RPG_RT.exe ignores:</p>
+<p><b>Game Project &gt; Project Settings</b> (or <b>Settings...</b> in the right-click menu of a project of <b>Open Project</b>) holds what concerns one game: what is saved in its folder, and what it uses on this computer. It has four pages. <b>Engine</b> tells what the game is for RPG Maker and its RPG_RT.exe; <b>EasyRPG Player</b> holds everything only EasyRPG Player reads, which RPG_RT.exe ignores:</p>
 <ul>
 <li><b>General</b>: the <b>Directory Name</b> and <b>Game Name</b> (as RPG Maker's Rename Project), and the <b>Encoding</b> of the texts (<code>[EasyRPG] Encoding</code> of RPG_RT.ini). Texts shown garbled usually mean a wrong one: the project is closed (asking to save it) and opened again in the one chosen.</li>
 <li><b>Engine</b>: <b>Runs with</b>, the programs the game can run with as it is set up in the window, before OK: the <b>RPG_RT.exe</b> of its engine, the one of the <b>Maniac Patch</b> (RPG Maker 2003's: an RPG Maker 2003 game, or one with the patch) and <b>EasyRPG Player</b>, which runs them all; a choice of the <b>EasyRPG Player</b> page leaves only the Player (not its <b>Engine</b>, which RPG_RT.exe ignores), the Maniac Patch only its own RPG_RT.exe. Point at one to see what keeps it from running the game. Then the format of the project (<b>Convert to RPG Maker 2003...</b> converts it, after a backup), the players in the game folder with their version (RPG_RT.exe of RPG Maker 2000 or 2003, the Maniac Patch, EasyRPG Player), the <b>Maniac Patch</b> (another RPG_RT.exe, which EasyRPG Player runs too: its commands are then offered in the <a href="#command-palette">Event Commands</a> window), the <b>Text font</b> of the game (saved in the database, with a sentence drawn as EasyRPG Player draws it), the fonts RPG_RT.exe asks Windows for, and the symbols of messages ($A...).</li>
@@ -111,6 +116,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="game-profile"></a>
 <h3>The game's engine and add-ons</h3>
+<p><b>Game Project &gt; Open Project</b> lists the games of the <b>Path to games folder</b>, at its top. <b>Open</b> (or a double click) opens the game selected; a right click on a game offers <b>Open</b>, <b>Settings...</b> (its Project Settings) and <b>Delete</b> (to the trash); <b>Import...</b> copies a game of RPG Maker into a new project.</p>
 <p>The list of <b>Open Project</b> shows what each game is, read from its files without opening it: its engine, <b>RPG Maker 2000</b> or <b>RPG Maker 2003</b>, then each add-on it turns on, with the tag the editors give to what comes from it: <b>M</b> (purple) the Maniac Patch; <b>E</b> (green) what only EasyRPG Player runs: the EasyRPG Extensions, the RPG Maker 2003 commands of an RPG Maker 2000 game, the battles of RPG Maker 2000 or another experience curve in an RPG Maker 2003 game, the version of RPG Maker the Player is told to run the game as; <b>P</b> (orange) a patch of RPG_RT.exe that EasyRPG Player runs too (DynRPG, the Ineluki Key Patch, Power Mode 2003, Common This Event, Unlock Pictures). Point at one to see what it is and which programs run the game as it is set up. The game open's are in <a href="#project-settings">Project Settings</a> (its <b>Runs with</b> row).</p>
 <p><b>Export Game</b> says so when the game's own RPG_RT.exe is chosen for Windows while the game uses what only EasyRPG Player runs. Test play always runs EasyRPG Player.</p>
 
@@ -120,7 +126,7 @@ td { padding: 2px 8px 2px 2px; vertical-align: top; }
 
 <a name="editor-settings"></a>
 <h3>Editor settings</h3>
-<p><b>Settings...</b> (in the <b>Tools</b> menu; on macOS, in the <b>EasyRPG Editor</b> menu) opens the <b>Editor Settings</b>: the preferences of the Editor, saved on this computer for every game. They never change a game; what concerns one game is in its <a href="#project-settings">Project Settings</a>.</p>
+<p><b>Editor Settings...</b> (in the <b>Tools</b> menu; on macOS, <b>Settings...</b> in the <b>EasyRPG Editor</b> menu) opens the <b>Editor Settings</b>: the preferences of the Editor, saved on this computer for every game. They never change a game; what concerns one game is in its <a href="#project-settings">Project Settings</a>.</p>
 <p>On the <b>General</b> page:</p>
 <ul>
 <li><b>General</b>: the <b>Language</b> of the Editor, its <b>Color scheme</b> (light, dark, or as the system), <b>Check for updates automatically</b> (see <a href="#updates">Updates</a>), and <b>Keep search results between searches</b>.</li>

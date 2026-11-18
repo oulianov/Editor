@@ -8,6 +8,8 @@ rename-desktop-file: easyrpg-editor.desktop
 rename-icon: easyrpg-editor
 finish-args:
   - --share=ipc
+  # updates, the EasyRPG RTP and EasyRPG Player downloads
+  - --share=network
   - --socket=wayland
   - --socket=fallback-x11
   - --socket=pulseaudio

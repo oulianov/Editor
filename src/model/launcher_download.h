@@ -58,6 +58,13 @@ namespace Launchers {
 	/** The platform of this computer (macOS, Windows, else Linux) */
 	ExportPlatform hostPlatform();
 	/**
+	 * Why easyrpg.org has no EasyRPG Player for this computer: its Linux
+	 * build is for x86_64 (amd64) processors only. Empty when it has one
+	 */
+	QString hostUnavailable();
+	/** Whether a program (an ELF file on Linux) runs on this computer's processor */
+	bool runsHere(const QString& program);
+	/**
 	 * The archive of the EasyRPG RTP, EasyRPG's free RTP for the games of
 	 * both engines: the EasyRPG/RTP repository's (easyrpg.org has no
 	 * release of it); with EASYRPG_EDITOR_LAUNCHER_BASE, its easyrpg-rtp.zip

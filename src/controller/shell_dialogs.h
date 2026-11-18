@@ -56,6 +56,10 @@ public:
 		/** The add-ons chosen: their keys in [Patch] of its EasyRPG.ini
 		 *  ("Maniac", "EasyRPG", "RPG2k3Commands"), for Project::create */
 		QStringList patches;
+		/** Download the EasyRPG RTP (no RTP folder set up), EasyRPG Player (none
+		 *  found) once the project is made */
+		bool downloadRtp = false;
+		bool downloadPlayer = false;
 	};
 	virtual std::optional<NewProject> newProject(const QString& def_dir) = 0;
 

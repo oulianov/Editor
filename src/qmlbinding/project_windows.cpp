@@ -16,7 +16,10 @@
  */
 
 #include "project_windows.h"
+#include "common/editor_settings.h"
 #include "model/game_patches.h"
+#include "model/game_runner.h"
+#include "model/launcher_download.h"
 #include "model/project.h"
 #include "model/project_list.h"
 #include "model/project_settings.h"
@@ -47,9 +50,16 @@ std::optional<ProjectWindows::NewProject> ProjectWindows::newProject(QWindow* ov
 	for (const auto& patch : GamePatches::list()) {
 		texts.insert(QString::fromLatin1(patch.key), QCoreApplication::translate("GamePatches", patch.text));
 	}
+	// what this computer lacks to run a new game: offered for download
+	bool rtp = false;
+	for (const QString& folder : EditorSettings::instance().rtpFolders()) {
+		rtp = rtp || QDir(folder).exists();
+	}
 	std::optional<NewProject> chosen;
 	QmlHost::exec(QStringLiteral("NewProjectWindow"), over,
-			{{QStringLiteral("defDir"), withSlash(def_dir)}, {QStringLiteral("addOnTexts"), texts}},
+			{{QStringLiteral("defDir"), withSlash(def_dir)}, {QStringLiteral("addOnTexts"), texts},
+			 {QStringLiteral("rtpMissing"), !rtp}, 			 // none found, and easyrpg.org has one for this computer
+			 {QStringLiteral("playerMissing"), GameRunner::findPlayer().isEmpty() && Launchers::hostUnavailable().isEmpty()}},
 			[&chosen](QQuickWindow* window) {
 		if (window->property("result").toInt() != 1) {
 			return;
@@ -64,6 +74,8 @@ std::optional<ProjectWindows::NewProject> ProjectWindows::newProject(QWindow* ov
 		project.tileSize = window->property("tileSize").toInt();
 		project.defDir = window->property("defDir").toString();
 		project.patches = window->property("patches").toStringList();
+		project.downloadRtp = window->property("downloadRtp").toBool();
+		project.downloadPlayer = window->property("downloadPlayer").toBool();
 		chosen = project;
 	});
 	return chosen;

@@ -109,8 +109,6 @@ public:
 	QWindow* handle() const override;
 	ShellController* shell() const override;
 	ProjectController* projectController() const override;
-	/** The Settings window when no RTP folder is set */
-	void askForRtp();
 	void loadLastProject();
 	void LoadProject(QString folder) override;
 	bool hasMap(int id) const override;

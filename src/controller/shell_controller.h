@@ -240,6 +240,11 @@ private:
 	QString nodeName(int id) const;
 	/** The Maniac conversion of the project open (checkManiac) */
 	void convertManiac(bool rpg2000);
+	/** New Project's downloads, in the background, the status bar saying how
+	 *  they go: the EasyRPG RTP, added to the RTP folders (the default of the
+	 *  engines without one); EasyRPG Player, the program of test play */
+	void downloadRtp();
+	void downloadPlayer();
 
 	ProjectController* m_project;
 	MapTabsController* m_tabs;

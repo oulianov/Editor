@@ -5,14 +5,14 @@
    <Actor id="0001">
     <name>Lee Fong</name>
     <title>Mage</title>
-    <character_name>Chara1</character_name>
+    <character_name>Actor1</character_name>
     <character_index>5</character_index>
     <transparent>F</transparent>
     <initial_level>1</initial_level>
     <final_level>50</final_level>
     <critical_hit>T</critical_hit>
     <critical_hit_chance>25</critical_hit_chance>
-    <face_name>Chara1</face_name>
+    <face_name>Actor1</face_name>
     <face_index>5</face_index>
     <two_weapon>F</two_weapon>
     <lock_equipment>F</lock_equipment>
@@ -72,14 +72,14 @@
    <Actor id="0002">
     <name>Ovidiu</name>
     <title>Soldier</title>
-    <character_name>Chara1</character_name>
+    <character_name>Actor1</character_name>
     <character_index>2</character_index>
     <transparent>F</transparent>
     <initial_level>1</initial_level>
     <final_level>50</final_level>
     <critical_hit>T</critical_hit>
     <critical_hit_chance>15</critical_hit_chance>
-    <face_name>Chara1</face_name>
+    <face_name>Actor1</face_name>
     <face_index>2</face_index>
     <two_weapon>F</two_weapon>
     <lock_equipment>F</lock_equipment>
@@ -122,14 +122,14 @@
    <Actor id="0003">
     <name>Zulfiya</name>
     <title>Mercenary</title>
-    <character_name>Chara1</character_name>
+    <character_name>Actor1</character_name>
     <character_index>1</character_index>
     <transparent>F</transparent>
     <initial_level>1</initial_level>
     <final_level>50</final_level>
     <critical_hit>T</critical_hit>
     <critical_hit_chance>40</critical_hit_chance>
-    <face_name>Chara1</face_name>
+    <face_name>Actor1</face_name>
     <face_index>1</face_index>
     <two_weapon>F</two_weapon>
     <lock_equipment>F</lock_equipment>
@@ -172,14 +172,14 @@
    <Actor id="0004">
     <name>Gezim</name>
     <title>Healer</title>
-    <character_name>Chara1</character_name>
+    <character_name>Actor1</character_name>
     <character_index>6</character_index>
     <transparent>F</transparent>
     <initial_level>1</initial_level>
     <final_level>50</final_level>
     <critical_hit>F</critical_hit>
     <critical_hit_chance>30</critical_hit_chance>
-    <face_name>Chara1</face_name>
+    <face_name>Actor1</face_name>
     <face_index>6</face_index>
     <two_weapon>F</two_weapon>
     <lock_equipment>F</lock_equipment>
@@ -3018,7 +3018,7 @@
   <enemies>
    <Enemy id="0001">
     <name>Ooze</name>
-    <battler_name>Slime</battler_name>
+    <battler_name>Hornet</battler_name>
     <battler_hue>0</battler_hue>
     <max_hp>10</max_hp>
     <max_sp>10</max_sp>
@@ -3087,7 +3087,7 @@
    </Enemy>
    <Enemy id="0002">
     <name>Acid Slime</name>
-    <battler_name>Slime</battler_name>
+    <battler_name>Hornet</battler_name>
     <battler_hue>70</battler_hue>
     <max_hp>30</max_hp>
     <max_sp>10</max_sp>
@@ -3324,7 +3324,7 @@
     <name>Grass</name>
     <damage>0</damage>
     <encounter_rate>100</encounter_rate>
-    <background_name>Grass</background_name>
+    <background_name></background_name>
     <boat_pass>F</boat_pass>
     <ship_pass>F</ship_pass>
     <airship_pass>T</airship_pass>
@@ -3372,7 +3372,7 @@
     <name>Water</name>
     <damage>0</damage>
     <encounter_rate>100</encounter_rate>
-    <background_name>Ship</background_name>
+    <background_name></background_name>
     <boat_pass>T</boat_pass>
     <ship_pass>T</ship_pass>
     <airship_pass>T</airship_pass>
@@ -3420,7 +3420,7 @@
     <name>Forest</name>
     <damage>0</damage>
     <encounter_rate>100</encounter_rate>
-    <background_name>Forest1</background_name>
+    <background_name></background_name>
     <boat_pass>F</boat_pass>
     <ship_pass>F</ship_pass>
     <airship_pass>T</airship_pass>
@@ -3764,7 +3764,7 @@
   <animations>
    <Animation id="0001">
     <name>Hit</name>
-    <animation_name>Zip</animation_name>
+    <animation_name>Blow</animation_name>
     <large>F</large>
     <timings>
      <AnimationTiming id="0001">
@@ -3918,7 +3918,7 @@
    </Animation>
    <Animation id="0002">
     <name>Healing</name>
-    <animation_name>Zip</animation_name>
+    <animation_name>Blow</animation_name>
     <large>F</large>
     <timings>
      <AnimationTiming id="0001">
@@ -4159,7 +4159,7 @@
    </Animation>
    <Animation id="0003">
     <name>Lightning</name>
-    <animation_name>Zip</animation_name>
+    <animation_name>Blow</animation_name>
     <large>F</large>
     <timings>
      <AnimationTiming id="0001">
@@ -4563,7 +4563,7 @@
   <chipsets>
    <Chipset id="0001">
     <name>World</name>
-    <chipset_name>Basis</chipset_name>
+    <chipset_name>World</chipset_name>
     <terrain_data>2 2 2 2 2 2 1 1 3 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1</terrain_data>
     <passable_data_lower>0 0 0 0 0 0 15 15 15 0 15 15 15 15 15 0 48 48 15 15 0 0 0 0 15 15 0 0 0 0 15 0 0 0 0 0 15 15 0 0 0 0 15 15 0 0 0 0 15 15 0 0 0 0 15 15 0 0 0 0 15 15 0 0 0 0 15 15 0 0 0 0 15 15 0 0 0 0 15 15 0 0 0 0 15 15 0 0 0 0 15 15 15 15 15 15 15 15 15 15 15 15 0 0 15 15 15 15 0 0 15 15 15 15 0 0 0 0 0 0 0 0 0 0 0 0 5 7 3 5 7 3 13 15 11 13 15 11 12 14 10 12 14 10 5 7 3 0 0 0 13 15 11 0 0 0 12 14 10 0 0 15</passable_data_lower>
     <passable_data_upper>31 0 0 0 15 15 0 0 0 15 15 15 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 15 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 9 15 0 0 0 15 15 15 0 0 0 64 0 0 0 0 0 64 0 0 7 14 0 64 0 15 13 11 0 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15</passable_data_upper>
@@ -4705,14 +4705,14 @@
   <system>
    <System>
     <ldb_id>0</ldb_id>
-    <boat_name>Vehicle</boat_name>
-    <ship_name>Vehicle</ship_name>
-    <airship_name>Vehicle</airship_name>
+    <boat_name>Vehicles</boat_name>
+    <ship_name>Vehicles</ship_name>
+    <airship_name>Vehicles</airship_name>
     <boat_index>0</boat_index>
     <ship_index>1</ship_index>
     <airship_index>3</airship_index>
     <title_name>Title1</title_name>
-    <gameover_name>GameOver</gameover_name>
+    <gameover_name>Game Over</gameover_name>
     <system_name>System</system_name>
     <system2_name></system2_name>
     <party>1</party>

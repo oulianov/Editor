@@ -129,7 +129,7 @@ const Info actions[] = {
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "Convert this RPG Maker 2000 project to the format of RPG Maker 2003")},
 	{.name = "actionProjectManiacCheck", .text = QT_TRANSLATE_NOOP("MainWindow", "Check Maniac Compatibility..."),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "List what the Maniac Patch does not run in this game, and convert what has an equivalent")},
-	{.name = "actionSettings", .text = QT_TRANSLATE_NOOP("MainWindow", "Settings..."),
+	{.name = "actionSettings", .text = QT_TRANSLATE_NOOP("MainWindow", "Editor Settings..."),
 		.statusTip = QT_TRANSLATE_NOOP("MainWindow", "The Editor's preferences on this computer: language, files, RTP folders, programs and appearance"),
 		.role = MenuRole::Preferences},
 	{.name = "actionDrawSelect", .text = QT_TRANSLATE_NOOP("MainWindow", "Select"),
