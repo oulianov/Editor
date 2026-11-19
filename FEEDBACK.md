@@ -94,8 +94,10 @@ User feedback to look at.
 
 - [ ] Chipset tab: a lot of unused space. Let the user zoom into the tileset there; bigger
   tiles would also make the passability markers easier to tell apart.
-- [ ] Chipset tab, Linux: every passability symbol (counter, arrows, star...) looks broken,
-  from poor scaling of the symbols there.
+- [ ] Chipset tab, Linux: every passability symbol (counter, arrows, star...) looks broken.
+  The markers are pixel-exact icons scaled by a non-integer factor with nearest-neighbour
+  interpolation, so their few pixels stretch unevenly. Scale them by an integer factor (or
+  draw them as vectors) so they stay crisp.
 
 ## Addressed
 
