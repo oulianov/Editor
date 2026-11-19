@@ -1,84 +1,106 @@
 # EasyRPG Editor (oulianov fork)
 
-A modern, multiplatform editor for RPG Maker 2000 and 2003 games.
+A modern editor for RPG Maker 2000 and 2003 games. It runs on macOS, Windows
+and Linux, and it's open source. Huge shoutout to the
+[EasyRPG community](https://easyrpg.org) and
+[Ghabry](https://github.com/EasyRPG/Editor).
 
-## Install
+It reads and writes the same game files as RPG Maker 2000 and 2003, and it
+keeps RPG Maker's habits, like the double right-click to switch layers.
 
-```bash
-git clone git@github.com:oulianov/Editor.git
-cd Editor
-git switch editor-ux
-git submodule update --init
-make
-make run
-```
-
-liblcf, which reads and writes the games, is the submodule `lib/liblcf` (a
-liblcf with the Maniac Patch support), built with the Editor: check it out
-with `git submodule update --init` (or clone with `--recursive`), and again
-after a pull that changes it. CMake checks it out when it is missing.
-
-`make` detects your system and builds the Editor with everything it needs:
-
-- **macOS**: needs Xcode's command line tools (`xcode-select --install`) and
-  [Homebrew](https://brew.sh). The first `make` installs what is missing
-  with Homebrew, then builds the Editor; later runs only rebuild what
-  changed.
-- **Linux**: needs [vcpkg](https://github.com/microsoft/vcpkg) (`VCPKG_ROOT`
-  set), which builds the libraries (with Kirigami, Breeze and KDDockWidgets
-  for the interface), ICU (`libicu-dev`) and Qt 6.10 or later (6.11.2 from
-  qt.io or aqt: `make QT_DIR=~/Qt/6.11.2/gcc_64`).
-- **Windows**: use the `windows-*` CMake presets.
-
-`make test` builds and runs the tests, `make clean` removes the build. More
-in [Building](docs/Building.md).
+![The EasyRPG Editor on macOS, editing a map](https://oulianov.github.io/blog/assets/easyrpg-editor/main-window.png)
 
 
-## What is this project?
+## Download
 
-An editor for RPG Maker 2000 and 2003 games, built on the
-[EasyRPG Editor](https://github.com/EasyRPG/Editor) and aiming at what
-RPG Maker 2003 itself does, plus a few things it never did: working side by
-side with [rpgsync](https://github.com/oulianov/rpgsync), exporting games for
-every platform and the web, and a modern, consistent interface.
+Get the latest version from the
+[releases page](https://github.com/oulianov/Editor/releases/latest):
 
-It reads and writes RPG Maker's own files with
-[liblcf](https://github.com/EasyRPG/liblcf): games stay playable in RPG_RT,
-DynRPG and the EasyRPG Player, and stay editable in RPG Maker.
+| System | File | How to install |
+|---|---|---|
+| macOS (Apple silicon) | `EasyRPG-Editor-…-macOS-arm64.dmg` | Open it and drag **EasyRPG Editor** into Applications. |
+| macOS (Intel) | `EasyRPG-Editor-…-macOS-x86_64.dmg` | Open it and drag **EasyRPG Editor** into Applications. |
+| Windows | `EasyRPG-Editor-…-Windows.zip` | Unzip it anywhere, then open the Editor in the `bin` folder of **EasyRPG Editor**. |
+| Linux | `EasyRPG_Editor-x86_64.AppImage` (or `aarch64`) | Make it executable (`chmod +x EasyRPG_Editor-*.AppImage`) and open it. |
+| Linux (Flatpak) | `EasyRPG-Editor.flatpak` | `flatpak install EasyRPG-Editor.flatpak` |
 
+The Editor updates itself: an **Update** button shows up when a new version
+is out. To test your game, it uses [EasyRPG Player](https://easyrpg.org/player/),
+which it finds on your computer or downloads for you.
 
-## Where it comes from
-
-This is a fork of the [EasyRPG Editor](https://github.com/EasyRPG/Editor),
-part of the [EasyRPG Project](https://easyrpg.org). Upstream is a Qt 6
-rewrite of an editor for EasyRPG games that can import RPG Maker projects. 
-
-
-## Using this editor with rpgsync
-
-[rpgsync](https://github.com/oulianov/rpgsync) keeps a game and a folder of
-Python scripts in sync: events become code you can edit, test and diff. With
-this Editor, turn on **Reload the files other programs change (rpgsync)** in
-the Editor Settings (Files) and keep `rpgsync` running: both sides can edit the game at the same time. Details in
-[Working with rpgsync](docs/rpgsync.md).
+Want to build it yourself? See [DEVELOPER.md](DEVELOPER.md).
 
 
-## Documentation
+## What it does better than RPG Maker 2003
 
-- [Building](docs/Building.md): what `make` does on each system, CMake
-  options, tests.
-- [Working with rpgsync](docs/rpgsync.md): the workflows with the RPG Maker
-  editor and with this one.
-- [Automation](docs/Automation.adoc): the script runner used by the tests.
-- [UI state](docs/UiState.adoc): what the Editor remembers between sessions.
-- [Translation](docs/Translation.adoc): translating the Editor.
+- **Publish your game on the web.** Export your game for Windows, macOS,
+  Linux and the web, with EasyRPG Player and the RTP files it uses. Each
+  export is a .zip that's easy to upload to itch.io, so people can play your
+  game in their browser, even on their phone.
+- **Search everywhere.** Find everywhere a switch, a variable or a piece of
+  text is used across the project. Every list is searchable too: type a few
+  letters to find a switch, a variable, an item or an event by its number or
+  its name.
+- **Both layers side by side.** Widen the palette and the lower and upper
+  tiles show next to each other. Picking a tile switches to its layer.
+- **Messages without the 4-line limit.** Write as much text as you want: a
+  long text is split into several message boxes for you. Every message code
+  and special symbol is one click away.
+- **Maniac Patch and EasyRPG Player custom commands.** RPG Maker has tons of
+  mods and patches, like the
+  [Maniac Patch](https://bingshan1024.github.io/steam2003_maniacs/), DynRPG
+  or the EasyRPG Player commands. The Editor has advanced support for all
+  these configurations and patches.
+- **Raw editing and Python scripts.** Edit any command's raw values, or open
+  an event as Python code with [rpgsync](https://github.com/oulianov/rpgsync).
 
-Upstream's wiki documents the original editor: https://wiki.easyrpg.org
+And all the other perks:
+
+- **Test play** with EasyRPG Player, from the start or from any spot of the
+  map.
+- **Animated tiles and panoramas** in the map, as in the game.
+- **More zoom levels**, and Ctrl + mouse wheel to zoom.
+- **Panels you can move anywhere**, and a map tree wide enough for full map
+  names, with a search field.
+- **Map tabs** to keep several maps open.
+- **Event commands colored by type**, so long events are easier to read.
+- **Go to a map** by its ID, and **Ctrl+F** opens the search right away.
+- **Jukebox and Resource Manager** to listen to the game's music and sounds.
+- **MIDI music as players will hear it**, with the game's soundfont.
+- **Light and dark themes**, in English or French.
+- **Several RTP folders**, one for RPG Maker 2000 games and one for RPG
+  Maker 2003 games.
+- **Two editors side by side**: open two games at once.
+
+More screenshots: [oulianov.github.io/blog/docs/easyrpg_editor](https://oulianov.github.io/blog/docs/easyrpg_editor/)
 
 
-## Bug reporting
+## Works with rpgsync
 
-For this fork: https://github.com/oulianov/Editor/issues
+[rpgsync](https://github.com/oulianov/rpgsync) turns your game's events into
+Python scripts and keeps them in sync with the game. Edit the Python code, and
+the changes show up live in the Editor, which stays open and merges them with
+yours. Details in [Working with rpgsync](docs/rpgsync.md).
+
+
+## Thank you
+
+Huge thank you to the
+[Oniromancie](https://www.rpg-maker.fr/index.php?page=forum&id=29729) and
+[E-magination](https://e-magination.jeun.fr/t5043-ressusciter-un-projet-rpg-maker-2003-en-2026)
+community that helped me develop these tools: Medoc-, PM, Mimigris, Mack,
+jetrotal, FwT, trotter, AlexRE, Relm...
+
+It all relies on [liblcf](https://github.com/EasyRPG/liblcf), the amazing open
+source library by the EasyRPG team that reads and writes RPG Maker game files,
+and on [EasyRPG Player](https://easyrpg.org/player/) to play the games.
+
+
+## Bug reports and ideas
+
+Tell me if it works for you and how to improve it on
+[GitHub](https://github.com/oulianov/Editor/issues)!
+
 
 ## License
 
