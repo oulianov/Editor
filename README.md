@@ -5,9 +5,6 @@ and Linux, and it's open source. Huge shoutout to the
 [EasyRPG community](https://easyrpg.org) and
 [Ghabry](https://github.com/EasyRPG/Editor).
 
-It reads and writes the same game files as RPG Maker 2000 and 2003, and it
-keeps RPG Maker's habits, like the double right-click to switch layers.
-
 ![The EasyRPG Editor on macOS, editing a map](https://oulianov.github.io/blog/assets/easyrpg-editor/main-window.png)
 
 
