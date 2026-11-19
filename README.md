@@ -33,26 +33,41 @@ Want to build it yourself? See [DEVELOPER.md](DEVELOPER.md).
 
 ## What it does better than RPG Maker 2003
 
-- **Publish your game on the web.** Export your game for Windows, macOS,
-  Linux and the web, with EasyRPG Player and the RTP files it uses. Each
-  export is a .zip that's easy to upload to itch.io, so people can play your
-  game in their browser, even on their phone.
-- **Search everywhere.** Find everywhere a switch, a variable or a piece of
-  text is used across the project. Every list is searchable too: type a few
-  letters to find a switch, a variable, an item or an event by its number or
-  its name.
-- **Both layers side by side.** Widen the palette and the lower and upper
-  tiles show next to each other. Picking a tile switches to its layer.
-- **Messages without the 4-line limit.** Write as much text as you want: a
-  long text is split into several message boxes for you. Every message code
-  and special symbol is one click away.
-- **Maniac Patch and EasyRPG Player custom commands.** RPG Maker has tons of
-  mods and patches, like the
-  [Maniac Patch](https://bingshan1024.github.io/steam2003_maniacs/), DynRPG
-  or the EasyRPG Player commands. The Editor has advanced support for all
-  these configurations and patches.
-- **Raw editing and Python scripts.** Edit any command's raw values, or open
-  an event as Python code with [rpgsync](https://github.com/oulianov/rpgsync).
+### Publish your game on the web
+
+Export for Windows, macOS, Linux and the web: a .zip ready for itch.io, playable in a browser, even on a phone.
+
+![The Export Game window](https://oulianov.github.io/blog/assets/easyrpg-editor/export-game.png)
+
+### Search everywhere
+
+Find where a switch, a variable or a piece of text is used, and search every list by number or name.
+
+![Searching the whole project](https://oulianov.github.io/blog/assets/easyrpg-editor/project-search.png)
+
+### Both layers side by side
+
+Widen the palette and the lower and upper tiles show next to each other.
+
+![The palette with the lower and the upper layer side by side](https://oulianov.github.io/blog/assets/easyrpg-editor/palette-both-layers.png)
+
+### Messages without the 4-line limit
+
+Long texts are split into message boxes for you, and every message code is one click away.
+
+![The Show Message window and its codes](https://oulianov.github.io/blog/assets/easyrpg-editor/message-codes.png)
+
+### Maniac Patch and EasyRPG Player custom commands
+
+Advanced support for the [Maniac Patch](https://bingshan1024.github.io/steam2003_maniacs/), DynRPG and the EasyRPG Player commands and options.
+
+![Database, System page, with the EasyRPG Player options](https://oulianov.github.io/blog/assets/easyrpg-editor/database-system.png)
+
+### Raw editing and Python scripts
+
+Edit any command's raw values, or open an event as Python code with [rpgsync](https://github.com/oulianov/rpgsync).
+
+![Right-click menu of the event command list](https://oulianov.github.io/blog/assets/easyrpg-editor/command-menu.png)
 
 And all the other perks:
 
