@@ -56,9 +56,18 @@ Item {
         return maniacShown || (termsRevision >= 0 && !!terms && row.maniacTerms.some(term => terms.str(term) !== ""))
     }
 
+    // RPG Maker 2000's battles in an RPG Maker 2003 game (EasyRPG Player's
+    // option, System page): their terms are shown too
+    Ez.JsonField {
+        id: battle2k
+        source: root.database
+        path: "system/easyrpg_use_rpg2k_battle_system"
+    }
+
     Ez.VocabularyTable {
         id: table
         rpg2k3: root.rpg2k3
+        battle2k: battle2k.value === true
         maniac: root.maniac
     }
 

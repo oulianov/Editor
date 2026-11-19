@@ -88,8 +88,12 @@ struct Page {
 /** The pages of RPG Maker, the last one split in two to fit small screens */
 const std::vector<Page>& pages();
 
-/** The game's engine has the term (RPG Maker 2003 or 2000) */
-bool shown(const Row& row, bool rpg2k3);
+/**
+ * The game's engine has the term (RPG Maker 2003 or 2000); battle2k: an RPG
+ * Maker 2003 game runs RPG Maker 2000's battles (EasyRPG Player's option), so
+ * it has RPG Maker 2000's battle terms too
+ */
+bool shown(const Row& row, bool rpg2k3, bool battle2k = false);
 
 /** The MaxLength of a term in RPG Maker 2003, 0 for the terms of RPG Maker 2000 only, the Maniac Patch's and EasyRPG Player's */
 int limit(std::string_view term);

@@ -261,8 +261,15 @@ const std::vector<Page>& pages() {
 	return table;
 }
 
-bool shown(const Row& row, bool rpg2k3) {
-	return row.engine == Engine::Both || (row.engine == Engine::Rpg2k3) == rpg2k3;
+bool shown(const Row& row, bool rpg2k3, bool battle2k) {
+	switch (row.engine) {
+		case Engine::Rpg2k:
+			return !rpg2k3 || battle2k;
+		case Engine::Rpg2k3:
+			return rpg2k3;
+		default:
+			return true;
+	}
 }
 
 int limit(std::string_view name) {

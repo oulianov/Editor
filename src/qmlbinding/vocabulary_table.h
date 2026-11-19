@@ -28,7 +28,7 @@
  * to, as it has them (the page chooses: greyed without it, or as RPG
  * Maker's when the Editor Settings hide what the game does not run).
  *
- *   Ez.VocabularyTable { id: table; rpg2k3: true; maniac: false }
+ *   Ez.VocabularyTable { id: table; rpg2k3: true; battle2k: false; maniac: false }
  *   Repeater { model: table.pages ... qsTranslate("VocabularyWidget", modelData.title) }
  *
  * pages: [{title, groups: [{title, column, pairs, origin, rows: [{label,
@@ -50,6 +50,9 @@ class VocabularyTable : public QObject {
 	QML_ELEMENT
 	/** The game is made with RPG Maker 2003 (else 2000) */
 	Q_PROPERTY(bool rpg2k3 READ rpg2k3 WRITE setRpg2k3 NOTIFY pagesChanged)
+	/** An RPG Maker 2003 game runs RPG Maker 2000's battles (EasyRPG Player's
+	 *  option): RPG Maker 2000's battle terms are shown too */
+	Q_PROPERTY(bool battle2k READ battle2k WRITE setBattle2k NOTIFY pagesChanged)
 	/** The game uses the Maniac Patch (the origin of the groups it reads too) */
 	Q_PROPERTY(bool maniac READ maniac WRITE setManiac NOTIFY pagesChanged)
 	Q_PROPERTY(QVariantList pages READ pages NOTIFY pagesChanged)
@@ -61,6 +64,10 @@ public:
 		return m_rpg2k3;
 	}
 	void setRpg2k3(bool on);
+	bool battle2k() const {
+		return m_battle2k;
+	}
+	void setBattle2k(bool on);
 	bool maniac() const {
 		return m_maniac;
 	}
@@ -72,5 +79,6 @@ signals:
 
 private:
 	bool m_rpg2k3 = true;
+	bool m_battle2k = false;
 	bool m_maniac = false;
 };

@@ -31,6 +31,13 @@ void VocabularyTable::setRpg2k3(bool on) {
 	}
 }
 
+void VocabularyTable::setBattle2k(bool on) {
+	if (m_battle2k != on) {
+		m_battle2k = on;
+		emit pagesChanged();
+	}
+}
+
 void VocabularyTable::setManiac(bool on) {
 	if (m_maniac != on) {
 		m_maniac = on;
@@ -90,7 +97,7 @@ QVariantList VocabularyTable::pages() const {
 		for (const Group& group : page.groups) {
 			QVariantList rows;
 			for (const Row& row : group.rows) {
-				if (!shown(row, m_rpg2k3)) {
+				if (!shown(row, m_rpg2k3, m_battle2k)) {
 					continue;
 				}
 				QVariantMap shownRow{
