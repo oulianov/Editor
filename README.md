@@ -18,11 +18,10 @@ Get the latest version from the
 
 | System | File | How to install |
 |---|---|---|
-| macOS (Apple silicon) | `EasyRPG-Editor-…-macOS-arm64.dmg` | Open it and drag **EasyRPG Editor** into Applications. |
-| macOS (Intel) | `EasyRPG-Editor-…-macOS-x86_64.dmg` | Open it and drag **EasyRPG Editor** into Applications. |
-| Windows | `EasyRPG-Editor-…-Windows.zip` | Unzip it anywhere, then open the Editor in the `bin` folder of **EasyRPG Editor**. |
 | Linux | `EasyRPG_Editor-x86_64.AppImage` (or `aarch64`) | Make it executable (`chmod +x EasyRPG_Editor-*.AppImage`) and open it. |
 | Linux (Flatpak) | `EasyRPG-Editor.flatpak` | `flatpak install EasyRPG-Editor.flatpak` |
+| macOS | `EasyRPG-Editor-…-macOS-arm64.dmg` (Apple silicon) or `…-macOS-x86_64.dmg` (Intel) | Open it and drag **EasyRPG Editor** into Applications. |
+| Windows | `EasyRPG-Editor-…-Windows.zip` | Unzip it anywhere, then open the Editor in the `bin` folder of **EasyRPG Editor**. |
 
 The Editor updates itself: an **Update** button shows up when a new version
 is out. To test your game, it uses [EasyRPG Player](https://easyrpg.org/player/),
