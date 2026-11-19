@@ -31,8 +31,13 @@ Item {
     /** The game uses the Maniac Patch: the parts it adds to the messages are enabled */
     property bool maniac: false
     readonly property var terms: database ? database.subtree("terms") : null
-    /** The widest label of a term (longer ones wrap) */
-    readonly property int labelWidth: 220
+    /** The label of a row, with what its placeholders (%S...) stand for, as
+     *  RPG Maker 2000's English version shows it */
+    function labelText(row) {
+        return [row.label !== "" ? qsTranslate("VocabularyWidget", row.label) : "",
+                row.legend ? "[" + qsTranslate("VocabularyWidget", row.legend) + "]" : ""]
+            .filter(part => part !== "").join(" ")
+    }
     /** The widest text the game puts before a term (longer ones wrap) */
     readonly property int hintWidth: 140
     /** The page of terms shown */
@@ -157,72 +162,90 @@ Item {
         // as high as its terms: the column keeps the rest below
         Layout.fillHeight: false
 
+        /** The labels beside their fields (Statistics), else above them */
+        readonly property bool beside: group.modelData.labelsBeside === true
+        /** Beside: the widest label, the fields of the group aligned after it */
+        readonly property real labelWidth: beside ? Math.ceil(Math.max(0, ...group.modelData.rows.map(
+                                                row => labelMetrics.advanceWidth(root.labelText(row))))) + 2 : 0
+
+        FontMetrics {
+            id: labelMetrics
+            font: Ez.Metrics.font
+        }
+
         GridLayout {
-            columns: group.modelData.pairs * 2
+            columns: group.modelData.pairs
             rowSpacing: Ez.Metrics.rowSpacing
             columnSpacing: Ez.Metrics.columnSpacing
             Layout.fillWidth: true
 
             Repeater {
-                model: group.modelData.rows.length * 2
+                model: group.modelData.rows.length
 
-                // the label, then the field
-                Loader {
+                // the label above its field, as RPG Maker 2000's English version
+                // (beside it on the pages of short terms)
+                GridLayout {
                     id: cell
 
                     required property int index
-                    readonly property var row: group.modelData.rows[Math.floor(index / 2)]
+                    readonly property var row: group.modelData.rows[index]
                     /** The row shows the Maniac Patch's message (only changes of it lay it out again) */
                     readonly property bool maniacLayout: root.maniacLayout(row)
 
-                    Layout.fillWidth: index % 2 === 1
-                    // a long label goes on two lines (French...): the page fits the window
-                    Layout.maximumWidth: index % 2 === 0 ? root.labelWidth : Number.POSITIVE_INFINITY
-                    sourceComponent: index % 2 === 0 ? labelCell : fieldCell
+                    columns: group.beside ? 2 : 1
+                    rowSpacing: 2
+                    columnSpacing: Ez.Metrics.columnSpacing
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignTop
 
-                    Component {
-                        id: labelCell
-                        Ez.Label {
-                            text: cell.row.label !== "" ? qsTranslate("VocabularyWidget", cell.row.label) : ""
-                            font: Ez.Metrics.font
-                            wrapMode: Text.Wrap
-                        }
+                    Ez.Label {
+                        text: root.labelText(cell.row)
+                        visible: text !== "" || group.beside
+                        font: Ez.Metrics.font
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: !group.beside
+                        Layout.preferredWidth: group.beside ? group.labelWidth : -1
+                        Layout.alignment: Qt.AlignVCenter
                     }
-                    Component {
-                        id: fieldCell
-                        // the lines of the message: its terms and what the game puts between them
-                        ColumnLayout {
-                            spacing: Ez.Metrics.rowSpacing
+                    // the lines of the message: its terms and what the game puts between them
+                    ColumnLayout {
+                        spacing: Ez.Metrics.rowSpacing
+                        Layout.fillWidth: true
 
-                            Repeater {
-                                model: cell.maniacLayout ? cell.row.maniacLines : cell.row.lines
+                        Repeater {
+                            model: cell.maniacLayout ? cell.row.maniacLines : cell.row.lines
 
-                                RowLayout {
-                                    id: line
-                                    required property var modelData
-                                    spacing: Ez.Metrics.columnSpacing
-                                    Layout.fillWidth: true
+                            RowLayout {
+                                id: line
+                                required property var modelData
+                                spacing: Ez.Metrics.columnSpacing
+                                Layout.fillWidth: true
 
-                                    Repeater {
-                                        model: line.modelData
+                                Repeater {
+                                    model: line.modelData
 
-                                        // a field (the pages fit the window, not the lengths; the
-                                        // parts the Maniac Patch adds narrower), else a text (a long
-                                        // one wraps)
-                                        Loader {
-                                            id: part
-                                            required property var modelData
-                                            readonly property bool isTerm: modelData.term !== undefined
-                                            Layout.fillWidth: isTerm
-                                            Layout.horizontalStretchFactor: !isTerm ? -1 : modelData.own ? 2 : 1
-                                            Layout.minimumWidth: isTerm ? 40 : 0
-                                            Layout.preferredWidth: isTerm ? (modelData.own ? 80 : 40) : -1
-                                            Layout.maximumWidth: isTerm ? Number.POSITIVE_INFINITY : root.hintWidth
-                                            sourceComponent: isTerm ? termPart : hintPart
+                                    // a field (the pages fit the window, not the lengths; the
+                                    // parts the Maniac Patch adds narrower), else a text (a long
+                                    // one wraps)
+                                    Loader {
+                                        id: part
+                                        required property var modelData
+                                        readonly property bool isTerm: modelData.term !== undefined
+                                        Layout.fillWidth: isTerm
+                                        Layout.horizontalStretchFactor: !isTerm ? -1 : modelData.own ? 2 : 1
+                                        Layout.minimumWidth: isTerm ? 40 : 0
+                                        Layout.preferredWidth: isTerm ? (modelData.own ? 80 : 40) : -1
+                                        Layout.maximumWidth: isTerm ? Number.POSITIVE_INFINITY : root.hintWidth
+                                        sourceComponent: isTerm ? termPart : hintPart
 
-                                            Component {
-                                                id: termPart
+                                        Component {
+                                            id: termPart
+                                            // the tag of a part the Maniac Patch adds: beside its field
+                                            RowLayout {
+                                                spacing: Ez.Metrics.columnSpacing
+
                                                 TermField {
+                                                    id: field
                                                     term: part.modelData.term
                                                     origin: part.modelData.origin
                                                     limit: part.modelData.limit
@@ -230,15 +253,26 @@ Item {
                                                               : part.modelData.fallbackHint ? qsTranslate("VocabularyWidget", part.modelData.fallback)
                                                               : part.modelData.fallback
                                                     defaulted: part.modelData.fallback !== undefined
+                                                    Layout.fillWidth: true
+                                                }
+                                                Loader {
+                                                    active: field.origin !== ""
+                                                    visible: active
+                                                    Layout.alignment: Qt.AlignVCenter
+                                                    sourceComponent: Ez.OriginTag {
+                                                        origin: field.origin
+                                                        // a text the game does not show
+                                                        warning: !field.enabled && field.text !== ""
+                                                    }
                                                 }
                                             }
-                                            Component {
-                                                id: hintPart
-                                                Ez.Label {
-                                                    text: qsTranslate("VocabularyWidget", part.modelData.hint)
-                                                    font: Ez.Metrics.font
-                                                    wrapMode: Text.Wrap
-                                                }
+                                        }
+                                        Component {
+                                            id: hintPart
+                                            Ez.Label {
+                                                text: qsTranslate("VocabularyWidget", part.modelData.hint)
+                                                font: Ez.Metrics.font
+                                                wrapMode: Text.Wrap
                                             }
                                         }
                                     }
@@ -255,7 +289,7 @@ Item {
      * The field of a term. A term of EasyRPG Player (defaulted) shows the
      * Player's text greyed while it is left to it ("default_term"), and goes
      * back to it once emptied. A part the Maniac Patch adds (origin) has
-     * its tag inside, on the right; it is greyed in a game without it, its
+     * its tag beside it (termPart); it is greyed in a game without it, its
      * text kept (the tag then warns that the game does not show it)
      */
     component TermField: Ez.TextField {
@@ -274,27 +308,6 @@ Item {
         font: Ez.Metrics.monospaceFont
         placeholderText: defaulted && defaultValue.value === "default_term" ? fallback : ""
 
-        // the tag of a part the Maniac Patch adds, inside on the right (the
-        // columns have no room beside the fields); the text stops before it.
-        // Made only for such a part
-        Binding {
-            target: termField
-            property: "rightPadding"
-            value: termField.leftPadding + tag.width + Ez.Metrics.fieldPadding
-            when: termField.origin !== "" && tag.width > 0
-        }
-        Loader {
-            id: tag
-            active: termField.origin !== ""
-            anchors.right: parent.right
-            anchors.rightMargin: Ez.Metrics.fieldPadding
-            anchors.verticalCenter: parent.verticalCenter
-            sourceComponent: Ez.OriginTag {
-                origin: termField.origin
-                // a text the game does not show
-                warning: !termField.enabled && termField.text !== ""
-            }
-        }
         Loader {
             anchors.fill: parent
             active: termField.origin !== ""

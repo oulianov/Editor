@@ -83,6 +83,8 @@ struct Group {
 struct Page {
 	const char* title;
 	std::vector<Group> groups;
+	/** The labels beside their fields (short terms), else above them */
+	bool labelsBeside = false;
 };
 
 /** The pages of RPG Maker, the last one split in two to fit small screens */
@@ -94,6 +96,16 @@ const std::vector<Page>& pages();
  * it has RPG Maker 2000's battle terms too
  */
 bool shown(const Row& row, bool rpg2k3, bool battle2k = false);
+
+/**
+ * The placeholders of a term, as RPG Maker 2000's English version shows them
+ * ("%S = Attacker, %O = Target"; QT_TRANSLATE_NOOP, context
+ * VocabularyWidget), nullptr for none: EasyRPG Player puts the names and
+ * values there in the games of RPG Maker 2000's English version, and in RPG
+ * Maker 2003 games with RPG Maker 2000's battles and its English messages
+ * (System page); in its own RPG Maker 2003 battle messages always
+ */
+const char* legend(std::string_view term);
 
 /** The MaxLength of a term in RPG Maker 2003, 0 for the terms of RPG Maker 2000 only, the Maniac Patch's and EasyRPG Player's */
 int limit(std::string_view term);

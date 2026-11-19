@@ -21,6 +21,9 @@ DatabaseEntryPage {
     readonly property int entryId: entry ? entry.num("ID") : 0
     /** The first condition is Death: the game fixes most of it */
     readonly property bool death: entryId === 1
+    /** The battle messages: RPG Maker 2000's battles, those of an RPG Maker
+     *  2003 game too when it has them (EasyRPG Player's option, System page) */
+    readonly property bool has2kMessages: !rpg2k3 || battle2k.value === true
 
     /** The battler animation of the first hero, whose poses are listed */
     readonly property int firstBattlerId: database && revision >= 0 && database.size("actors") > 0
@@ -65,6 +68,11 @@ DatabaseEntryPage {
 
     fillWidth: true
 
+    Ez.JsonField {
+        id: battle2k
+        source: root.database
+        path: "system/easyrpg_use_rpg2k_battle_system"
+    }
     Ez.JsonField {
         id: poseField
         source: root.entry
@@ -361,56 +369,56 @@ DatabaseEntryPage {
 
             Ez.Section {
                 objectName: "groupBox_299"
-                title: qsTr("Infliction (Actor)")
+                title: qsTr("Infliction (Actor)") + " [" + qsTr("%S = Hero") + "]"
                 Ez.TextField {
                     objectName: "lineMessageInflictionActor"
                     jsonData: root.entry
                     key: "message_actor"
-                    enabled: !root.rpg2k3
+                    enabled: root.has2kMessages
                     Layout.fillWidth: true
                 }
             }
             Ez.Section {
                 objectName: "groupBox_300"
-                title: qsTr("Infliction (Enemy)")
+                title: qsTr("Infliction (Enemy)") + " [" + qsTr("%S = Monster") + "]"
                 Ez.TextField {
                     objectName: "lineMessageInflictionEnemy"
                     jsonData: root.entry
                     key: "message_enemy"
-                    enabled: !root.rpg2k3
+                    enabled: root.has2kMessages
                     Layout.fillWidth: true
                 }
             }
             Ez.Section {
                 objectName: "groupBox_301"
-                title: qsTr("Already affected")
+                title: qsTr("Already affected") + " [" + qsTr("%S = Target") + "]"
                 Ez.TextField {
                     objectName: "lineMessageAlreadyAffected"
                     jsonData: root.entry
                     key: "message_already"
-                    enabled: !root.rpg2k3 && !root.death
+                    enabled: root.has2kMessages && !root.death
                     Layout.fillWidth: true
                 }
             }
             Ez.Section {
                 objectName: "groupBox_302"
-                title: qsTr("Per turn message")
+                title: qsTr("Per turn message") + " [" + qsTr("%S = Target") + "]"
                 Ez.TextField {
                     objectName: "lineMessagePerTurn"
                     jsonData: root.entry
                     key: "message_affected"
-                    enabled: !root.rpg2k3 && !root.death
+                    enabled: root.has2kMessages && !root.death
                     Layout.fillWidth: true
                 }
             }
             Ez.Section {
                 objectName: "groupBox_303"
-                title: qsTr("Recovery")
+                title: qsTr("Recovery") + " [" + qsTr("%S = Target") + "]"
                 Ez.TextField {
                     objectName: "lineMessageRecovery"
                     jsonData: root.entry
                     key: "message_recovery"
-                    enabled: !root.rpg2k3
+                    enabled: root.has2kMessages
                     Layout.fillWidth: true
                 }
             }

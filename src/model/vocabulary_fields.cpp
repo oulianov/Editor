@@ -250,7 +250,7 @@ std::vector<Page> makePages() {
 				defaulted(Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Skill Cost"), "easyrpg_skill_cost_separator", "-"),
 				defaulted(Both, QT_TRANSLATE_NOOP("VocabularyWidget", "Equipment Arrow"), "easyrpg_equipment_arrow", ">"),
 			}, EasyRpg},
-		}},
+		}, true},
 	};
 }
 
@@ -270,6 +270,58 @@ bool shown(const Row& row, bool rpg2k3, bool battle2k) {
 		default:
 			return true;
 	}
+}
+
+const char* legend(std::string_view term) {
+	// the values of EasyRPG Player (game_message_terms.cpp...), named as
+	// RPG Maker 2000's English version names them
+	static const std::map<std::string_view, const char*> legends = {
+		{"encounter", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Monster")},
+		{"exp_received", QT_TRANSLATE_NOOP("VocabularyWidget", "%V = Value, %U = Unit")},
+		{"gold_recieved_a", QT_TRANSLATE_NOOP("VocabularyWidget", "%V = Value, %U = Currency")},
+		{"item_recieved", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Item")},
+		{"level_up", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Hero, %V = New level, %U = Unit")},
+		{"skill_learned", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Hero, %O = Skill")},
+		{"attacking", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker")},
+		{"actor_critical", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker, %O = Target")},
+		{"enemy_critical", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker, %O = Target")},
+		{"defending", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Battler")},
+		{"observing", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Battler")},
+		{"focus", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Battler")},
+		{"autodestruction", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Battler")},
+		{"enemy_escape", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Monster")},
+		{"enemy_transform", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Monster, %O = New monster")},
+		{"skill_failure_a", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker, %O = Target")},
+		{"skill_failure_b", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker, %O = Target")},
+		{"skill_failure_c", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker, %O = Target")},
+		{"use_item", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = User, %O = Item")},
+		{"enemy_damaged", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Monster, %V = Value, %U = Unit")},
+		{"enemy_undamaged", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Monster")},
+		{"actor_damaged", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Hero, %V = Value, %U = Unit")},
+		{"actor_undamaged", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Hero")},
+		{"dodge", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker, %O = Target")},
+		{"hp_recovery", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Target, %V = Value, %U = Stat")},
+		{"parameter_increase", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Target, %V = Value, %U = Stat")},
+		{"parameter_decrease", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Target, %V = Value, %U = Stat")},
+		{"enemy_hp_absorbed", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker, %O = Target, %V = Value, %U = Stat")},
+		{"actor_hp_absorbed", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker, %O = Target, %V = Value, %U = Stat")},
+		{"resistance_increase", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Target, %O = Attribute")},
+		{"resistance_decrease", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Target, %O = Attribute")},
+		{"inn_a_greeting_1", QT_TRANSLATE_NOOP("VocabularyWidget", "%V = Price, %U = Currency")},
+		{"inn_a_greeting_3", QT_TRANSLATE_NOOP("VocabularyWidget", "%V = Price, %U = Currency")},
+		{"inn_b_greeting_1", QT_TRANSLATE_NOOP("VocabularyWidget", "%V = Price, %U = Currency")},
+		{"inn_b_greeting_3", QT_TRANSLATE_NOOP("VocabularyWidget", "%V = Price, %U = Currency")},
+		{"easyrpg_battle2k3_double_attack", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Attacker")},
+		{"easyrpg_battle2k3_defend", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Battler")},
+		{"easyrpg_battle2k3_observe", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Battler")},
+		{"easyrpg_battle2k3_charge", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Battler")},
+		{"easyrpg_battle2k3_selfdestruct", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Battler")},
+		{"easyrpg_battle2k3_escape", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = Battler")},
+		{"easyrpg_battle2k3_skill", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = User, %O = Target, %U = Skill")},
+		{"easyrpg_battle2k3_item", QT_TRANSLATE_NOOP("VocabularyWidget", "%S = User, %O = Item")},
+	};
+	const auto found = legends.find(term);
+	return found == legends.end() ? nullptr : found->second;
 }
 
 int limit(std::string_view name) {

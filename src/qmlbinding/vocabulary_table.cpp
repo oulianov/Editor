@@ -102,6 +102,7 @@ QVariantList VocabularyTable::pages() const {
 				}
 				QVariantMap shownRow{
 					{QStringLiteral("label"), text(row.label)},
+					{QStringLiteral("legend"), text(row.term ? legend(row.term) : nullptr)},
 					{QStringLiteral("lines"), lines(row, false)},
 				};
 				// the Maniac Patch's message, and the terms it adds
@@ -132,6 +133,7 @@ QVariantList VocabularyTable::pages() const {
 					{QStringLiteral("title"), text(group.title)},
 					{QStringLiteral("column"), group.column},
 					{QStringLiteral("pairs"), group.pairs},
+					{QStringLiteral("labelsBeside"), page.labelsBeside},
 					{QStringLiteral("origin"), origin},
 					{QStringLiteral("rows"), rows},
 				});

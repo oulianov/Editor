@@ -401,9 +401,16 @@ DatabaseEntryPage {
             Ez.Section {
                 title: qsTr("Using Message")
                 enabled: root.has2kMessages
-                Ez.Form {
-                    Ez.FormLabel {
-                        text: qsTr("Line 1")
+                // the labels above the fields, with what the placeholders (%S...)
+                // stand for, as RPG Maker 2000's English version shows them
+                ColumnLayout {
+                    spacing: 2
+                    Layout.fillWidth: true
+                    Ez.Label {
+                        text: qsTr("Line 1") + " [" + qsTr("%S = User, %O = Target, %U = Skill") + "]"
+                        font: Ez.Metrics.font
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
                     }
                     Ez.TextField {
                         objectName: "lineMessage1"
@@ -414,8 +421,14 @@ DatabaseEntryPage {
                         Controls.ToolTip.delay: 700
                         Controls.ToolTip.text: qsTr("Shown after the name of the user, in the RPG Maker 2000 battle system")
                     }
-                    Ez.FormLabel {
-                        text: qsTr("Line 2")
+                    Item {
+                        implicitHeight: Ez.Metrics.rowSpacing
+                    }
+                    Ez.Label {
+                        text: qsTr("Line 2") + " [" + qsTr("%S = User, %O = Target, %U = Skill") + "]"
+                        font: Ez.Metrics.font
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
                     }
                     Ez.TextField {
                         objectName: "lineMessage2"
@@ -426,8 +439,12 @@ DatabaseEntryPage {
                         Controls.ToolTip.delay: 700
                         Controls.ToolTip.text: qsTr("Shown after the name of the user, in the RPG Maker 2000 battle system")
                     }
-                    Ez.FormLabel {
+                    Item {
+                        implicitHeight: Ez.Metrics.rowSpacing
+                    }
+                    Ez.Label {
                         text: qsTr("Failure")
+                        font: Ez.Metrics.font
                     }
                     Ez.ComboBox {
                         objectName: "comboFailure"
