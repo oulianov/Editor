@@ -2,28 +2,7 @@
 
 User feedback to look at.
 
-## 2026-11-09
-
-- You can't navigate with the arrow keys after typing an event name.
-- In RPG Maker 2003 the game's own files appear before the RTP ones; here they are
-  sorted by name only.
-- Maybe add a details header to every source, clickable to change how the files are
-  sorted.
-
 ## 2026-11-18 (a tester coming from the Maniacs editor, Linux AppImage)
-
-### Variables, switches and values
-
-- [ ] Show the names of switches, variables and string variables everywhere they appear,
-  not only their numbers (the Maniacs editor does; the tester misses it most).
-- [ ] Let the user type a variable or switch number straight into its field, instead of
-  always picking it from the pop-up window (RefComboBox). The Maniacs editor (Control
-  Variables, Target "Single"): a spin box with the number (typed in, its arrows, or
-  scrolled), then a field with the number and the name ("0008:x") and a "..." button for
-  the window; no window to open just to change the number.
-- [ ] The tester asks whether the drop-down and the "..." of a variable or switch do the
-  same thing (both pick an entry; the "..." window also renames the entries): say the
-  difference in their tooltips, or keep one of them.
 
 ### Pictures
 
@@ -99,7 +78,59 @@ User feedback to look at.
   interpolation, so their few pixels stretch unevenly. Scale them by an integer factor (or
   draw them as vectors) so they stay crisp.
 
+### Call Command (Maniac Patch)
+
+- [ ] Load a command into Call Command. The Maniacs editor's Call Command window has "Load
+  Command Data from Clipboard": copy a command (as for copy and paste) and the button fills
+  Call Command with its code, its string and its number arguments. Under Wine it does not
+  work (no access to the clipboard there). The use: make a command with many parameters
+  (Show Picture has more than 20, Show String Picture...) in its own editor, load it into
+  Call Command, then replace some values with variables or pointers the command's own
+  editor does not offer. Typing them all by hand is tedious and error-prone. In the
+  Editor: load the command copied in the Editor's own event commands (the Maniacs editor's
+  clipboard format may differ), or a "Convert to Call Command" on a command of the list.
+- [ ] Call Command: show the name of the command its code stands for, and choose a command
+  by its name ("By Command Name" in the Maniacs editor). Today the Editor has a number field
+  only (Command code).
+- [ ] The other way: turn a Call Command into the command it calls. The Maniacs editor's
+  "Generate Command instead of Call (@raw)" writes the regular command (its own editor, its
+  own line in the list) instead of the Call Command. It refuses when the values are not all
+  fixed or all variables, so the tester rarely finds it useful as is; but it shows which
+  value does what in the resulting command. In the Editor: convert when every value is
+  fixed, and otherwise show, beside each parameter of Call Command, what it is in the
+  command called (its field's name in that command's editor).
+- Reference, the Maniacs editor's window: Command Code (Fixed, Variable, Variable ID; By
+  Command Name), String Argument (Fixed, Variable, Variable ID), Number Arguments in tabs
+  (Fixed: comma-separated numbers, `v[number]`, `v[v[number]]`; Expression; Variable Array),
+  "Align elements", "Generate Command instead of Call (@raw)", "Load Command Data from
+  Clipboard".
+
 ## Addressed
+
+### 2026-11-09 (0.2.14)
+
+- [x] You can't navigate with the arrow keys after typing an event name. Event Commands:
+  Tab (or Down) goes from the search to the results, the arrows go through them.
+- [x] In RPG Maker 2003 the game's own files appear before the RTP ones; here they are
+  sorted by name only. The file pickers, the Resource Manager and the Jukebox list the
+  game's files first.
+- [x] Maybe add a details header to every source, clickable to change how the files are
+  sorted. Resource Manager and Jukebox: a click on a column's title sorts by it.
+
+### Variables, switches and values (feedback of 2026-11-18)
+
+- [x] The tester asks whether the drop-down and the "..." of a variable or switch do the
+  same thing (both pick an entry; the "..." window also renames the entries): say the
+  difference in their tooltips, or keep one of them. The "..." says it opens the window of
+  the switches (variables...) to choose one or to rename them.
+- [x] Show the names of switches, variables and string variables everywhere they appear,
+  not only their numbers (the Maniacs editor does; the tester misses it most).
+- [x] Let the user type a variable or switch number straight into its field, instead of
+  always picking it from the pop-up window (RefComboBox). The Maniacs editor (Control
+  Variables, Target "Single"): a spin box with the number (typed in, its arrows, or
+  scrolled), then a field with the number and the name ("0008:x") and a "..." button for
+  the window; no window to open just to change the number. Typing a number in the box
+  chooses that entry; the command lines show the names.
 
 Fixed in 0.2.21 (feedback of 2026-11-18).
 

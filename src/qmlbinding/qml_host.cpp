@@ -31,6 +31,7 @@
 #include <QQmlComponent>
 #include <QQuickWindow>
 #include <QScreen>
+#include <private/qguiapplication_p.h>
 
 #include <memory>
 
@@ -183,6 +184,10 @@ int QmlHost::exec(const QString& type, QWindow* over, const QVariantMap& propert
 		}
 	});
 	QObject::connect(window, &QObject::destroyed, &loop, &QEventLoop::quit);
+	// a menu item that opens it (Settings... in the right-click menu of a
+	// list) runs before its menu closes: a menu window left open takes the
+	// pointer and keys on Linux (X11), the window under it would get none
+	QGuiApplicationPrivate::closeAllPopups();
 	window->show();
 	window->requestActivate();
 	loop.exec(QEventLoop::DialogExec);

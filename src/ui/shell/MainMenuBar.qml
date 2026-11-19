@@ -6,6 +6,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls as Controls
+import org.kde.kirigami as Kirigami
 import org.easyrpg.editor as Ez
 
 /**
@@ -89,9 +90,22 @@ Controls.MenuBar {
     Component {
         id: itemComponent
         Controls.MenuItem {
+            id: menuItem
             required property var catalogAction
             action: catalogAction
+            // the style draws the keys right of the text without making room
+            // for them: the menu is as wide as its text, its keys and a gap
+            implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
+                                    implicitContentWidth + leftPadding + rightPadding
+                                    + (keys.text === "" ? 0 : Kirigami.Units.gridUnit + keys.advanceWidth),
+                                    implicitIndicatorWidth + leftPadding + rightPadding)
             onHoveredChanged: root.actions.hint = hovered ? catalogAction.statusTip : ""
+            TextMetrics {
+                id: keys
+                font: menuItem.font
+                // its first keys, shown or not (the width does not change when the window gets the keyboard)
+                text: menuItem.catalogAction.keys.length > 0 ? menuItem.catalogAction.keys[0] : ""
+            }
         }
     }
 }
