@@ -41,7 +41,9 @@ QHash<int, QByteArray> JsonListView::roleNames() const {
 	roles[NameRole] = "name";
 	roles[TitleRole] = "title";
 	roles[IdRole] = "value";
-	roles[IndexRole] = "index";
+	// the row of the entry in the whole list: not "index", which would hide
+	// the index of a delegate (its line, in a list a search filters)
+	roles[RowRole] = "row";
 	return roles;
 }
 
@@ -53,7 +55,7 @@ QVariant JsonListView::data(const QModelIndex& index, int role) const {
 	if (!checkIndex(index, CheckIndexOption::IndexIsValid | CheckIndexOption::ParentIsInvalid)) {
 		return {};
 	}
-	if (role == IndexRole) {
+	if (role == RowRole) {
 		return index.row();
 	}
 	if (hasFallback() && index.row() == 0) {

@@ -62,7 +62,7 @@ public:
 	enum RoleNames {
 		NameRole = Qt::UserRole + 1,
 		TitleRole,
-		IndexRole,
+		RowRole,
 		IdRole
 	};
 

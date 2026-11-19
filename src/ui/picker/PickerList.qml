@@ -134,16 +134,13 @@ Rectangle {
                 font: Ez.Metrics.font
                 color: line.highlighted ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
             }
-            // the line's row in the list, from where it is: "index" is a role of
-            // the database's lists (the row of the entry in the whole list), not
-            // the line of a search
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
                     list.forceActiveFocus()
-                    list.currentIndex = list.indexAt(line.x + 1, line.y + 1)
+                    list.currentIndex = line.index
                 }
-                onDoubleClicked: root.activated(list.indexAt(line.x + 1, line.y + 1))
+                onDoubleClicked: root.activated(line.index)
             }
         }
     }

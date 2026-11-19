@@ -141,7 +141,7 @@ DatabaseEntryPage {
                 id: targetCombo
                 objectName: "comboTarget"
                 textRole: "name"
-                valueRole: "index"
+                valueRole: "row"
                 model: root.database ? root.database.list("enemies") : null
                 implicitWidth: 120
                 Layout.fillWidth: true
