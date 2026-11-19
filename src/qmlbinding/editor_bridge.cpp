@@ -74,6 +74,8 @@ bool EditorBridge::animateTiles() const { return EditorSettings::instance().anim
 void EditorBridge::setAnimateTiles(bool on) { EditorSettings::instance().setAnimateTiles(on); }
 bool EditorBridge::commandColors() const { return EditorSettings::instance().commandColors(); }
 void EditorBridge::setCommandColors(bool on) { EditorSettings::instance().setCommandColors(on); }
+bool EditorBridge::commandsByTopic() const { return EditorSettings::instance().commandsByTopic(); }
+void EditorBridge::setCommandsByTopic(bool on) { EditorSettings::instance().setCommandsByTopic(on); }
 bool EditorBridge::commandStripes() const { return EditorSettings::instance().commandStripes(); }
 void EditorBridge::setCommandStripes(bool on) { EditorSettings::instance().setCommandStripes(on); }
 bool EditorBridge::originBadges() const { return EditorSettings::instance().originBadges(); }

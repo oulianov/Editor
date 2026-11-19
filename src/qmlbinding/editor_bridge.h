@@ -48,6 +48,7 @@ class EditorBridge : public QObject {
 	Q_PROPERTY(bool animateTiles READ animateTiles WRITE setAnimateTiles NOTIFY settingsChanged)
 	Q_PROPERTY(bool commandColors READ commandColors WRITE setCommandColors NOTIFY settingsChanged)
 	Q_PROPERTY(bool commandStripes READ commandStripes WRITE setCommandStripes NOTIFY settingsChanged)
+	Q_PROPERTY(bool commandsByTopic READ commandsByTopic WRITE setCommandsByTopic NOTIFY settingsChanged)
 	/** EditorSettings::originBadges, unavailableShown (Ez.Origins) */
 	Q_PROPERTY(bool originBadges READ originBadges WRITE setOriginBadges NOTIFY settingsChanged)
 	Q_PROPERTY(bool unavailableShown READ unavailableShown WRITE setUnavailableShown NOTIFY settingsChanged)
@@ -86,6 +87,8 @@ public:
 	bool commandColors() const;
 	void setCommandColors(bool on);
 	bool commandStripes() const;
+	bool commandsByTopic() const;
+	void setCommandsByTopic(bool on);
 	bool originBadges() const;
 	void setOriginBadges(bool on);
 	bool unavailableShown() const;

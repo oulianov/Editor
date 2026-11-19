@@ -152,6 +152,7 @@ Ez.DialogWindow {
         animateTiles.checked = Ez.Editor.animateTiles
         commandColors.checked = Ez.Editor.commandColors
         commandStripes.checked = Ez.Editor.commandStripes
+        commandOrder.currentIndex = Math.max(0, commandOrder.indexOfValue(Ez.Editor.commandsByTopic))
         originBadges.checked = Ez.Editor.originBadges
         unavailableShown.checked = Ez.Editor.unavailableShown
         checkUpdates.checked = Ez.Editor.checkForUpdates
@@ -171,6 +172,7 @@ Ez.DialogWindow {
         const animate = animateTiles.checked
         const colors = commandColors.checked
         const stripes = commandStripes.checked
+        const byTopic = commandOrder.currentValue
         const badges = originBadges.checked
         const unavailable = unavailableShown.checked
         const updates = checkUpdates.checked
@@ -190,6 +192,7 @@ Ez.DialogWindow {
         Ez.Editor.animateTiles = animate
         Ez.Editor.commandColors = colors
         Ez.Editor.commandStripes = stripes
+        Ez.Editor.commandsByTopic = byTopic
         Ez.Editor.originBadges = badges
         Ez.Editor.unavailableShown = unavailable
         Ez.Editor.checkForUpdates = updates
@@ -282,6 +285,25 @@ Ez.DialogWindow {
                     id: commandStripes
                     objectName: "checkCommandStripes"
                     text: qsTr("Stripe the lines of the event commands")
+                }
+                // where Control Switches, Control Variables and Timer
+                // Operations are: Flow & System, or Messages & Party as in
+                // RPG Maker 2003 (EditorSettings::commandsByTopic)
+                Ez.Form {
+                    Ez.FormLabel {
+                        text: qsTr("Event Commands window")
+                    }
+                    Ez.ComboBox {
+                        id: commandOrder
+                        objectName: "comboCommandOrder"
+                        model: [
+                            { value: false, text: qsTr("RPG Maker 2003's order") },
+                            { value: true, text: qsTr("By topic") }
+                        ]
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: qsTr("RPG Maker 2003's order: Control Switches, Control Variables and Timer Operations "
+                                                    + "are on the Messages & Party tab, as in RPG Maker 2003. By topic: on the Flow & System tab.")
+                    }
                 }
             }
 

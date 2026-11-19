@@ -16,6 +16,7 @@
  */
 
 #include "command_editing.h"
+#include "common/editor_settings.h"
 #include "core.h"
 #include "model/command_catalog.h"
 #include "model/command_origin.h"
@@ -125,7 +126,7 @@ std::optional<Code> CommandEditing::pickCommand(QWindow* over, ProjectData& /* p
 	const QString pageKey = battle ? QStringLiteral("command_palette_battle_page") : QStringLiteral("command_palette_page");
 	QSettings settings;
 	const int result = QmlHost::exec(QStringLiteral("CommandPalette"), over,
-		{{QStringLiteral("pages"), palettePages(CommandCatalog::pages(battle, true, true))},
+		{{QStringLiteral("pages"), palettePages(CommandCatalog::pages(battle, true, true, EditorSettings::instance().commandsByTopic()))},
 			{QStringLiteral("battlePages"), battle_pages}, {QStringLiteral("battle"), battle},
 			{QStringLiteral("startPage"), settings.value(pageKey, 0).toInt()}},
 		[&code, &settings, &pageKey](QQuickWindow* window) {

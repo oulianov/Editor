@@ -36,6 +36,7 @@ namespace {
 	constexpr const char* ANIMATE_TILES_KEY = "animate_tiles";
 	constexpr const char* COMMAND_COLORS_KEY = "event_command_colors";
 	constexpr const char* COMMAND_STRIPES_KEY = "event_command_stripes";
+	constexpr const char* COMMANDS_BY_TOPIC_KEY = "event_commands_by_topic";
 	constexpr const char* ORIGIN_BADGES_KEY = "origin_badges";
 	constexpr const char* UNAVAILABLE_SHOWN_KEY = "unavailable_add_ons_shown";
 	constexpr const char* SEARCH_CACHE_KEY = "search_cache";
@@ -402,6 +403,9 @@ void EditorSettings::setAnimateTiles(bool on) { setValue(ANIMATE_TILES_KEY, on);
 
 bool EditorSettings::commandColors() const { return value(COMMAND_COLORS_KEY, true).toBool(); }
 void EditorSettings::setCommandColors(bool on) { setValue(COMMAND_COLORS_KEY, on); }
+
+bool EditorSettings::commandsByTopic() const { return value(COMMANDS_BY_TOPIC_KEY, false).toBool(); }
+void EditorSettings::setCommandsByTopic(bool on) { setValue(COMMANDS_BY_TOPIC_KEY, on); }
 
 bool EditorSettings::commandStripes() const { return value(COMMAND_STRIPES_KEY, true).toBool(); }
 void EditorSettings::setCommandStripes(bool on) { setValue(COMMAND_STRIPES_KEY, on); }

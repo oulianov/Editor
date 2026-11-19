@@ -53,6 +53,9 @@ namespace CommandCatalog {
 	/** The pages of a map event, without the Maniac Patch's (the last one
 	 *  ends with the entry of the battle event commands) */
 	const std::vector<Page>& mapPages();
+	/** The same, by topic: Control Switches, Control Variables and Timer
+	 *  Operations on Flow & System (EditorSettings::commandsByTopic) */
+	const std::vector<Page>& mapPagesByTopic();
 	/** The commands only EasyRPG Player runs (its EasyRPG Extensions), by
 	 *  theme; in battle, those it runs there too */
 	const Page& easyRpgPage(bool battle = false);
@@ -63,8 +66,9 @@ namespace CommandCatalog {
 	/** The pages of the window: those of a map event, EasyRPG Player's and
 	 *  the Maniac Patch's, else for a battle its page, and EasyRPG Player's
 	 *  and the Maniac Patch's when the game uses them (they run some of
-	 *  their commands in battles) */
-	std::vector<const Page*> pages(bool battle, bool maniac, bool easyrpg);
+	 *  their commands in battles); byTopic: the map pages by topic
+	 *  (mapPagesByTopic) */
+	std::vector<const Page*> pages(bool battle, bool maniac, bool easyrpg, bool byTopic = false);
 
 	/** The name of a kind of command, as on its button (translated); empty when none */
 	QString commandName(Code code);

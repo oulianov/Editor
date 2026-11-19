@@ -17,6 +17,7 @@
 
 #include "command_catalog.h"
 #include <QCoreApplication>
+#include <algorithm>
 
 namespace CommandCatalog {
 
@@ -267,7 +268,34 @@ const Page& battlePage()
 	return page;
 }
 
-std::vector<const Page*> pages(bool battle, bool maniac, bool easyrpg)
+// RPG Maker 2003's pages, its commands of switches, variables and the timer
+// moved to Flow & System: the commands of the game's state with its
+// conditions, where they are looked for (they are on Messages & Party in RPG
+// Maker 2003)
+const std::vector<Page>& mapPagesByTopic()
+{
+	static const std::vector<Page> pages = [] {
+		const std::vector<Code> moved = {Code::ControlSwitches, Code::ControlVars, Code::TimerOperation};
+		std::vector<Page> by_topic = mapPages();
+		std::vector<Entry> state;
+		auto& first = by_topic[0].entries;
+		for (auto it = first.begin(); it != first.end();) {
+			if (std::find(moved.begin(), moved.end(), it->code) != moved.end()) {
+				state.push_back(*it);
+				it = first.erase(it);
+			} else {
+				++it;
+			}
+		}
+		state.push_back({Code::END, nullptr, false});
+		auto& flow = by_topic[2].entries;
+		flow.insert(flow.begin(), state.begin(), state.end());
+		return by_topic;
+	}();
+	return pages;
+}
+
+std::vector<const Page*> pages(bool battle, bool maniac, bool easyrpg, bool byTopic)
 {
 	std::vector<const Page*> shown;
 	if (battle) {
@@ -280,7 +308,7 @@ std::vector<const Page*> pages(bool battle, bool maniac, bool easyrpg)
 		}
 		return shown;
 	}
-	for (const auto& page : mapPages()) {
+	for (const auto& page : byTopic ? mapPagesByTopic() : mapPages()) {
 		shown.push_back(&page);
 	}
 	shown.push_back(&easyRpgPage());

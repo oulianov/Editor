@@ -112,6 +112,12 @@ public:
 	bool commandColors() const;
 	void setCommandColors(bool on);
 
+	/** The Event Commands window by topic: Control Switches, Control
+	 *  Variables and Timer Operations on Flow & System (else on Messages &
+	 *  Party, as RPG Maker 2003 has them: the default) */
+	bool commandsByTopic() const;
+	void setCommandsByTopic(bool on);
+
 	/** Every other line of the event commands on a tinted background */
 	bool commandStripes() const;
 	void setCommandStripes(bool on);
