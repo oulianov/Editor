@@ -93,6 +93,8 @@ set(EDITOR_SOURCES
 	src/common/exfont.cpp
 	src/common/game_font.cpp
 	src/common/rpg_rt_exe.cpp
+	src/common/rtp_names.cpp
+	src/common/rtp_names.h
 	src/common/ini_file.cpp
 	src/common/ini_file.h
 	src/common/exfont.h

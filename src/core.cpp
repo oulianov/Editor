@@ -16,6 +16,7 @@
  */
 
 #include "core.h"
+#include "common/rtp_names.h"
 #include <QDebug>
 #include "common/dbstring.h"
 #include "common/editor_settings.h"
@@ -172,10 +173,26 @@ const QStringList& Core::rtpDirs() const
 
 QString Core::findRtpFile(const QString& dir, const QString& filename, FileFinder::FileType type) const
 {
-	for (const QString& rtp : rtpDirs()) {
+	return findInRtp(rtpDirs(), dir, filename, type);
+}
+
+QString Core::findInRtp(const QStringList& rtps, const QString& dir, const QString& filename, FileFinder::FileType type)
+{
+	for (const QString& rtp : rtps) {
 		const QString found = FileFinder::Find(QDir(rtp), dir, filename, type);
 		if (!found.isEmpty())
 			return found;
+	}
+	// named as in another RTP (the new projects: as in the English RPG Maker
+	// 2000 one and the EasyRPG RTP): as these folders name it, as the Player finds it
+	if (rtps.isEmpty())
+		return QString();
+	for (const QString& other : RtpNames::alternatives(dir, filename)) {
+		for (const QString& rtp : rtps) {
+			const QString found = FileFinder::Find(QDir(rtp), dir, other, type);
+			if (!found.isEmpty())
+				return found;
+		}
 	}
 	return QString();
 }

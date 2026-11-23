@@ -100,6 +100,13 @@ public:
 	const QStringList& rtpDirs() const;
 	/** A file of the RTP (dir: CharSet...), from the first RTP folder that has it; empty if none */
 	QString findRtpFile(const QString& dir, const QString& filename, FileFinder::FileType type = FileFinder::FileType::Default) const;
+	/**
+	 * A file of the RTP in the folders rtps, in their order; else under the
+	 * name another RTP gives it (RtpNames: Actor1 of the English RPG Maker
+	 * 2000 RTP is hero1 of an English 2003 one), as EasyRPG Player finds it
+	 */
+	static QString findInRtp(const QStringList& rtps, const QString& dir, const QString& filename,
+		FileFinder::FileType type = FileFinder::FileType::Default);
 
 	QString gameTitle();
 	void setGameTitle(const QString &gameTitle);
