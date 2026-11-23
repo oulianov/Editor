@@ -19,6 +19,8 @@
 #include <QString>
 #include <QStringList>
 #include <functional>
+#include <memory>
+#include "model/player_crash.h"
 
 // Settings of the test play
 #define PLAYER_PATH_KEY "player_path"
@@ -96,9 +98,25 @@ public:
 	/** Called before the Player starts (to save the maps): false cancels */
 	static void setBeforeLaunch(std::function<bool()> callback);
 
+	/**
+	 * Told of a Player a test play started that crashed (PlayerCrash): the
+	 * interface shows it. Without one, the crash is only logged.
+	 */
+	static void setCrashHandler(std::function<void(std::unique_ptr<PlayerCrash>)> handler);
+
 	/** A Player gone this soon after its start, having written errors, is told about */
 	static constexpr int EarlyExitMs = 3000;
+	/** How often a Player started is checked for its end */
+	static constexpr int WatchMs = 500;
+	/** How many times its crash is looked for once it ended (macOS writes its report a few seconds later) */
+#ifdef Q_OS_MACOS
+	static constexpr int CrashReportChecks = 16;
+#else
+	static constexpr int CrashReportChecks = 1;
+#endif
 private:
+	/** Watches the Player started until it ends: its crash, or the errors of an early exit (in the file errors) */
+	static void watch(const PlayerCrash::Launch& launch, const QString& errors);
 	/** The process pid runs */
 	static bool isRunning(qint64 pid);
 #ifdef Q_OS_MACOS

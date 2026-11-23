@@ -39,6 +39,8 @@
 #include "model/export_controller.h"
 #include "model/editor_update.h"
 #include "model/game_patches.h"
+#include "model/game_runner.h"
+#include "model/player_crash.h"
 #include "model/map_document.h"
 #include "model/map_tree_model.h"
 #include "model/project.h"
@@ -86,6 +88,19 @@ QmlShell::QmlShell(QObject* parent) :
 	DialogService::install(m_dialogService.get());
 	m_dialogs = std::make_unique<QmlShellDialogs>([this] { return static_cast<QWindow*>(m_window.data()); });
 	m_shell->setDialogs(m_dialogs.get());
+	// a Player started by a test play crashed: its report, over the main window
+	GameRunner::setCrashHandler([this](std::unique_ptr<PlayerCrash> crash) {
+		PlayerCrash* shown = crash.release();
+		shown->setParent(qApp);
+		QQuickWindow* window = QmlHost::open(QStringLiteral("PlayerCrashWindow"), m_window.data(),
+			{{QStringLiteral("crash"), QVariant::fromValue<QObject*>(shown)}});
+		if (!window) {
+			delete shown;
+			return;
+		}
+		// gone with its window
+		shown->setParent(window);
+	});
 	m_project->setViewSync([this] { return syncExpandedFromView(); });
 	m_statusTimer.setSingleShot(true);
 	connect(&m_statusTimer, &QTimer::timeout, this, [this] { setStatusMessage(QString(), 0); });
@@ -119,6 +134,7 @@ QmlShell::~QmlShell()
 	m_editors.clear();
 	m_project->setViewSync({});
 	m_shell->setDialogs(nullptr);
+	GameRunner::setCrashHandler({});
 }
 
 bool QmlShell::show()

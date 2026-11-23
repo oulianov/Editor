@@ -239,6 +239,8 @@ set(EDITOR_SOURCES
 	src/model/game_patches.cpp
 	src/model/game_runner.cpp
 	src/model/game_runner.h
+	src/model/player_crash.cpp
+	src/model/player_crash.h
 	src/model/game_patches.h
 	src/model/game_profile.cpp
 	src/model/game_profile.h
@@ -505,6 +507,7 @@ set(EDITOR_QML_UI
 	src/ui/other/ImportProgressWindow.qml
 	src/ui/other/JukeboxWindow.qml
 	src/ui/other/ManiacCheckWindow.qml
+	src/ui/other/PlayerCrashWindow.qml
 	src/ui/other/NewProjectWindow.qml
 	src/ui/other/OpenProjectWindow.qml
 	src/ui/other/PlayerMissingWindow.qml

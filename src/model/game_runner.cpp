@@ -22,7 +22,9 @@
 #include "model/project.h"
 #include <QCoreApplication>
 #include <QDebug>
+#include <QDateTime>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
@@ -40,6 +42,7 @@
 
 namespace {
 std::function<bool()> before_launch;
+std::function<void(std::unique_ptr<PlayerCrash>)> crash_handler;
 
 // The value of --rtp-path: the folders in the order the Player looks in
 // them, before its own. Players since 0.7.0 split it at ';', and at ':'
@@ -115,15 +118,98 @@ GameRunner::Result GameRunner::launch(const QStringList& options, bool use_setti
 	process.setArguments(args);
 	process.setWorkingDirectory(project_dir);
 	process.setStandardErrorFile(errors);
+	// what it writes in its log from now on: the end of it, if it crashes
+	PlayerCrash::Launch launch;
+	launch.player = player;
+	launch.arguments = args;
+	launch.projectDir = project_dir;
+	launch.logPath = PlayerCrash::logPathOf(args);
+	launch.logSize = QFileInfo(launch.logPath).size();
+	launch.started = QDateTime::currentDateTime();
 	qint64 pid = 0;
 	if (!process.startDetached(&pid)) {
 		return Result::StartFailed;
 	}
-	QTimer::singleShot(EarlyExitMs, qApp, [pid, errors] {
-		if (isRunning(pid)) {
+	launch.pid = pid;
+	watch(launch, errors);
+#ifdef Q_OS_MACOS
+	activatePlayer(pid);
+#endif
+	return Result::Started;
+}
+
+void GameRunner::setCrashHandler(std::function<void(std::unique_ptr<PlayerCrash>)> handler)
+{
+	crash_handler = std::move(handler);
+}
+
+void GameRunner::watch(const PlayerCrash::Launch& launch, const QString& errors)
+{
+	// until it ends: then how it ended (a crash, errors at its start). Its
+	// exit code is known on Windows only (out of it, the Player is not the
+	// Editor's child once detached)
+	struct Watch {
+		PlayerCrash::Launch launch;
+		QString errors;
+		QElapsedTimer running;
+		/** It ended, its exit code (Windows), the checks for its crash since */
+		bool ended = false;
+		std::optional<quint32> exitCode;
+		int checks = 0;
+		qint64 lifetime = 0;
+#if defined(Q_OS_WIN)
+		HANDLE process = nullptr;
+#endif
+	};
+	auto watched = std::make_shared<Watch>();
+	watched->launch = launch;
+	watched->errors = errors;
+	watched->running.start();
+#if defined(Q_OS_WIN)
+	watched->process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, static_cast<DWORD>(launch.pid));
+#endif
+	auto* timer = new QTimer(qApp);
+	timer->setInterval(WatchMs);
+	QObject::connect(timer, &QTimer::timeout, timer, [timer, watched] {
+		if (!watched->ended) {
+#if defined(Q_OS_WIN)
+			if (watched->process) {
+				DWORD code = 0;
+				if (!GetExitCodeProcess(watched->process, &code) || code == STILL_ACTIVE) {
+					return;
+				}
+				watched->exitCode = static_cast<quint32>(code);
+				CloseHandle(watched->process);
+				watched->process = nullptr;
+			} else if (isRunning(watched->launch.pid)) {
+				return;
+			}
+#else
+			if (isRunning(watched->launch.pid)) {
+				return;
+			}
+#endif
+			watched->ended = true;
+			watched->lifetime = watched->running.elapsed();
+		}
+		auto crash = PlayerCrash::find(watched->launch, watched->exitCode);
+		// macOS writes its crash report a moment after the end: looked for again
+		if (!crash && ++watched->checks < CrashReportChecks) {
 			return;
 		}
-		QFile file(errors);
+		timer->stop();
+		timer->deleteLater();
+		if (crash) {
+			qWarning() << "EasyRPG Player crashed:" << crash->cause() << crash->dumpPath();
+			if (crash_handler) {
+				crash_handler(std::move(crash));
+			}
+			return;
+		}
+		if (watched->lifetime > EarlyExitMs + WatchMs) {
+			return;
+		}
+		QFile file(watched->errors);
 		const QString text = file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).trimmed() : QString();
 		if (text.isEmpty()) {
 			return; // closed by the player, or quiet
@@ -134,10 +220,7 @@ GameRunner::Result GameRunner::launch(const QStringList& options, bool use_setti
 		DialogService::instance().warning(QCoreApplication::translate("RunGameDialog", "Test Play"),
 			QCoreApplication::translate("RunGameDialog", "EasyRPG Player stopped as soon as it started:\n%1").arg(last));
 	});
-#ifdef Q_OS_MACOS
-	activatePlayer(pid);
-#endif
-	return Result::Started;
+	timer->start();
 }
 
 bool GameRunner::isRunning(qint64 pid)
