@@ -113,6 +113,9 @@ public:
 
 	lcf::rpg::Database& database();
 	const lcf::rpg::Database& database() const;
+	/** The database as last read from or written to its file: the base of
+	 *  a merge with what another program wrote there since */
+	const lcf::rpg::Database& savedDatabase() const;
 	lcf::rpg::TreeMap& treeMap();
 	const lcf::rpg::TreeMap& treeMap() const;
 
@@ -143,6 +146,8 @@ private:
 	bool writeTreeMap(const lcf::rpg::TreeMap& tree);
 
 	ProjectData m_data;
+	/** The database as last read or written */
+	lcf::rpg::Database m_savedDatabase;
 	/** The map tree as last read or written */
 	lcf::rpg::TreeMap m_savedTreeMap;
 	/** Why the last map, database or map tree not written failed */

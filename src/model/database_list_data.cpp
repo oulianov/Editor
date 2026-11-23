@@ -26,6 +26,10 @@ void DatabaseListNotifier::notify(const void* list, QObject* source) {
 	emit instance().listChanged(list, source);
 }
 
+void DatabaseListNotifier::edited(const void* list, QObject* source) {
+	emit instance().listEdited(list, source);
+}
+
 void DatabaseListNotifier::assign(ProjectData& target, const ProjectData& source, QObject* sender) {
 	using lcf::rpg::Database;
 	std::vector<const void*> changed;

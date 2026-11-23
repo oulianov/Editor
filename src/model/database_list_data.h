@@ -42,8 +42,17 @@ public:
 	/** Copies a project (OK of a picker) and notifies the lists that differ */
 	static void assign(ProjectData& target, const ProjectData& source, QObject* sender = nullptr);
 
+	/**
+	 * A view edited the list itself (an entry renamed, Array Size, Paste),
+	 * or a picker put its copy into the project: when the list is the
+	 * project's own and not a window's copy, the database file is written
+	 * (ProjectController), as no OK of the database window will
+	 */
+	static void edited(const void* list, QObject* source = nullptr);
+
 signals:
 	void listChanged(const void* list, QObject* source);
+	void listEdited(const void* list, QObject* source);
 };
 
 namespace DatabaseList {

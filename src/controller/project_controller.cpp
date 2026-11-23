@@ -31,6 +31,7 @@
 #include "common/dbstring.h"
 #include "common/editor_settings.h"
 #include "common/logging.h"
+#include "model/database_list_data.h"
 #include "model/game_runner.h"
 #include "model/map_document.h"
 #include "model/map_tools.h"
@@ -81,6 +82,11 @@ ProjectController::ProjectController(QObject* parent) :
 	connect(&watcher, &ProjectWatcher::treeMapChanged, this, &ProjectController::reloadTreeMap);
 	connect(&watcher, &ProjectWatcher::mapChanged, this, &ProjectController::onMapChanged);
 	GameRunner::setBeforeLaunch([this] { return saveBeforeTestPlay(); });
+	// the names and Array Size of the switches, variables and string
+	// variables changed from an event (its command editors, its pickers) are
+	// the project's own: written as they change
+	connect(&DatabaseListNotifier::instance(), &DatabaseListNotifier::listEdited, this,
+		[this](const void* list, QObject*) { onListEdited(list); });
 }
 
 ProjectController::~ProjectController()
@@ -954,6 +960,53 @@ bool ProjectController::deleteArea(int id, const QString& name)
 	removeMap(id);
 	writeTreeMap();
 	return true;
+}
+
+void ProjectController::onListEdited(const void* list)
+{
+	Project* project = core().project().get();
+	if (!project || m_databaseSavePending) {
+		return;
+	}
+	// a list of the project's database, not of a window's copy
+	const auto* begin = reinterpret_cast<const char*>(&project->database());
+	const auto* at = static_cast<const char*>(list);
+	if (at < begin || at >= begin + sizeof(lcf::rpg::Database)) {
+		return;
+	}
+	// after the edit (a name typed, a picker closing), once for its lists
+	m_databaseSavePending = true;
+	QTimer::singleShot(0, this, [this] {
+		m_databaseSavePending = false;
+		saveEditedDatabase();
+	});
+}
+
+void ProjectController::saveEditedDatabase()
+{
+	Project* project = core().project().get();
+	if (!project) {
+		return;
+	}
+	ProjectData& live = project->projectData();
+	if (live.database() == project->savedDatabase()) {
+		return;
+	}
+	ProjectData copy = live;
+	lcf::rpg::Database base = project->savedDatabase();
+	const DatabaseApply::File file = databaseFile();
+	const auto result = DatabaseApply::apply(live, copy, base, file, DialogService::instance(), this);
+	switch (result.status) {
+		case DatabaseApply::Status::Applied:
+		case DatabaseApply::Status::Cancelled:
+			break;
+		case DatabaseApply::Status::SaveFailed:
+			DialogService::instance().error(tr("Database"), result.message);
+			break;
+		case DatabaseApply::Status::Reload:
+			file.reload();
+			break;
+	}
 }
 
 void ProjectController::onDatabaseChanged()

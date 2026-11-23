@@ -116,6 +116,7 @@ void JsonListView::onValueChanged(const QString& jsonPtr) {
 void JsonListView::changed() {
 	DatabaseListNotifier::notify(vectorAddress(), this);
 	m_json->notifyChanged(m_path);
+	DatabaseListNotifier::edited(vectorAddress(), this);
 }
 
 bool JsonListView::validEntries(int row, int count) const {
@@ -220,6 +221,7 @@ bool JsonListView::rename(int row, const QString& name) {
 	}
 	// the views of the same list through another Json (the project's, a command editor's)
 	DatabaseListNotifier::notify(vectorAddress(), this);
+	DatabaseListNotifier::edited(vectorAddress(), this);
 	return true;
 }
 

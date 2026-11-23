@@ -277,12 +277,17 @@ bool Project::loadDatabaseAndMapTree() {
 		return false;
 	}
 	m_data = { *this, *db, *treemap };
+	m_savedDatabase = *db;
 	m_savedTreeMap = *treemap;
 	return true;
 }
 
 bool Project::reloadDatabase() {
-	return reloadDatabase(&m_data.database());
+	if (!reloadDatabase(&m_data.database())) {
+		return false;
+	}
+	m_savedDatabase = m_data.database();
+	return true;
 }
 
 bool Project::reloadDatabase(lcf::rpg::Database* target) {
@@ -396,13 +401,7 @@ QString Project::findFile(const QString& dir, const QString& filename, FileFinde
 		return core().findRtpFile(dir, filename, type);
 	}
 	const int engine = database().system.ldb_id == 2003 ? 2003 : 2000;
-	for (const QString& rtp : EditorSettings::instance().rtpSearchPath(projectDir().absolutePath(), engine)) {
-		const QString in_rtp = FileFinder::Find(QDir(rtp), dir, filename, type);
-		if (!in_rtp.isEmpty()) {
-			return in_rtp;
-		}
-	}
-	return QString();
+	return Core::findInRtp(EditorSettings::instance().rtpSearchPath(projectDir().absolutePath(), engine), dir, filename, type);
 }
 
 QString Project::findFileOrDefault(const QString& filename) const {
@@ -553,6 +552,10 @@ const lcf::rpg::Database& Project::database() const {
 	return m_data.database();
 }
 
+const lcf::rpg::Database& Project::savedDatabase() const {
+	return m_savedDatabase;
+}
+
 lcf::rpg::TreeMap& Project::treeMap() {
 	return m_data.treeMap();
 }
@@ -574,6 +577,9 @@ bool Project::saveDatabase(bool inc_savecount) {
 	// not written: not counted, a second try counts once
 	if (!saved && inc_savecount) {
 		--m_data.database().system.save_count;
+	}
+	if (saved) {
+		m_savedDatabase = m_data.database();
 	}
 	return saved;
 }

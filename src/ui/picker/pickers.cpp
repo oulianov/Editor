@@ -97,6 +97,8 @@ std::optional<int> pickEntryIn(QObject* from, ProjectData& project, const Picker
 		if (session->modified()) {
 			// the other windows showing these lists follow
 			DatabaseListNotifier::assign(project, session->copy(), from);
+			// the project's own database (not a database window's copy): written now
+			DatabaseListNotifier::edited(&project.database(), from);
 			if (written) {
 				written();
 			}

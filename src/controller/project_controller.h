@@ -251,6 +251,12 @@ signals:
 
 private:
 	void onDatabaseChanged();
+	/** A list of the database was edited in place (DatabaseListNotifier::edited) */
+	void onListEdited(const void* list);
+	/** Writes the project's database edited in place (a name typed in a
+	 *  command's box, a picker's OK from an event): merged with what another
+	 *  program wrote, as OK of the database window does */
+	void saveEditedDatabase();
 	void onMapChanged(int id);
 	/** Saving an open map another program deleted: put it back in the
 	 *  tree (Overwrite), or drop it with its changes (Reload) */
@@ -268,6 +274,8 @@ private:
 	QSize mapSize(int id) const;
 
 	MapTreeModel m_tree;
+	// the database edited in place waits for its save (one for several edits)
+	bool m_databaseSavePending = false;
 	// the nodes the last reload of the tree removed, with the node above
 	// each that stayed
 	QHash<int, int> m_treeRemoved;
