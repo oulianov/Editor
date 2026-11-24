@@ -508,6 +508,7 @@ set(EDITOR_QML_UI
 	src/ui/other/JukeboxWindow.qml
 	src/ui/other/ManiacCheckWindow.qml
 	src/ui/other/PlayerCrashWindow.qml
+	src/ui/other/WhatsNewWindow.qml
 	src/ui/other/NewProjectWindow.qml
 	src/ui/other/OpenProjectWindow.qml
 	src/ui/other/PlayerMissingWindow.qml

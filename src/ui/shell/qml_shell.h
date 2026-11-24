@@ -90,6 +90,9 @@ public:
 	/** Makes the window (MainWindow.qml) and shows it, its layout as last
 	 *  time; false when it cannot be made */
 	bool show();
+	/** What is new in this version, once, at the first start after the
+	 *  Editor updated itself (EditorUpdater::takeInstalledNotes) */
+	void showWhatsNew();
 	QQuickWindow* window() const;
 
 	ShellController* controller() const;

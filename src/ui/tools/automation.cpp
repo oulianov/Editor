@@ -48,6 +48,7 @@
 #include "ui/picker/pickers.h"
 #include "ui/shell/qml_engine.h"
 #include "ui/shell/qml_shell.h"
+#include "model/editor_update.h"
 #include <lcf/ldb/reader.h>
 #include <lcf/lmt/reader.h>
 #include <lcf/lmu/reader.h>
@@ -762,6 +763,17 @@ bool Automation::run(const QStringList& args) {
 			}
 			qCInfo(lcAutomation).noquote() << "answer:" << m_answer;
 		}, Qt::QueuedConnection);
+		return true;
+	}
+	if (cmd == "installed-update" && args.size() >= 2) {
+		// the Editor updated itself to VERSION (its notes: NOTES, \n for a
+		// new line), then started again: What's New, once
+		EditorUpdates::Release release;
+		release.version = args[1];
+		release.notes = args.size() > 2 ? QString(args[2]).replace(QLatin1String("\\n"), QLatin1String("\n")) : QString();
+		release.page = QUrl(QStringLiteral("https://github.com/oulianov/Editor/releases/tag/v") + args[1]);
+		EditorUpdater::rememberInstalled(release);
+		m_window.showWhatsNew();
 		return true;
 	}
 	if (cmd == "expect-player" && args.size() == 2) {

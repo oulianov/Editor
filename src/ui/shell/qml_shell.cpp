@@ -164,6 +164,18 @@ bool QmlShell::show()
 	return true;
 }
 
+void QmlShell::showWhatsNew()
+{
+	const auto installed = EditorUpdater::instance().takeInstalledNotes();
+	if (!installed || !m_window)
+		return;
+	QmlHost::open(QStringLiteral("WhatsNewWindow"), m_window.data(), {
+		{QStringLiteral("version"), installed->version},
+		{QStringLiteral("notes"), installed->notes},
+		{QStringLiteral("page"), installed->page},
+	});
+}
+
 QQuickWindow* QmlShell::window() const
 {
 	return m_window;

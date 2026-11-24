@@ -80,6 +80,8 @@ namespace EditorUpdates {
 		QString version;
 		/** Its page on GitHub */
 		QUrl page;
+		/** What is new in it: the text of the release (Markdown) */
+		QString notes;
 		/** The package for this computer (pickAsset, among the files whose
 		 *  upload has ended), empty for none */
 		QString assetName;
@@ -161,6 +163,22 @@ public:
 	Q_INVOKABLE void restart();
 	/** The window quits for the update: started again once installed */
 	void setRelaunchOnQuit(bool relaunch);
+
+	/** What is new in the version the Editor installed, shown at its first start */
+	struct InstalledNotes {
+		QString version;
+		/** Markdown */
+		QString notes;
+		QUrl page;
+	};
+	/**
+	 * The notes of the release the Editor installed (installOnQuit), once
+	 * this is that version: taken, the next starts have none. Nothing when
+	 * this copy was not updated by the Editor.
+	 */
+	std::optional<InstalledNotes> takeInstalledNotes();
+	/** Keeps what is new in release, the version being installed, for takeInstalledNotes */
+	static void rememberInstalled(const EditorUpdates::Release& release);
 
 	/** The text of the menu item (Check for Updates...: empty), translated */
 	QString actionText() const;

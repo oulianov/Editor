@@ -133,6 +133,13 @@ public:
 	Q_INVOKABLE QString helpText() const;
 	/** Where an anchor (<a name>) is in a rich text: its position, -1 if it has none */
 	Q_INVOKABLE int anchorPosition(QQuickTextDocument* document, const QString& anchor) const;
+	/**
+	 * The pictures of a rich text (Markdown, HTML) as wide as their width or
+	 * their own, at most width: a wider one shrinks to it, its proportions
+	 * kept. The pictures not loaded yet are left as they are: called again
+	 * once they are (the text grows). true when one changed.
+	 */
+	Q_INVOKABLE bool fitImages(QQuickTextDocument* document, qreal width) const;
 	/** The icon themes of the Editor (ezbright, ezdark) have an icon of this name */
 	Q_INVOKABLE bool hasIcon(const QString& name) const;
 	/**

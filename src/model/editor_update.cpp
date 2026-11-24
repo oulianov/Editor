@@ -27,6 +27,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
+#include <QSettings>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
@@ -43,6 +44,11 @@
 #endif
 
 namespace {
+
+// the release installed (installOnQuit), until its first start shows what is new in it
+const char kInstalledVersionKey[] = "update_installed_version";
+const char kInstalledNotesKey[] = "update_installed_notes";
+const char kInstalledPageKey[] = "update_installed_page";
 
 /** The first automatic check, after the start-up (ms) */
 constexpr int first_check_delay = 4000;
@@ -322,6 +328,7 @@ std::optional<EditorUpdates::Release> EditorUpdates::parseRelease(const QByteArr
 	Release found;
 	found.version = versionOf(tag);
 	found.page = QUrl(release.value(QStringLiteral("html_url")).toString());
+	found.notes = release.value(QStringLiteral("body")).toString().replace(QLatin1String("\r\n"), QLatin1String("\n")).trimmed();
 	// the files whose upload has ended (GitHub lists one being uploaded as "open")
 	QJsonArray assets;
 	for (const QJsonValue& asset : release.value(QStringLiteral("assets")).toArray()) {
@@ -989,9 +996,43 @@ void EditorUpdater::installOnQuit()
 	}
 	qint64 helper_pid = 0;
 	const bool started = helper.startDetached(&helper_pid);
+	// what is new in it, shown at the first start of the version installed
+	if (started && m_release)
+		rememberInstalled(*m_release);
 	qCInfo(lcUpdate).noquote() << (started ? "installing the update once the Editor has quit" : "cannot start the installer:")
 		<< (started ? QStringLiteral("(helper %1, %2)").arg(helper_pid).arg(m_relaunch ? "restarts it" : "no restart") : helper.errorString())
 		<< m_staged << "->" << m_target;
+}
+
+void EditorUpdater::rememberInstalled(const EditorUpdates::Release& release)
+{
+	QSettings settings;
+	settings.setValue(QLatin1String(kInstalledVersionKey), release.version);
+	settings.setValue(QLatin1String(kInstalledNotesKey), release.notes);
+	settings.setValue(QLatin1String(kInstalledPageKey), release.page);
+	settings.sync();
+}
+
+std::optional<EditorUpdater::InstalledNotes> EditorUpdater::takeInstalledNotes()
+{
+	QSettings settings;
+	const QString version = settings.value(QLatin1String(kInstalledVersionKey)).toString();
+	if (version.isEmpty())
+		return std::nullopt;
+	// an update that did not happen (yet): its notes wait for it
+	if (EditorUpdates::compareVersions(version, currentVersion()) > 0)
+		return std::nullopt;
+	InstalledNotes installed;
+	installed.version = version;
+	installed.notes = settings.value(QLatin1String(kInstalledNotesKey)).toString();
+	installed.page = settings.value(QLatin1String(kInstalledPageKey)).toUrl();
+	settings.remove(QLatin1String(kInstalledVersionKey));
+	settings.remove(QLatin1String(kInstalledNotesKey));
+	settings.remove(QLatin1String(kInstalledPageKey));
+	// an older one, replaced by hand since: not this version's
+	if (version != currentVersion())
+		return std::nullopt;
+	return installed;
 }
 
 void EditorUpdater::run(const QString& program, const QStringList& args, std::function<void(int, const QString&)> done,

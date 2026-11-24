@@ -16,6 +16,12 @@
  */
 
 #include "editor_bridge.h"
+#include <vector>
+#include <cmath>
+#include <QPixmap>
+#include <QImage>
+#include <QTextImageFormat>
+#include <QTextCursor>
 #include "common/editor_settings.h"
 #include "model/game_runner.h"
 #include "qml_host.h"
@@ -155,6 +161,66 @@ int EditorBridge::anchorPosition(QQuickTextDocument* document, const QString& an
 		}
 	}
 	return -1;
+}
+
+bool EditorBridge::fitImages(QQuickTextDocument* document, qreal width) const {
+	QTextDocument* text = document ? document->textDocument() : nullptr;
+	if (!text || width <= 0) {
+		return false;
+	}
+	// the width the text gave the picture (<img width>), kept apart: the
+	// one set here changes with the width of the view
+	constexpr int given_width = QTextFormat::UserProperty + 1;
+	struct Fit {
+		int position;
+		int length;
+		QTextImageFormat format;
+	};
+	std::vector<Fit> fits;
+	for (QTextBlock block = text->begin(); block.isValid(); block = block.next()) {
+		for (auto it = block.begin(); !it.atEnd(); ++it) {
+			const QTextFragment fragment = it.fragment();
+			if (!fragment.isValid() || !fragment.charFormat().isImageFormat()) {
+				continue;
+			}
+			QTextImageFormat format = fragment.charFormat().toImageFormat();
+			const QVariant resource = text->resource(QTextDocument::ImageResource, QUrl(format.name()));
+			QSize natural;
+			if (resource.canConvert<QImage>()) {
+				natural = resource.value<QImage>().size();
+			}
+			if (natural.isEmpty() && resource.canConvert<QPixmap>()) {
+				natural = resource.value<QPixmap>().size();
+			}
+			if (natural.isEmpty()) {
+				continue; // not loaded yet
+			}
+			if (!format.hasProperty(given_width)) {
+				format.setProperty(given_width, format.width());
+			}
+			const qreal given = format.property(given_width).toReal();
+			const qreal fitted = std::min(given > 0 ? given : natural.width(), std::floor(width));
+			const qreal height = fitted * natural.height() / natural.width();
+			if (qAbs(format.width() - fitted) < 0.5 && qAbs(format.height() - height) < 0.5) {
+				continue;
+			}
+			format.setWidth(fitted);
+			format.setHeight(height);
+			fits.push_back({fragment.position(), fragment.length(), format});
+		}
+	}
+	for (const Fit& fit : fits) {
+		QTextCursor cursor(text);
+		cursor.setPosition(fit.position);
+		cursor.setPosition(fit.position + fit.length, QTextCursor::KeepAnchor);
+		cursor.setCharFormat(fit.format);
+	}
+	// the view draws the whole text again: else what follows a picture
+	// resized stays drawn where it was, or not at all
+	if (!fits.empty()) {
+		text->markContentsDirty(0, text->characterCount());
+	}
+	return !fits.empty();
 }
 
 bool EditorBridge::hasIcon(const QString& name) const {

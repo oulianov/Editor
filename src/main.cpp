@@ -155,6 +155,10 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	// just updated by the Editor: what is new in this version
+	if (!automation)
+		window.showWhatsNew();
+
 	// a newer Editor, looked for in a few seconds, then every hour (Settings)
 	EditorUpdater::instance().startAutomaticChecks(automation);
 
